@@ -1,0 +1,5 @@
+results
+tmp_check
+regression.*
+*.o
+*.so

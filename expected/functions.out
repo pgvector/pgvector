@@ -1,0 +1,56 @@
+SET client_min_messages = warning;
+CREATE EXTENSION IF NOT EXISTS vector;
+SELECT '[1,2,3]'::vector + '[4,5,6]';
+ ?column? 
+----------
+ [5,7,9]
+(1 row)
+
+SELECT '[1,2,3]'::vector - '[4,5,6]';
+  ?column?  
+------------
+ [-3,-3,-3]
+(1 row)
+
+SELECT vector_dims('[1,2,3]');
+ vector_dims 
+-------------
+           3
+(1 row)
+
+SELECT round(vector_norm('[1,1]')::numeric, 5);
+  round  
+---------
+ 1.41421
+(1 row)
+
+SELECT round(l2_distance('[1,2]', '[0,0]')::numeric, 5);
+  round  
+---------
+ 2.23607
+(1 row)
+
+SELECT l2_distance('[1,2]', '[3]');
+ERROR:  different vector dimensions 2 and 1
+SELECT inner_product('[1,2]', '[3,4]');
+ inner_product 
+---------------
+            11
+(1 row)
+
+SELECT inner_product('[1,2]', '[3]');
+ERROR:  different vector dimensions 2 and 1
+SELECT round(cosine_distance('[1,2]', '[2,4]')::numeric, 5);
+  round  
+---------
+ 0.00000
+(1 row)
+
+SELECT cosine_distance('[1,2]', '[0,0]');
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
+SELECT cosine_distance('[1,2]', '[3]');
+ERROR:  different vector dimensions 2 and 1

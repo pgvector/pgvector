@@ -1,0 +1,20 @@
+name: build
+on: [push, pull_request]
+jobs:
+  build:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: [13, 12, 11, 10, 9.6]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: ankane/setup-postgres@v1
+      with:
+        postgres-version: ${{ matrix.postgres }}
+    - run: sudo apt-get install postgresql-server-dev-${{ matrix.postgres }} libipc-run-perl
+    - run: make
+    - run: sudo make install
+    - run: make installcheck
+    - run: make prove_installcheck
