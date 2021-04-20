@@ -10,11 +10,18 @@ jobs:
         postgres: [13, 12, 11, 10, 9.6]
     steps:
     - uses: actions/checkout@v2
+    - run: |
+        sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+        wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+        sudo apt-get update
     - uses: ankane/setup-postgres@v1
       with:
         postgres-version: ${{ matrix.postgres }}
     - run: sudo apt-get install postgresql-server-dev-${{ matrix.postgres }} libipc-run-perl
     - run: make
-    - run: sudo make install
+    - run: |
+        export PG_CONFIG=`which pg_config`
+        sudo --preserve-env=PG_CONFIG make install
     - run: make installcheck
-    - run: make prove_installcheck
+    - if: ${{ matrix.postgres != 9.6 }}
+      run: make prove_installcheck
