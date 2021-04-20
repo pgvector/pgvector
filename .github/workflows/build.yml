@@ -23,5 +23,4 @@ jobs:
         export PG_CONFIG=`which pg_config`
         sudo --preserve-env=PG_CONFIG make install
     - run: make installcheck
-    - if: ${{ matrix.postgres != 9.6 }}
-      run: make prove_installcheck
+    - run: make prove_installcheck
