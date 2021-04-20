@@ -13,7 +13,7 @@ jobs:
     - uses: ankane/setup-postgres@v1
       with:
         postgres-version: ${{ matrix.postgres }}
-    - run: sudo apt-get install postgresql-server-dev-${{ matrix.postgres }} libipc-run-perl
+    - run: sudo apt-get update && sudo apt-get install postgresql-server-dev-${{ matrix.postgres }} libipc-run-perl
     - run: make
     - run: |
         export PG_CONFIG=`which pg_config`
