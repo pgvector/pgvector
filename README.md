@@ -130,6 +130,12 @@ l2_distance(vector, vector) | Euclidean distance
 vector_dims(vector) | number of dimensions
 vector_norm(vector) | Euclidean norm
 
+## Libraries
+
+Libraries that use pgvector:
+
+- [Neighbor](https://github.com/ankane/neighbor) (Ruby)
+
 ## Thanks
 
 Thanks to:
@@ -139,12 +145,6 @@ Thanks to:
 - [Using the Triangle Inequality to Accelerate k-means](https://www.aaai.org/Papers/ICML/2003/ICML03-022.pdf)
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
-
-## Libraries
-
-Libraries that use pgvector:
-
-- [Neighbor](https://github.com/ankane/neighbor) (Ruby)
 
 ## History
 
