@@ -140,6 +140,12 @@ Thanks to:
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
 
+## Libraries
+
+Libraries that use pgvector:
+
+- [Neighbor](https://github.com/ankane/neighbor) (Ruby)
+
 ## History
 
 View the [changelog](https://github.com/ankane/pgvector/blob/master/CHANGELOG.md)
