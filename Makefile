@@ -1,5 +1,5 @@
 EXTENSION = vector
-DATA = vector--0.1.1.sql vector--0.1.0-0.1.1.sql
+DATA = vector--0.1.1.sql vector--0.1.0--0.1.1.sql
 MODULE_big = vector
 OBJS = src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/vector.o
 
