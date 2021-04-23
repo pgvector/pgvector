@@ -14,10 +14,18 @@ CREATE FUNCTION vector_out(vector) RETURNS cstring
 CREATE FUNCTION vector_typmod_in(cstring[]) RETURNS integer
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT;
 
+CREATE FUNCTION vector_recv(internal, oid, integer) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION vector_send(vector) RETURNS bytea
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT;
+
 CREATE TYPE vector (
 	INPUT     = vector_in,
 	OUTPUT    = vector_out,
-	TYPMOD_IN = vector_typmod_in
+	TYPMOD_IN = vector_typmod_in,
+	RECEIVE   = vector_recv,
+	SEND      = vector_send
 );
 
 -- functions

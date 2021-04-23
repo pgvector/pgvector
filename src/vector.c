@@ -6,6 +6,7 @@
 #include "fmgr.h"
 #include "catalog/pg_type.h"
 #include "lib/stringinfo.h"
+#include "libpq/pqformat.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
@@ -38,6 +39,21 @@ CheckExpectedDim(int32 typmod, int dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("expected %d dimensions, not %d", typmod, dim)));
+}
+
+
+static inline void
+CheckDim(int dim)
+{
+	if (dim < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
+
+	if (dim > VECTOR_MAX_DIM)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("vector cannot have more than %d dimensions", VECTOR_MAX_DIM)));
 }
 
 /*
@@ -218,6 +234,53 @@ vector_typmod_in(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Convert external binary representation to internal representation
+ */
+PG_FUNCTION_INFO_V1(vector_recv);
+Datum
+vector_recv(PG_FUNCTION_ARGS)
+{
+	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
+	int32		typmod = PG_GETARG_INT32(2);
+	Vector	   *result;
+	int16		dim;
+	int16		unused;
+	int			i;
+
+	dim = pq_getmsgint(buf, sizeof(int16));
+	unused = pq_getmsgint(buf, sizeof(int16));
+
+	CheckDim(dim);
+	CheckExpectedDim(typmod, dim);
+
+	result = InitVector(dim);
+	for (i = 0; i < dim; i++)
+		result->x[i] = pq_getmsgfloat4(buf);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert internal representation to the external binary representation
+ */
+PG_FUNCTION_INFO_V1(vector_send);
+Datum
+vector_send(PG_FUNCTION_ARGS)
+{
+	Vector	   *vec = PG_GETARG_VECTOR_P(0);
+	StringInfoData buf;
+	int			i;
+
+	pq_begintypsend(&buf);
+	pq_sendint16(&buf, vec->dim);
+	pq_sendint16(&buf, vec->unused);
+	for (i = 0; i < vec->dim; i++)
+		pq_sendfloat4(&buf, vec->x[i]);
+
+	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
+}
+
+/*
  * Convert vector to vector
  */
 PG_FUNCTION_INFO_V1(vector);
@@ -259,17 +322,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, &nullsp, &nelemsp);
 
 	if (typmod == -1)
-	{
-		if (nelemsp < 1)
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("vector must have at least 1 dimension")));
-
-		if (nelemsp > VECTOR_MAX_DIM)
-			ereport(ERROR,
-					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-					 errmsg("vector cannot have more than %d dimensions", VECTOR_MAX_DIM)));
-	}
+		CheckDim(nelemsp);
 	else
 		CheckExpectedDim(typmod, nelemsp);
 
