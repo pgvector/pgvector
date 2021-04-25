@@ -361,11 +361,15 @@ l2_distance(PG_FUNCTION_ARGS)
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	double		distance = 0.0;
+	double		diff;
 
 	CheckDims(a, b);
 
 	for (int i = 0; i < a->dim; i++)
-		distance += pow(a->x[i] - b->x[i], 2);
+	{
+		diff = a->x[i] - b->x[i];
+		distance += diff * diff;
+	}
 
 	PG_RETURN_FLOAT8(sqrt(distance));
 }
@@ -381,11 +385,15 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	double		distance = 0.0;
+	double		diff;
 
 	CheckDims(a, b);
 
 	for (int i = 0; i < a->dim; i++)
-		distance += pow(a->x[i] - b->x[i], 2);
+	{
+		diff = a->x[i] - b->x[i];
+		distance += diff * diff;
+	}
 
 	PG_RETURN_FLOAT8(distance);
 }
@@ -446,8 +454,8 @@ cosine_distance(PG_FUNCTION_ARGS)
 	for (int i = 0; i < a->dim; i++)
 	{
 		distance += a->x[i] * b->x[i];
-		norma += pow(a->x[i], 2);
-		normb += pow(b->x[i], 2);
+		norma += a->x[i] * a->x[i];
+		normb += b->x[i] * b->x[i];
 	}
 
 	PG_RETURN_FLOAT8(1 - (distance / (sqrt(norma) * sqrt(normb))));
@@ -503,7 +511,7 @@ vector_norm(PG_FUNCTION_ARGS)
 	double		norm = 0.0;
 
 	for (int i = 0; i < a->dim; i++)
-		norm += pow(a->x[i], 2);
+		norm += a->x[i] * a->x[i];
 
 	PG_RETURN_FLOAT8(sqrt(norm));
 }
