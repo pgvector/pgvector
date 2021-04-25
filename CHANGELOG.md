@@ -1,4 +1,4 @@
-## 0.1.1 (unreleased)
+## 0.1.1 (2021-04-25)
 
 - Added binary representation for `COPY`
 - Marked functions as `PARALLEL SAFE`
