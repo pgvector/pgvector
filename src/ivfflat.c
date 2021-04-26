@@ -29,8 +29,6 @@ _PG_init(void)
 
 /*
  * Estimate the cost of an index scan
- *
- * TODO Improve cost estimation
  */
 static void
 ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
