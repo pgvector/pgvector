@@ -42,6 +42,9 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 )
 {
 	GenericCosts costs;
+	int			lists;
+	double		ratio;
+	Relation	indexRel;
 
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
@@ -57,7 +60,18 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
-	*indexStartupCost = costs.indexStartupCost;
+	indexRel = index_open(path->indexinfo->indexoid, NoLock);
+	lists = IvfflatGetLists(indexRel);
+	index_close(indexRel, NoLock);
+
+	ratio = ((double) ivfflat_probes) / lists;
+	if (ratio > 1)
+		ratio = 1;
+
+	costs.indexTotalCost *= ratio;
+
+	/* Startup cost and total cost are same */
+	*indexStartupCost = costs.indexTotalCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
