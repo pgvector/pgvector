@@ -1,6 +1,6 @@
 #include "postgres.h"
 
-#include <math.h>
+#include <float.h>
 
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
@@ -15,7 +15,7 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 	Page		cpage;
 	IvfflatList list;
 	double		distance;
-	double		minDistance = INFINITY;
+	double		minDistance = DBL_MAX;
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
 	FmgrInfo   *procinfo;
 	Oid			collation;

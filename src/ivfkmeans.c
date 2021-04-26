@@ -1,6 +1,6 @@
 #include "postgres.h"
 
-#include <math.h>
+#include <float.h>
 
 #include "ivfflat.h"
 #include "miscadmin.h"
@@ -33,7 +33,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, double *lo
 	centers->length++;
 
 	for (j = 0; j < numSamples; j++)
-		weight[j] = INFINITY;
+		weight[j] = DBL_MAX;
 
 	for (i = 0; i < numCenters; i++)
 	{
@@ -219,7 +219,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	/* Assign each x to its closest initial center c(x) = argmin d(x,c) */
 	for (j = 0; j < numSamples; j++)
 	{
-		minDistance = INFINITY;
+		minDistance = DBL_MAX;
 		closestCenter = -1;
 
 		vec = VectorArrayGet(samples, j);
@@ -265,7 +265,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		/* For all centers c, compute s(c) */
 		for (j = 0; j < numCenters; j++)
 		{
-			minDistance = INFINITY;
+			minDistance = DBL_MAX;
 
 			for (k = 0; k < numCenters; k++)
 			{
