@@ -1,6 +1,6 @@
 #include "postgres.h"
 
-#include <float.h>
+#include <math.h>
 
 #include "catalog/index.h"
 #include "ivfflat.h"
@@ -110,7 +110,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 {
 	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
 	double		distance;
-	double		minDistance = DBL_MAX;
+	double		minDistance = INFINITY;
 	int			closestCenter = -1;
 	VectorArray centers = buildstate->centers;
 	TupleTableSlot *slot = buildstate->slot;
