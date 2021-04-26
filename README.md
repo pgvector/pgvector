@@ -140,7 +140,7 @@ Libraries that use pgvector:
 
 ### 0.1.1
 
-Follow the [installation instructions](#installation) and run:
+Compile and install the latest version and run:
 
 ```sql
 ALTER EXTENSION vector UPDATE TO '0.1.1';
