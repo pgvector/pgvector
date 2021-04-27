@@ -1,4 +1,4 @@
-## 0.1.2 (unreleased)
+## 0.1.2 (2021-04-26)
 
 - Vectorized distance calculations
 - Improved cost estimation
