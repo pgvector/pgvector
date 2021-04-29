@@ -12,6 +12,18 @@ Supports L2 distance, inner product, and cosine distance
 
 [![Build Status](https://github.com/ankane/pgvector/workflows/build/badge.svg?branch=master)](https://github.com/ankane/pgvector/actions)
 
+## Docker
+
+Build docker image
+
+```
+docker build -t pgvector .
+```
+
+The [`Dockerfile`](Dockerfile) extends from the official [PostgreSQL 9.6](https://hub.docker.com/_/postgres) container image and adds support for `pgvector`.
+
+Supports all the features specified in https://hub.docker.com/_/postgres.
+
 ## Installation
 
 Compile and install the extension (supports Postgres 9.6+)
