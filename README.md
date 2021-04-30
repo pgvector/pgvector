@@ -136,6 +136,16 @@ Libraries that use pgvector:
 
 - [Neighbor](https://github.com/ankane/neighbor) (Ruby)
 
+## Additional Installation Methods
+
+### Homebrew
+
+On Mac with Homebrew Postgres, you can use:
+
+```sh
+brew install ankane/brew/pgvector
+```
+
 ## Upgrading
 
 ### 0.1.1
