@@ -152,7 +152,7 @@ Some Postgres providers only support specific extensions. To request a new exten
 
 - Amazon RDS - follow the instructions on [this page](https://aws.amazon.com/rds/postgresql/faqs/)
 - Google Cloud SQL - follow the instructions on [this page](https://cloud.google.com/sql/docs/postgres/extensions#requesting-support-for-a-new-extension)
-- DigitalOcean - follow the instructions on [this page](https://docs.digitalocean.com/products/databases/postgresql/resources/supported-extensions/#supported-extensions)
+- DigitalOcean Managed Databases - follow the instructions on [this page](https://docs.digitalocean.com/products/databases/postgresql/resources/supported-extensions/#supported-extensions)
 
 ## Upgrading
 
