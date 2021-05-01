@@ -146,6 +146,13 @@ On Mac with Homebrew Postgres, you can use:
 brew install ankane/brew/pgvector
 ```
 
+## Hosted Postgres
+
+Some Postgres providers only support specific extensions. To request a new extension:
+
+- Amazon RDS - follow the instructions on [this page](https://aws.amazon.com/rds/postgresql/faqs/)
+- Google Cloud SQL - follow the instructions on [this page](https://cloud.google.com/sql/docs/postgres/extensions#requesting-support-for-a-new-extension)
+
 ## Upgrading
 
 ### 0.1.1
