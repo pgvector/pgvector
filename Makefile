@@ -7,10 +7,12 @@ TESTS = $(wildcard sql/*.sql)
 
 REGRESS = btree cast copy functions ivfflat_cosine ivfflat_ip ivfflat_l2 ivfflat_unlogged vector
 
+OPTFLAGS = -march=native
+
 # For auto-vectorization:
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html
-PG_CFLAGS = -march=native -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math
+PG_CFLAGS = $(OPTFLAGS) -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math
 
 # Debug GCC auto-vectorization
 # PG_CFLAGS += -fopt-info-vec
