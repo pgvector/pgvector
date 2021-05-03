@@ -104,6 +104,14 @@ SELECT ...
 COMMIT;
 ```
 
+### Partial Indexes
+
+Use [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) to speed up queries with a `WHERE` clause
+
+```sql
+CREATE INDEX ON table USING ivfflat (column) WHERE (condition = true);
+```
+
 ## Reference
 
 ### Vector Type
