@@ -148,7 +148,7 @@ brew install ankane/brew/pgvector
 
 ### PGXN
 
-Run:
+Install from the [PostgreSQL Extension Network](https://pgxn.org/dist/vector) with:
 
 ```sh
 pgxn install vector
