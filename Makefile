@@ -27,3 +27,9 @@ include $(PGXS)
 prove_installcheck:
 	rm -rf $(CURDIR)/tmp_check
 	cd $(srcdir) && TESTDIR='$(CURDIR)' PATH="$(bindir):$$PATH" PGPORT='6$(DEF_PGPORT)' PG_REGRESS='$(top_builddir)/src/test/regress/pg_regress' $(PROVE) $(PG_PROVE_FLAGS) $(PROVE_FLAGS) $(if $(PROVE_TESTS),$(PROVE_TESTS),t/*.pl)
+
+.PHONY: dist
+
+dist:
+	mkdir -p dist
+	git archive --format zip --prefix=vector-0.1.2/ --output dist/vector-0.1.2.zip master
