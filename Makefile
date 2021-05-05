@@ -1,11 +1,12 @@
 EXTENSION = vector
-DATA = vector--0.1.1.sql vector--0.1.0--0.1.1.sql
+DATA = sql/vector--0.1.1.sql sql/vector--0.1.0--0.1.1.sql
 MODULE_big = vector
 OBJS = src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/vector.o
 
-TESTS = $(wildcard sql/*.sql)
+TESTS = $(wildcard test/sql/*.sql)
 
-REGRESS = btree cast copy functions ivfflat_cosine ivfflat_ip ivfflat_l2 ivfflat_unlogged vector
+REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
+REGRESS_OPTS = --inputdir=test
 
 OPTFLAGS = -march=native
 
@@ -26,7 +27,7 @@ include $(PGXS)
 
 prove_installcheck:
 	rm -rf $(CURDIR)/tmp_check
-	cd $(srcdir) && TESTDIR='$(CURDIR)' PATH="$(bindir):$$PATH" PGPORT='6$(DEF_PGPORT)' PG_REGRESS='$(top_builddir)/src/test/regress/pg_regress' $(PROVE) $(PG_PROVE_FLAGS) $(PROVE_FLAGS) $(if $(PROVE_TESTS),$(PROVE_TESTS),t/*.pl)
+	cd $(srcdir) && TESTDIR='$(CURDIR)' PATH="$(bindir):$$PATH" PGPORT='6$(DEF_PGPORT)' PG_REGRESS='$(top_builddir)/src/test/regress/pg_regress' $(PROVE) $(PG_PROVE_FLAGS) $(PROVE_FLAGS) $(if $(PROVE_TESTS),$(PROVE_TESTS),test/t/*.pl)
 
 .PHONY: dist
 

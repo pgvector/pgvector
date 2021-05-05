@@ -214,15 +214,9 @@ make prove_installcheck  # TAP tests
 To run single tests:
 
 ```sh
-make installcheck REGRESS=vector                  # regression test
-make prove_installcheck PROVE_TESTS=t/001_wal.pl  # TAP test
+make installcheck REGRESS=vector                       # regression test
+make prove_installcheck PROVE_TESTS=test/t/001_wal.pl  # TAP test
 ```
-
-Directories
-
-- `expected` - expected output for regression tests
-- `sql` - regression tests
-- `t` - TAP tests
 
 Resources for contributors
 
