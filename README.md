@@ -146,6 +146,14 @@ On Mac with Homebrew Postgres, you can use:
 brew install ankane/brew/pgvector
 ```
 
+### PGXN
+
+Run:
+
+```sh
+pgxn install vector
+```
+
 ## Hosted Postgres
 
 Some Postgres providers only support specific extensions. To request a new extension:
