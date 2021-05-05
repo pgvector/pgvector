@@ -29,6 +29,8 @@ Then load it in databases where you want to use it
 CREATE EXTENSION vector;
 ```
 
+You can also install it with [Homebrew](#homebrew) or [PGXN](#pgxn)
+
 ## Getting Started
 
 Create a vector column with 3 dimensions (replace `table` and `column` with non-reserved names)
