@@ -22,6 +22,13 @@ PG_CFLAGS = $(OPTFLAGS) -ftree-vectorize -fassociative-math -fno-signed-zeros -f
 # Debug Clang auto-vectorization
 # PG_CFLAGS += -Rpass=loop-vectorize -Rpass-analysis=loop-vectorize
 
+all: sql/$(EXTENSION)--$(EXTVERSION).sql
+
+sql/$(EXTENSION)--$(EXTVERSION).sql: sql/$(EXTENSION).sql
+	cp $< $@
+
+EXTRA_CLEAN = sql/$(EXTENSION)--$(EXTVERSION).sql
+
 PG_CONFIG ?= pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
