@@ -41,7 +41,7 @@
 		"url": "http://pgxn.org/meta/spec.txt"
 	},
 	"tags": [
-		"vector",
+		"vectors",
 		"similarity search",
 		"nearest neighbor search",
 		"approximate nearest neighbor"
