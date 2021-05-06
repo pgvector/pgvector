@@ -1,6 +1,6 @@
-dist
-results
-tmp_check
+/dist/
+/results/
+/tmp_check/
 regression.*
 *.o
 *.so
