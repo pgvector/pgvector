@@ -1,3 +1,7 @@
+## 0.1.4 (unreleased)
+
+- Fixed multiple definition error with GCC 10
+
 ## 0.1.3 (2021-05-06)
 
 - Added Dockerfile

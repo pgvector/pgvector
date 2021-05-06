@@ -38,7 +38,7 @@
 #endif
 
 /* Variables */
-int			ivfflat_probes;
+extern int	ivfflat_probes;
 
 typedef struct VectorArrayData
 {

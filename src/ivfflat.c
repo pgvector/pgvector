@@ -6,6 +6,7 @@
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
 
+int			ivfflat_probes;
 static relopt_kind ivfflat_relopt_kind;
 
 /*
