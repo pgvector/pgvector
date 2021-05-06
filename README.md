@@ -29,7 +29,7 @@ Then load it in databases where you want to use it
 CREATE EXTENSION vector;
 ```
 
-You can also install it with [Homebrew](#homebrew) or [PGXN](#pgxn)
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), or [PGXN](#pgxn)
 
 ## Getting Started
 
@@ -139,6 +139,24 @@ Libraries that use pgvector:
 - [Neighbor](https://github.com/ankane/neighbor) (Ruby)
 
 ## Additional Installation Methods
+
+### Docker
+
+Get the [Docker image](https://hub.docker.com/repository/docker/ankane/pgvector) with:
+
+```sh
+docker pull ankane/pgvector
+```
+
+This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres).
+
+You can also build the image manually
+
+```sh
+git clone https://github.com/ankane/pgvector.git
+cd pgvector
+docker build -t pgvector .
+```
 
 ### Homebrew
 
