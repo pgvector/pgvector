@@ -2,7 +2,7 @@ EXTENSION = vector
 EXTVERSION = 0.1.2
 
 MODULE_big = vector
-DATA = sql/vector--0.1.1.sql sql/vector--0.1.0--0.1.1.sql
+DATA = $(wildcard sql/*--*.sql)
 OBJS = src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/vector.o
 
 TESTS = $(wildcard test/sql/*.sql)
