@@ -184,12 +184,10 @@ Some Postgres providers only support specific extensions. To request a new exten
 
 ## Upgrading
 
-### 0.1.1
-
 Compile and install the latest version and run:
 
 ```sql
-ALTER EXTENSION vector UPDATE TO '0.1.1';
+ALTER EXTENSION vector UPDATE TO '0.1.3';
 ```
 
 ## Thanks
