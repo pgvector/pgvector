@@ -1,6 +1,7 @@
-## 0.1.3 (unreleased)
+## 0.1.3 (2021-05-06)
 
-- Fixed version number
+- Added Dockerfile
+- Fixed version
 
 ## 0.1.2 (2021-04-26)
 

@@ -1,4 +1,4 @@
 comment = 'vector data type and ivfflat access method'
-default_version = '0.1.2'
+default_version = '0.1.3'
 module_pathname = '$libdir/vector'
 relocatable = true
