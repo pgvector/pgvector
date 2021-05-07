@@ -41,8 +41,10 @@ SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
-	/* Normalize the value */
-	/* Use KMEANS_NORM_PROC for spherical distance function */
+	/*
+	 * Normalize with KMEANS_NORM_PROC since spherical distance function
+	 * expects unit vectors
+	 */
 	if (buildstate->kmeansnormprocinfo != NULL)
 	{
 		if (!IvfflatNormValue(buildstate->kmeansnormprocinfo, buildstate->collation, &value, buildstate->normvec))
