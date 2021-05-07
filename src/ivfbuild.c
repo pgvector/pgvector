@@ -42,9 +42,10 @@ SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		return;
 
 	/* Normalize the value */
-	if (buildstate->normprocinfo != NULL)
+	/* Use KMEANS_NORM_PROC for spherical distance function */
+	if (buildstate->kmeansnormprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->normvec))
+		if (!IvfflatNormValue(buildstate->kmeansnormprocinfo, buildstate->collation, &value, buildstate->normvec))
 			return;
 	}
 
@@ -275,6 +276,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	/* Get support functions */
 	buildstate->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
 	buildstate->normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
+	buildstate->kmeansnormprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
 	/* Create tuple description for sorting */

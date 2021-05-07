@@ -81,6 +81,7 @@ typedef struct IvfflatBuildState
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
+	FmgrInfo   *kmeansnormprocinfo;
 	Oid			collation;
 
 	/* Variables */
