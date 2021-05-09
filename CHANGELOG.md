@@ -1,4 +1,4 @@
-## 0.1.4 (unreleased)
+## 0.1.4 (2021-05-09)
 
 - Fixed kmeans for inner product
 - Fixed multiple definition error with GCC 10
