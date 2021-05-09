@@ -187,7 +187,7 @@ Some Postgres providers only support specific extensions. To request a new exten
 Compile and install the latest version and run:
 
 ```sql
-ALTER EXTENSION vector UPDATE TO '0.1.3';
+ALTER EXTENSION vector UPDATE;
 ```
 
 ## Thanks
