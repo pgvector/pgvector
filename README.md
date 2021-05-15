@@ -184,7 +184,7 @@ Some Postgres providers only support specific extensions. To request a new exten
 
 ## Upgrading
 
-Compile and install the latest version and run:
+Install the latest version and run:
 
 ```sql
 ALTER EXTENSION vector UPDATE;
@@ -232,7 +232,7 @@ make prove_installcheck  # TAP tests
 To run single tests:
 
 ```sh
-make installcheck REGRESS=vector                       # regression test
+make installcheck REGRESS=functions                    # regression test
 make prove_installcheck PROVE_TESTS=test/t/001_wal.pl  # TAP test
 ```
 
