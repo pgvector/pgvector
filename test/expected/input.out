@@ -53,5 +53,3 @@ LINE 1: SELECT '[1,]'::vector;
                ^
 SELECT '[1,2,3]'::vector(2);
 ERROR:  expected 2 dimensions, not 3
-SELECT array_agg(n)::vector FROM generate_series(1, 1025) n;
-ERROR:  vector cannot have more than 1024 dimensions

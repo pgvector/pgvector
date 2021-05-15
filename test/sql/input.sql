@@ -13,4 +13,3 @@ SELECT '1,2,3'::vector;
 SELECT '[]'::vector;
 SELECT '[1,]'::vector;
 SELECT '[1,2,3]'::vector(2);
-SELECT array_agg(n)::vector FROM generate_series(1, 1025) n;

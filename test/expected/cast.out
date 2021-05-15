@@ -28,3 +28,5 @@ SELECT '{-Infinity}'::real[]::vector;
 ERROR:  infinite value not allowed in vector
 SELECT '{}'::real[]::vector;
 ERROR:  vector must have at least 1 dimension
+SELECT array_agg(n)::vector FROM generate_series(1, 1025) n;
+ERROR:  vector cannot have more than 1024 dimensions

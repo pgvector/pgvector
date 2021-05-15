@@ -9,3 +9,4 @@ SELECT '{NaN}'::real[]::vector;
 SELECT '{Infinity}'::real[]::vector;
 SELECT '{-Infinity}'::real[]::vector;
 SELECT '{}'::real[]::vector;
+SELECT array_agg(n)::vector FROM generate_series(1, 1025) n;
