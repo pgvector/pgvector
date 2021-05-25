@@ -1,3 +1,7 @@
+## 0.1.5 (unreleased)
+
+- Reduced memory usage during index build
+
 ## 0.1.4 (2021-05-09)
 
 - Fixed kmeans for inner product
