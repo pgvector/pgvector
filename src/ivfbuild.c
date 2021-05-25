@@ -244,9 +244,9 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 			if (PageAddItem(page, (Item) itup, itemsz, InvalidOffsetNumber, false, false) == InvalidOffsetNumber)
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
-			buildstate->indtuples += 1;
-
 			pfree(itup);
+
+			buildstate->indtuples += 1;
 
 			GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 		}
