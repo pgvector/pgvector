@@ -194,10 +194,7 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 		ItemPointerSet(&(*itup)->t_tid, tupblk, tupoff);
 	}
 	else
-	{
 		*list = -1;
-		*itup = NULL;
-	}
 }
 
 /*
@@ -258,9 +255,6 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 		/* Set the start and insert pages */
 		IvfflatUpdateList(index, state, buildstate->listInfo[i], insertPage, startPage, forkNum);
 	}
-
-	if (itup != NULL)
-		pfree(itup);
 }
 
 /*
