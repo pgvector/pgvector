@@ -244,13 +244,19 @@ vector_recv(PG_FUNCTION_ARGS)
 	int32		typmod = PG_GETARG_INT32(2);
 	Vector	   *result;
 	int16		dim;
+	int16		unused;
 	int			i;
 
 	dim = pq_getmsgint(buf, sizeof(int16));
-	pq_getmsgint(buf, sizeof(int16));	/* unused */
+	unused = pq_getmsgint(buf, sizeof(int16));
 
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
+
+	if (unused != 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("expected unused to be 0, not %d", unused)));
 
 	result = InitVector(dim);
 	for (i = 0; i < dim; i++)
