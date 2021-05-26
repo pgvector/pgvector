@@ -1,6 +1,6 @@
-## 0.1.5 (unreleased)
+## 0.1.5 (2021-05-25)
 
-- Reduced memory usage during index build
+- Reduced memory usage during index creation
 
 ## 0.1.4 (2021-05-09)
 
