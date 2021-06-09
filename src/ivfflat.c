@@ -1,5 +1,7 @@
 #include "postgres.h"
 
+#include <float.h>
+
 #include "access/amapi.h"
 #include "commands/vacuum.h"
 #include "ivfflat.h"
@@ -54,8 +56,8 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	/* Never use index without order */
 	if (path->indexorderbys == NULL)
 	{
-		*indexStartupCost = 1.0e10;
-		*indexTotalCost = 1.0e10;
+		*indexStartupCost = DBL_MAX;
+		*indexTotalCost = DBL_MAX;
 		*indexSelectivity = 0;
 		*indexCorrelation = 0;
 #if PG_VERSION_NUM >= 100000
