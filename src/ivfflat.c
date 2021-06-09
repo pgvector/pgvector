@@ -51,6 +51,19 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	qinfos = deconstruct_indexquals(path);
 #endif
 
+	/* Never use index without order */
+	if (path->indexorderbys == NULL)
+	{
+		*indexStartupCost = 1.0e10;
+		*indexTotalCost = 1.0e10;
+		*indexSelectivity = 0;
+		*indexCorrelation = 0;
+#if PG_VERSION_NUM >= 100000
+		*indexPages = 0;
+#endif
+		return;
+	}
+
 	MemSet(&costs, 0, sizeof(costs));
 
 #if PG_VERSION_NUM >= 120000

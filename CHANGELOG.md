@@ -1,3 +1,7 @@
+## 0.1.6 (unreleased)
+
+- Fixed segmentation fault with `COUNT`
+
 ## 0.1.5 (2021-05-25)
 
 - Reduced memory usage during index creation

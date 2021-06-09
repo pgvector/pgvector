@@ -10,5 +10,6 @@ INSERT INTO t (val) VALUES ('[1,2,4]');
 
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 SELECT * FROM t ORDER BY val <-> (SELECT NULL::vector);
+SELECT COUNT(*) FROM t;
 
 DROP TABLE t;

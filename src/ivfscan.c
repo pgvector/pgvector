@@ -251,6 +251,10 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	{
 		Datum		value;
 
+		/* Safety check */
+		if (scan->orderByData == NULL)
+			elog(ERROR, "cannot scan ivfflat index without order");
+
 		/* No items will match if null */
 		if (scan->orderByData->sk_flags & SK_ISNULL)
 			return false;

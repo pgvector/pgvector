@@ -19,4 +19,10 @@ SELECT * FROM t ORDER BY val <-> (SELECT NULL::vector);
 -----
 (0 rows)
 
+SELECT COUNT(*) FROM t;
+ count 
+-------
+     5
+(1 row)
+
 DROP TABLE t;
