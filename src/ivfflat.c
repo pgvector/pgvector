@@ -49,8 +49,6 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
-
-	qinfos = deconstruct_indexquals(path);
 #endif
 
 	/* Never use index without order */
@@ -71,6 +69,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 #if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
 #else
+	qinfos = deconstruct_indexquals(path);
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
