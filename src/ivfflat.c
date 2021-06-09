@@ -46,7 +46,6 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	int			lists;
 	double		ratio;
 	Relation	indexRel;
-
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
 #endif
