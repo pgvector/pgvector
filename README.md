@@ -181,6 +181,7 @@ Some Postgres providers only support specific extensions. To request a new exten
 - Amazon RDS - follow the instructions on [this page](https://aws.amazon.com/rds/postgresql/faqs/)
 - Google Cloud SQL - follow the instructions on [this page](https://cloud.google.com/sql/docs/postgres/extensions#requesting-support-for-a-new-extension)
 - DigitalOcean Managed Databases - follow the instructions on [this page](https://docs.digitalocean.com/products/databases/postgresql/resources/supported-extensions/#supported-extensions)
+- Azure Database for PostgreSQL - follow the instructions on [this page](https://docs.microsoft.com/en-us/azure/postgresql/concepts-extensions#next-steps)
 
 ## Upgrading
 
