@@ -1,4 +1,4 @@
-## 0.1.6 (unreleased)
+## 0.1.6 (2021-06-09)
 
 - Fixed segmentation fault with `COUNT`
 
