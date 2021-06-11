@@ -1,3 +1,7 @@
+## 0.1.7 (unreleased)
+
+- Added cast for `numeric[]`
+
 ## 0.1.6 (2021-06-09)
 
 - Fixed segmentation fault with `COUNT`

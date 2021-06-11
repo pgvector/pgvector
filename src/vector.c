@@ -10,6 +10,7 @@
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
+#include "utils/numeric.h"
 
 #if PG_VERSION_NUM >= 120000
 #include "utils/float.h"
@@ -345,6 +346,8 @@ array_to_vector(PG_FUNCTION_ARGS)
 			result->x[i] = DatumGetFloat8(elemsp[i]);
 		else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 			result->x[i] = DatumGetFloat4(elemsp[i]);
+		else if (ARR_ELEMTYPE(array) == NUMERICOID)
+			result->x[i] = DatumGetFloat4(DirectFunctionCall1(numeric_float4, NumericGetDatum(elemsp[i])));
 		else
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),

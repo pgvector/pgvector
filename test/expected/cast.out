@@ -6,6 +6,12 @@ SELECT ARRAY[1,2,3]::vector;
  [1,2,3]
 (1 row)
 
+SELECT ARRAY[1.0,2.0,3.0]::vector;
+  array  
+---------
+ [1,2,3]
+(1 row)
+
 SELECT ARRAY[1,2,3]::float4[]::vector;
   array  
 ---------

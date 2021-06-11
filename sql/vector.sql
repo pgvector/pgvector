@@ -97,6 +97,9 @@ CREATE FUNCTION array_to_vector(real[], integer, boolean) RETURNS vector
 CREATE FUNCTION array_to_vector(double precision[], integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION array_to_vector(numeric[], integer, boolean) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- casts
 
 CREATE CAST (vector AS vector)
@@ -110,6 +113,9 @@ CREATE CAST (real[] AS vector)
 
 CREATE CAST (double precision[] AS vector)
 	WITH FUNCTION array_to_vector(double precision[], integer, boolean) AS IMPLICIT;
+
+CREATE CAST (numeric[] AS vector)
+	WITH FUNCTION array_to_vector(numeric[], integer, boolean) AS IMPLICIT;
 
 -- operators
 
