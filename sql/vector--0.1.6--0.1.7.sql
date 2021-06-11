@@ -2,7 +2,7 @@
 \echo Use "ALTER EXTENSION vector UPDATE TO '0.1.6'" to load this file. \quit
 
 CREATE FUNCTION array_to_vector(numeric[], integer, boolean) RETURNS vector
-  AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE CAST (numeric[] AS vector)
-  WITH FUNCTION array_to_vector(numeric[], integer, boolean) AS IMPLICIT;
+	WITH FUNCTION array_to_vector(numeric[], integer, boolean) AS IMPLICIT;
