@@ -136,6 +136,7 @@ vector_norm(vector) | Euclidean norm
 
 Libraries that use pgvector:
 
+- [pgvector-python](https://github.com/ankane/pgvector-python) (Python)
 - [Neighbor](https://github.com/ankane/neighbor) (Ruby)
 - [pgvector-rust](https://github.com/ankane/pgvector-rust) (Rust)
 
