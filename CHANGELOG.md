@@ -1,4 +1,4 @@
-## 0.1.7 (unreleased)
+## 0.1.7 (2021-06-13)
 
 - Added cast for `numeric[]`
 
