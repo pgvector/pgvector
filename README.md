@@ -106,6 +106,14 @@ SELECT ...
 COMMIT;
 ```
 
+### Partial Indexes
+
+Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
+
+```sql
+CREATE INDEX ON table USING ivfflat (column) WHERE (other_column = 123);
+```
+
 ## Reference
 
 ### Vector Type
