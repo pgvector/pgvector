@@ -114,6 +114,8 @@ Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-parti
 CREATE INDEX ON table USING ivfflat (column) WHERE (other_column = 123);
 ```
 
+To index many different values of `other_column`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `other_column`.
+
 ## Reference
 
 ### Vector Type
