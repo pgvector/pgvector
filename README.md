@@ -138,6 +138,7 @@ Libraries that use pgvector:
 
 - [pgvector-python](https://github.com/ankane/pgvector-python) (Python)
 - [Neighbor](https://github.com/ankane/neighbor) (Ruby)
+- [pgvector-go](https://github.com/ankane/pgvector-go) (Go)
 - [pgvector-rust](https://github.com/ankane/pgvector-rust) (Rust)
 
 ## Additional Installation Methods
