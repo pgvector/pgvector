@@ -360,6 +360,29 @@ array_to_vector(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Convert vector to float4[]
+ */
+PG_FUNCTION_INFO_V1(vector_to_float4);
+Datum
+vector_to_float4(PG_FUNCTION_ARGS)
+{
+	Vector	   *vec = PG_GETARG_VECTOR_P(0);
+	Datum	   *d;
+	ArrayType  *result;
+	int			i;
+
+	d = (Datum *) palloc(sizeof(Datum) * vec->dim);
+
+	for (i = 0; i < vec->dim; i++)
+		d[i] = Float4GetDatum(vec->x[i]);
+
+	/* Use TYPALIGN_INT for float4 */
+	result = construct_array(d, vec->dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Get the L2 distance between vectors
  */
 PG_FUNCTION_INFO_V1(l2_distance);

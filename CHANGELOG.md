@@ -1,6 +1,10 @@
+## 0.1.8 (unreleased)
+
+- Added cast for `vector` to `real[]`
+
 ## 0.1.7 (2021-06-13)
 
-- Added cast for `numeric[]`
+- Added cast for `numeric[]` to `vector`
 
 ## 0.1.6 (2021-06-09)
 
