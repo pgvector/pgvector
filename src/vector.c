@@ -594,6 +594,146 @@ vector_sub(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Add vectors and scalars
+ */
+PG_FUNCTION_INFO_V1(vector_float_add);
+Datum
+vector_float_add(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	float 	    b = PG_GETARG_FLOAT4(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(a->dim);
+	for (i = 0; i < a->dim; i++)
+		result->x[i] = a->x[i] + b;
+
+	PG_RETURN_POINTER(result);
+}
+
+PG_FUNCTION_INFO_V1(float_vector_add);
+Datum
+float_vector_add(PG_FUNCTION_ARGS)
+{
+	float 	    a = PG_GETARG_FLOAT4(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(b->dim);
+	for (i = 0; i < b->dim; i++)
+		result->x[i] = b->x[i] + a;
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Subtract vectors and scalars
+ */
+PG_FUNCTION_INFO_V1(vector_float_sub);
+Datum
+vector_float_sub(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	float 	    b = PG_GETARG_FLOAT4(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(a->dim);
+	for (i = 0; i < a->dim; i++)
+		result->x[i] = a->x[i] - b;
+
+	PG_RETURN_POINTER(result);
+}
+
+PG_FUNCTION_INFO_V1(float_vector_sub);
+Datum
+float_vector_sub(PG_FUNCTION_ARGS)
+{
+	float 	    a = PG_GETARG_FLOAT4(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(b->dim);
+	for (i = 0; i < b->dim; i++)
+		result->x[i] = -b->x[i] + a;
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Multiply vectors and scalars
+ */
+PG_FUNCTION_INFO_V1(vector_float_mul);
+Datum
+vector_float_mul(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	float 	    b = PG_GETARG_FLOAT4(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(a->dim);
+	for (i = 0; i < a->dim; i++)
+		result->x[i] = a->x[i] * b;
+
+	PG_RETURN_POINTER(result);
+}
+
+PG_FUNCTION_INFO_V1(float_vector_mul);
+Datum
+float_vector_mul(PG_FUNCTION_ARGS)
+{
+	float 	    a = PG_GETARG_FLOAT4(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(b->dim);
+	for (i = 0; i < b->dim; i++)
+		result->x[i] = b->x[i] * a;
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Divide vectors and scalars
+ */
+PG_FUNCTION_INFO_V1(vector_float_div);
+Datum
+vector_float_div(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	float 	    b = PG_GETARG_FLOAT4(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(a->dim);
+	for (i = 0; i < a->dim; i++)
+		result->x[i] = a->x[i] / b;
+
+	PG_RETURN_POINTER(result);
+}
+
+PG_FUNCTION_INFO_V1(float_vector_div);
+Datum
+float_vector_div(PG_FUNCTION_ARGS)
+{
+	float 	    a = PG_GETARG_FLOAT4(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	Vector	   *result;
+	int			i;
+
+	result = InitVector(b->dim);
+	for (i = 0; i < b->dim; i++)
+		result->x[i] = a / b->x[i];
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Internal helper to compare vectors
  */
 int
