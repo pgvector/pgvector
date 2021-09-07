@@ -1,4 +1,4 @@
-## 0.1.8 (unreleased)
+## 0.1.8 (2021-09-07)
 
 - Added cast for `vector` to `real[]`
 
