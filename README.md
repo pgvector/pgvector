@@ -151,6 +151,7 @@ Libraries that use pgvector:
 - [pgvector-node](https://github.com/ankane/pgvector-node) (Node.js)
 - [pgvector-go](https://github.com/ankane/pgvector-go) (Go)
 - [pgvector-rust](https://github.com/ankane/pgvector-rust) (Rust)
+- [pgvector-cpp](https://github.com/ankane/pgvector-cpp) (C++)
 
 ## Additional Installation Methods
 
