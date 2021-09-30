@@ -128,6 +128,9 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 bool
 ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
 			  Relation heap, IndexUniqueCheck checkUnique
+#if PG_VERSION_NUM >= 140000
+			  ,bool indexUnchanged
+#endif
 #if PG_VERSION_NUM >= 100000
 			  ,IndexInfo *indexInfo
 #endif

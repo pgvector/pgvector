@@ -8,7 +8,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        postgres: [13, 12, 11, 10, 9.6]
+        postgres: [14, 13, 12, 11, 10, 9.6]
         include:
         - os: macos-latest
           postgres: 13

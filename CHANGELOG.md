@@ -1,3 +1,7 @@
+## 0.1.9 (unreleased)
+
+- Added support for Postgres 14
+
 ## 0.1.8 (2021-09-07)
 
 - Added cast for `vector` to `real[]`
