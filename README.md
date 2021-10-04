@@ -17,7 +17,7 @@ Supports L2 distance, inner product, and cosine distance
 Compile and install the extension (supports Postgres 9.6+)
 
 ```sh
-git clone --branch v0.1.8 https://github.com/ankane/pgvector.git
+git clone --branch v0.2.0 https://github.com/ankane/pgvector.git
 cd pgvector
 make
 make install # may need sudo
@@ -168,7 +168,7 @@ This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres).
 You can also build the image manually
 
 ```sh
-git clone --branch v0.1.8 https://github.com/ankane/pgvector.git
+git clone --branch v0.2.0 https://github.com/ankane/pgvector.git
 cd pgvector
 docker build -t pgvector .
 ```
