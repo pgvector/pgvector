@@ -42,3 +42,8 @@ prove_installcheck:
 dist:
 	mkdir -p dist
 	git archive --format zip --prefix=$(EXTENSION)-$(EXTVERSION)/ --output dist/$(EXTENSION)-$(EXTVERSION).zip master
+
+.PHONY: docker
+
+docker:
+	docker build --pull --no-cache -t ankane/pgvector:latest .
