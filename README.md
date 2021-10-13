@@ -4,7 +4,7 @@ Open-source vector similarity search for Postgres
 
 ```sql
 CREATE TABLE table (column vector(3));
-CREATE INDEX ON table USING ivfflat (column);
+CREATE INDEX ON table USING ivfflat (column vector_l2_ops);
 SELECT * FROM table ORDER BY column <-> '[1,2,3]' LIMIT 5;
 ```
 
@@ -62,7 +62,7 @@ Speed up queries with an approximate index. Add an index for each distance funct
 L2 distance
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column vector_l2_ops); -- default if no opclass specified
+CREATE INDEX ON table USING ivfflat (column vector_l2_ops);
 ```
 
 Inner product
@@ -83,8 +83,8 @@ Indexes should be created after the table has data for optimal clustering. If th
 -- Postgres 12+
 REINDEX INDEX CONCURRENTLY index_name;
 
--- Postgres < 12 (change opclass as needed)
-CREATE INDEX CONCURRENTLY temp_name ON table USING ivfflat (column vector_l2_ops);
+-- Postgres < 12
+CREATE INDEX CONCURRENTLY temp_name ON table USING ivfflat (column opclass);
 DROP INDEX CONCURRENTLY index_name;
 ALTER INDEX temp_name RENAME TO index_name;
 ```
@@ -96,7 +96,7 @@ Also, unlike typical indexes which only affect performance, you may see differen
 Specify the number of inverted lists (100 by default)
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column) WITH (lists = 100);
+CREATE INDEX ON table USING ivfflat (column opclass) WITH (lists = 100);
 ```
 
 ### Query Options
@@ -123,7 +123,7 @@ COMMIT;
 Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column) WHERE (other_column = 123);
+CREATE INDEX ON table USING ivfflat (column opclass) WHERE (other_column = 123);
 ```
 
 To index many different values of `other_column`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `other_column`.
@@ -136,10 +136,10 @@ To speed up queries without an index, increase `max_parallel_workers_per_gather`
 SET max_parallel_workers_per_gather = 4;
 ```
 
-To speed up queries with an index, increase the number of inverted lists.
+To speed up queries with an index, increase the number of inverted lists (at the expense of recall).
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column) WITH (lists = 1000);
+CREATE INDEX ON table USING ivfflat (column opclass) WITH (lists = 1000);
 ```
 
 ## Reference
