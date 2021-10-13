@@ -62,7 +62,7 @@ Speed up queries with an approximate index. Add an index for each distance funct
 L2 distance
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column);
+CREATE INDEX ON table USING ivfflat (column vector_l2_ops); -- default if no opclass specified
 ```
 
 Inner product
@@ -77,7 +77,19 @@ Cosine distance
 CREATE INDEX ON table USING ivfflat (column vector_cosine_ops);
 ```
 
-Indexes should be created after the table has data for optimal clustering. Also, unlike typical indexes which only affect performance, you may see different results for queries after adding an approximate index.
+Indexes should be created after the table has data for optimal clustering. If the distribution of data changes significantly, you can reindex without downtime:
+
+```sql
+-- Postgres 12+
+REINDEX INDEX CONCURRENTLY index_name;
+
+-- Postgres < 12 (change opclass as needed)
+CREATE INDEX CONCURRENTLY temp_name ON table USING ivfflat (column vector_l2_ops);
+DROP INDEX CONCURRENTLY index_name;
+ALTER INDEX temp_name RENAME TO index_name;
+```
+
+Also, unlike typical indexes which only affect performance, you may see different results for queries after adding an approximate index.
 
 ### Index Options
 
