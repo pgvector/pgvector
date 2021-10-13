@@ -99,6 +99,8 @@ Specify the number of inverted lists (100 by default)
 CREATE INDEX ON table USING ivfflat (column opclass) WITH (lists = 100);
 ```
 
+A [good place](https://github.com/facebookresearch/faiss/issues/112) to start is `4 * sqrt(rows)`
+
 ### Query Options
 
 Specify the number of probes (1 by default)
