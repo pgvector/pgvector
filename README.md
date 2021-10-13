@@ -128,6 +128,20 @@ CREATE INDEX ON table USING ivfflat (column) WHERE (other_column = 123);
 
 To index many different values of `other_column`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `other_column`.
 
+## Performance
+
+To speed up queries without an index, increase `max_parallel_workers_per_gather`.
+
+```sql
+SET max_parallel_workers_per_gather = 4;
+```
+
+To speed up queries with an index, increase the number of inverted lists.
+
+```sql
+CREATE INDEX ON table USING ivfflat (column) WITH (lists = 1000);
+```
+
 ## Reference
 
 ### Vector Type
