@@ -29,9 +29,15 @@ sql/$(EXTENSION)--$(EXTVERSION).sql: sql/$(EXTENSION).sql
 
 EXTRA_CLEAN = sql/$(EXTENSION)--$(EXTVERSION).sql
 
+ifdef USE_PGXS
 PG_CONFIG ?= pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
+else
+    # mv pgvector pgsrc/contrib/
+    top_builddir = ../..
+    include $(top_builddir)/src/Makefile.global
+endif
 
 prove_installcheck:
 	rm -rf $(CURDIR)/tmp_check
