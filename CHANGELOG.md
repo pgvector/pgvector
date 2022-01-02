@@ -1,3 +1,7 @@
+## 0.2.1 (unreleased)
+
+- Fixed `operator is not unique` error
+
 ## 0.2.0 (2021-10-03)
 
 - Added support for Postgres 14

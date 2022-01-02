@@ -16,3 +16,5 @@ SELECT inner_product('[1,2]', '[3]');
 SELECT round(cosine_distance('[1,2]', '[2,4]')::numeric, 5);
 SELECT cosine_distance('[1,2]', '[0,0]');
 SELECT cosine_distance('[1,2]', '[3]');
+
+SELECT ARRAY[1,2,3] = ARRAY[1,2,3];

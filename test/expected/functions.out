@@ -54,3 +54,9 @@ SELECT cosine_distance('[1,2]', '[0,0]');
 
 SELECT cosine_distance('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
+SELECT ARRAY[1,2,3] = ARRAY[1,2,3];
+ ?column? 
+----------
+ t
+(1 row)
+
