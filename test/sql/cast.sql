@@ -12,3 +12,6 @@ SELECT '{-Infinity}'::real[]::vector;
 SELECT '{}'::real[]::vector;
 SELECT '[1,2,3]'::vector::real[];
 SELECT array_agg(n)::vector FROM generate_series(1, 1025) n;
+
+-- ensure no error
+SELECT ARRAY[1,2,3] = ARRAY[1,2,3];
