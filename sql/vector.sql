@@ -108,6 +108,9 @@ CREATE FUNCTION vector_to_float4(vector, integer, boolean) RETURNS real[]
 CREATE CAST (vector AS vector)
 	WITH FUNCTION vector(vector, integer, boolean) AS IMPLICIT;
 
+CREATE CAST (vector AS real[])
+	WITH FUNCTION vector_to_float4(vector, integer, boolean) AS IMPLICIT;
+
 CREATE CAST (integer[] AS vector)
 	WITH FUNCTION array_to_vector(integer[], integer, boolean) AS ASSIGNMENT;
 
@@ -119,9 +122,6 @@ CREATE CAST (double precision[] AS vector)
 
 CREATE CAST (numeric[] AS vector)
 	WITH FUNCTION array_to_vector(numeric[], integer, boolean) AS ASSIGNMENT;
-
-CREATE CAST (vector AS real[])
-	WITH FUNCTION vector_to_float4(vector, integer, boolean) AS IMPLICIT;
 
 -- operators
 
