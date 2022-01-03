@@ -11,7 +11,7 @@ jobs:
         postgres: [14, 13, 12, 11, 10, 9.6]
         include:
         - os: macos-latest
-          postgres: 13
+          postgres: 14
     steps:
     - uses: actions/checkout@v2
     - uses: ankane/setup-postgres@v1
