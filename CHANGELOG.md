@@ -1,4 +1,4 @@
-## 0.2.1 (unreleased)
+## 0.2.1 (2022-01-02)
 
 - Fixed `operator is not unique` error
 
