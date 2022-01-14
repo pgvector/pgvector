@@ -11,6 +11,13 @@ REGRESS_OPTS = --inputdir=test
 
 OPTFLAGS = -march=native
 
+# Mac ARM doesn't support -march=native
+ifeq ($(shell uname -s), Darwin)
+	ifeq ($(shell uname -p), arm)
+		OPTFLAGS =
+	endif
+endif
+
 # For auto-vectorization:
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html
