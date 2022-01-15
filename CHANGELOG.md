@@ -1,6 +1,6 @@
-## 0.2.2 (unreleased)
+## 0.2.2 (2022-01-15)
 
-- Fixed compilation on Mac ARM
+- Fixed compilation error on Mac ARM
 
 ## 0.2.1 (2022-01-02)
 
