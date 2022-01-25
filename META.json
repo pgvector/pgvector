@@ -25,13 +25,13 @@
 		}
 	},
 	"resources": {
-		"homepage": "https://github.com/ankane/pgvector",
+		"homepage": "https://github.com/pgvector/pgvector",
 		"bugtracker": {
-			"web": "https://github.com/ankane/pgvector/issues"
+			"web": "https://github.com/pgvector/pgvector/issues"
 		},
 		"repository": {
-			"url":  "https://github.com/ankane/pgvector.git",
-			"web":  "https://github.com/ankane/pgvector",
+			"url":  "https://github.com/pgvector/pgvector.git",
+			"web":  "https://github.com/pgvector/pgvector",
 			"type": "git"
 		}
 	},
