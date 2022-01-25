@@ -206,7 +206,7 @@ docker build -t pgvector .
 On Mac with Homebrew Postgres, you can use:
 
 ```sh
-brew install ankane/brew/pgvector
+brew install pgvector/brew/pgvector
 ```
 
 ### PGXN
