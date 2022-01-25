@@ -10,14 +10,14 @@ SELECT * FROM table ORDER BY column <-> '[1,2,3]' LIMIT 5;
 
 Supports L2 distance, inner product, and cosine distance
 
-[![Build Status](https://github.com/ankane/pgvector/workflows/build/badge.svg?branch=master)](https://github.com/ankane/pgvector/actions)
+[![Build Status](https://github.com/pgvector/pgvector/workflows/build/badge.svg?branch=master)](https://github.com/pgvector/pgvector/actions)
 
 ## Installation
 
 Compile and install the extension (supports Postgres 9.6+)
 
 ```sh
-git clone --branch v0.2.2 https://github.com/ankane/pgvector.git
+git clone --branch v0.2.2 https://github.com/pgvector/pgvector.git
 cd pgvector
 make
 make install # may need sudo
@@ -174,12 +174,12 @@ vector_norm(vector) | Euclidean norm
 
 Libraries that use pgvector:
 
-- [pgvector-python](https://github.com/ankane/pgvector-python) (Python)
+- [pgvector-python](https://github.com/pgvector/pgvector-python) (Python)
 - [Neighbor](https://github.com/ankane/neighbor) (Ruby)
-- [pgvector-node](https://github.com/ankane/pgvector-node) (Node.js)
-- [pgvector-go](https://github.com/ankane/pgvector-go) (Go)
-- [pgvector-rust](https://github.com/ankane/pgvector-rust) (Rust)
-- [pgvector-cpp](https://github.com/ankane/pgvector-cpp) (C++)
+- [pgvector-node](https://github.com/pgvector/pgvector-node) (Node.js)
+- [pgvector-go](https://github.com/pgvector/pgvector-go) (Go)
+- [pgvector-rust](https://github.com/pgvector/pgvector-rust) (Rust)
+- [pgvector-cpp](https://github.com/pgvector/pgvector-cpp) (C++)
 
 ## Additional Installation Methods
 
@@ -196,7 +196,7 @@ This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres).
 You can also build the image manually
 
 ```sh
-git clone --branch v0.2.2 https://github.com/ankane/pgvector.git
+git clone --branch v0.2.2 https://github.com/pgvector/pgvector.git
 cd pgvector
 docker build -t pgvector .
 ```
@@ -246,21 +246,21 @@ Thanks to:
 
 ## History
 
-View the [changelog](https://github.com/ankane/pgvector/blob/master/CHANGELOG.md)
+View the [changelog](https://github.com/pgvector/pgvector/blob/master/CHANGELOG.md)
 
 ## Contributing
 
 Everyone is encouraged to help improve this project. Here are a few ways you can help:
 
-- [Report bugs](https://github.com/ankane/pgvector/issues)
-- Fix bugs and [submit pull requests](https://github.com/ankane/pgvector/pulls)
+- [Report bugs](https://github.com/pgvector/pgvector/issues)
+- Fix bugs and [submit pull requests](https://github.com/pgvector/pgvector/pulls)
 - Write, clarify, or fix documentation
 - Suggest or add new features
 
 To get started with development:
 
 ```sh
-git clone https://github.com/ankane/pgvector.git
+git clone https://github.com/pgvector/pgvector.git
 cd pgvector
 make
 make install
