@@ -185,7 +185,7 @@ Libraries that use pgvector:
 
 ### Docker
 
-Get the [Docker image](https://hub.docker.com/repository/docker/ankane/pgvector) with:
+Get the [Docker image](https://hub.docker.com/r/ankane/pgvector) with:
 
 ```sh
 docker pull ankane/pgvector
