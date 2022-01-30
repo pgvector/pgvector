@@ -197,6 +197,23 @@ Libraries that use pgvector:
 - [pgvector-rust](https://github.com/pgvector/pgvector-rust) (Rust)
 - [pgvector-cpp](https://github.com/pgvector/pgvector-cpp) (C++)
 
+## Frequently Asked Questions
+
+#### How many vectors can be stored in a single table?
+
+A non-partitioned table has a limit of 32 TB by default in Postgres. A partitioned table can have thousands of partitions of that size.
+
+#### Is replication supported?
+
+Yes, pgvector uses the write-ahead log (WAL), which allows for replication and point-in-time recovery.
+
+#### What if my data has more than 1024 dimensions?
+
+Two things you can try are:
+
+1. use dimensionality reduction
+2. compile Postgres with a larger block size (`./configure --with-blocksize=32`) and edit the limit in `src/vector.h`
+
 ## Additional Installation Methods
 
 ### Docker
