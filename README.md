@@ -120,6 +120,22 @@ SELECT ...
 COMMIT;
 ```
 
+### Indexing Progress [unreleased]
+
+Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
+
+```sql
+SELECT phase FROM pg_stat_progress_create_index;
+```
+
+The phases are:
+
+1. `initializing`
+2. `sampling table`
+3. `performing k-means`
+4. `sorting tuples`
+5. `loading tuples`
+
 ### Partial Indexes
 
 Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
