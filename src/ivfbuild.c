@@ -228,6 +228,9 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	for (i = 0; i < buildstate->centers->length; i++)
 	{
+		/* Can take a while, so ensure we can interrupt */
+		CHECK_FOR_INTERRUPTS();
+
 		buf = IvfflatNewBuffer(index, forkNum);
 		IvfflatInitPage(index, &buf, &page, &state);
 
