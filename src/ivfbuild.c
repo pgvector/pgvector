@@ -7,8 +7,15 @@
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
 
+#if PG_VERSION_NUM >= 140000
+#include "utils/backend_progress.h"
+#elif PG_VERSION_NUM >= 120000
+#include "pgstat.h"
+#endif
+
 #if PG_VERSION_NUM >= 120000
 #include "access/tableam.h"
+#include "commands/progress.h"
 #endif
 
 #if PG_VERSION_NUM >= 110000
@@ -24,6 +31,17 @@
 #else
 #define CALLBACK_ITEM_POINTER HeapTuple hup
 #endif
+
+/*
+ * Update build phase progress
+ */
+static inline void
+UpdateProgress(int index, int64 val)
+{
+#if PG_VERSION_NUM >= 120000
+	pgstat_progress_update_param(index, val);
+#endif
+}
 
 /*
  * Callback for sampling
@@ -82,7 +100,7 @@ SampleRows(IvfflatBuildState * buildstate)
 	int			targsamples = buildstate->samples->maxlen;
 	BlockNumber totalblocks = RelationGetNumberOfBlocks(buildstate->heap);
 
-	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_SAMPLE);
+	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_SAMPLE);
 
 	buildstate->rowstoskip = -1;
 
@@ -167,6 +185,8 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	 * need not save it.
 	 */
 	tuplesort_puttupleslot(buildstate->sortstate, slot);
+
+	buildstate->indtuples++;
 }
 
 /*
@@ -214,6 +234,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Size		itemsz;
 	int			i;
+	int64		inserted = 0;
 
 #if PG_VERSION_NUM >= 120000
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsMinimalTuple);
@@ -222,7 +243,9 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 #endif
 	TupleDesc	tupdesc = RelationGetDescr(index);
 
-	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_LOAD);
+	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
+
+	UpdateProgress(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->indtuples);
 
 	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 
@@ -251,7 +274,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 			pfree(itup);
 
-			buildstate->indtuples += 1;
+			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++inserted);
 
 			GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 		}
@@ -350,7 +373,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 		SampleRows(buildstate);
 
 	/* Calculate centers */
-	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_KMEANS);
+	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
 	IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers);
 
 	/* Free samples before we allocate more memory */
@@ -441,7 +464,7 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
 
-	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_SORT);
+	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_SORT);
 
 #if PG_VERSION_NUM >= 110000
 	buildstate->sortstate = tuplesort_begin_heap(buildstate->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, maintenance_work_mem, NULL, false);

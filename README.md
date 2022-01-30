@@ -125,7 +125,7 @@ COMMIT;
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
 
 ```sql
-SELECT phase FROM pg_stat_progress_create_index;
+SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
 ```
 
 The phases are:
@@ -135,6 +135,8 @@ The phases are:
 3. `performing k-means`
 4. `sorting tuples`
 5. `loading tuples`
+
+Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
 
 ### Partial Indexes
 

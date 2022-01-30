@@ -4,16 +4,6 @@
 #include "storage/bufmgr.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM >= 120000
-#include "commands/progress.h"
-#endif
-
-#if PG_VERSION_NUM >= 140000
-#include "utils/backend_progress.h"
-#elif PG_VERSION_NUM >= 120000
-#include "pgstat.h"
-#endif
-
 /*
  * Allocate a vector array
  */
@@ -183,15 +173,4 @@ IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo,
 
 	/* Could only commit if changed, but extra complexity isn't needed */
 	IvfflatCommitBuffer(buf, state);
-}
-
-/*
- * Update build phase progress
- */
-void
-IvfflatUpdateProgress(int64 val)
-{
-#if PG_VERSION_NUM >= 120000
-	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, val);
-#endif
 }
