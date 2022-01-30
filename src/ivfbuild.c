@@ -318,6 +318,12 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->kmeansnormprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
+	/* Require more than one dimension for spherical k-means */
+	/* Lists check for backwards compatibility */
+	/* TODO Remove lists check in 0.3.0 */
+	if (buildstate->kmeansnormprocinfo != NULL && buildstate->dimensions == 1 && buildstate->lists > 1)
+		elog(ERROR, "dimensions must be greater than one for this opclass");
+
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
 	buildstate->tupdesc = CreateTemplateTupleDesc(4);
