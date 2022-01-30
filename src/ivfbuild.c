@@ -82,6 +82,8 @@ SampleRows(IvfflatBuildState * buildstate)
 	int			targsamples = buildstate->samples->maxlen;
 	BlockNumber totalblocks = RelationGetNumberOfBlocks(buildstate->heap);
 
+	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_SAMPLE);
+
 	buildstate->rowstoskip = -1;
 
 	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, random());
@@ -220,6 +222,8 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 #endif
 	TupleDesc	tupdesc = RelationGetDescr(index);
 
+	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_LOAD);
+
 	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 
 	for (i = 0; i < buildstate->centers->length; i++)
@@ -342,6 +346,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 		SampleRows(buildstate);
 
 	/* Calculate centers */
+	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_KMEANS);
 	IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers);
 
 	/* Free samples before we allocate more memory */
@@ -431,6 +436,8 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 	Oid			sortOperators[] = {Float8LessOperator};
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
+
+	IvfflatUpdateProgress(PROGRESS_IVFFLAT_PHASE_SORT);
 
 #if PG_VERSION_NUM >= 110000
 	buildstate->sortstate = tuplesort_begin_heap(buildstate->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, maintenance_work_mem, NULL, false);

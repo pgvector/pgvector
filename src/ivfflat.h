@@ -27,6 +27,13 @@
 #define IVFFLAT_DEFAULT_LISTS	100
 #define IVFFLAT_MAX_LISTS		32768
 
+/* Build phases */
+/* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
+#define PROGRESS_IVFFLAT_PHASE_SAMPLE	2
+#define PROGRESS_IVFFLAT_PHASE_KMEANS	3
+#define PROGRESS_IVFFLAT_PHASE_SORT		4
+#define PROGRESS_IVFFLAT_PHASE_LOAD		5
+
 #define IVFFLAT_LIST_SIZE(_dim)	(offsetof(IvfflatListData, center) + VECTOR_SIZE(_dim))
 
 #define IvfflatPageGetOpaque(page)	((IvfflatPageOpaque) PageGetSpecialPointer(page))
@@ -175,6 +182,7 @@ void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);
 void		IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum);
 Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
 void		IvfflatInitPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
+void		IvfflatUpdateProgress(int64 val);
 
 /* Index access methods */
 IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);

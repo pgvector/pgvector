@@ -8,6 +8,10 @@
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
 
+#if PG_VERSION_NUM >= 120000
+#include "commands/progress.h"
+#endif
+
 int			ivfflat_probes;
 static relopt_kind ivfflat_relopt_kind;
 
@@ -29,6 +33,31 @@ _PG_init(void)
 							"Valid range is 1..lists.", &ivfflat_probes,
 							1, 1, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 }
+
+/*
+ * Get the name of index build phase
+ */
+#if PG_VERSION_NUM >= 120000
+static char *
+ivfflatbuildphasename(int64 phasenum)
+{
+	switch (phasenum)
+	{
+		case PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE:
+			return "initializing";
+		case PROGRESS_IVFFLAT_PHASE_SAMPLE:
+			return "sampling table";
+		case PROGRESS_IVFFLAT_PHASE_KMEANS:
+			return "performing k-means";
+		case PROGRESS_IVFFLAT_PHASE_SORT:
+			return "sorting tuples";
+		case PROGRESS_IVFFLAT_PHASE_LOAD:
+			return "loading tuples";
+		default:
+			return NULL;
+	}
+}
+#endif
 
 /*
  * Estimate the cost of an index scan
@@ -174,7 +203,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amoptions = ivfflatoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
 #if PG_VERSION_NUM >= 120000
-	amroutine->ambuildphasename = NULL;
+	amroutine->ambuildphasename = ivfflatbuildphasename;
 #endif
 	amroutine->amvalidate = ivfflatvalidate;
 	amroutine->ambeginscan = ivfflatbeginscan;

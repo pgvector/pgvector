@@ -1,3 +1,7 @@
+## 0.2.3 (unreleased)
+
+- Added build phase progress for Postgres 12+
+
 ## 0.2.2 (2022-01-15)
 
 - Fixed compilation error on Mac ARM
