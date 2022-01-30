@@ -16,6 +16,10 @@
 #if PG_VERSION_NUM >= 120000
 #include "access/tableam.h"
 #include "commands/progress.h"
+#else
+#define PROGRESS_CREATEIDX_SUBPHASE 0
+#define PROGRESS_CREATEIDX_TUPLES_TOTAL 0
+#define PROGRESS_CREATEIDX_TUPLES_DONE 0
 #endif
 
 #if PG_VERSION_NUM >= 110000
