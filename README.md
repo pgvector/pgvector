@@ -120,7 +120,7 @@ SELECT ...
 COMMIT;
 ```
 
-### Indexing Progress [unreleased]
+### Indexing Progress
 
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
 
