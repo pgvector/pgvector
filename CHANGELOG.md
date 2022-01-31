@@ -1,4 +1,4 @@
-## 0.2.3 (unreleased)
+## 0.2.3 (2022-01-30)
 
 - Added build progress for Postgres 12+
 - Improved interrupt handling during index creation
