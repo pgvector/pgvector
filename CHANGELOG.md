@@ -1,6 +1,6 @@
 ## 0.2.3 (2022-01-30)
 
-- Added build progress for Postgres 12+
+- Added indexing progress for Postgres 12+
 - Improved interrupt handling during index creation
 
 ## 0.2.2 (2022-01-15)
