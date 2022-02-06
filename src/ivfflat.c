@@ -159,6 +159,11 @@ ivfflatvalidate(Oid opclassoid)
 	return true;
 }
 
+/*
+ * Define index handler
+ *
+ * See https://www.postgresql.org/docs/current/index-api.html
+ */
 PG_FUNCTION_INFO_V1(ivfflathandler);
 Datum
 ivfflathandler(PG_FUNCTION_ARGS)
@@ -193,6 +198,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 #endif
 	amroutine->amkeytype = InvalidOid;
 
+	/* Interface functions */
 	amroutine->ambuild = ivfflatbuild;
 	amroutine->ambuildempty = ivfflatbuildempty;
 	amroutine->aminsert = ivfflatinsert;
@@ -216,6 +222,8 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amendscan = ivfflatendscan;
 	amroutine->ammarkpos = NULL;
 	amroutine->amrestrpos = NULL;
+
+	/* Interface functions to support parallel index scans */
 #if PG_VERSION_NUM >= 100000
 	amroutine->amestimateparallelscan = NULL;
 	amroutine->aminitparallelscan = NULL;
