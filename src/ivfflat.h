@@ -10,6 +10,10 @@
 #include "utils/tuplesort.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM < 90600
+#error "Requires PostgreSQL 9.6+"
+#endif
+
 /* Support functions */
 #define IVFFLAT_DISTANCE_PROC 1
 #define IVFFLAT_NORM_PROC 2
