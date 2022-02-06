@@ -77,11 +77,12 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 	Size		itemsz;
 	BlockNumber insertPage = InvalidBlockNumber;
 	ListInfo	listInfo;
-	bool		newPage = false;
+	BlockNumber originalInsertPage;
 
 	/* Find the insert page - sets the page and list info */
 	FindInsertPage(rel, values, &insertPage, &listInfo);
 	Assert(BlockNumberIsValid(insertPage));
+	originalInsertPage = insertPage;
 
 	itemsz = MAXALIGN(IndexTupleSize(itup));
 	Assert(itemsz <= BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(IvfflatPageOpaqueData)));
@@ -107,7 +108,6 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 			IvfflatAppendPage(rel, &buf, &page, &state, MAIN_FORKNUM);
 
 			insertPage = BufferGetBlockNumber(buf);
-			newPage = true;
 		}
 	}
 
@@ -118,8 +118,8 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 	IvfflatCommitBuffer(buf, state);
 
 	/* Update the insert page */
-	if (newPage)
-		IvfflatUpdateList(rel, state, listInfo, insertPage, InvalidBlockNumber, MAIN_FORKNUM);
+	if (insertPage != originalInsertPage)
+		IvfflatUpdateList(rel, state, listInfo, insertPage, originalInsertPage, InvalidBlockNumber, MAIN_FORKNUM);
 }
 
 /*

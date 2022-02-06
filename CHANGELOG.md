@@ -1,3 +1,7 @@
+## 0.2.4 (unreleased)
+
+- Fixed issue with index not reusing space
+
 ## 0.2.3 (2022-01-30)
 
 - Added indexing progress for Postgres 12+

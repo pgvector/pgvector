@@ -21,7 +21,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	ItemPointer htup;
 	OffsetNumber deletable[MaxOffsetNumber];
 	int			ndeletable;
-	OffsetNumber startPages[MaxOffsetNumber];
+	BlockNumber startPages[MaxOffsetNumber];
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
 	BlockNumber searchPage;
 	BlockNumber insertPage;
@@ -98,6 +98,11 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 						stats->num_index_tuples++;
 				}
 
+				/* Set to first free page */
+				/* Must be set before searchPage is updated */
+				if (!BlockNumberIsValid(insertPage) && ndeletable > 0)
+					insertPage = searchPage;
+
 				searchPage = IvfflatPageGetOpaque(page)->nextblkno;
 
 				if (ndeletable > 0)
@@ -106,10 +111,6 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 					PageIndexMultiDelete(page, deletable, ndeletable);
 					MarkBufferDirty(buf);
 					GenericXLogFinish(state);
-
-					/* Set to first free page */
-					if (!BlockNumberIsValid(insertPage))
-						insertPage = searchPage;
 				}
 				else
 					GenericXLogAbort(state);
@@ -123,10 +124,10 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			 * We don't add or delete items from lists pages, so offset won't
 			 * change.
 			 */
-			if (!BlockNumberIsValid(insertPage))
+			if (BlockNumberIsValid(insertPage))
 			{
 				listInfo.offno = coffno;
-				IvfflatUpdateList(index, state, listInfo, insertPage, InvalidBlockNumber, MAIN_FORKNUM);
+				IvfflatUpdateList(index, state, listInfo, insertPage, InvalidBlockNumber, InvalidBlockNumber, MAIN_FORKNUM);
 			}
 		}
 	}

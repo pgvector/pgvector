@@ -153,11 +153,13 @@ IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **st
  */
 void
 IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo,
-				  BlockNumber insertPage, BlockNumber startPage, ForkNumber forkNum)
+				  BlockNumber insertPage, BlockNumber originalInsertPage,
+				  BlockNumber startPage, ForkNumber forkNum)
 {
 	Buffer		buf;
 	Page		page;
 	IvfflatList list;
+	bool		changed = false;
 
 	buf = ReadBufferExtended(index, forkNum, listInfo.blkno, RBM_NORMAL, NULL);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
@@ -165,12 +167,29 @@ IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo,
 	page = GenericXLogRegisterBuffer(state, buf, 0);
 	list = (IvfflatList) PageGetItem(page, PageGetItemId(page, listInfo.offno));
 
-	if (BlockNumberIsValid(insertPage))
-		list->insertPage = insertPage;
+	if (BlockNumberIsValid(insertPage) && insertPage != list->insertPage)
+	{
+		/* Skip update if insert page is lower than original insert page  */
+		/* This is needed to prevent insert from overwriting vacuum */
+		if (!BlockNumberIsValid(originalInsertPage) || insertPage >= originalInsertPage)
+		{
+			list->insertPage = insertPage;
+			changed = true;
+		}
+	}
 
-	if (BlockNumberIsValid(startPage))
+	if (BlockNumberIsValid(startPage) && startPage != list->startPage)
+	{
 		list->startPage = startPage;
+		changed = true;
+	}
 
-	/* Could only commit if changed, but extra complexity isn't needed */
-	IvfflatCommitBuffer(buf, state);
+	/* Only commit if changed */
+	if (changed)
+		IvfflatCommitBuffer(buf, state);
+	else
+	{
+		GenericXLogAbort(state);
+		UnlockReleaseBuffer(buf);
+	}
 }

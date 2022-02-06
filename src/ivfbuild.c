@@ -288,7 +288,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 		IvfflatCommitBuffer(buf, state);
 
 		/* Set the start and insert pages */
-		IvfflatUpdateList(index, state, buildstate->listInfo[i], insertPage, startPage, forkNum);
+		IvfflatUpdateList(index, state, buildstate->listInfo[i], insertPage, InvalidBlockNumber, startPage, forkNum);
 	}
 }
 
