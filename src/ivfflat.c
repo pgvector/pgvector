@@ -206,6 +206,9 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->ambuildphasename = ivfflatbuildphasename;
 #endif
 	amroutine->amvalidate = ivfflatvalidate;
+#if PG_VERSION_NUM >= 140000
+	amroutine->amadjustmembers = NULL;
+#endif
 	amroutine->ambeginscan = ivfflatbeginscan;
 	amroutine->amrescan = ivfflatrescan;
 	amroutine->amgettuple = ivfflatgettuple;
