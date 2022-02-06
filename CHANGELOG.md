@@ -1,5 +1,6 @@
 ## 0.2.4 (unreleased)
 
+- Added support for parallel vacuum
 - Fixed issue with index not reusing space
 
 ## 0.2.3 (2022-01-30)

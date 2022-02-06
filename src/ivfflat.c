@@ -189,7 +189,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 #endif
 #if PG_VERSION_NUM >= 130000
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
-	amroutine->amparallelvacuumoptions = VACUUM_OPTION_NO_PARALLEL; /* TODO support parallel */
+	amroutine->amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL;
 #endif
 	amroutine->amkeytype = InvalidOid;
 
