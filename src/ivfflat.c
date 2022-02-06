@@ -198,7 +198,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->aminsert = ivfflatinsert;
 	amroutine->ambulkdelete = ivfflatbulkdelete;
 	amroutine->amvacuumcleanup = ivfflatvacuumcleanup;
-	amroutine->amcanreturn = NULL;
+	amroutine->amcanreturn = NULL;	/* tuple not included in heapsort */
 	amroutine->amcostestimate = ivfflatcostestimate;
 	amroutine->amoptions = ivfflatoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
