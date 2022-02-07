@@ -66,10 +66,9 @@ $node_replica->start;
 $node_primary->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node_primary->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector(3));");
 $node_primary->safe_psql("postgres",
-	"INSERT INTO tst SELECT i%10, ARRAY[random(), random(), random()] FROM generate_series(1,100000) i;"
+	"INSERT INTO tst SELECT i % 10, ARRAY[random(), random(), random()] FROM generate_series(1, 100000) i;"
 );
-$node_primary->safe_psql("postgres",
-	"CREATE INDEX ON tst USING ivfflat (v);");
+$node_primary->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
 # Test that queries give same result
 test_index_replay('initial');
@@ -83,7 +82,7 @@ for my $i (1 .. 10)
 	test_index_replay("vacuum $i");
 	my ($start, $end) = (100001 + ($i - 1) * 10000, 100000 + $i * 10000);
 	$node_primary->safe_psql("postgres",
-		"INSERT INTO tst SELECT i%10, ARRAY[random(), random(), random()] FROM generate_series($start,$end) i;"
+		"INSERT INTO tst SELECT i % 10, ARRAY[random(), random(), random()] FROM generate_series($start, $end) i;"
 	);
 	test_index_replay("insert $i");
 }

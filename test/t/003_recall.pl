@@ -39,7 +39,7 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector(3));");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[random(), random(), random()] FROM generate_series(1,100000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[random(), random(), random()] FROM generate_series(1, 100000) i;"
 );
 
 # Get exact results
