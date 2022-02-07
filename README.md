@@ -182,6 +182,7 @@ Libraries that use pgvector:
 
 - [pgvector-python](https://github.com/pgvector/pgvector-python) (Python)
 - [Neighbor](https://github.com/ankane/neighbor) (Ruby)
+- [pgvector-ruby](https://github.com/pgvector/pgvector-ruby) (Ruby)
 - [pgvector-node](https://github.com/pgvector/pgvector-node) (Node.js)
 - [pgvector-go](https://github.com/pgvector/pgvector-go) (Go)
 - [pgvector-rust](https://github.com/pgvector/pgvector-rust) (Rust)
