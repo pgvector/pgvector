@@ -34,9 +34,10 @@ sub test_index_replay
 	my $r2 = rand();
 	my $r3 = rand();
 
-	my $queries = qq(SET enable_seqscan=off;
-SELECT * FROM tst ORDER BY v <-> '[$r1,$r2,$r3]' LIMIT 10;
-);
+	my $queries = qq(
+		SET enable_seqscan = off;
+		SELECT * FROM tst ORDER BY v <-> '[$r1,$r2,$r3]' LIMIT 10;
+	);
 
 	# Run test queries and compare their result
 	my $primary_result = $node_primary->safe_psql("postgres", $queries);

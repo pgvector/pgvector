@@ -10,24 +10,24 @@ my @expected_ids;
 # TODO Run more queries to prevent flakiness
 sub test_recall
 {
-  my ($probes, $min) = @_;
+	my ($probes, $min) = @_;
 
-  my $actual = $node->safe_psql("postgres", qq(
-SET enable_seqscan = off;
-SET ivfflat.probes = $probes;
-SELECT i FROM tst ORDER BY v <-> '[0.5,0.5,0.5]' LIMIT 10;
-));
-  my @actual_ids = split("\n", $actual);
-  my %actual_set = map { $_ => 1 } @actual_ids;
+	my $actual = $node->safe_psql("postgres", qq(
+		SET enable_seqscan = off;
+		SET ivfflat.probes = $probes;
+		SELECT i FROM tst ORDER BY v <-> '[0.5,0.5,0.5]' LIMIT 10;
+	));
+	my @actual_ids = split("\n", $actual);
+	my %actual_set = map { $_ => 1 } @actual_ids;
 
-  my $count = 0;
-  for my $el (@expected_ids) {
-    if (exists($actual_set{$el})) {
-      $count++;
-    }
-  }
+	my $count = 0;
+	for my $el (@expected_ids) {
+		if (exists($actual_set{$el})) {
+			$count++;
+		}
+	}
 
-  cmp_ok($count, ">=", $min);
+	cmp_ok($count, ">=", $min);
 }
 
 # Initialize node
@@ -39,7 +39,7 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector(3));");
 $node->safe_psql("postgres",
-  "INSERT INTO tst SELECT i, ARRAY[random(), random(), random()] FROM generate_series(1,100000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[random(), random(), random()] FROM generate_series(1,100000) i;"
 );
 
 # Get exact results
