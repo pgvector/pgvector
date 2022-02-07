@@ -2,10 +2,32 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 1;
+use Test::More tests => 2;
+
+my $node;
+my @expected_ids;
+
+# TODO Run more queries to prevent flakiness
+sub test_recall
+{
+  my ($min) = @_;
+
+  my $actual = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '[0.5,0.5,0.5]' LIMIT 10;");
+  my @actual_ids = split("\n", $actual);
+  my %actual_set = map { $_ => 1 } @actual_ids;
+
+  my $count = 0;
+  for my $el (@expected_ids) {
+    if (exists($actual_set{$el})) {
+      $count++;
+    }
+  }
+
+  cmp_ok($count, ">=", $min);
+}
 
 # Initialize node
-my $node = get_new_node('node');
+$node = get_new_node('node');
 $node->init;
 $node->start;
 
@@ -18,24 +40,15 @@ $node->safe_psql("postgres",
 
 # Get exact results
 my $expected = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '[0.5,0.5,0.5]' LIMIT 10;");
-my @expected_ids = split("\n", $expected);
+@expected_ids = split("\n", $expected);
 
 # Add index
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
-# Get approximate results
+# Test approximate results
 $node->safe_psql("postgres", "SET enable_seqscan = off;");
-my $actual = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '[0.5,0.5,0.5]' LIMIT 10;");
-my @actual_ids = split("\n", $actual);
-my %actual_set = map { $_ => 1 } @actual_ids;
+test_recall(5);
 
-my $count = 0;
-for my $el (@expected_ids) {
-  if (exists($actual_set{$el})) {
-    $count++;
-  }
-}
-
-# TODO Run more queries to prevent flakiness
-# TODO Test ivfflat.probes
-cmp_ok($count, ">=", 5);
+# Test probes
+$node->safe_psql("postgres", "SET ivfflat.probes = 100");
+test_recall(10);
