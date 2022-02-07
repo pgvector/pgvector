@@ -53,3 +53,12 @@ LINE 1: SELECT '[1,]'::vector;
                ^
 SELECT '[1,2,3]'::vector(2);
 ERROR:  expected 2 dimensions, not 3
+SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::vector[]);
+ unnest  
+---------
+ [1,2,3]
+ [4,5,6]
+(2 rows)
+
+SELECT '{"[1,2,3]"}'::vector(2)[];
+ERROR:  expected 2 dimensions, not 3

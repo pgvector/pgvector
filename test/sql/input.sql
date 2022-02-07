@@ -13,3 +13,6 @@ SELECT '1,2,3'::vector;
 SELECT '[]'::vector;
 SELECT '[1,]'::vector;
 SELECT '[1,2,3]'::vector(2);
+
+SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::vector[]);
+SELECT '{"[1,2,3]"}'::vector(2)[];
