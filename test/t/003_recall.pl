@@ -10,9 +10,13 @@ my @expected_ids;
 # TODO Run more queries to prevent flakiness
 sub test_recall
 {
-  my ($min) = @_;
+  my ($probes, $min) = @_;
 
-  my $actual = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '[0.5,0.5,0.5]' LIMIT 10;");
+  my $actual = $node->safe_psql("postgres", qq(
+SET enable_seqscan = off;
+SET ivfflat.probes = $probes;
+SELECT i FROM tst ORDER BY v <-> '[0.5,0.5,0.5]' LIMIT 10;
+));
   my @actual_ids = split("\n", $actual);
   my %actual_set = map { $_ => 1 } @actual_ids;
 
@@ -46,9 +50,7 @@ my $expected = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '[
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
 # Test approximate results
-$node->safe_psql("postgres", "SET enable_seqscan = off;");
-test_recall(5);
+test_recall(1, 5);
 
 # Test probes
-$node->safe_psql("postgres", "SET ivfflat.probes = 100");
-test_recall(10);
+test_recall(100, 10);
