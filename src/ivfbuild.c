@@ -377,7 +377,11 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	if (numSamples < 10000)
 		numSamples = 10000;
 
-	/* Sample samples */
+	/* Skip samples for unlogged table */
+	if (buildstate->heap == NULL)
+		numSamples = 1;
+
+	/* Sample rows */
 	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions);
 	if (buildstate->heap != NULL)
 		SampleRows(buildstate);
