@@ -192,8 +192,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	double		dxc;
 
 	/* Calculate allocation sizes */
-	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->length, samples->dim);
-	Size		centersSize = VECTOR_ARRAY_SIZE(centers->length, centers->dim);
+	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
+	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->dim);
 	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, dimensions);
 	Size		centerCountsSize = sizeof(int) * numCenters;
 	Size		closestCentersSize = sizeof(int) * numSamples;
