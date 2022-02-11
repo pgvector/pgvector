@@ -190,10 +190,18 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	bool		rjreset;
 	double		dxcx;
 	double		dxc;
-	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
 
-	/* TODO Add other allocations */
-	Size		totalSize = lowerBoundSize;
+	/* Calculate allocation sizes */
+	Size		centerCountsSize = sizeof(int) * numCenters;
+	Size		closestCentersSize = sizeof(int) * numSamples;
+	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
+	Size		upperBoundSize = sizeof(float) * numSamples;
+	Size		sSize = sizeof(float) * numCenters;
+	Size		halfcdistSize = sizeof(float) * numCenters * numCenters;
+	Size		newcdistSize = sizeof(float) * numCenters;
+
+	/* Calculate total size */
+	Size		totalSize = centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
 
 	/* Check memory requirements */
 	if (totalSize / 1024 > maintenance_work_mem)
@@ -209,13 +217,13 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 	/* Allocate space */
 	/* Use float instead of double to save memory */
-	centerCounts = palloc(sizeof(int) * numCenters);
-	closestCenters = palloc(sizeof(int) * numSamples);
+	centerCounts = palloc(centerCountsSize);
+	closestCenters = palloc(closestCentersSize);
 	lowerBound = palloc_extended(lowerBoundSize, MCXT_ALLOC_HUGE);
-	upperBound = palloc(sizeof(float) * numSamples);
-	s = palloc(sizeof(float) * numCenters);
-	halfcdist = palloc(sizeof(float) * numCenters * numCenters);
-	newcdist = palloc(sizeof(float) * numCenters);
+	upperBound = palloc(upperBoundSize);
+	s = palloc(sSize);
+	halfcdist = palloc(halfcdistSize);
+	newcdist = palloc(newcdistSize);
 
 	newCenters = VectorArrayInit(numCenters, dimensions);
 	for (j = 0; j < numCenters; j++)
