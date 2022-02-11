@@ -121,15 +121,18 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 
 	/* Copy existing vectors while avoiding duplicates */
-	qsort(samples->items, samples->length, VECTOR_SIZE(samples->dim), CompareVectors);
-	for (i = 0; i < samples->length; i++)
+	if (samples->length > 0)
 	{
-		vec = VectorArrayGet(samples, i);
-
-		if (i == 0 || CompareVectors(vec, VectorArrayGet(samples, i - 1)) != 0)
+		qsort(samples->items, samples->length, VECTOR_SIZE(samples->dim), CompareVectors);
+		for (i = 0; i < samples->length; i++)
 		{
-			VectorArraySet(centers, centers->length, vec);
-			centers->length++;
+			vec = VectorArrayGet(samples, i);
+
+			if (i == 0 || CompareVectors(vec, VectorArrayGet(samples, i - 1)) != 0)
+			{
+				VectorArraySet(centers, centers->length, vec);
+				centers->length++;
+			}
 		}
 	}
 
