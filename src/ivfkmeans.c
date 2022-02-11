@@ -204,11 +204,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	Size		totalSize = centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
 
 	/* Check memory requirements */
+	/* Add one to error message to ceil */
 	if (totalSize / 1024 > maintenance_work_mem)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("memory required is %zu MB, maintenance_work_mem is %zu MB",
-						totalSize / (1024 * 1024), ((Size) maintenance_work_mem) / 1024)));
+						totalSize / (1024 * 1024) + 1, ((Size) maintenance_work_mem) / 1024)));
 
 	/* Set support functions */
 	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
