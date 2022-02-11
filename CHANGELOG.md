@@ -2,7 +2,7 @@
 
 - Reduced memory usage during index creation
 - Fixed index creation exceeding `maintenance_work_mem`
-- Fixed error when lists > 1600
+- Fixed error with index creation when lists > 1600
 
 ## 0.2.4 (2022-02-06)
 
