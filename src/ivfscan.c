@@ -73,6 +73,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 	}
 
 	/* Sort by distance */
+	/* TODO Use heap for performance */
 	qsort(so->lists, listCount, sizeof(IvfflatScanList), CompareLists);
 
 	if (so->probes > listCount)
