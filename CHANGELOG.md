@@ -1,3 +1,7 @@
+## 0.2.5 (unreleased)
+
+- Reduced memory usage during index creation
+
 ## 0.2.4 (2022-02-06)
 
 - Added support for parallel vacuum
