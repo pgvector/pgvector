@@ -27,7 +27,7 @@ sub test_recall
 		}
 	}
 
-	cmp_ok($count, ">=", $min);
+	cmp_ok($count / scalar(@expected_ids), ">=", $min);
 }
 
 # Initialize node
@@ -50,7 +50,7 @@ my $expected = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '[
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
 # Test approximate results
-test_recall(1, 5);
+test_recall(1, 0.5);
 
 # Test probes
-test_recall(100, 10);
+test_recall(100, 1.0);
