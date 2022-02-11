@@ -11,7 +11,7 @@
  * https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf
  */
 static void
-InitCenters(Relation index, VectorArray samples, VectorArray centers, double *lowerBound)
+InitCenters(Relation index, VectorArray samples, VectorArray centers, float *lowerBound)
 {
 	FmgrInfo   *procinfo;
 	Oid			collation;
@@ -21,7 +21,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, double *lo
 	double		sum;
 	double		choice;
 	Vector	   *vec;
-	double	   *weight = palloc(samples->length * sizeof(double));
+	float	   *weight = palloc(samples->length * sizeof(float));
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
 
@@ -177,11 +177,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	VectorArray newCenters;
 	int		   *centerCounts;
 	int		   *closestCenters;
-	double	   *lowerBound;
-	double	   *upperBound;
-	double	   *s;
-	double	   *halfcdist;
-	double	   *newcdist;
+	float	   *lowerBound;
+	float	   *upperBound;
+	float	   *s;
+	float	   *halfcdist;
+	float	   *newcdist;
 	int			changes;
 	double		minDistance;
 	int			closestCenter;
@@ -197,13 +197,14 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	collation = index->rd_indcollation[0];
 
 	/* Allocate space */
+	/* Use float instead of double to save memory */
 	centerCounts = palloc(sizeof(int) * numCenters);
 	closestCenters = palloc(sizeof(int) * numSamples);
-	lowerBound = palloc(sizeof(double) * numSamples * numCenters);
-	upperBound = palloc(sizeof(double) * numSamples);
-	s = palloc(sizeof(double) * numCenters);
-	halfcdist = palloc(sizeof(double) * numCenters * numCenters);
-	newcdist = palloc(sizeof(double) * numCenters);
+	lowerBound = palloc(sizeof(float) * numSamples * numCenters);
+	upperBound = palloc(sizeof(float) * numSamples);
+	s = palloc(sizeof(float) * numCenters);
+	halfcdist = palloc(sizeof(float) * numCenters * numCenters);
+	newcdist = palloc(sizeof(float) * numCenters);
 
 	newCenters = VectorArrayInit(numCenters, dimensions);
 	for (j = 0; j < numCenters; j++)
