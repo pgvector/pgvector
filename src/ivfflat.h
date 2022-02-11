@@ -10,6 +10,10 @@
 #include "utils/tuplesort.h"
 #include "vector.h"
 
+#ifdef IVFFLAT_BENCH
+#include "portability/instr_time.h"
+#endif
+
 #if PG_VERSION_NUM < 90600
 #error "Requires PostgreSQL 9.6+"
 #endif
@@ -42,6 +46,21 @@
 
 #define IvfflatPageGetOpaque(page)	((IvfflatPageOpaque) PageGetSpecialPointer(page))
 #define IvfflatPageGetMeta(page)	((IvfflatMetaPageData *) PageGetContents(page))
+
+#ifdef IVFFLAT_BENCH
+#define Bench(name, code) \
+	do { \
+		instr_time	start; \
+		instr_time	duration; \
+		INSTR_TIME_SET_CURRENT(start); \
+		(code); \
+		INSTR_TIME_SET_CURRENT(duration); \
+		INSTR_TIME_SUBTRACT(duration, start); \
+		elog(INFO, "%s: %f ms", name, INSTR_TIME_GET_MILLISEC(duration)); \
+	} while (0)
+#else
+#define Bench(name, code) (code)
+#endif
 
 #if PG_VERSION_NUM < 100000
 #define ItemPointerGetBlockNumberNoCheck ItemPointerGetBlockNumber

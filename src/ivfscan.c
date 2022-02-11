@@ -154,6 +154,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			UnlockReleaseBuffer(buf);
 		}
 	}
+
+	tuplesort_performsort(so->sortstate);
 }
 
 /*
@@ -269,9 +271,8 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 				return false;
 		}
 
-		GetScanLists(scan, value);
-		GetScanItems(scan, value);
-		tuplesort_performsort(so->sortstate);
+		Bench("GetScanLists", GetScanLists(scan, value));
+		Bench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
 
 		/* Clean up if we allocated a new value */
