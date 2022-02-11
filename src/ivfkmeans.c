@@ -190,6 +190,17 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	bool		rjreset;
 	double		dxcx;
 	double		dxc;
+	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
+
+	/* TODO Add other allocations */
+	Size		totalSize = lowerBoundSize;
+
+	/* Check memory requirements */
+	if (totalSize / 1024 > maintenance_work_mem)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("memory required is %zu MB, maintenance_work_mem is %zu MB",
+						totalSize / (1024 * 1024), ((Size) maintenance_work_mem) / 1024)));
 
 	/* Set support functions */
 	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
@@ -200,7 +211,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	/* Use float instead of double to save memory */
 	centerCounts = palloc(sizeof(int) * numCenters);
 	closestCenters = palloc(sizeof(int) * numSamples);
-	lowerBound = palloc(sizeof(float) * numSamples * numCenters);
+	lowerBound = palloc_extended(lowerBoundSize, MCXT_ALLOC_HUGE);
 	upperBound = palloc(sizeof(float) * numSamples);
 	s = palloc(sizeof(float) * numCenters);
 	halfcdist = palloc(sizeof(float) * numCenters * numCenters);
