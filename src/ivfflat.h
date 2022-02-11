@@ -48,7 +48,7 @@
 #define IvfflatPageGetMeta(page)	((IvfflatMetaPageData *) PageGetContents(page))
 
 #ifdef IVFFLAT_BENCH
-#define Bench(name, code) \
+#define IvfflatBench(name, code) \
 	do { \
 		instr_time	start; \
 		instr_time	duration; \
@@ -59,7 +59,7 @@
 		elog(INFO, "%s: %.3f ms", name, INSTR_TIME_GET_MILLISEC(duration)); \
 	} while (0)
 #else
-#define Bench(name, code) (code)
+#define IvfflatBench(name, code) (code)
 #endif
 
 #if PG_VERSION_NUM < 100000

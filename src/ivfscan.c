@@ -271,8 +271,8 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 				return false;
 		}
 
-		Bench("GetScanLists", GetScanLists(scan, value));
-		Bench("GetScanItems", GetScanItems(scan, value));
+		IvfflatBench("GetScanLists", GetScanLists(scan, value));
+		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
 
 		/* Clean up if we allocated a new value */
