@@ -382,6 +382,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 		numSamples = 1;
 
 	/* Sample rows */
+	/* TODO Ensure within maintenance_work_mem */
 	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions);
 	if (buildstate->heap != NULL)
 		SampleRows(buildstate);
