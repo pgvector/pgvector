@@ -1,4 +1,4 @@
-## 0.2.5 (unreleased)
+## 0.2.5 (2022-02-11)
 
 - Reduced memory usage during index creation
 - Fixed index creation exceeding `maintenance_work_mem`
