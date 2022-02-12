@@ -389,7 +389,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 
 	/* Calculate centers */
 	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
-	IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers);
+	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));
 
 	/* Free samples before we allocate more memory */
 	pfree(buildstate->samples);
@@ -522,7 +522,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 	/* Create pages */
 	CreateMetaPage(index, buildstate->dimensions, buildstate->lists, forkNum);
 	CreateListPages(index, buildstate->centers, buildstate->dimensions, buildstate->lists, forkNum, &buildstate->listInfo);
-	CreateEntryPages(buildstate, forkNum);
+	IvfflatBench("CreateEntryPages", CreateEntryPages(buildstate, forkNum));
 
 	FreeBuildState(buildstate);
 }
