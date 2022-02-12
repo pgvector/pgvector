@@ -304,6 +304,12 @@ make installcheck REGRESS=functions                    # regression test
 make prove_installcheck PROVE_TESTS=test/t/001_wal.pl  # TAP test
 ```
 
+To enable benchmarking:
+
+```sh
+make clean && PG_CFLAGS=-DIVFFLAT_BENCH make && make install
+```
+
 Resources for contributors
 
 - [Extension Building Infrastructure](https://www.postgresql.org/docs/current/extend-pgxs.html)
