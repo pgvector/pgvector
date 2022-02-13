@@ -48,87 +48,6 @@ UpdateProgress(int index, int64 val)
 }
 
 /*
- * Callback for sampling
- */
-static void
-SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
-			   bool *isnull, bool tupleIsAlive, void *state)
-{
-	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
-	VectorArray samples = buildstate->samples;
-	int			targsamples = samples->maxlen;
-	Datum		value = values[0];
-
-	/* Skip nulls */
-	if (isnull[0])
-		return;
-
-	/*
-	 * Normalize with KMEANS_NORM_PROC since spherical distance function
-	 * expects unit vectors
-	 */
-	if (buildstate->kmeansnormprocinfo != NULL)
-	{
-		if (!IvfflatNormValue(buildstate->kmeansnormprocinfo, buildstate->collation, &value, buildstate->normvec))
-			return;
-	}
-
-	if (samples->length < targsamples)
-	{
-		VectorArraySet(samples, samples->length, DatumGetVector(value));
-		samples->length++;
-	}
-	else
-	{
-		if (buildstate->rowstoskip < 0)
-			buildstate->rowstoskip = reservoir_get_next_S(&buildstate->rstate, samples->length, targsamples);
-
-		if (buildstate->rowstoskip <= 0)
-		{
-			int			k = (int) (targsamples * sampler_random_fract(buildstate->rstate.randstate));
-
-			Assert(k >= 0 && k < targsamples);
-			VectorArraySet(samples, k, DatumGetVector(value));
-		}
-
-		buildstate->rowstoskip -= 1;
-	}
-}
-
-/*
- * Sample rows with same logic as ANALYZE
- */
-static void
-SampleRows(IvfflatBuildState * buildstate)
-{
-	int			targsamples = buildstate->samples->maxlen;
-	BlockNumber totalblocks = RelationGetNumberOfBlocks(buildstate->heap);
-
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_SAMPLE);
-
-	buildstate->rowstoskip = -1;
-
-	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, random());
-
-	reservoir_init_selection_state(&buildstate->rstate, targsamples);
-	while (BlockSampler_HasMore(&buildstate->bs))
-	{
-		BlockNumber targblock = BlockSampler_Next(&buildstate->bs);
-
-#if PG_VERSION_NUM >= 120000
-		table_index_build_range_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-									 false, true, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
-#elif PG_VERSION_NUM >= 110000
-		IndexBuildHeapRangeScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-								true, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
-#else
-		IndexBuildHeapRangeScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-								true, true, targblock, 1, SampleCallback, (void *) buildstate);
-#endif
-	}
-}
-
-/*
  * Callback for table_index_build_scan
  */
 static void
@@ -372,38 +291,6 @@ FreeBuildState(IvfflatBuildState * buildstate)
 }
 
 /*
- * Compute centers
- */
-static void
-ComputeCenters(IvfflatBuildState * buildstate)
-{
-	int			numSamples;
-
-	/* Target 50 samples per list, with at least 10000 samples */
-	/* The number of samples has a large effect on index build time */
-	numSamples = buildstate->lists * 50;
-	if (numSamples < 10000)
-		numSamples = 10000;
-
-	/* Skip samples for unlogged table */
-	if (buildstate->heap == NULL)
-		numSamples = 1;
-
-	/* Sample rows */
-	/* TODO Ensure within maintenance_work_mem */
-	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions);
-	if (buildstate->heap != NULL)
-		SampleRows(buildstate);
-
-	/* Calculate centers */
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
-	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));
-
-	/* Free samples before we allocate more memory */
-	pfree(buildstate->samples);
-}
-
-/*
  * Create the metapage
  */
 static void
@@ -531,7 +418,9 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 {
 	InitBuildState(buildstate, heap, index, indexInfo);
 
-	ComputeCenters(buildstate);
+	/* Perform k-means clustering */
+	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
+	IvfflatBench("k-means", IvfflatKmeans(buildstate));
 
 	/* Create pages */
 	CreateMetaPage(index, buildstate->dimensions, buildstate->lists, forkNum);

@@ -37,10 +37,9 @@
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
-#define PROGRESS_IVFFLAT_PHASE_SAMPLE	2
-#define PROGRESS_IVFFLAT_PHASE_KMEANS	3
-#define PROGRESS_IVFFLAT_PHASE_SORT		4
-#define PROGRESS_IVFFLAT_PHASE_LOAD		5
+#define PROGRESS_IVFFLAT_PHASE_KMEANS	2
+#define PROGRESS_IVFFLAT_PHASE_SORT		3
+#define PROGRESS_IVFFLAT_PHASE_LOAD		4
 
 #define IVFFLAT_LIST_SIZE(_dim)	(offsetof(IvfflatListData, center) + VECTOR_SIZE(_dim))
 
@@ -200,7 +199,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 void		_PG_init(void);
 VectorArray VectorArrayInit(int maxlen, int dimensions);
 void		PrintVectorArray(char *msg, VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
+void		IvfflatKmeans(IvfflatBuildState * buildstate);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation rel, uint16 procnum);
 bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
 int			IvfflatGetLists(Relation index);

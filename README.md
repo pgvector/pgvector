@@ -119,10 +119,9 @@ SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
 The phases are:
 
 1. `initializing`
-2. `sampling table`
-3. `performing k-means`
-4. `sorting tuples`
-5. `loading tuples`
+2. `performing k-means`
+3. `sorting tuples`
+4. `loading tuples`
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
 
@@ -264,7 +263,7 @@ Thanks to:
 
 - [PASE: PostgreSQL Ultra-High-Dimensional Approximate Nearest Neighbor Search Extension](https://dl.acm.org/doi/pdf/10.1145/3318464.3386131)
 - [Faiss: A Library for Efficient Similarity Search and Clustering of Dense Vectors](https://github.com/facebookresearch/faiss)
-- [Using the Triangle Inequality to Accelerate k-means](https://www.aaai.org/Papers/ICML/2003/ICML03-022.pdf)
+- [Web-Scale k-means Clustering](https://www.eecs.tufts.edu/~dsculley/papers/fastkmeans.pdf)
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
 
