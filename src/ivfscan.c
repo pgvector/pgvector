@@ -1,5 +1,7 @@
 #include "postgres.h"
 
+#include <float.h>
+
 #include "access/relscan.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
@@ -46,7 +48,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	double		distance;
 	IvfflatScanList *scanlist;
-	double		maxDistance;
+	double		maxDistance = DBL_MAX;
 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
@@ -193,6 +195,9 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 	lists = IvfflatGetLists(scan->indexRelation);
+
+	if (probes > lists)
+		probes = lists;
 
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
 	so->buf = InvalidBuffer;
