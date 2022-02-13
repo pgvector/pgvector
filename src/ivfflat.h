@@ -165,7 +165,7 @@ typedef IvfflatListData * IvfflatList;
 
 typedef struct IvfflatScanList
 {
-	pairingheap_node ph_node;	/* must come first */
+	pairingheap_node ph_node;
 	BlockNumber startPage;
 	double		distance;
 }			IvfflatScanList;
