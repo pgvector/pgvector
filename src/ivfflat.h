@@ -121,7 +121,7 @@ typedef struct IvfflatBuildState
 	Vector	   *normvec;
 
 #ifdef IVFFLAT_KMEANS_DEBUG
-	double inertia;
+	double		inertia;
 #endif
 
 	/* Sampling */
