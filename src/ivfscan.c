@@ -111,6 +111,10 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	 */
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
+	/* Set the max number of results */
+	if (ivfflat_bound > 0)
+		tuplesort_set_bound(so->sortstate, ivfflat_bound);
+
 	/* Search closest probes lists */
 	for (i = 0; i < so->probes; i++)
 	{

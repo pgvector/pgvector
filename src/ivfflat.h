@@ -69,6 +69,7 @@
 
 /* Variables */
 extern int	ivfflat_probes;
+extern int	ivfflat_bound;
 
 typedef struct VectorArrayData
 {
