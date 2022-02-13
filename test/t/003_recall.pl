@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 2;
+use Test::More tests => 3;
 
 my $node;
 my @queries = ();
@@ -67,6 +67,5 @@ $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
 # Test approximate results
 test_recall(1, 0.8);
-
-# Test probes
+test_recall(10, 0.95);
 test_recall(100, 1.0);
