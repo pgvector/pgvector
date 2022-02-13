@@ -218,6 +218,7 @@ SampleRows(IvfflatBuildState * buildstate)
 	BlockNumber totalblocks = RelationGetNumberOfBlocks(buildstate->heap);
 
 	buildstate->rowstoskip = -1;
+	buildstate->samples->length = 0;
 
 	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, random());
 
@@ -285,9 +286,6 @@ MiniBatchKmeans(IvfflatBuildState * buildstate)
 		/* Can take a while, so ensure we can interrupt */
 		CHECK_FOR_INTERRUPTS();
 
-		/* Reset samples */
-		buildstate->samples->length = 0;
-
 		/* Get b examples picked randomly from X */
 		SampleRows(buildstate);
 		m = buildstate->samples;
@@ -330,7 +328,7 @@ MiniBatchKmeans(IvfflatBuildState * buildstate)
 			eta = 1.0 / v[d[j]];
 
 			/* Take gradient step */
-			for (k = 0; k < buildstate->dimensions; k++)
+			for (k = 0; k < c->dim; k++)
 				c->x[k] = (1 - eta) * c->x[k] + eta * x->x[k];
 		}
 
