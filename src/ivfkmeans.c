@@ -281,6 +281,8 @@ MiniBatchKmeans(IvfflatBuildState * buildstate)
 
 	for (i = 0; i < t; i++)
 	{
+		CHECK_FOR_INTERRUPTS();
+
 		/* Reset samples */
 		buildstate->samples->length = 0;
 
