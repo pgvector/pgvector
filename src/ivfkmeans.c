@@ -264,7 +264,7 @@ MiniBatchKmeans(IvfflatBuildState * buildstate)
 	Vector	   *x;
 	int		   *v;
 	int		   *d;
-	float		eta;
+	double		eta;
 
 	/* Set support functions */
 	FmgrInfo   *procinfo = index_getprocinfo(buildstate->index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
