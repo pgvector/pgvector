@@ -36,16 +36,11 @@
 #define CALLBACK_ITEM_POINTER HeapTuple hup
 #endif
 
-/*
- * Update build phase progress
- */
-static inline void
-UpdateProgress(int index, int64 val)
-{
 #if PG_VERSION_NUM >= 120000
-	pgstat_progress_update_param(index, val);
+#define UpdateProgress(index, val) pgstat_progress_update_param(index, val)
+#else
+#define UpdateProgress(index, val) ((void)val)
 #endif
-}
 
 /*
  * Callback for sampling
