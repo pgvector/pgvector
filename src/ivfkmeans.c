@@ -2,6 +2,7 @@
 
 #include <float.h>
 
+#include "catalog/index.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
@@ -407,6 +408,7 @@ void
 IvfflatKmeans(IvfflatBuildState * buildstate)
 {
 	int			numSamples;
+	Size		totalSize;
 
 	/* Target 10 samples per list, with at least 10000 samples */
 	/* The number of samples has a large effect on index build time */
@@ -419,7 +421,7 @@ IvfflatKmeans(IvfflatBuildState * buildstate)
 		numSamples = 1;
 
 	/* Calculate total size */
-	Size		totalSize = VECTOR_ARRAY_SIZE(numSamples, buildstate->dimensions);
+	totalSize = VECTOR_ARRAY_SIZE(numSamples, buildstate->dimensions);
 
 	/* Check memory requirements */
 	/* Add one to error message to ceil */
