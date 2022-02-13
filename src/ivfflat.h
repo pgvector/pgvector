@@ -165,6 +165,7 @@ typedef IvfflatListData * IvfflatList;
 
 typedef struct IvfflatScanList
 {
+	pairingheap_node ph_node;	/* must come first */
 	BlockNumber startPage;
 	double		distance;
 }			IvfflatScanList;
@@ -186,6 +187,8 @@ typedef struct IvfflatScanOpaqueData
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
 
+	/* Lists */
+	pairingheap *listQueue;
 	IvfflatScanList lists[FLEXIBLE_ARRAY_MEMBER];	/* must come last */
 }			IvfflatScanOpaqueData;
 

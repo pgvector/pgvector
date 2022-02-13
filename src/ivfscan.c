@@ -17,7 +17,7 @@
  * Compare list distances
  */
 static int
-CompareLists(const void *a, const void *b)
+CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
 	double		diff = (((IvfflatScanList *) a)->distance - ((IvfflatScanList *) b)->distance);
 
@@ -45,6 +45,8 @@ GetScanLists(IndexScanDesc scan, Datum value)
 	int			listCount = 0;
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	double		distance;
+	IvfflatScanList *scanlist;
+	double		maxDistance;
 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
@@ -62,22 +64,39 @@ GetScanLists(IndexScanDesc scan, Datum value)
 			/* Use procinfo from the index instead of scan key for performance */
 			distance = DatumGetFloat8(FunctionCall2Coll(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
 
-			so->lists[listCount].startPage = list->startPage;
-			so->lists[listCount].distance = distance;
-			listCount++;
+			if (listCount < so->probes)
+			{
+				scanlist = &so->lists[listCount];
+				scanlist->startPage = list->startPage;
+				scanlist->distance = distance;
+				listCount++;
+
+				/* Add to heap */
+				pairingheap_add(so->listQueue, &scanlist->ph_node);
+
+				/* Calculate max distance */
+				if (listCount == so->probes)
+					maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+			}
+			else if (distance < maxDistance)
+			{
+				/* Remove */
+				scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
+
+				/* Reuse */
+				scanlist->startPage = list->startPage;
+				scanlist->distance = distance;
+				pairingheap_add(so->listQueue, &scanlist->ph_node);
+
+				/* Update max distance */
+				maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+			}
 		}
 
 		nextblkno = IvfflatPageGetOpaque(cpage)->nextblkno;
 
 		UnlockReleaseBuffer(cbuf);
 	}
-
-	/* Sort by distance */
-	/* TODO Use heap for performance */
-	qsort(so->lists, listCount, sizeof(IvfflatScanList), CompareLists);
-
-	if (so->probes > listCount)
-		so->probes = listCount;
 }
 
 /*
@@ -95,7 +114,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	OffsetNumber maxoffno;
 	Datum		datum;
 	bool		isnull;
-	int			i;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 
 #if PG_VERSION_NUM >= 120000
@@ -112,9 +130,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
 	/* Search closest probes lists */
-	for (i = 0; i < so->probes; i++)
+	while (!pairingheap_is_empty(so->listQueue))
 	{
-		searchPage = so->lists[i].startPage;
+		searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
@@ -171,13 +189,15 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	Oid			sortOperators[] = {Float8LessOperator};
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
+	int			probes = ivfflat_probes;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 	lists = IvfflatGetLists(scan->indexRelation);
 
-	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + lists * sizeof(IvfflatScanList));
+	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
 	so->buf = InvalidBuffer;
 	so->first = true;
+	so->probes = probes;
 
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
@@ -208,6 +228,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->slot = MakeSingleTupleTableSlot(so->tupdesc);
 #endif
 
+	so->listQueue = pairingheap_allocate(CompareLists, scan);
+
 	scan->opaque = so;
 
 	return scan;
@@ -227,7 +249,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 #endif
 
 	so->first = true;
-	so->probes = ivfflat_probes;
+	pairingheap_reset(so->listQueue);
 
 	if (keys && scan->numberOfKeys > 0)
 		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
@@ -326,6 +348,7 @@ ivfflatendscan(IndexScanDesc scan)
 	if (BufferIsValid(so->buf))
 		ReleaseBuffer(so->buf);
 
+	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);
 
 	pfree(so);
