@@ -7,6 +7,7 @@ use Test::More tests => 3;
 my $node;
 my @queries = ();
 my @expected = ();
+my $limit = 30;
 
 sub test_recall
 {
@@ -18,7 +19,7 @@ sub test_recall
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET ivfflat.probes = $probes;
-			SELECT i FROM tst ORDER BY v <-> '$queries[$i]' LIMIT 10;
+			SELECT i FROM tst ORDER BY v <-> '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
 		my %actual_set = map { $_ => 1 } @actual_ids;
@@ -58,7 +59,7 @@ for (1..20) {
 
 # Get exact results
 foreach (@queries) {
-	my $res = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '$_' LIMIT 10;");
+	my $res = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '$_' LIMIT $limit;");
 	push(@expected, $res);
 }
 
