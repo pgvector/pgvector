@@ -170,6 +170,10 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		}
 	}
 
+#ifdef IVFFLAT_KMEANS_DEBUG
+	buildstate->inertia += minDistance;
+#endif
+
 	/* Create a virtual tuple */
 	ExecClearTuple(slot);
 	slot->tts_values[0] = Int32GetDatum(closestCenter);
@@ -350,6 +354,10 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	/* Reuse for each tuple */
 	buildstate->normvec = InitVector(buildstate->dimensions);
+
+#ifdef IVFFLAT_KMEANS_DEBUG
+	buildstate->inertia = 0;
+#endif
 }
 
 /*
@@ -502,8 +510,14 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 #endif
 	}
 
-	/* Sort and insert */
+	/* Sort */
 	tuplesort_performsort(buildstate->sortstate);
+
+#ifdef IVFFLAT_KMEANS_DEBUG
+	elog(INFO, "inertia: %.3e", buildstate->inertia);
+#endif
+
+	/* Insert */
 	InsertTuples(buildstate->index, buildstate, forkNum);
 	tuplesort_end(buildstate->sortstate);
 }

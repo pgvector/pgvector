@@ -120,6 +120,10 @@ typedef struct IvfflatBuildState
 	ListInfo   *listInfo;
 	Vector	   *normvec;
 
+#ifdef IVFFLAT_KMEANS_DEBUG
+	double inertia;
+#endif
+
 	/* Sampling */
 	BlockSamplerData bs;
 	ReservoirStateData rstate;
