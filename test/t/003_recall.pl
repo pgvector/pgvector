@@ -2,16 +2,16 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 3;
+use Test::More tests => 9;
 
 my $node;
 my @queries = ();
-my @expected = ();
+my @expected;
 my $limit = 30;
 
 sub test_recall
 {
-	my ($probes, $min) = @_;
+	my ($probes, $min, $operator) = @_;
 	my $correct = 0;
 	my $total = 0;
 
@@ -19,7 +19,7 @@ sub test_recall
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET ivfflat.probes = $probes;
-			SELECT i FROM tst ORDER BY v <-> '$queries[$i]' LIMIT $limit;
+			SELECT i FROM tst ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
 		my %actual_set = map { $_ => 1 } @actual_ids;
@@ -57,16 +57,32 @@ for (1..20) {
 	push(@queries, "[$r1,$r2,$r3]");
 }
 
-# Get exact results
-foreach (@queries) {
-	my $res = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v <-> '$_' LIMIT $limit;");
-	push(@expected, $res);
+# Check each index type
+my @operators = ("<->", "<#>", "<=>");
+
+foreach (@operators) {
+	my $operator = $_;
+
+	# Get exact results
+	@expected = ();
+	foreach (@queries) {
+		my $res = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v $operator '$_' LIMIT $limit;");
+		push(@expected, $res);
+	}
+
+	# Add index
+	my $opclass;
+	if ($operator == "<->") {
+		$opclass = "vector_l2_ops";
+	} elsif ($operator == "<#>") {
+		$opclass = "vector_ip_ops";
+	} else {
+		$opclass = "vector_cosine_ops";
+	}
+	$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v $opclass);");
+
+	# Test approximate results
+	test_recall(1, 0.8, $operator);
+	test_recall(10, 0.95, $operator);
+	test_recall(100, 1.0, $operator);
 }
-
-# Add index
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
-
-# Test approximate results
-test_recall(1, 0.8);
-test_recall(10, 0.95);
-test_recall(100, 1.0);
