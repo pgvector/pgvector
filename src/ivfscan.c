@@ -158,12 +158,10 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				ExecClearTuple(slot);
 				slot->tts_values[0] = FunctionCall2Coll(so->procinfo, so->collation, datum, value);
 				slot->tts_isnull[0] = false;
-				slot->tts_values[1] = Int32GetDatum((int) ItemPointerGetBlockNumberNoCheck(&itup->t_tid));
+				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
 				slot->tts_isnull[1] = false;
-				slot->tts_values[2] = Int32GetDatum((int) ItemPointerGetOffsetNumberNoCheck(&itup->t_tid));
+				slot->tts_values[2] = Int32GetDatum((int) searchPage);
 				slot->tts_isnull[2] = false;
-				slot->tts_values[3] = Int32GetDatum((int) searchPage);
-				slot->tts_isnull[3] = false;
 				ExecStoreVirtualTuple(slot);
 
 				tuplesort_puttupleslot(so->sortstate, slot);
@@ -211,14 +209,13 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
-	so->tupdesc = CreateTemplateTupleDesc(4);
+	so->tupdesc = CreateTemplateTupleDesc(3);
 #else
-	so->tupdesc = CreateTemplateTupleDesc(4, false);
+	so->tupdesc = CreateTemplateTupleDesc(3, false);
 #endif
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "blkno", INT4OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "offset", INT4OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 4, "indexblkno", INT4OID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indexblkno", INT4OID, -1, 0);
 
 	/* Prep sort */
 #if PG_VERSION_NUM >= 110000
@@ -313,14 +310,12 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (tuplesort_gettupleslot(so->sortstate, true, so->slot, NULL))
 #endif
 	{
-		BlockNumber blkno = DatumGetInt32(slot_getattr(so->slot, 2, &so->isnull));
-		OffsetNumber offset = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
-		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 4, &so->isnull));
+		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
 
 #if PG_VERSION_NUM >= 120000
-		ItemPointerSet(&scan->xs_heaptid, blkno, offset);
+		scan->xs_heaptid = *((ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull)));
 #else
-		ItemPointerSet(&scan->xs_ctup.t_self, blkno, offset);
+		scan->xs_ctup.t_self = *((ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull)));
 #endif
 
 		if (BufferIsValid(so->buf))

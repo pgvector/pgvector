@@ -173,12 +173,10 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	ExecClearTuple(slot);
 	slot->tts_values[0] = Int32GetDatum(closestCenter);
 	slot->tts_isnull[0] = false;
-	slot->tts_values[1] = Int32GetDatum(ItemPointerGetBlockNumberNoCheck(tid));
+	slot->tts_values[1] = PointerGetDatum(tid);
 	slot->tts_isnull[1] = false;
-	slot->tts_values[2] = Int32GetDatum(ItemPointerGetOffsetNumberNoCheck(tid));
+	slot->tts_values[2] = value;
 	slot->tts_isnull[2] = false;
-	slot->tts_values[3] = value;
-	slot->tts_isnull[3] = false;
 	ExecStoreVirtualTuple(slot);
 
 	/*
@@ -200,8 +198,6 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 {
 	Datum		value;
 	bool		isnull;
-	int			tupblk;
-	int			tupoff;
 
 #if PG_VERSION_NUM >= 100000
 	if (tuplesort_gettupleslot(sortstate, true, false, slot, NULL))
@@ -210,13 +206,11 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 #endif
 	{
 		*list = DatumGetInt32(slot_getattr(slot, 1, &isnull));
-		tupblk = DatumGetInt32(slot_getattr(slot, 2, &isnull));
-		tupoff = DatumGetInt32(slot_getattr(slot, 3, &isnull));
-		value = slot_getattr(slot, 4, &isnull);
+		value = slot_getattr(slot, 3, &isnull);
 
 		/* Form the index tuple */
 		*itup = index_form_tuple(tupdesc, &value, &isnull);
-		ItemPointerSet(&(*itup)->t_tid, tupblk, tupoff);
+		(*itup)->t_tid = *((ItemPointer) DatumGetPointer(slot_getattr(slot, 2, &isnull)));
 	}
 	else
 		*list = -1;
@@ -325,17 +319,16 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
-	buildstate->tupdesc = CreateTemplateTupleDesc(4);
+	buildstate->tupdesc = CreateTemplateTupleDesc(3);
 #else
-	buildstate->tupdesc = CreateTemplateTupleDesc(4, false);
+	buildstate->tupdesc = CreateTemplateTupleDesc(3, false);
 #endif
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 2, "blkno", INT4OID, -1, 0);
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "offset", INT4OID, -1, 0);
+	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 2, "tid",  TIDOID, -1, 0);
 #if PG_VERSION_NUM >= 110000
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 4, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
+	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
 #else
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 4, "vector", RelationGetDescr(index)->attrs[0]->atttypid, -1, 0);
+	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0]->atttypid, -1, 0);
 #endif
 
 #if PG_VERSION_NUM >= 120000
