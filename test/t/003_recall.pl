@@ -7,7 +7,7 @@ use Test::More tests => 9;
 my $node;
 my @queries = ();
 my @expected;
-my $limit = 30;
+my $limit = 20;
 
 sub test_recall
 {
