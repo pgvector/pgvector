@@ -310,12 +310,13 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (tuplesort_gettupleslot(so->sortstate, true, so->slot, NULL))
 #endif
 	{
+		ItemPointer tid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
 		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
 
 #if PG_VERSION_NUM >= 120000
-		scan->xs_heaptid = *((ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull)));
+		scan->xs_heaptid = *tid;
 #else
-		scan->xs_ctup.t_self = *((ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull)));
+		scan->xs_ctup.t_self = *tid;
 #endif
 
 		if (BufferIsValid(so->buf))
