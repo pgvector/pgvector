@@ -21,12 +21,10 @@
 static int
 CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	double		diff = ((const IvfflatScanList *) a)->distance - ((const IvfflatScanList *) b)->distance;
-
-	if (diff > 0)
+	if (((const IvfflatScanList *) a)->distance > ((const IvfflatScanList *) b)->distance)
 		return 1;
 
-	if (diff < 0)
+	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
 		return -1;
 
 	return 0;
