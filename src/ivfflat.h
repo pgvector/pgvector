@@ -62,11 +62,6 @@
 #define IvfflatBench(name, code) (code)
 #endif
 
-#if PG_VERSION_NUM < 100000
-#define ItemPointerGetBlockNumberNoCheck ItemPointerGetBlockNumber
-#define ItemPointerGetOffsetNumberNoCheck ItemPointerGetOffsetNumber
-#endif
-
 /* Variables */
 extern int	ivfflat_probes;
 
