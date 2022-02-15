@@ -35,7 +35,7 @@ foreach (@operators) {
 	# Test 100% recall
 	for (1..20) {
 		my $i = int(rand() * 100000);
-		my $query = $node->safe_psql("postgres", "SELECT v FROM tst WHERE i = $i");
+		my $query = $node->safe_psql("postgres", "SELECT v FROM tst WHERE i = $i;");
 		my $res = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SELECT v FROM tst ORDER BY v <-> '$query' LIMIT 1;
