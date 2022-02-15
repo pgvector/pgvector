@@ -34,7 +34,7 @@ sub test_recall
 		}
 	}
 
-	cmp_ok($correct / $total, ">=", $min);
+	cmp_ok($correct / $total, ">=", $min, $operator);
 }
 
 # Initialize node
