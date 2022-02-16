@@ -82,7 +82,7 @@ foreach (@operators) {
 	$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v $opclass);");
 
 	# Test approximate results
-	test_recall(1, 0.8, $operator);
+	test_recall(1, 0.75, $operator);
 	test_recall(10, 0.95, $operator);
 	test_recall(100, 1.0, $operator);
 }
