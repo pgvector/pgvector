@@ -61,11 +61,6 @@
 #define IvfflatBench(name, code) (code)
 #endif
 
-#if PG_VERSION_NUM < 100000
-#define ItemPointerGetBlockNumberNoCheck ItemPointerGetBlockNumber
-#define ItemPointerGetOffsetNumberNoCheck ItemPointerGetOffsetNumber
-#endif
-
 /* Variables */
 extern int	ivfflat_probes;
 
@@ -121,6 +116,8 @@ typedef struct IvfflatBuildState
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	double		inertia;
+	double	   *listSums;
+	int		   *listCounts;
 #endif
 
 	/* Sampling */
@@ -164,6 +161,7 @@ typedef IvfflatListData * IvfflatList;
 
 typedef struct IvfflatScanList
 {
+	pairingheap_node ph_node;
 	BlockNumber startPage;
 	double		distance;
 }			IvfflatScanList;
@@ -185,6 +183,8 @@ typedef struct IvfflatScanOpaqueData
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
 
+	/* Lists */
+	pairingheap *listQueue;
 	IvfflatScanList lists[FLEXIBLE_ARRAY_MEMBER];	/* must come last */
 }			IvfflatScanOpaqueData;
 

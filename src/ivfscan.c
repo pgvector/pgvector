@@ -1,5 +1,7 @@
 #include "postgres.h"
 
+#include <float.h>
+
 #include "access/relscan.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
@@ -17,14 +19,12 @@
  * Compare list distances
  */
 static int
-CompareLists(const void *a, const void *b)
+CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	double		diff = (((IvfflatScanList *) a)->distance - ((IvfflatScanList *) b)->distance);
-
-	if (diff > 0)
+	if (((const IvfflatScanList *) a)->distance > ((const IvfflatScanList *) b)->distance)
 		return 1;
 
-	if (diff < 0)
+	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
 		return -1;
 
 	return 0;
@@ -45,6 +45,8 @@ GetScanLists(IndexScanDesc scan, Datum value)
 	int			listCount = 0;
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	double		distance;
+	IvfflatScanList *scanlist;
+	double		maxDistance = DBL_MAX;
 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
@@ -62,22 +64,39 @@ GetScanLists(IndexScanDesc scan, Datum value)
 			/* Use procinfo from the index instead of scan key for performance */
 			distance = DatumGetFloat8(FunctionCall2Coll(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
 
-			so->lists[listCount].startPage = list->startPage;
-			so->lists[listCount].distance = distance;
-			listCount++;
+			if (listCount < so->probes)
+			{
+				scanlist = &so->lists[listCount];
+				scanlist->startPage = list->startPage;
+				scanlist->distance = distance;
+				listCount++;
+
+				/* Add to heap */
+				pairingheap_add(so->listQueue, &scanlist->ph_node);
+
+				/* Calculate max distance */
+				if (listCount == so->probes)
+					maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+			}
+			else if (distance < maxDistance)
+			{
+				/* Remove */
+				scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
+
+				/* Reuse */
+				scanlist->startPage = list->startPage;
+				scanlist->distance = distance;
+				pairingheap_add(so->listQueue, &scanlist->ph_node);
+
+				/* Update max distance */
+				maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+			}
 		}
 
 		nextblkno = IvfflatPageGetOpaque(cpage)->nextblkno;
 
 		UnlockReleaseBuffer(cbuf);
 	}
-
-	/* Sort by distance */
-	/* TODO Use heap for performance */
-	qsort(so->lists, listCount, sizeof(IvfflatScanList), CompareLists);
-
-	if (so->probes > listCount)
-		so->probes = listCount;
 }
 
 /*
@@ -95,7 +114,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	OffsetNumber maxoffno;
 	Datum		datum;
 	bool		isnull;
-	int			i;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 
 #if PG_VERSION_NUM >= 120000
@@ -112,9 +130,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
 	/* Search closest probes lists */
-	for (i = 0; i < so->probes; i++)
+	while (!pairingheap_is_empty(so->listQueue))
 	{
-		searchPage = so->lists[i].startPage;
+		searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
@@ -138,12 +156,10 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				ExecClearTuple(slot);
 				slot->tts_values[0] = FunctionCall2Coll(so->procinfo, so->collation, datum, value);
 				slot->tts_isnull[0] = false;
-				slot->tts_values[1] = Int32GetDatum((int) ItemPointerGetBlockNumberNoCheck(&itup->t_tid));
+				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
 				slot->tts_isnull[1] = false;
-				slot->tts_values[2] = Int32GetDatum((int) ItemPointerGetOffsetNumberNoCheck(&itup->t_tid));
+				slot->tts_values[2] = Int32GetDatum((int) searchPage);
 				slot->tts_isnull[2] = false;
-				slot->tts_values[3] = Int32GetDatum((int) searchPage);
-				slot->tts_isnull[3] = false;
 				ExecStoreVirtualTuple(slot);
 
 				tuplesort_puttupleslot(so->sortstate, slot);
@@ -171,13 +187,18 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	Oid			sortOperators[] = {Float8LessOperator};
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
+	int			probes = ivfflat_probes;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 	lists = IvfflatGetLists(scan->indexRelation);
 
-	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + lists * sizeof(IvfflatScanList));
+	if (probes > lists)
+		probes = lists;
+
+	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
 	so->buf = InvalidBuffer;
 	so->first = true;
+	so->probes = probes;
 
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
@@ -186,14 +207,13 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
-	so->tupdesc = CreateTemplateTupleDesc(4);
+	so->tupdesc = CreateTemplateTupleDesc(3);
 #else
-	so->tupdesc = CreateTemplateTupleDesc(4, false);
+	so->tupdesc = CreateTemplateTupleDesc(3, false);
 #endif
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "blkno", INT4OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "offset", INT4OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 4, "indexblkno", INT4OID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indexblkno", INT4OID, -1, 0);
 
 	/* Prep sort */
 #if PG_VERSION_NUM >= 110000
@@ -207,6 +227,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 #else
 	so->slot = MakeSingleTupleTableSlot(so->tupdesc);
 #endif
+
+	so->listQueue = pairingheap_allocate(CompareLists, scan);
 
 	scan->opaque = so;
 
@@ -227,7 +249,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 #endif
 
 	so->first = true;
-	so->probes = ivfflat_probes;
+	pairingheap_reset(so->listQueue);
 
 	if (keys && scan->numberOfKeys > 0)
 		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
@@ -286,14 +308,13 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (tuplesort_gettupleslot(so->sortstate, true, so->slot, NULL))
 #endif
 	{
-		BlockNumber blkno = DatumGetInt32(slot_getattr(so->slot, 2, &so->isnull));
-		OffsetNumber offset = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
-		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 4, &so->isnull));
+		ItemPointer tid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
+		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
 
 #if PG_VERSION_NUM >= 120000
-		ItemPointerSet(&scan->xs_heaptid, blkno, offset);
+		scan->xs_heaptid = *tid;
 #else
-		ItemPointerSet(&scan->xs_ctup.t_self, blkno, offset);
+		scan->xs_ctup.t_self = *tid;
 #endif
 
 		if (BufferIsValid(so->buf))
@@ -326,6 +347,7 @@ ivfflatendscan(IndexScanDesc scan)
 	if (BufferIsValid(so->buf))
 		ReleaseBuffer(so->buf);
 
+	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);
 
 	pfree(so);

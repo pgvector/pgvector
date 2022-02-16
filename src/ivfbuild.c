@@ -36,16 +36,11 @@
 #define CALLBACK_ITEM_POINTER HeapTuple hup
 #endif
 
-/*
- * Update build phase progress
- */
-static inline void
-UpdateProgress(int index, int64 val)
-{
 #if PG_VERSION_NUM >= 120000
-	pgstat_progress_update_param(index, val);
+#define UpdateProgress(index, val) pgstat_progress_update_param(index, val)
+#else
+#define UpdateProgress(index, val) ((void)val)
 #endif
-}
 
 /*
  * Callback for table_index_build_scan
@@ -91,18 +86,18 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	buildstate->inertia += minDistance;
+	buildstate->listSums[closestCenter] += minDistance;
+	buildstate->listCounts[closestCenter]++;
 #endif
 
 	/* Create a virtual tuple */
 	ExecClearTuple(slot);
 	slot->tts_values[0] = Int32GetDatum(closestCenter);
 	slot->tts_isnull[0] = false;
-	slot->tts_values[1] = Int32GetDatum(ItemPointerGetBlockNumberNoCheck(tid));
+	slot->tts_values[1] = PointerGetDatum(tid);
 	slot->tts_isnull[1] = false;
-	slot->tts_values[2] = Int32GetDatum(ItemPointerGetOffsetNumberNoCheck(tid));
+	slot->tts_values[2] = value;
 	slot->tts_isnull[2] = false;
-	slot->tts_values[3] = value;
-	slot->tts_isnull[3] = false;
 	ExecStoreVirtualTuple(slot);
 
 	/*
@@ -124,8 +119,6 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 {
 	Datum		value;
 	bool		isnull;
-	int			tupblk;
-	int			tupoff;
 
 #if PG_VERSION_NUM >= 100000
 	if (tuplesort_gettupleslot(sortstate, true, false, slot, NULL))
@@ -134,13 +127,11 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 #endif
 	{
 		*list = DatumGetInt32(slot_getattr(slot, 1, &isnull));
-		tupblk = DatumGetInt32(slot_getattr(slot, 2, &isnull));
-		tupoff = DatumGetInt32(slot_getattr(slot, 3, &isnull));
-		value = slot_getattr(slot, 4, &isnull);
+		value = slot_getattr(slot, 3, &isnull);
 
 		/* Form the index tuple */
 		*itup = index_form_tuple(tupdesc, &value, &isnull);
-		ItemPointerSet(&(*itup)->t_tid, tupblk, tupoff);
+		(*itup)->t_tid = *((ItemPointer) DatumGetPointer(slot_getattr(slot, 2, &isnull)));
 	}
 	else
 		*list = -1;
@@ -249,17 +240,16 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
-	buildstate->tupdesc = CreateTemplateTupleDesc(4);
+	buildstate->tupdesc = CreateTemplateTupleDesc(3);
 #else
-	buildstate->tupdesc = CreateTemplateTupleDesc(4, false);
+	buildstate->tupdesc = CreateTemplateTupleDesc(3, false);
 #endif
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 2, "blkno", INT4OID, -1, 0);
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "offset", INT4OID, -1, 0);
+	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
 #if PG_VERSION_NUM >= 110000
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 4, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
+	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
 #else
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 4, "vector", RelationGetDescr(index)->attrs[0]->atttypid, -1, 0);
+	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0]->atttypid, -1, 0);
 #endif
 
 #if PG_VERSION_NUM >= 120000
@@ -276,6 +266,8 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	buildstate->inertia = 0;
+	buildstate->listSums = palloc0(sizeof(double) * buildstate->lists);
+	buildstate->listCounts = palloc0(sizeof(int) * buildstate->lists);
 #endif
 }
 
@@ -288,6 +280,11 @@ FreeBuildState(IvfflatBuildState * buildstate)
 	pfree(buildstate->centers);
 	pfree(buildstate->listInfo);
 	pfree(buildstate->normvec);
+
+#ifdef IVFFLAT_KMEANS_DEBUG
+	pfree(buildstate->listSums);
+	pfree(buildstate->listCounts);
+#endif
 }
 
 /*
@@ -364,6 +361,51 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 }
 
 /*
+ * Print k-means metrics
+ */
+#ifdef IVFFLAT_KMEANS_DEBUG
+static void
+PrintKmeansMetrics(IvfflatBuildState * buildstate)
+{
+	elog(INFO, "inertia: %.3e", buildstate->inertia);
+
+	/* Calculate Davies-Bouldin index */
+	if (buildstate->lists > 1)
+	{
+		double		db = 0.0;
+
+		/* Calculate average distance */
+		for (int i = 0; i < buildstate->lists; i++)
+		{
+			if (buildstate->listCounts[i] > 0)
+				buildstate->listSums[i] /= buildstate->listCounts[i];
+		}
+
+		for (int i = 0; i < buildstate->lists; i++)
+		{
+			double		max = 0.0;
+			double		distance;
+
+			for (int j = 0; j < buildstate->lists; j++)
+			{
+				if (j == i)
+					continue;
+
+				distance = DatumGetFloat8(FunctionCall2Coll(buildstate->procinfo, buildstate->collation, PointerGetDatum(VectorArrayGet(buildstate->centers, i)), PointerGetDatum(VectorArrayGet(buildstate->centers, j))));
+				distance = (buildstate->listSums[i] + buildstate->listSums[j]) / distance;
+
+				if (distance > max)
+					max = distance;
+			}
+			db += max;
+		}
+		db /= buildstate->lists;
+		elog(INFO, "davies-bouldin: %.3f", db);
+	}
+}
+#endif
+
+/*
  * Create entry pages
  */
 static void
@@ -401,7 +443,7 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 	tuplesort_performsort(buildstate->sortstate);
 
 #ifdef IVFFLAT_KMEANS_DEBUG
-	elog(INFO, "inertia: %.3e", buildstate->inertia);
+	PrintKmeansMetrics(buildstate);
 #endif
 
 	/* Insert */
