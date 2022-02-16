@@ -474,6 +474,51 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 }
 
 /*
+ * Print k-means metrics
+ */
+#ifdef IVFFLAT_KMEANS_DEBUG
+static void
+PrintKmeansMetrics(IvfflatBuildState * buildstate)
+{
+	elog(INFO, "inertia: %.3e", buildstate->inertia);
+
+	/* Calculate Davies-Bouldin index */
+	if (buildstate->lists > 1)
+	{
+		double		db = 0.0;
+
+		/* Calculate average distance */
+		for (int i = 0; i < buildstate->lists; i++)
+		{
+			if (buildstate->listCounts[i] > 0)
+				buildstate->listSums[i] /= buildstate->listCounts[i];
+		}
+
+		for (int i = 0; i < buildstate->lists; i++)
+		{
+			double		max = 0.0;
+			double		distance;
+
+			for (int j = 0; j < buildstate->lists; j++)
+			{
+				if (j == i)
+					continue;
+
+				distance = DatumGetFloat8(FunctionCall2Coll(buildstate->procinfo, buildstate->collation, PointerGetDatum(VectorArrayGet(buildstate->centers, i)), PointerGetDatum(VectorArrayGet(buildstate->centers, j))));
+				distance = (buildstate->listSums[i] + buildstate->listSums[j]) / distance;
+
+				if (distance > max)
+					max = distance;
+			}
+			db += max;
+		}
+		db /= buildstate->lists;
+		elog(INFO, "davies-bouldin: %.3f", db);
+	}
+}
+#endif
+
+/*
  * Create entry pages
  */
 static void
@@ -511,41 +556,7 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 	tuplesort_performsort(buildstate->sortstate);
 
 #ifdef IVFFLAT_KMEANS_DEBUG
-	elog(INFO, "inertia: %.3e", buildstate->inertia);
-
-	/* Calculate Davies-Bouldin index */
-	if (buildstate->lists > 1)
-	{
-		double		db = 0.0;
-
-		/* Calculate average distance */
-		for (int i = 0; i < buildstate->lists; i++)
-		{
-			if (buildstate->listCounts[i] > 0)
-				buildstate->listSums[i] /= buildstate->listCounts[i];
-		}
-
-		for (int i = 0; i < buildstate->lists; i++)
-		{
-			double		max = 0.0;
-			double		distance;
-
-			for (int j = 0; j < buildstate->lists; j++)
-			{
-				if (j == i)
-					continue;
-
-				distance = DatumGetFloat8(FunctionCall2Coll(buildstate->procinfo, buildstate->collation, PointerGetDatum(VectorArrayGet(buildstate->centers, i)), PointerGetDatum(VectorArrayGet(buildstate->centers, j))));
-				distance = (buildstate->listSums[i] + buildstate->listSums[j]) / distance;
-
-				if (distance > max)
-					max = distance;
-			}
-			db += max;
-		}
-		db /= buildstate->lists;
-		elog(INFO, "davies-bouldin: %.3f", db);
-	}
+	PrintKmeansMetrics(buildstate);
 #endif
 
 	/* Insert */
