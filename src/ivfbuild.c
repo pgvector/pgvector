@@ -167,6 +167,8 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	buildstate->inertia += minDistance;
+	buildstate->listSums[closestCenter] += minDistance;
+	buildstate->listCounts[closestCenter]++;
 #endif
 
 	/* Create a virtual tuple */
@@ -345,6 +347,8 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	buildstate->inertia = 0;
+	buildstate->listSums = palloc0(sizeof(double) * buildstate->lists);
+	buildstate->listCounts = palloc0(sizeof(int) * buildstate->lists);
 #endif
 }
 
@@ -357,6 +361,11 @@ FreeBuildState(IvfflatBuildState * buildstate)
 	pfree(buildstate->centers);
 	pfree(buildstate->listInfo);
 	pfree(buildstate->normvec);
+
+#ifdef IVFFLAT_KMEANS_DEBUG
+	pfree(buildstate->listSums);
+	pfree(buildstate->listCounts);
+#endif
 }
 
 /*
@@ -503,6 +512,40 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	elog(INFO, "inertia: %.3e", buildstate->inertia);
+
+	/* Calculate Davies-Bouldin index */
+	if (buildstate->lists > 1)
+	{
+		double		db = 0.0;
+
+		/* Calculate average distance */
+		for (int i = 0; i < buildstate->lists; i++)
+		{
+			if (buildstate->listCounts[i] > 0)
+				buildstate->listSums[i] /= buildstate->listCounts[i];
+		}
+
+		for (int i = 0; i < buildstate->lists; i++)
+		{
+			double		max = 0.0;
+			double		distance;
+
+			for (int j = 0; j < buildstate->lists; j++)
+			{
+				if (j == i)
+					continue;
+
+				distance = DatumGetFloat8(FunctionCall2Coll(buildstate->procinfo, buildstate->collation, PointerGetDatum(VectorArrayGet(buildstate->centers, i)), PointerGetDatum(VectorArrayGet(buildstate->centers, j))));
+				distance = (buildstate->listSums[i] + buildstate->listSums[j]) / distance;
+
+				if (distance > max)
+					max = distance;
+			}
+			db += max;
+		}
+		db /= buildstate->lists;
+		elog(INFO, "davies-bouldin: %.3f", db);
+	}
 #endif
 
 	/* Insert */

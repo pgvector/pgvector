@@ -117,6 +117,8 @@ typedef struct IvfflatBuildState
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	double		inertia;
+	double	   *listSums;
+	int		   *listCounts;
 #endif
 
 	/* Sampling */
