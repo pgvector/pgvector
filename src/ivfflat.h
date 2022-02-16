@@ -167,11 +167,27 @@ typedef struct IvfflatScanList
 	double		distance;
 }			IvfflatScanList;
 
+typedef struct IvfflatScanItem
+{
+	pairingheap_node ph_node;
+	BlockNumber searchPage;
+	double		distance;
+	ItemPointerData tid;
+}			IvfflatScanItem;
+
 typedef struct IvfflatScanOpaqueData
 {
 	int			probes;
-	bool		first;
+	int			stage;
 	Buffer		buf;
+
+	/* Items */
+	int			maxItems;
+	int			itemCount;
+	pairingheap *itemQueue;
+	IvfflatScanItem *items;
+	IvfflatScanItem **sortedItems;
+	bool		heapFull;
 
 	/* Sorting */
 	Tuplesortstate *sortstate;
@@ -186,6 +202,7 @@ typedef struct IvfflatScanOpaqueData
 
 	/* Lists */
 	pairingheap *listQueue;
+	IvfflatScanList **sortedLists;
 	IvfflatScanList lists[FLEXIBLE_ARRAY_MEMBER];	/* must come last */
 }			IvfflatScanOpaqueData;
 
