@@ -252,7 +252,8 @@ static void
 MiniBatchKmeans(IvfflatBuildState * buildstate)
 {
 	VectorArray centers = buildstate->centers;
-	int			b = buildstate->samples->maxlen;
+	VectorArray m = buildstate->samples;
+	int			b = m->maxlen;
 	int			t = 20;
 	double		distance;
 	double		minDistance;
@@ -260,7 +261,6 @@ MiniBatchKmeans(IvfflatBuildState * buildstate)
 	int			i;
 	int			j;
 	int			k;
-	VectorArray m;
 	Vector	   *c;
 	Vector	   *x;
 	int		   *v;
@@ -288,7 +288,6 @@ MiniBatchKmeans(IvfflatBuildState * buildstate)
 
 		/* Get b examples picked randomly from X */
 		SampleRows(buildstate);
-		m = buildstate->samples;
 
 		/* Cache nearest center to x */
 		for (j = 0; j < m->length; j++)
