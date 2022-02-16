@@ -1,3 +1,7 @@
+## 0.2.6 (unreleased)
+
+- Improved performance of index creation for Postgres < 12
+
 ## 0.2.5 (2022-02-11)
 
 - Reduced memory usage during index creation

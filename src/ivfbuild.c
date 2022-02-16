@@ -115,10 +115,10 @@ SampleRows(IvfflatBuildState * buildstate)
 									 false, true, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
 #elif PG_VERSION_NUM >= 110000
 		IndexBuildHeapRangeScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-								true, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
+								false, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
 #else
 		IndexBuildHeapRangeScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-								true, true, targblock, 1, SampleCallback, (void *) buildstate);
+								false, true, targblock, 1, SampleCallback, (void *) buildstate);
 #endif
 	}
 }
