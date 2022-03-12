@@ -356,7 +356,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->maxItems = 1024;
 	so->itemCount = 0;
 	so->itemQueue = pairingheap_allocate(CompareItems, scan);
-	so->items = palloc(sizeof(IvfflatScanItem) * so->maxItems + 1);
+	so->items = palloc(sizeof(IvfflatScanItem) * (so->maxItems + 1));
 	so->sortedItems = palloc(sizeof(IvfflatScanItem *) * so->maxItems);
 
 	so->sortstate = NULL;
