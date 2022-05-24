@@ -431,11 +431,11 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 #if BLIS
-	float *diffv = (float *)malloc(sizeof(float) * a->dim);
+	float *diffv = (float *)palloc(sizeof(float) * a->dim);
 	bli_scopyv(BLIS_NO_CONJUGATE, a->dim, a->x, 1, diffv, 1);
 	bli_ssubv(BLIS_NO_CONJUGATE, a->dim, b->x, 1, diffv, 1);
 	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, diffv, 1, diffv, 1, &distance);
-	free(diffv);
+	pfree(diffv);
 #else
 	double		diff;
 	for (int i = 0; i < a->dim; i++)
