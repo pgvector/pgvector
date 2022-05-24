@@ -3,6 +3,9 @@
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
 #include "vector.h"
+#if BLIS
+#include "blis.h"
+#endif
 
 /*
  * Allocate a vector array
@@ -68,7 +71,6 @@ bool
 IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
 {
 	Vector	   *v;
-	int			i;
 	double		norm;
 
 	norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
@@ -80,8 +82,14 @@ IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * resul
 		if (result == NULL)
 			result = InitVector(v->dim);
 
+#if BLIS
+		float normi = 1.0 / norm;
+		bli_sscal2v(BLIS_NO_CONJUGATE, v->dim, &normi, v->x, 1, result->x, 1);
+#else
+		int			i;
 		for (i = 0; i < v->dim; i++)
 			result->x[i] = v->x[i] / norm;
+#endif
 
 		*value = PointerGetDatum(result);
 

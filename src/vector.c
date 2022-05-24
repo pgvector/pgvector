@@ -20,6 +20,13 @@
 #define TYPALIGN_INT 'i'
 #endif
 
+#if BLIS
+#include "blis.h"
+#define calcval float
+#else
+#define calcval double
+#endif
+
 PG_MODULE_MAGIC;
 
 /*
@@ -419,16 +426,24 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	double		distance = 0.0;
-	double		diff;
+	calcval		distance = 0.0;
 
 	CheckDims(a, b);
 
+#if BLIS
+	float *diffv = (float *)malloc(sizeof(float) * a->dim);
+	bli_scopyv(BLIS_NO_CONJUGATE, a->dim, a->x, 1, diffv, 1);
+	bli_ssubv(BLIS_NO_CONJUGATE, a->dim, b->x, 1, diffv, 1);
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, diffv, 1, diffv, 1, &distance);
+	free(diffv);
+#else
+	double		diff;
 	for (int i = 0; i < a->dim; i++)
 	{
 		diff = a->x[i] - b->x[i];
 		distance += diff * diff;
 	}
+#endif
 
 	PG_RETURN_FLOAT8(distance);
 }
@@ -442,12 +457,16 @@ inner_product(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	double		distance = 0.0;
+	calcval		distance = 0.0;
 
 	CheckDims(a, b);
 
+#if BLIS
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, a->x, 1, b->x, 1, &distance);
+#else
 	for (int i = 0; i < a->dim; i++)
 		distance += a->x[i] * b->x[i];
+#endif
 
 	PG_RETURN_FLOAT8(distance);
 }
@@ -461,12 +480,16 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	double		distance = 0.0;
+	calcval		distance = 0.0;
 
 	CheckDims(a, b);
 
+#if BLIS
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, a->x, 1, b->x, 1, &distance);
+#else
 	for (int i = 0; i < a->dim; i++)
 		distance += a->x[i] * b->x[i];
+#endif
 
 	PG_RETURN_FLOAT8(distance * -1);
 }
@@ -480,19 +503,24 @@ cosine_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	double		distance = 0.0;
-	double		norma = 0.0;
-	double		normb = 0.0;
+	calcval		distance = 0.0;
+	calcval		norma = 0.0;
+	calcval		normb = 0.0;
 
 	CheckDims(a, b);
 
+#if BLIS
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, a->x, 1, a->x, 1, &norma);
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, b->dim, b->x, 1, b->x, 1, &normb);
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, a->x, 1, b->x, 1, &distance);
+#else
 	for (int i = 0; i < a->dim; i++)
 	{
 		distance += a->x[i] * b->x[i];
 		norma += a->x[i] * a->x[i];
 		normb += b->x[i] * b->x[i];
 	}
-
+#endif
 	PG_RETURN_FLOAT8(1 - (distance / (sqrt(norma) * sqrt(normb))));
 }
 
@@ -507,12 +535,16 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	double		distance = 0.0;
+	calcval		distance = 0.0;
 
 	CheckDims(a, b);
 
+#if BLIS
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, a->x, 1, b->x, 1, &distance);
+#else
 	for (int i = 0; i < a->dim; i++)
 		distance += a->x[i] * b->x[i];
+#endif
 
 	/* Prevent NaN with acos with loss of precision */
 	if (distance > 1)
@@ -543,10 +575,14 @@ Datum
 vector_norm(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
-	double		norm = 0.0;
+	calcval		norm = 0.0;
 
+#if BLIS
+	bli_sdotv(BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE, a->dim, a->x, 1, a->x, 1, &norm);
+#else
 	for (int i = 0; i < a->dim; i++)
 		norm += a->x[i] * a->x[i];
+#endif
 
 	PG_RETURN_FLOAT8(sqrt(norm));
 }
@@ -566,8 +602,13 @@ vector_add(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 	result = InitVector(a->dim);
+#if BLIS
+	bli_scopyv(BLIS_NO_CONJUGATE, a->dim, a->x, 1, result->x, 1);
+	bli_saddv(BLIS_NO_CONJUGATE, a->dim, b->x, 1, result->x, 1);
+#else
 	for (i = 0; i < a->dim; i++)
 		result->x[i] = a->x[i] + b->x[i];
+#endif
 
 	PG_RETURN_POINTER(result);
 }
@@ -587,8 +628,13 @@ vector_sub(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 	result = InitVector(a->dim);
+#if BLIS
+	bli_scopyv(BLIS_NO_CONJUGATE, a->dim, a->x, 1, result->x, 1);
+	bli_ssubv(BLIS_NO_CONJUGATE, a->dim, b->x, 1, result->x, 1);
+#else
 	for (i = 0; i < a->dim; i++)
 		result->x[i] = a->x[i] - b->x[i];
+#endif
 
 	PG_RETURN_POINTER(result);
 }

@@ -14,8 +14,13 @@ OPTFLAGS = -march=native
 # Mac ARM doesn't support -march=native
 ifeq ($(shell uname -s), Darwin)
 	ifeq ($(shell uname -p), arm)
-		OPTFLAGS =
+		OPTFLAGS = 
 	endif
+endif
+
+ifeq ($(USE_BLIS), yes)
+	PG_CFLAGS += -DBLIS=1 $(shell pkg-config --cflags blis)
+	PG_LDFLAGS += $(shell pkg-config --libs blis)
 endif
 
 # For auto-vectorization:

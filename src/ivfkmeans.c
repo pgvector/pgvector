@@ -4,6 +4,9 @@
 
 #include "ivfflat.h"
 #include "miscadmin.h"
+#if BLIS
+#include "blis.h"
+#endif
 
 /*
  * Initialize with kmeans++
@@ -93,8 +96,13 @@ ApplyNorm(FmgrInfo *normprocinfo, Oid collation, Vector * vec)
 	/* TODO Handle zero norm */
 	if (norm > 0)
 	{
+#if BLIS
+		float normi = 1.0 / norm;
+		bli_sscalv(BLIS_NO_CONJUGATE, vec->dim, &normi, vec->x, 1);
+#else
 		for (i = 0; i < vec->dim; i++)
 			vec->x[i] /= norm;
+#endif
 	}
 }
 
