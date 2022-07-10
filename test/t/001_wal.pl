@@ -7,6 +7,8 @@ use PostgresNode;
 use TestLib;
 use Test::More tests => 31;
 
+my $dim = 32;
+
 my $node_primary;
 my $node_replica;
 
@@ -30,13 +32,15 @@ sub test_index_replay
 	$node_primary->poll_query_until('postgres', $caughtup_query)
 	  or die "Timed out while waiting for replica 1 to catch up";
 
-	my $r1 = rand();
-	my $r2 = rand();
-	my $r3 = rand();
+	my @r = ();
+	for (1 .. $dim) {
+		push(@r, rand());
+	}
+	my $sql = join(",", @r);
 
 	my $queries = qq(
 		SET enable_seqscan = off;
-		SELECT * FROM tst ORDER BY v <-> '[$r1,$r2,$r3]' LIMIT 10;
+		SELECT * FROM tst ORDER BY v <-> '[$sql]' LIMIT 10;
 	);
 
 	# Run test queries and compare their result
@@ -50,6 +54,10 @@ sub test_index_replay
 # Initialize primary node
 $node_primary = get_new_node('primary');
 $node_primary->init(allows_streaming => 1);
+if ($dim > 32) {
+	# TODO use wal_keep_segments for Postgres < 13
+	$node_primary->append_conf('postgresql.conf', qq(wal_keep_size = 1GB));
+}
 $node_primary->start;
 my $backup_name = 'my_backup';
 
@@ -64,9 +72,9 @@ $node_replica->start;
 
 # Create ivfflat index on primary
 $node_primary->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node_primary->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector(3));");
+$node_primary->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
 $node_primary->safe_psql("postgres",
-	"INSERT INTO tst SELECT i % 10, ARRAY[random(), random(), random()] FROM generate_series(1, 100000) i;"
+	"INSERT INTO tst SELECT i % 10, (SELECT array_agg(random()) FROM generate_series(1, $dim)) FROM generate_series(1, 100000) i;"
 );
 $node_primary->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
@@ -82,7 +90,7 @@ for my $i (1 .. 10)
 	test_index_replay("vacuum $i");
 	my ($start, $end) = (100001 + ($i - 1) * 10000, 100000 + $i * 10000);
 	$node_primary->safe_psql("postgres",
-		"INSERT INTO tst SELECT i % 10, ARRAY[random(), random(), random()] FROM generate_series($start, $end) i;"
+		"INSERT INTO tst SELECT i % 10, (SELECT array_agg(random()) FROM generate_series(1, $dim)) FROM generate_series($start, $end) i;"
 	);
 	test_index_replay("insert $i");
 }
