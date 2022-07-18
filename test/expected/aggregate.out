@@ -1,0 +1,80 @@
+SET client_min_messages = warning;
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE t (val vector(3));
+TRUNCATE t;
+INSERT INTO t (val) VALUES ('[1,2,3]'), ('[2,4,6]'), ('[3,6,9]'), (NULL);
+SELECT sum(val) FROM t;
+    sum    
+-----------
+ [6,12,18]
+(1 row)
+
+SELECT avg(val) FROM t;
+   avg   
+---------
+ [2,4,6]
+(1 row)
+
+TRUNCATE t;
+INSERT INTO t (val) VALUES (NULL), ('[1,2,3]'), ('[2,4,6]'), ('[3,6,9]');
+SELECT sum(val) FROM t;
+    sum    
+-----------
+ [6,12,18]
+(1 row)
+
+SELECT avg(val) FROM t;
+   avg   
+---------
+ [2,4,6]
+(1 row)
+
+SELECT vector_avg_accum(('[2,3,4]',10), '[1,2,3]');
+ vector_avg_accum 
+------------------
+ ("[3,5,7]",11)
+(1 row)
+
+SELECT vector_avg_accum(('[2,3,4]',10), NULL);
+ vector_avg_accum 
+------------------
+ ("[2,3,4]",10)
+(1 row)
+
+SELECT vector_avg_accum(NULL, '[1,2,3]');
+ vector_avg_accum 
+------------------
+ ("[1,2,3]",1)
+(1 row)
+
+SELECT vector_avg_accum(NULL, NULL);
+ vector_avg_accum 
+------------------
+ 
+(1 row)
+
+SELECT vector_avg_combine(('[2,3,4]',10), ('[2,3,4]',10));
+ vector_avg_combine 
+--------------------
+ ("[4,6,8]",20)
+(1 row)
+
+SELECT vector_avg_combine(('[2,3,4]',10), NULL);
+ vector_avg_combine 
+--------------------
+ ("[2,3,4]",10)
+(1 row)
+
+SELECT vector_avg_combine(NULL, ('[2,3,4]',10));
+ vector_avg_combine 
+--------------------
+ ("[2,3,4]",10)
+(1 row)
+
+SELECT vector_avg_combine(NULL, NULL);
+ vector_avg_combine 
+--------------------
+ 
+(1 row)
+
+DROP TABLE t;
