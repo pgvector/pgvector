@@ -3,9 +3,9 @@
 Open-source vector similarity search for Postgres
 
 ```sql
-CREATE TABLE table (column vector(3));
-CREATE INDEX ON table USING ivfflat (column vector_l2_ops);
-SELECT * FROM table ORDER BY column <-> '[1,2,3]' LIMIT 5;
+CREATE TABLE example_table (example_column vector(3));
+CREATE INDEX ON example_table USING ivfflat (example_column vector_l2_ops);
+SELECT * FROM example_table ORDER BY example_column <-> '[1,2,3]' LIMIT 5;
 ```
 
 Supports L2 distance, inner product, and cosine distance
