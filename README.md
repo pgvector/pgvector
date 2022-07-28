@@ -227,7 +227,7 @@ docker build -t pgvector .
 
 ### Homebrew
 
-On Mac with Homebrew Postgres, you can use:
+With Homebrew Postgres, you can use:
 
 ```sh
 brew install pgvector/brew/pgvector
