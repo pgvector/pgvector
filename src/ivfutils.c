@@ -136,8 +136,8 @@ void
 IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum)
 {
 	/* Get new buffer */
-	Buffer newbuf = IvfflatNewBuffer(index, forkNum);
-	Page newpage = GenericXLogRegisterBuffer(*state, newbuf, GENERIC_XLOG_FULL_IMAGE);
+	Buffer		newbuf = IvfflatNewBuffer(index, forkNum);
+	Page		newpage = GenericXLogRegisterBuffer(*state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 
 	/* Update the previous buffer */
 	IvfflatPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(newbuf);
