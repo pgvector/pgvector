@@ -131,16 +131,20 @@ Note: `tuples_done` and `tuples_total` are only populated during the `loading tu
 Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
 
 ```sql
-SELECT * FROM items WHERE store_id = 123 ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+SELECT * FROM items WHERE category_id = 123 ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
 can be indexed with:
 
 ```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WHERE (store_id = 123);
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WHERE (category_id = 123);
 ```
 
-To index many different values of `store_id`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `store_id`.
+To index many different values of `category_id`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `category_id`.
+
+```sql
+CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
+```
 
 ## Performance
 
