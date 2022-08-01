@@ -60,7 +60,6 @@ static void
 InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 {
 	Buffer		buf;
-	Buffer		prevbuf = InvalidBuffer;
 	Page		page;
 	GenericXLogState *state;
 	Size		itemsz;
@@ -106,18 +105,20 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 
 			/* Update previous buffer */
 			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
-			MarkBufferDirty(buf);
 
 			/* Init page */
 			PageInit(newpage, BufferGetPageSize(newbuf), sizeof(IvfflatPageOpaqueData));
 			IvfflatPageGetOpaque(newpage)->nextblkno = InvalidBlockNumber;
 			IvfflatPageGetOpaque(newpage)->page_id = IVFFLAT_PAGE_ID;
 
-			prevbuf = buf;
-			buf = newbuf;
-			page = newpage;
+			/* Commit */
+			MarkBufferDirty(buf);
+			MarkBufferDirty(newbuf);
+			GenericXLogFinish(state);
 
-			break;
+			/* Unlock */
+			UnlockReleaseBuffer(buf);
+			UnlockReleaseBuffer(newbuf);
 		}
 	}
 
@@ -126,9 +127,6 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(rel));
 
 	IvfflatCommitBuffer(buf, state);
-
-	if (BufferIsValid(prevbuf))
-		UnlockReleaseBuffer(prevbuf);
 
 	/* Update the insert page */
 	if (insertPage != originalInsertPage)
