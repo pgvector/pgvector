@@ -208,7 +208,8 @@ void		IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listIn
 void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);
 void		IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum);
 Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
-void		IvfflatInitPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
+void		IvfflatInitPage(Buffer buf, Page page);
+void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 
 /* Index access methods */
 IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);

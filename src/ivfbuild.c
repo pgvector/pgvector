@@ -255,7 +255,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 		CHECK_FOR_INTERRUPTS();
 
 		buf = IvfflatNewBuffer(index, forkNum);
-		IvfflatInitPage(index, &buf, &page, &state);
+		IvfflatInitRegisterPage(index, &buf, &page, &state);
 
 		startPage = BufferGetBlockNumber(buf);
 
@@ -412,7 +412,7 @@ CreateMetaPage(Relation index, int dimensions, int lists, ForkNumber forkNum)
 	IvfflatMetaPage metap;
 
 	buf = IvfflatNewBuffer(index, forkNum);
-	IvfflatInitPage(index, &buf, &page, &state);
+	IvfflatInitRegisterPage(index, &buf, &page, &state);
 
 	/* Set metapage data */
 	metap = IvfflatPageGetMeta(page);
@@ -445,7 +445,7 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	list = palloc(itemsz);
 
 	buf = IvfflatNewBuffer(index, forkNum);
-	IvfflatInitPage(index, &buf, &page, &state);
+	IvfflatInitRegisterPage(index, &buf, &page, &state);
 
 	for (i = 0; i < lists; i++)
 	{

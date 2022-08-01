@@ -107,9 +107,7 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
 
 			/* Init page */
-			PageInit(newpage, BufferGetPageSize(newbuf), sizeof(IvfflatPageOpaqueData));
-			IvfflatPageGetOpaque(newpage)->nextblkno = InvalidBlockNumber;
-			IvfflatPageGetOpaque(newpage)->page_id = IVFFLAT_PAGE_ID;
+			IvfflatInitPage(newbuf, newpage);
 
 			/* Commit */
 			MarkBufferDirty(buf);

@@ -107,13 +107,22 @@ IvfflatNewBuffer(Relation index, ForkNumber forkNum)
  * Init page
  */
 void
-IvfflatInitPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state)
+IvfflatInitPage(Buffer buf, Page page)
+{
+	PageInit(page, BufferGetPageSize(buf), sizeof(IvfflatPageOpaqueData));
+	IvfflatPageGetOpaque(page)->nextblkno = InvalidBlockNumber;
+	IvfflatPageGetOpaque(page)->page_id = IVFFLAT_PAGE_ID;
+}
+
+/*
+ * Init and register page
+ */
+void
+IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state)
 {
 	*state = GenericXLogStart(index);
 	*page = GenericXLogRegisterBuffer(*state, *buf, GENERIC_XLOG_FULL_IMAGE);
-	PageInit(*page, BufferGetPageSize(*buf), sizeof(IvfflatPageOpaqueData));
-	IvfflatPageGetOpaque(*page)->nextblkno = InvalidBlockNumber;
-	IvfflatPageGetOpaque(*page)->page_id = IVFFLAT_PAGE_ID;
+	IvfflatInitPage(*buf, *page);
 }
 
 /*
@@ -143,9 +152,7 @@ IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **st
 	IvfflatPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(newbuf);
 
 	/* Init new page */
-	PageInit(newpage, BufferGetPageSize(newbuf), sizeof(IvfflatPageOpaqueData));
-	IvfflatPageGetOpaque(newpage)->nextblkno = InvalidBlockNumber;
-	IvfflatPageGetOpaque(newpage)->page_id = IVFFLAT_PAGE_ID;
+	IvfflatInitPage(newbuf, newpage);
 
 	/* Commit */
 	MarkBufferDirty(*buf);
