@@ -131,6 +131,12 @@ Note: `tuples_done` and `tuples_total` are only populated during the `loading tu
 Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
 
 ```sql
+SELECT * FROM table WHERE other_column = 123 ORDER BY column <-> '[3,1,2]' LIMIT 5;
+```
+
+can be indexed with:
+
+```sql
 CREATE INDEX ON table USING ivfflat (column opclass) WHERE (other_column = 123);
 ```
 
