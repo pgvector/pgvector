@@ -1,4 +1,4 @@
-## 0.2.7 (unreleased)
+## 0.2.7 (2022-07-31)
 
 - Fixed `unexpected data beyond EOF` error
 
