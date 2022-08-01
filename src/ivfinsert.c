@@ -54,18 +54,6 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 }
 
 /*
- * Prepare to insert an index tuple
- */
-static void
-LoadInsertPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, BlockNumber insertPage)
-{
-	*buf = ReadBuffer(index, insertPage);
-	LockBuffer(*buf, BUFFER_LOCK_EXCLUSIVE);
-	*state = GenericXLogStart(index);
-	*page = GenericXLogRegisterBuffer(*state, *buf, 0);
-}
-
-/*
  * Insert a tuple into the index
  */
 static void
@@ -87,11 +75,18 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 	itemsz = MAXALIGN(IndexTupleSize(itup));
 	Assert(itemsz <= BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(IvfflatPageOpaqueData)));
 
-	LoadInsertPage(rel, &buf, &page, &state, insertPage);
-
 	/* Find a page to insert the item */
-	while (PageGetFreeSpace(page) < itemsz)
+	for (;;)
 	{
+		buf = ReadBuffer(rel, insertPage);
+		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+
+		state = GenericXLogStart(rel);
+		page = GenericXLogRegisterBuffer(state, buf, 0);
+
+		if (PageGetFreeSpace(page) >= itemsz)
+			break;
+
 		insertPage = IvfflatPageGetOpaque(page)->nextblkno;
 
 		if (BlockNumberIsValid(insertPage))
@@ -99,15 +94,31 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 			/* Move to next page */
 			GenericXLogAbort(state);
 			UnlockReleaseBuffer(buf);
-
-			LoadInsertPage(rel, &buf, &page, &state, insertPage);
 		}
 		else
 		{
 			/* Add a new page */
-			IvfflatAppendPage(rel, &buf, &page, &state, MAIN_FORKNUM);
+			Buffer		newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
+			Page		newpage = GenericXLogRegisterBuffer(state, buf, GENERIC_XLOG_FULL_IMAGE);
 
-			insertPage = BufferGetBlockNumber(buf);
+			insertPage = BufferGetBlockNumber(newbuf);
+
+			/* Update previous buffer */
+			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
+
+			/* Init page */
+			PageInit(newpage, BufferGetPageSize(newbuf), sizeof(IvfflatPageOpaqueData));
+			IvfflatPageGetOpaque(newpage)->nextblkno = InvalidBlockNumber;
+			IvfflatPageGetOpaque(newpage)->page_id = IVFFLAT_PAGE_ID;
+
+			/* Commit */
+			MarkBufferDirty(buf);
+			MarkBufferDirty(newbuf);
+			GenericXLogFinish(state);
+
+			/* Unlock */
+			UnlockReleaseBuffer(buf);
+			UnlockReleaseBuffer(newbuf);
 		}
 	}
 
