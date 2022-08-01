@@ -135,17 +135,29 @@ IvfflatCommitBuffer(Buffer buf, GenericXLogState *state)
 void
 IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum)
 {
-	Buffer		prevbuf = *buf;
-
 	/* Get new buffer */
-	*buf = IvfflatNewBuffer(index, forkNum);
+	Buffer newbuf = IvfflatNewBuffer(index, forkNum);
+	Page newpage = GenericXLogRegisterBuffer(*state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 
-	/* Update and commit previous buffer */
-	IvfflatPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(*buf);
-	IvfflatCommitBuffer(prevbuf, *state);
+	/* Update the previous buffer */
+	IvfflatPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(newbuf);
 
 	/* Init new page */
-	IvfflatInitPage(index, buf, page, state);
+	PageInit(newpage, BufferGetPageSize(newbuf), sizeof(IvfflatPageOpaqueData));
+	IvfflatPageGetOpaque(newpage)->nextblkno = InvalidBlockNumber;
+	IvfflatPageGetOpaque(newpage)->page_id = IVFFLAT_PAGE_ID;
+
+	/* Commit */
+	MarkBufferDirty(*buf);
+	MarkBufferDirty(newbuf);
+	GenericXLogFinish(*state);
+
+	/* Unlock */
+	UnlockReleaseBuffer(*buf);
+
+	*state = GenericXLogStart(index);
+	*page = GenericXLogRegisterBuffer(*state, newbuf, GENERIC_XLOG_FULL_IMAGE);
+	*buf = newbuf;
 }
 
 /*
