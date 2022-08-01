@@ -3,9 +3,9 @@
 Open-source vector similarity search for Postgres
 
 ```sql
-CREATE TABLE table (column vector(3));
-CREATE INDEX ON table USING ivfflat (column vector_l2_ops);
-SELECT * FROM table ORDER BY column <-> '[1,2,3]' LIMIT 5;
+CREATE TABLE items (embedding vector(3));
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops);
+SELECT * FROM items ORDER BY embedding <-> '[1,2,3]' LIMIT 5;
 ```
 
 Supports L2 distance, inner product, and cosine distance
@@ -33,22 +33,22 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), or [PGXN]
 
 ## Getting Started
 
-Create a vector column with 3 dimensions (replace `table` and `column` with non-reserved names)
+Create a vector column with 3 dimensions
 
 ```sql
-CREATE TABLE table (column vector(3));
+CREATE TABLE items (embedding vector(3));
 ```
 
 Insert values
 
 ```sql
-INSERT INTO table VALUES ('[1,2,3]'), ('[4,5,6]');
+INSERT INTO items VALUES ('[1,2,3]'), ('[4,5,6]');
 ```
 
 Get the nearest neighbor by L2 distance
 
 ```sql
-SELECT * FROM table ORDER BY column <-> '[3,1,2]' LIMIT 1;
+SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
 ```
 
 Also supports inner product (`<#>`) and cosine distance (`<=>`)
@@ -62,19 +62,19 @@ Speed up queries with an approximate index. Add an index for each distance funct
 L2 distance
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column vector_l2_ops);
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops);
 ```
 
 Inner product
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column vector_ip_ops);
+CREATE INDEX ON items USING ivfflat (embedding vector_ip_ops);
 ```
 
 Cosine distance
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column vector_cosine_ops);
+CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops);
 ```
 
 Indexes should be created after the table has some data for optimal clustering. Also, unlike typical indexes which only affect performance, you may see different results for queries after adding an approximate index.
@@ -84,7 +84,7 @@ Indexes should be created after the table has some data for optimal clustering. 
 Specify the number of inverted lists (100 by default)
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column opclass) WITH (lists = 100);
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
 ```
 
 A [good place to start](https://github.com/facebookresearch/faiss/issues/112) is `4 * sqrt(rows)`
@@ -131,16 +131,16 @@ Note: `tuples_done` and `tuples_total` are only populated during the `loading tu
 Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
 
 ```sql
-SELECT * FROM table WHERE other_column = 123 ORDER BY column <-> '[3,1,2]' LIMIT 5;
+SELECT * FROM items WHERE store_id = 123 ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
 can be indexed with:
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column opclass) WHERE (other_column = 123);
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WHERE (store_id = 123);
 ```
 
-To index many different values of `other_column`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `other_column`.
+To index many different values of `store_id`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `store_id`.
 
 ## Performance
 
@@ -153,7 +153,7 @@ SET max_parallel_workers_per_gather = 4;
 To speed up queries with an index, increase the number of inverted lists (at the expense of recall).
 
 ```sql
-CREATE INDEX ON table USING ivfflat (column opclass) WITH (lists = 1000);
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
 ```
 
 ## Reference
