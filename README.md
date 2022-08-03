@@ -195,6 +195,7 @@ Libraries that use pgvector:
 - [pgvector-ruby](https://github.com/pgvector/pgvector-ruby) (Ruby)
 - [pgvector-node](https://github.com/pgvector/pgvector-node) (Node.js)
 - [pgvector-go](https://github.com/pgvector/pgvector-go) (Go)
+- [pgvector-php](https://github.com/pgvector/pgvector-php) (PHP)
 - [pgvector-rust](https://github.com/pgvector/pgvector-rust) (Rust)
 - [pgvector-cpp](https://github.com/pgvector/pgvector-cpp) (C++)
 
