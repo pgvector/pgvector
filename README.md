@@ -198,6 +198,7 @@ Libraries that use pgvector:
 - [pgvector-php](https://github.com/pgvector/pgvector-php) (PHP)
 - [pgvector-rust](https://github.com/pgvector/pgvector-rust) (Rust)
 - [pgvector-cpp](https://github.com/pgvector/pgvector-cpp) (C++)
+- [pgvector-elixir](https://github.com/pgvector/pgvector-elixir) (Elixir)
 
 ## Frequently Asked Questions
 
