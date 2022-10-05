@@ -80,7 +80,11 @@ SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 		if (buildstate->rowstoskip <= 0)
 		{
+#if PG_VERSION_NUM >= 150000
+			int			k = (int) (targsamples * sampler_random_fract(&buildstate->rstate.randstate));
+#else
 			int			k = (int) (targsamples * sampler_random_fract(buildstate->rstate.randstate));
+#endif
 
 			Assert(k >= 0 && k < targsamples);
 			VectorArraySet(samples, k, DatumGetVector(value));

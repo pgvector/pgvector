@@ -1,3 +1,7 @@
+## 0.3.0 (unreleased)
+
+- Added support for Postgres 15
+
 ## 0.2.7 (2022-07-31)
 
 - Fixed `unexpected data beyond EOF` error

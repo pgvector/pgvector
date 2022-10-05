@@ -5,6 +5,23 @@
 #include "ivfflat.h"
 #include "miscadmin.h"
 
+#if PG_VERSION_NUM >= 150000
+#include "common/pg_prng.h"
+#endif
+
+/*
+ * Random double
+ */
+static inline double
+RandomDouble()
+{
+#if PG_VERSION_NUM >= 150000
+	return pg_prng_double(&pg_global_prng_state);
+#else
+	return (((double) random()) / MAX_RANDOM_VALUE);
+#endif
+}
+
 /*
  * Initialize with kmeans++
  *
@@ -66,7 +83,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 			break;
 
 		/* Choose new center using weighted probability distribution. */
-		choice = sum * (((double) random()) / MAX_RANDOM_VALUE);
+		choice = sum * RandomDouble();
 		for (j = 0; j < numSamples - 1; j++)
 		{
 			choice -= weight[j];
@@ -145,7 +162,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 		vec->dim = dimensions;
 
 		for (j = 0; j < dimensions; j++)
-			vec->x[j] = ((double) random()) / MAX_RANDOM_VALUE;
+			vec->x[j] = RandomDouble();
 
 		/* Normalize if needed (only needed for random centers) */
 		if (normprocinfo != NULL)
@@ -403,7 +420,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 			{
 				/* TODO Handle empty centers properly */
 				for (k = 0; k < dimensions; k++)
-					vec->x[k] = ((double) random()) / MAX_RANDOM_VALUE;
+					vec->x[k] = RandomDouble();
 			}
 
 			/* Normalize if needed */
