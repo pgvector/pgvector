@@ -9,18 +9,11 @@
 #include "common/pg_prng.h"
 #endif
 
-/*
- * Random double
- */
-static inline double
-RandomDouble()
-{
 #if PG_VERSION_NUM >= 150000
-	return pg_prng_double(&pg_global_prng_state);
+#define RandomDouble() (pg_prng_double(&pg_global_prng_state))
 #else
-	return (((double) random()) / MAX_RANDOM_VALUE);
+#define RandomDouble() (((double) random()) / MAX_RANDOM_VALUE)
 #endif
-}
 
 /*
  * Initialize with kmeans++
