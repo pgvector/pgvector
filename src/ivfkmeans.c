@@ -10,7 +10,7 @@
 #endif
 
 #if PG_VERSION_NUM >= 150000
-#define RandomDouble() (pg_prng_double(&pg_global_prng_state))
+#define RandomDouble() pg_prng_double(&pg_global_prng_state)
 #else
 #define RandomDouble() (((double) random()) / MAX_RANDOM_VALUE)
 #endif
