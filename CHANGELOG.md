@@ -1,6 +1,7 @@
 ## 0.3.0 (unreleased)
 
 - Added support for Postgres 15
+- Dropped support for Postgres 9.6
 
 ## 0.2.7 (2022-07-31)
 

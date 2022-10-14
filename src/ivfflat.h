@@ -14,8 +14,8 @@
 #include "portability/instr_time.h"
 #endif
 
-#if PG_VERSION_NUM < 90600
-#error "Requires PostgreSQL 9.6+"
+#if PG_VERSION_NUM < 100000
+#error "Requires PostgreSQL 10+"
 #endif
 
 /* Support functions */
