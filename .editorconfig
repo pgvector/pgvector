@@ -1,6 +1,6 @@
 root = true
 
-[*.{c,h,pl}]
+[*.{c,h,pl,pm}]
 indent_style = tab
 indent_size = tab
 tab_width = 4
