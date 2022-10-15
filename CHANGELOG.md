@@ -1,4 +1,4 @@
-## 0.3.0 (unreleased)
+## 0.3.0 (2022-10-15)
 
 - Added support for Postgres 15
 - Dropped support for Postgres 9.6
