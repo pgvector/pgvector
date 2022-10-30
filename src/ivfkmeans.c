@@ -205,7 +205,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	double		dxc;
 
 	/* Ensure indexing does not overflow */
-	Assert(numCenters * numCenters <= INT_MAX);
+	if (numCenters * numCenters > INT_MAX)
+		elog(ERROR, "Indexing overflow detected. Please report a bug.");
 
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
