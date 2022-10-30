@@ -259,8 +259,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		minDistance = DBL_MAX;
 		closestCenter = -1;
 
-		vec = VectorArrayGet(samples, j);
-
 		/* Find closest center */
 		for (k = 0; k < numCenters; k++)
 		{
