@@ -1,3 +1,7 @@
+## 0.3.1 (unreleased)
+
+- Fixed segmentation fault with index creation when lists > 6500
+
 ## 0.3.0 (2022-10-15)
 
 - Added support for Postgres 15

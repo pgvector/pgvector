@@ -26,7 +26,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	FmgrInfo   *procinfo;
 	Oid			collation;
 	int			i;
-	int			j;
+	int64		j;
 	double		distance;
 	double		sum;
 	double		choice;
@@ -182,8 +182,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	Vector	   *vec;
 	Vector	   *newCenter;
 	int			iteration;
-	int			j;
-	int			k;
+	int64		j;
+	int64		k;
 	int			dimensions = centers->dim;
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
