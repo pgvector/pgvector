@@ -204,6 +204,9 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	double		dxcx;
 	double		dxc;
 
+	/* Ensure indexing does not overflow */
+	Assert(numCenters * numCenters <= INT_MAX);
+
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
 	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->dim);
