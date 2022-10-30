@@ -5,3 +5,4 @@
 regression.*
 *.o
 *.so
+*.bc
