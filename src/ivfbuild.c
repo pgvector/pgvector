@@ -233,8 +233,8 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	GenericXLogState *state;
 	int			list;
 	IndexTuple	itup = NULL;	/* silence compiler warning */
-	BlockNumber startPage = InvalidBlockNumber;
-	BlockNumber insertPage = InvalidBlockNumber;
+	BlockNumber startPage;
+	BlockNumber insertPage;
 	Size		itemsz;
 	int			i;
 	int64		inserted = 0;
