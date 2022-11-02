@@ -99,7 +99,7 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 		{
 			/* Add a new page */
 			Buffer		newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
-			Page		newpage = GenericXLogRegisterBuffer(state, buf, GENERIC_XLOG_FULL_IMAGE);
+			Page		newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 
 			insertPage = BufferGetBlockNumber(newbuf);
 
