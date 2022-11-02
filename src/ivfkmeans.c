@@ -204,10 +204,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	double		dxcx;
 	double		dxc;
 
-	/* Ensure indexing does not overflow */
-	if (numCenters * numCenters > INT_MAX)
-		elog(ERROR, "Indexing overflow detected. Please report a bug.");
-
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
 	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->dim);
@@ -230,6 +226,10 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("memory required is %zu MB, maintenance_work_mem is %d MB",
 						totalSize / (1024 * 1024) + 1, maintenance_work_mem / 1024)));
+
+	/* Ensure indexing does not overflow */
+	if (numCenters * numCenters > INT_MAX)
+		elog(ERROR, "Indexing overflow detected. Please report a bug.");
 
 	/* Set support functions */
 	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
