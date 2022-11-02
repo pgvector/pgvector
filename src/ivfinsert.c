@@ -113,23 +113,24 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 			newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
 			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 
-			insertPage = BufferGetBlockNumber(newbuf);
-
-			/* Update previous buffer */
-			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
-
-			/* Init page */
+			/* Init new page */
 			IvfflatInitPage(newbuf, newpage);
 
+			/* Update previous buffer */
+			insertPage = BufferGetBlockNumber(newbuf);
+			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
+
 			/* Commit */
-			MarkBufferDirty(buf);
 			MarkBufferDirty(newbuf);
+			MarkBufferDirty(buf);
 			GenericXLogFinish(state);
 
-			/* Unlock */
-			UnlockReleaseBuffer(buf);
-			UnlockReleaseBuffer(newbuf);
+			/* Unlock extend relation lock as early as possible */
 			UnlockReleaseBuffer(metabuf);
+
+			/* Unlock rest */
+			UnlockReleaseBuffer(newbuf);
+			UnlockReleaseBuffer(buf);
 		}
 	}
 
