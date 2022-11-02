@@ -116,8 +116,10 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 			/* Init new page */
 			IvfflatInitPage(newbuf, newpage);
 
-			/* Update insert page and previous buffer */
+			/* Update insert page */
 			insertPage = BufferGetBlockNumber(newbuf);
+
+			/* Update previous buffer */
 			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
 
 			/* Commit */
