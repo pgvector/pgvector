@@ -1,6 +1,6 @@
 ## 0.3.1 (unreleased)
 
-If upgrading from 0.2.7 or 0.3.0, [recreate](https://github.com/pgvector/pgvector#0-3-1) all `ivfflat` indexes after upgrading to ensure all data is indexed.
+If upgrading from 0.2.7 or 0.3.0, [recreate](https://github.com/pgvector/pgvector#031) all `ivfflat` indexes after upgrading to ensure all data is indexed.
 
 - Fixed issue with inserts silently corrupting `ivfflat` indexes (introduced in 0.2.7)
 - Fixed segmentation fault with index creation when lists > 6500
