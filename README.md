@@ -270,6 +270,22 @@ Install the latest version and run:
 ALTER EXTENSION vector UPDATE;
 ```
 
+## Upgrade Notes
+
+### 0.3.1
+
+If upgrading from 0.2.7 or 0.3.0, recreate all `ivfflat` indexes after upgrading to ensure all data is indexed.
+
+```sql
+-- Postgres 12+
+REINDEX INDEX CONCURRENTLY index_name;
+
+-- Postgres < 12
+CREATE INDEX CONCURRENTLY temp_name ON table USING ivfflat (column opclass);
+DROP INDEX CONCURRENTLY index_name;
+ALTER INDEX temp_name RENAME TO index_name;
+```
+
 ## Thanks
 
 Thanks to:
