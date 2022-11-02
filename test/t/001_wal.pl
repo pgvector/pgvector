@@ -51,6 +51,9 @@ sub test_index_replay
 	return;
 }
 
+# Use ARRAY[random(), random(), random(), ...] over
+# SELECT array_agg(random()) FROM generate_series(1, $dim)
+# to generate different values for each row
 my $array_sql = join(",", ('random()') x $dim);
 
 # Initialize primary node
