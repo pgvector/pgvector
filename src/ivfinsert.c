@@ -97,9 +97,21 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 		}
 		else
 		{
+			Buffer		metabuf;
+			Buffer		newbuf;
+			Page		newpage;
+
+			/*
+			 * From ReadBufferExtended: Caller is responsible for ensuring
+			 * that only one backend tries to extend a relation at the same
+			 * time!
+			 */
+			metabuf = ReadBuffer(rel, IVFFLAT_METAPAGE_BLKNO);
+			LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
+
 			/* Add a new page */
-			Buffer		newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
-			Page		newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
+			newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
+			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 
 			insertPage = BufferGetBlockNumber(newbuf);
 
@@ -117,6 +129,7 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 			/* Unlock */
 			UnlockReleaseBuffer(buf);
 			UnlockReleaseBuffer(newbuf);
+			UnlockReleaseBuffer(metabuf);
 		}
 	}
 
