@@ -16,8 +16,9 @@ jobs:
     - uses: ankane/setup-postgres@v1
       with:
         postgres-version: ${{ matrix.postgres }}
+        dev-files: true
     - if: ${{ startsWith(matrix.os, 'ubuntu') }}
-      run: sudo apt-get update && sudo apt-get install postgresql-server-dev-${{ matrix.postgres }} libipc-run-perl
+      run: sudo apt-get update && sudo apt-get install libipc-run-perl
     - run: make
     - if: ${{ startsWith(matrix.os, 'ubuntu') }}
       run: |
