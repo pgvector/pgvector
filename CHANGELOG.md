@@ -1,3 +1,7 @@
+## 0.3.2 (unreleased)
+
+- Fixed `invalid memory alloc request size` error
+
 ## 0.3.1 (2022-11-02)
 
 If upgrading from 0.2.7 or 0.3.0, [recreate](https://github.com/pgvector/pgvector#031) all `ivfflat` indexes after upgrading to ensure all data is indexed.

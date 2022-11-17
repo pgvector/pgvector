@@ -10,7 +10,7 @@
 VectorArray
 VectorArrayInit(int maxlen, int dimensions)
 {
-	VectorArray res = palloc0(VECTOR_ARRAY_SIZE(maxlen, dimensions));
+	VectorArray res = palloc_extended(VECTOR_ARRAY_SIZE(maxlen, dimensions), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
 
 	res->length = 0;
 	res->maxlen = maxlen;
