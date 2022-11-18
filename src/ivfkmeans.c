@@ -243,7 +243,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	lowerBound = palloc_extended(lowerBoundSize, MCXT_ALLOC_HUGE);
 	upperBound = palloc(upperBoundSize);
 	s = palloc(sSize);
-	halfcdist = palloc(halfcdistSize);
+	halfcdist = palloc_extended(halfcdistSize, MCXT_ALLOC_HUGE);
 	newcdist = palloc(newcdistSize);
 
 	newCenters = VectorArrayInit(numCenters, dimensions);
