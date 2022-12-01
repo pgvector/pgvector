@@ -113,7 +113,7 @@ vector_in(PG_FUNCTION_ARGS)
 	char	   *str = PG_GETARG_CSTRING(0);
 	int32		typmod = PG_GETARG_INT32(2);
 	int			i;
-	double		x[VECTOR_MAX_DIM];
+	float		x[VECTOR_MAX_DIM];
 	int			dim = 0;
 	char	   *pt;
 	char	   *stringEnd;
@@ -136,7 +136,8 @@ vector_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 					 errmsg("vector cannot have more than %d dimensions", VECTOR_MAX_DIM)));
 
-		x[dim] = strtod(pt, &stringEnd);
+		/* Use strtof like float4in to avoid a double-rounding problem */
+		x[dim] = strtof(pt, &stringEnd);
 		CheckElement(x[dim]);
 		dim++;
 
