@@ -1,3 +1,7 @@
+## 0.3.3 (unreleased)
+
+- Improved vector text representation
+
 ## 0.3.2 (2022-11-22)
 
 - Fixed `invalid memory alloc request size` error

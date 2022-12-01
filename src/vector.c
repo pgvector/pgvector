@@ -5,6 +5,7 @@
 #include "vector.h"
 #include "fmgr.h"
 #include "catalog/pg_type.h"
+#include "common/shortest_dec.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "utils/array.h"
@@ -188,24 +189,44 @@ Datum
 vector_out(PG_FUNCTION_ARGS)
 {
 	Vector	   *vector = PG_GETARG_VECTOR_P(0);
-	StringInfoData buf;
 	int			dim = vector->dim;
+	char	   *buf;
+	char	   *ptr;
 	int			i;
+	int			n;
 
-	initStringInfo(&buf);
+	/*
+	 * Need:
+	 *
+	 * dim * (FLOAT_SHORTEST_DECIMAL_LEN - 1) bytes for
+	 * float_to_shortest_decimal_bufn
+	 *
+	 * dim - 1 bytes for separator
+	 *
+	 * 3 bytes for [, ], and \0
+	 */
+	buf = (char *) palloc(FLOAT_SHORTEST_DECIMAL_LEN * dim + 2);
+	ptr = buf;
 
-	appendStringInfoChar(&buf, '[');
+	*ptr = '[';
+	ptr++;
 	for (i = 0; i < dim; i++)
 	{
 		if (i > 0)
-			appendStringInfoString(&buf, ",");
+		{
+			*ptr = ',';
+			ptr++;
+		}
 
-		appendStringInfoString(&buf, float8out_internal(vector->x[i]));
+		n = float_to_shortest_decimal_bufn(vector->x[i], ptr);
+		ptr += n;
 	}
-	appendStringInfoChar(&buf, ']');
+	*ptr = ']';
+	ptr++;
+	*ptr = '\0';
 
 	PG_FREE_IF_COPY(vector, 0);
-	PG_RETURN_CSTRING(buf.data);
+	PG_RETURN_CSTRING(buf);
 }
 
 /*
