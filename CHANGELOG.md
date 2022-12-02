@@ -1,6 +1,7 @@
-## 0.3.3 (unreleased)
+## 0.4.0 (unreleased)
 
-- Improved vector text representation
+- Improved text representation for vectors (now matches `real`)
+- Improved accuracy of text parsing for certain inputs
 
 ## 0.3.2 (2022-11-22)
 
