@@ -203,7 +203,7 @@ vector_out(PG_FUNCTION_ARGS)
 	if (ndig < 1)
 		ndig = 1;
 
-#define FLOAT_SHORTEST_DECIMAL_LEN ndig + 10
+#define FLOAT_SHORTEST_DECIMAL_LEN (ndig + 10)
 #endif
 
 	/*
