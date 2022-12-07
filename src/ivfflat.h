@@ -3,6 +3,10 @@
 
 #include "postgres.h"
 
+#if PG_VERSION_NUM < 100000
+#error "Requires PostgreSQL 10+"
+#endif
+
 #include "access/generic_xlog.h"
 #include "access/reloptions.h"
 #include "nodes/execnodes.h"
@@ -17,10 +21,6 @@
 
 #ifdef IVFFLAT_BENCH
 #include "portability/instr_time.h"
-#endif
-
-#if PG_VERSION_NUM < 100000
-#error "Requires PostgreSQL 10+"
 #endif
 
 /* Support functions */
