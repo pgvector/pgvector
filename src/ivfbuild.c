@@ -5,7 +5,6 @@
 #include "catalog/index.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
-#include "port.h"
 #include "storage/bufmgr.h"
 
 #if PG_VERSION_NUM >= 140000
@@ -108,7 +107,7 @@ SampleRows(IvfflatBuildState * buildstate)
 
 	buildstate->rowstoskip = -1;
 
-	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, random());
+	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, RandomInt());
 
 	reservoir_init_selection_state(&buildstate->rstate, targsamples);
 	while (BlockSampler_HasMore(&buildstate->bs))

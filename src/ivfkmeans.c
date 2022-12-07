@@ -4,17 +4,6 @@
 
 #include "ivfflat.h"
 #include "miscadmin.h"
-#include "port.h"
-
-#if PG_VERSION_NUM >= 150000
-#include "common/pg_prng.h"
-#endif
-
-#if PG_VERSION_NUM >= 150000
-#define RandomDouble() pg_prng_double(&pg_global_prng_state)
-#else
-#define RandomDouble() (((double) random()) / MAX_RANDOM_VALUE)
-#endif
 
 /*
  * Initialize with kmeans++
@@ -40,7 +29,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	collation = index->rd_indcollation[0];
 
 	/* Choose an initial center uniformly at random */
-	VectorArraySet(centers, 0, VectorArrayGet(samples, random() % samples->length));
+	VectorArraySet(centers, 0, VectorArrayGet(samples, RandomInt() % samples->length));
 	centers->length++;
 
 	for (j = 0; j < numSamples; j++)
