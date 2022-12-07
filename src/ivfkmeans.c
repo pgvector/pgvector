@@ -4,6 +4,7 @@
 
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "port.h"
 
 #if PG_VERSION_NUM >= 150000
 #include "common/pg_prng.h"

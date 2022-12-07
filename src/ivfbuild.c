@@ -5,6 +5,7 @@
 #include "catalog/index.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "port.h"
 #include "storage/bufmgr.h"
 
 #if PG_VERSION_NUM >= 140000
