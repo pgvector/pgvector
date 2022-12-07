@@ -6,14 +6,13 @@
 #include "access/generic_xlog.h"
 #include "access/reloptions.h"
 #include "nodes/execnodes.h"
+#include "port.h"				/* for strtof() and random() */
 #include "utils/sampling.h"
 #include "utils/tuplesort.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 150000
 #include "common/pg_prng.h"
-#else
-#include "port.h"
 #endif
 
 #ifdef IVFFLAT_BENCH
