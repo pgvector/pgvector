@@ -15,7 +15,7 @@ typedef struct Vector
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int16		dim;			/* number of dimensions */
 	int16		unused;
-	float		x[FLEXIBLE_ARRAY_MEMBER];
+	float		x[1];
 }			Vector;
 
 void		PrintVector(char *msg, Vector * vector);

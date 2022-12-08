@@ -164,6 +164,7 @@ ivfflatvalidate(Oid opclassoid)
  *
  * See https://www.postgresql.org/docs/current/index-api.html
  */
+PGDLLEXPORT Datum ivfflathandler(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(ivfflathandler);
 Datum
 ivfflathandler(PG_FUNCTION_ARGS)

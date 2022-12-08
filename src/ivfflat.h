@@ -83,7 +83,7 @@ typedef struct VectorArrayData
 	int			length;
 	int			maxlen;
 	int			dim;
-	Vector		items[FLEXIBLE_ARRAY_MEMBER];
+	Vector		items[1];
 }			VectorArrayData;
 
 typedef VectorArrayData * VectorArray;
@@ -210,24 +210,24 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 #define VectorArraySet(_arr, _offset, _val) (memcpy(VECTOR_ARRAY_OFFSET(_arr, _offset), _val, VECTOR_SIZE(_arr->dim)))
 
 /* Methods */
-void		_PG_init(void);
-VectorArray VectorArrayInit(int maxlen, int dimensions);
-void		PrintVectorArray(char *msg, VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
-FmgrInfo   *IvfflatOptionalProcInfo(Relation rel, uint16 procnum);
-bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
-int			IvfflatGetLists(Relation index);
-void		IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);
-void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);
-void		IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum);
-Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
-void		IvfflatInitPage(Buffer buf, Page page);
-void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
+PGDLLEXPORT void		_PG_init(void);
+PGDLLEXPORT VectorArray VectorArrayInit(int maxlen, int dimensions);
+PGDLLEXPORT void		PrintVectorArray(char *msg, VectorArray arr);
+PGDLLEXPORT void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
+PGDLLEXPORT FmgrInfo   *IvfflatOptionalProcInfo(Relation rel, uint16 procnum);
+PGDLLEXPORT bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
+PGDLLEXPORT int			IvfflatGetLists(Relation index);
+PGDLLEXPORT void		IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);
+PGDLLEXPORT void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);
+PGDLLEXPORT void		IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum);
+PGDLLEXPORT Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
+PGDLLEXPORT void		IvfflatInitPage(Buffer buf, Page page);
+PGDLLEXPORT void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 
 /* Index access methods */
-IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);
-void		ivfflatbuildempty(Relation index);
-bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique
+PGDLLEXPORT IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);
+PGDLLEXPORT void		ivfflatbuildempty(Relation index);
+PGDLLEXPORT bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique
 #if PG_VERSION_NUM >= 140000
 						  ,bool indexUnchanged
 #endif
@@ -235,11 +235,11 @@ bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer hea
 						  ,IndexInfo *indexInfo
 #endif
 );
-IndexBulkDeleteResult *ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state);
-IndexBulkDeleteResult *ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
-IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);
-void		ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
-bool		ivfflatgettuple(IndexScanDesc scan, ScanDirection dir);
-void		ivfflatendscan(IndexScanDesc scan);
+PGDLLEXPORT IndexBulkDeleteResult *ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state);
+PGDLLEXPORT IndexBulkDeleteResult *ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
+PGDLLEXPORT IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);
+PGDLLEXPORT void		ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
+PGDLLEXPORT bool		ivfflatgettuple(IndexScanDesc scan, ScanDirection dir);
+PGDLLEXPORT void		ivfflatendscan(IndexScanDesc scan);
 
 #endif

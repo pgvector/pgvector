@@ -109,6 +109,7 @@ PrintVector(char *msg, Vector * vector)
 /*
  * Convert textual representation to internal representation
  */
+PGDLLEXPORT Datum vector_in(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_in);
 Datum
 vector_in(PG_FUNCTION_ARGS)
@@ -186,6 +187,7 @@ vector_in(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to textual representation
  */
+PGDLLEXPORT Datum vector_out(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_out);
 Datum
 vector_out(PG_FUNCTION_ARGS)
@@ -247,6 +249,7 @@ vector_out(PG_FUNCTION_ARGS)
 /*
  * Convert type modifier
  */
+PGDLLEXPORT Datum vector_typmod_in(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_typmod_in);
 Datum
 vector_typmod_in(PG_FUNCTION_ARGS)
@@ -278,6 +281,7 @@ vector_typmod_in(PG_FUNCTION_ARGS)
 /*
  * Convert external binary representation to internal representation
  */
+PGDLLEXPORT Datum vector_recv(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_recv);
 Datum
 vector_recv(PG_FUNCTION_ARGS)
@@ -310,6 +314,7 @@ vector_recv(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to the external binary representation
  */
+PGDLLEXPORT Datum vector_send(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_send);
 Datum
 vector_send(PG_FUNCTION_ARGS)
@@ -330,6 +335,7 @@ vector_send(PG_FUNCTION_ARGS)
 /*
  * Convert vector to vector
  */
+PGDLLEXPORT Datum vector(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector);
 Datum
 vector(PG_FUNCTION_ARGS)
@@ -345,6 +351,7 @@ vector(PG_FUNCTION_ARGS)
 /*
  * Convert array to vector
  */
+PGDLLEXPORT Datum array_to_vector(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(array_to_vector);
 Datum
 array_to_vector(PG_FUNCTION_ARGS)
@@ -403,6 +410,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 /*
  * Convert vector to float4[]
  */
+PGDLLEXPORT Datum vector_to_float4(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_to_float4);
 Datum
 vector_to_float4(PG_FUNCTION_ARGS)
@@ -426,6 +434,7 @@ vector_to_float4(PG_FUNCTION_ARGS)
 /*
  * Get the L2 distance between vectors
  */
+PGDLLEXPORT Datum l2_distance(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(l2_distance);
 Datum
 l2_distance(PG_FUNCTION_ARGS)
@@ -450,6 +459,7 @@ l2_distance(PG_FUNCTION_ARGS)
  * Get the L2 squared distance between vectors
  * This saves a sqrt calculation
  */
+PGDLLEXPORT Datum vector_l2_squared_distance(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_l2_squared_distance);
 Datum
 vector_l2_squared_distance(PG_FUNCTION_ARGS)
@@ -473,6 +483,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 /*
  * Get the inner product of two vectors
  */
+PGDLLEXPORT Datum inner_product(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(inner_product);
 Datum
 inner_product(PG_FUNCTION_ARGS)
@@ -492,6 +503,7 @@ inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the negative inner product of two vectors
  */
+PGDLLEXPORT Datum vector_negative_inner_product(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_negative_inner_product);
 Datum
 vector_negative_inner_product(PG_FUNCTION_ARGS)
@@ -511,6 +523,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the cosine distance between two vectors
  */
+PGDLLEXPORT Datum cosine_distance(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(cosine_distance);
 Datum
 cosine_distance(PG_FUNCTION_ARGS)
@@ -538,6 +551,7 @@ cosine_distance(PG_FUNCTION_ARGS)
  * Currently uses angular distance since needs to satisfy triangle inequality
  * Assumes inputs are unit vectors (skips norm)
  */
+PGDLLEXPORT Datum vector_spherical_distance(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_spherical_distance);
 Datum
 vector_spherical_distance(PG_FUNCTION_ARGS)
@@ -563,6 +577,7 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 /*
  * Get the dimensions of a vector
  */
+PGDLLEXPORT Datum vector_dims(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_dims);
 Datum
 vector_dims(PG_FUNCTION_ARGS)
@@ -575,6 +590,7 @@ vector_dims(PG_FUNCTION_ARGS)
 /*
  * Get the L2 norm of a vector
  */
+PGDLLEXPORT Datum vector_norm(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_norm);
 Datum
 vector_norm(PG_FUNCTION_ARGS)
@@ -591,6 +607,7 @@ vector_norm(PG_FUNCTION_ARGS)
 /*
  * Add vectors
  */
+PGDLLEXPORT Datum vector_add(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_add);
 Datum
 vector_add(PG_FUNCTION_ARGS)
@@ -612,6 +629,7 @@ vector_add(PG_FUNCTION_ARGS)
 /*
  * Subtract vectors
  */
+PGDLLEXPORT Datum vector_sub(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_sub);
 Datum
 vector_sub(PG_FUNCTION_ARGS)
@@ -654,6 +672,7 @@ vector_cmp_internal(Vector * a, Vector * b)
 /*
  * Less than
  */
+PGDLLEXPORT Datum vector_lt(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_lt);
 Datum
 vector_lt(PG_FUNCTION_ARGS)
@@ -667,6 +686,7 @@ vector_lt(PG_FUNCTION_ARGS)
 /*
  * Less than or equal
  */
+PGDLLEXPORT Datum vector_le(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_le);
 Datum
 vector_le(PG_FUNCTION_ARGS)
@@ -680,6 +700,7 @@ vector_le(PG_FUNCTION_ARGS)
 /*
  * Equal
  */
+PGDLLEXPORT Datum vector_eq(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_eq);
 Datum
 vector_eq(PG_FUNCTION_ARGS)
@@ -693,6 +714,7 @@ vector_eq(PG_FUNCTION_ARGS)
 /*
  * Not equal
  */
+PGDLLEXPORT Datum vector_ne(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_ne);
 Datum
 vector_ne(PG_FUNCTION_ARGS)
@@ -706,6 +728,7 @@ vector_ne(PG_FUNCTION_ARGS)
 /*
  * Greater than or equal
  */
+PGDLLEXPORT Datum vector_ge(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_ge);
 Datum
 vector_ge(PG_FUNCTION_ARGS)
@@ -719,6 +742,7 @@ vector_ge(PG_FUNCTION_ARGS)
 /*
  * Greater than
  */
+PGDLLEXPORT Datum vector_gt(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_gt);
 Datum
 vector_gt(PG_FUNCTION_ARGS)
@@ -732,6 +756,7 @@ vector_gt(PG_FUNCTION_ARGS)
 /*
  * Compare vectors
  */
+PGDLLEXPORT Datum vector_cmp(PG_FUNCTION_ARGS);
 PG_FUNCTION_INFO_V1(vector_cmp);
 Datum
 vector_cmp(PG_FUNCTION_ARGS)
