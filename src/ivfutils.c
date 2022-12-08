@@ -10,11 +10,12 @@
 VectorArray
 VectorArrayInit(int maxlen, int dimensions)
 {
-	VectorArray res = palloc_extended(VECTOR_ARRAY_SIZE(maxlen, dimensions), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
+	VectorArray res = palloc(sizeof(VectorArrayData));
 
 	res->length = 0;
 	res->maxlen = maxlen;
 	res->dim = dimensions;
+	res->items = palloc_extended(maxlen * VECTOR_SIZE(dimensions), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
 	return res;
 }
 
@@ -24,6 +25,7 @@ VectorArrayInit(int maxlen, int dimensions)
 void
 VectorArrayFree(VectorArray arr)
 {
+	pfree(arr->items);
 	pfree(arr);
 }
 
