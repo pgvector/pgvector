@@ -1,16 +1,12 @@
 name: build
 on: [push, pull_request]
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  ubuntu:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         postgres: [15, 14, 13, 12, 11, 10]
-        include:
-          - os: macos-latest
-            postgres: 14
     steps:
       - uses: actions/checkout@v3
       - uses: ankane/setup-postgres@v1
@@ -18,22 +14,29 @@ jobs:
           postgres-version: ${{ matrix.postgres }}
           dev-files: true
       - run: make
-      - if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: |
+      - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
-      - if: ${{ startsWith(matrix.os, 'macos') }}
-        run: make install
       - run: make installcheck
       - if: ${{ failure() }}
         run: cat regression.diffs
-      - if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: |
+      - run: |
           sudo apt-get update
           sudo apt-get install libipc-run-perl
           make prove_installcheck
-      - if: ${{ startsWith(matrix.os, 'macos') }}
-        run: |
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ankane/setup-postgres@v1
+        with:
+          postgres-version: 14
+      - run: make
+      - run: make install
+      - run: make installcheck
+      - if: ${{ failure() }}
+        run: cat regression.diffs
+      - run: |
           brew install cpanm
           cpanm IPC::Run
           wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_5.tar.gz
