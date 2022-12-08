@@ -362,7 +362,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 static void
 FreeBuildState(IvfflatBuildState * buildstate)
 {
-	pfree(buildstate->centers);
+	VectorArrayFree(buildstate->centers);
 	pfree(buildstate->listInfo);
 	pfree(buildstate->normvec);
 
@@ -401,7 +401,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));
 
 	/* Free samples before we allocate more memory */
-	pfree(buildstate->samples);
+	VectorArrayFree(buildstate->samples);
 }
 
 /*

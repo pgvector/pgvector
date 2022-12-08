@@ -443,7 +443,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 			break;
 	}
 
-	pfree(newCenters);
+	VectorArrayFree(newCenters);
 	pfree(centerCounts);
 	pfree(closestCenters);
 	pfree(lowerBound);

@@ -212,6 +212,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 /* Methods */
 void		_PG_init(void);
 VectorArray VectorArrayInit(int maxlen, int dimensions);
+void		VectorArrayFree(VectorArray arr);
 void		PrintVectorArray(char *msg, VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation rel, uint16 procnum);

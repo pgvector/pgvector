@@ -19,6 +19,15 @@ VectorArrayInit(int maxlen, int dimensions)
 }
 
 /*
+ * Free a vector array
+ */
+void
+VectorArrayFree(VectorArray arr)
+{
+	pfree(arr);
+}
+
+/*
  * Print vector array - useful for debugging
  */
 void
