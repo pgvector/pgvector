@@ -78,6 +78,9 @@
 /* Variables */
 extern int	ivfflat_probes;
 
+/* Exported functions */
+PGDLLEXPORT void _PG_init(void);
+
 typedef struct VectorArrayData
 {
 	int			length;
@@ -210,7 +213,6 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 #define VectorArraySet(_arr, _offset, _val) (memcpy(VECTOR_ARRAY_OFFSET(_arr, _offset), _val, VECTOR_SIZE(_arr->dim)))
 
 /* Methods */
-void		_PG_init(void);
 VectorArray VectorArrayInit(int maxlen, int dimensions);
 void		VectorArrayFree(VectorArray arr);
 void		PrintVectorArray(char *msg, VectorArray arr);

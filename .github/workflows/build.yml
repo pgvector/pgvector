@@ -42,3 +42,16 @@ jobs:
           wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_5.tar.gz
           tar xf REL_14_5.tar.gz
           make prove_installcheck PROVE=prove PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ankane/setup-postgres@v1
+        with:
+          postgres-version: 14
+      - run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          nmake /NOLOGO /F Makefile.win
+          nmake /NOLOGO /F Makefile.win install
+          nmake /NOLOGO /F Makefile.win installcheck
+        shell: cmd
