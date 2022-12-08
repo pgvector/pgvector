@@ -17,8 +17,6 @@ jobs:
         with:
           postgres-version: ${{ matrix.postgres }}
           dev-files: true
-      - if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: sudo apt-get update && sudo apt-get install libipc-run-perl
       - run: make
       - if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
@@ -30,10 +28,14 @@ jobs:
       - if: ${{ failure() }}
         run: cat regression.diffs
       - if: ${{ startsWith(matrix.os, 'ubuntu') }}
-        run: make prove_installcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install libipc-run-perl
+          make prove_installcheck
       - if: ${{ startsWith(matrix.os, 'macos') }}
         run: |
-          brew install cpanm && cpanm IPC::Run
+          brew install cpanm
+          cpanm IPC::Run
           wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_5.tar.gz
           tar xf REL_14_5.tar.gz
           make prove_installcheck PROVE=prove PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
