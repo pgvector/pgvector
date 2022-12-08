@@ -83,7 +83,7 @@ find_package(PostgreSQL  REQUIRED)
 if (MSVC)
 
     #set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    add_compile_options(-O3)
+    add_compile_options("$<$<CONFIG:RELEASE>:/O2>")
 
     else()
     add_compile_options(-ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math)
