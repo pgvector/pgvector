@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   ubuntu:
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref_name, 'windows') }}
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +27,7 @@ jobs:
           make prove_installcheck
   mac:
     runs-on: macos-latest
+    if: ${{ !startsWith(github.ref_name, 'windows') }}
     steps:
       - uses: actions/checkout@v3
       - uses: ankane/setup-postgres@v1
@@ -54,4 +56,5 @@ jobs:
           nmake /NOLOGO /F Makefile.win
           nmake /NOLOGO /F Makefile.win install
           nmake /NOLOGO /F Makefile.win installcheck
+          nmake /NOLOGO /F Makefile.win prove_installcheck PROVE=prove
         shell: cmd

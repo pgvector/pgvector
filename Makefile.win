@@ -54,3 +54,7 @@ install:
 
 installcheck:
 	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
+
+prove_installcheck:
+	rm -rf tmp_check
+	PGPORT=65432 PG_REGRESS="$(BINDIR)\pg_regress" $(PROVE) $(PG_PROVE_FLAGS) $(PROVE_FLAGS) test/t/*.pl
