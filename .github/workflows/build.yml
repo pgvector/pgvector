@@ -52,15 +52,15 @@ jobs:
         with:
           postgres-version: 14
       - run: |
+          cpan IPC::Run
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           nmake /NOLOGO /F Makefile.win
           nmake /NOLOGO /F Makefile.win install
-          nmake /NOLOGO /F Makefile.win installcheck
           curl -Ls -o REL_14_5.tar.gz https://github.com/postgres/postgres/archive/refs/tags/REL_14_5.tar.gz
           7z x REL_14_5.tar.gz
           7z x REL_14_5.tar
           ls -R .
           set PROVE=prove
-          set PROVE_FLAGS="-I .\postgres-REL_14_5\src\test\perl"
+          set PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl"
           nmake /NOLOGO /F Makefile.win prove_installcheck
         shell: cmd

@@ -59,4 +59,4 @@ prove_installcheck:
 	rm -rf tmp_check
 	set PGPORT=65432
 	set PG_REGRESS="$(BINDIR)\pg_regress"
-	$(PROVE) $(PG_PROVE_FLAGS) $(PROVE_FLAGS) test\t\*.pl
+	$(PROVE) $(PG_PROVE_FLAGS) $(PROVE_FLAGS) test/t/*.pl
