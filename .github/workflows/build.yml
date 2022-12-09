@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   ubuntu:
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +27,7 @@ jobs:
           make prove_installcheck
   mac:
     runs-on: macos-latest
+    if: ${{ !startsWith(github.ref_name, 'windows') }}
     steps:
       - uses: actions/checkout@v3
       - uses: ankane/setup-postgres@v1
@@ -44,6 +46,7 @@ jobs:
           make prove_installcheck PROVE=prove PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
   windows:
     runs-on: windows-latest
+    if: ${{ !startsWith(github.ref_name, 'mac') }}
     steps:
       - uses: actions/checkout@v3
       - uses: ankane/setup-postgres@v1
