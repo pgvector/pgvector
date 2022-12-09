@@ -58,8 +58,9 @@ jobs:
           nmake /NOLOGO /F Makefile.win installcheck
           curl -Ls -o REL_14_5.tar.gz https://github.com/postgres/postgres/archive/refs/tags/REL_14_5.tar.gz
           7z x REL_14_5.tar.gz
+          7z x REL_14_5.tar
           ls -R .
           set PROVE=prove
-          set PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl"
+          set PROVE_FLAGS="-I .\postgres-REL_14_5\src\test\perl"
           nmake /NOLOGO /F Makefile.win prove_installcheck
         shell: cmd
