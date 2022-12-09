@@ -3,6 +3,9 @@ EXTVERSION = 0.3.2
 
 OBJS = src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\vector.obj
 
+REGRESS = btree cast copy functions input ivfflat_cosine ivfflat_ip ivfflat_l2 ivfflat_options ivfflat_unlogged
+REGRESS_OPTS = --inputdir=test --load-extension=vector
+
 # For /arch flags
 # https://learn.microsoft.com/en-us/cpp/build/reference/arch-minimum-cpu-architecture
 OPTFLAGS =
@@ -21,6 +24,7 @@ sql\$(EXTENSION)--$(EXTVERSION).sql: sql\$(EXTENSION).sql
 	copy sql\$(EXTENSION).sql $@
 
 # TODO use pg_config
+BINDIR = $(PGROOT)\bin
 INCLUDEDIR = $(PGROOT)\include
 INCLUDEDIR_SERVER = $(PGROOT)\include\server
 LIBDIR = $(PGROOT)\lib
@@ -48,18 +52,5 @@ install:
 	copy $(EXTENSION).control "$(SHAREDIR)\extension"
 	copy sql\$(EXTENSION)--*.sql "$(SHAREDIR)\extension"
 
-# TODO improve
 installcheck:
-	createdb contrib_regression
-	mkdir -p results
-	psql -d contrib_regression -a -q -f test\sql\btree.sql > results\btree.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\cast.sql > results\cast.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\copy.sql > results\copy.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\functions.sql > results\functions.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\input.sql > results\input.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\ivfflat_cosine.sql > results\ivfflat_cosine.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\ivfflat_ip.sql > results\ivfflat_ip.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\ivfflat_l2.sql > results\ivfflat_l2.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\ivfflat_options.sql > results\ivfflat_options.out 2>&1
-	psql -d contrib_regression -a -q -f test\sql\ivfflat_unlogged.sql > results\ivfflat_unlogged.out 2>&1
-	cat results/*
+	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
