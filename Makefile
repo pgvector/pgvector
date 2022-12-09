@@ -7,7 +7,7 @@ OBJS = src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.
 
 TESTS = $(wildcard test/sql/*.sql)
 REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
-REGRESS_OPTS = --inputdir=test
+REGRESS_OPTS = --inputdir=test --load-extension=vector
 
 OPTFLAGS = -march=native
 

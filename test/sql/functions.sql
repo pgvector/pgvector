@@ -1,6 +1,3 @@
-SET client_min_messages = warning;
-CREATE EXTENSION IF NOT EXISTS vector;
-
 SELECT '[1,2,3]'::vector + '[4,5,6]';
 SELECT '[1,2,3]'::vector - '[4,5,6]';
 

@@ -1,5 +1,3 @@
-SET client_min_messages = warning;
-CREATE EXTENSION IF NOT EXISTS vector;
 SET enable_seqscan = off;
 
 CREATE TABLE t (val vector(3));
