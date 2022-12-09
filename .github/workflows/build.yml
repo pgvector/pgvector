@@ -56,5 +56,6 @@ jobs:
           nmake /NOLOGO /F Makefile.win
           nmake /NOLOGO /F Makefile.win install
           nmake /NOLOGO /F Makefile.win installcheck
-          nmake /NOLOGO /F Makefile.win prove_installcheck PROVE=prove
+          set PROVE=prove
+          nmake /NOLOGO /F Makefile.win prove_installcheck
         shell: cmd
