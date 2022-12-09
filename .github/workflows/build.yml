@@ -24,7 +24,7 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install libipc-run-perl
-          make prove_installcheck
+      - run: make prove_installcheck
   mac:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref_name, 'windows') }}
@@ -40,10 +40,10 @@ jobs:
         run: cat regression.diffs
       - run: |
           brew install cpanm
-          cpanm IPC::Run
+          cpanm --notest IPC::Run
           wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_5.tar.gz
           tar xf REL_14_5.tar.gz
-          make prove_installcheck PROVE=prove PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
+      - run: make prove_installcheck PROVE=prove PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
   windows:
     runs-on: windows-latest
     if: ${{ !startsWith(github.ref_name, 'mac') }}
