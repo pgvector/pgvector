@@ -35,7 +35,7 @@ CFLAGS = /nologo /I"$(INCLUDEDIR_SERVER)\port\win32_msvc" /I"$(INCLUDEDIR_SERVER
 
 CFLAGS = $(CFLAGS) $(PG_CFLAGS)
 
-SHLIB = src\$(EXTENSION).dll
+SHLIB = $(EXTENSION).dll
 
 LIBS = "$(LIBDIR)\postgres.lib"
 
@@ -54,3 +54,9 @@ install:
 
 installcheck:
 	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
+
+clean:
+	rm -f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp
+	rm -f $(OBJS)
+	rm -rf sql\$(EXTENSION)--$(EXTVERSION).sql
+	rm -rf results regression.diffs regression.out tmp_check tmp_check_iso log output_iso

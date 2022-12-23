@@ -6,3 +6,7 @@ regression.*
 *.o
 *.so
 *.bc
+*.dll
+*.obj
+*.lib
+*.exp

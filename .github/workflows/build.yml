@@ -57,4 +57,5 @@ jobs:
           nmake /NOLOGO /F Makefile.win
           nmake /NOLOGO /F Makefile.win install
           nmake /NOLOGO /F Makefile.win installcheck
+          nmake /NOLOGO /F Makefile.win clean
         shell: cmd
