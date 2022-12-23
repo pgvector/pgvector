@@ -7,13 +7,8 @@
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
 
-#if PG_VERSION_NUM >= 110000
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
-#else
-#include "catalog/pg_operator.h"
-#include "catalog/pg_type.h"
-#endif
 
 /*
  * Compare list distances
@@ -216,11 +211,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indexblkno", INT4OID, -1, 0);
 
 	/* Prep sort */
-#if PG_VERSION_NUM >= 110000
 	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
-#else
-	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, false);
-#endif
 
 #if PG_VERSION_NUM >= 120000
 	so->slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);

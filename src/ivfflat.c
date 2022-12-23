@@ -181,9 +181,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amclusterable = false;
 	amroutine->ampredlocks = false;
 	amroutine->amcanparallel = false;
-#if PG_VERSION_NUM >= 110000
 	amroutine->amcaninclude = false;
-#endif
 #if PG_VERSION_NUM >= 130000
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
 	amroutine->amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL;

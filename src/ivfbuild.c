@@ -22,13 +22,8 @@
 #define PROGRESS_CREATEIDX_TUPLES_DONE 0
 #endif
 
-#if PG_VERSION_NUM >= 110000
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
-#else
-#include "catalog/pg_operator.h"
-#include "catalog/pg_type.h"
-#endif
 
 #if PG_VERSION_NUM >= 130000
 #define CALLBACK_ITEM_POINTER ItemPointer tid
@@ -117,12 +112,9 @@ SampleRows(IvfflatBuildState * buildstate)
 #if PG_VERSION_NUM >= 120000
 		table_index_build_range_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
 									 false, true, false, targblock, 1, SampleCallback, (void *) buildstate, NULL);
-#elif PG_VERSION_NUM >= 110000
-		IndexBuildHeapRangeScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-								false, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
 #else
 		IndexBuildHeapRangeScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-								false, true, targblock, 1, SampleCallback, (void *) buildstate);
+								false, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
 #endif
 	}
 }
@@ -327,11 +319,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 #endif
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
-#if PG_VERSION_NUM >= 110000
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
-#else
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0]->atttypid, -1, 0);
-#endif
 
 #if PG_VERSION_NUM >= 120000
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
@@ -531,11 +519,7 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_SORT);
 
-#if PG_VERSION_NUM >= 110000
 	buildstate->sortstate = tuplesort_begin_heap(buildstate->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, maintenance_work_mem, NULL, false);
-#else
-	buildstate->sortstate = tuplesort_begin_heap(buildstate->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, maintenance_work_mem, false);
-#endif
 
 	/* Add tuples to sort */
 	if (buildstate->heap != NULL)
@@ -543,12 +527,9 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 #if PG_VERSION_NUM >= 120000
 		buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
 													   true, true, BuildCallback, (void *) buildstate, NULL);
-#elif PG_VERSION_NUM >= 110000
-		buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-												   true, BuildCallback, (void *) buildstate, NULL);
 #else
 		buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-												   true, BuildCallback, (void *) buildstate);
+												   true, BuildCallback, (void *) buildstate, NULL);
 #endif
 	}
 

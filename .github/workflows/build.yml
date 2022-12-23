@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        postgres: [15, 14, 13, 12, 11, 10]
+        postgres: [15, 14, 13, 12, 11]
     steps:
       - uses: actions/checkout@v3
       - uses: ankane/setup-postgres@v1

@@ -3,6 +3,7 @@
 - Changed text representation for vector elements to match `real`
 - Improved accuracy of text parsing for certain inputs
 - Added experimental support for Windows
+- Dropped support for Postgres 10
 
 ## 0.3.2 (2022-11-22)
 
