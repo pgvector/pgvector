@@ -234,9 +234,7 @@ bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer hea
 #if PG_VERSION_NUM >= 140000
 						  ,bool indexUnchanged
 #endif
-#if PG_VERSION_NUM >= 100000
 						  ,IndexInfo *indexInfo
-#endif
 );
 IndexBulkDeleteResult *ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state);
 IndexBulkDeleteResult *ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);

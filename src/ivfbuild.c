@@ -205,11 +205,7 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 	Datum		value;
 	bool		isnull;
 
-#if PG_VERSION_NUM >= 100000
 	if (tuplesort_gettupleslot(sortstate, true, false, slot, NULL))
-#else
-	if (tuplesort_gettupleslot(sortstate, true, slot, NULL))
-#endif
 	{
 		*list = DatumGetInt32(slot_getattr(slot, 1, &isnull));
 		value = slot_getattr(slot, 3, &isnull);

@@ -156,9 +156,7 @@ ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
 #if PG_VERSION_NUM >= 140000
 			  ,bool indexUnchanged
 #endif
-#if PG_VERSION_NUM >= 100000
 			  ,IndexInfo *indexInfo
-#endif
 )
 {
 	IndexTuple	itup;

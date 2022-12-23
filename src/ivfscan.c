@@ -302,11 +302,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 			pfree(DatumGetPointer(value));
 	}
 
-#if PG_VERSION_NUM >= 100000
 	if (tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
-#else
-	if (tuplesort_gettupleslot(so->sortstate, true, so->slot, NULL))
-#endif
 	{
 		ItemPointer tid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
 		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));

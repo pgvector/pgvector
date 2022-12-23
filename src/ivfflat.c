@@ -66,9 +66,7 @@ static void
 ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 					Cost *indexStartupCost, Cost *indexTotalCost,
 					Selectivity *indexSelectivity, double *indexCorrelation
-#if PG_VERSION_NUM >= 100000
 					,double *indexPages
-#endif
 )
 {
 	GenericCosts costs;
@@ -86,9 +84,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		*indexTotalCost = DBL_MAX;
 		*indexSelectivity = 0;
 		*indexCorrelation = 0;
-#if PG_VERSION_NUM >= 100000
 		*indexPages = 0;
-#endif
 		return;
 	}
 
@@ -116,9 +112,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
-#if PG_VERSION_NUM >= 100000
 	*indexPages = costs.numIndexPages;
-#endif
 }
 
 /*
@@ -186,9 +180,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amstorage = false;
 	amroutine->amclusterable = false;
 	amroutine->ampredlocks = false;
-#if PG_VERSION_NUM >= 100000
 	amroutine->amcanparallel = false;
-#endif
 #if PG_VERSION_NUM >= 110000
 	amroutine->amcaninclude = false;
 #endif
@@ -224,11 +216,9 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amrestrpos = NULL;
 
 	/* Interface functions to support parallel index scans */
-#if PG_VERSION_NUM >= 100000
 	amroutine->amestimateparallelscan = NULL;
 	amroutine->aminitparallelscan = NULL;
 	amroutine->amparallelrescan = NULL;
-#endif
 
 	PG_RETURN_POINTER(amroutine);
 }
