@@ -98,8 +98,6 @@ SampleRows(IvfflatBuildState * buildstate)
 	int			targsamples = buildstate->samples->maxlen;
 	BlockNumber totalblocks = RelationGetNumberOfBlocks(buildstate->heap);
 
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_SAMPLE);
-
 	buildstate->rowstoskip = -1;
 
 	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, RandomInt());
@@ -364,6 +362,8 @@ ComputeCenters(IvfflatBuildState * buildstate)
 {
 	int			numSamples;
 
+	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
+
 	/* Target 50 samples per list, with at least 10000 samples */
 	/* The number of samples has a large effect on index build time */
 	numSamples = buildstate->lists * 50;
@@ -381,7 +381,6 @@ ComputeCenters(IvfflatBuildState * buildstate)
 		SampleRows(buildstate);
 
 	/* Calculate centers */
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
 	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));
 
 	/* Free samples before we allocate more memory */

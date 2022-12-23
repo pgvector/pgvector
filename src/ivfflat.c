@@ -45,8 +45,6 @@ ivfflatbuildphasename(int64 phasenum)
 	{
 		case PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE:
 			return "initializing";
-		case PROGRESS_IVFFLAT_PHASE_SAMPLE:
-			return "sampling table";
 		case PROGRESS_IVFFLAT_PHASE_KMEANS:
 			return "performing k-means";
 		case PROGRESS_IVFFLAT_PHASE_SORT:
