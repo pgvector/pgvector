@@ -86,7 +86,7 @@ IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * resul
 
 	if (norm > 0)
 	{
-		v = (Vector *) DatumGetPointer(*value);
+		v = DatumGetVector(*value);
 
 		if (result == NULL)
 			result = InitVector(v->dim);
