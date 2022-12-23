@@ -2,12 +2,22 @@ name: build
 on: [push, pull_request]
 jobs:
   ubuntu:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
     strategy:
       fail-fast: false
       matrix:
-        postgres: [15, 14, 13, 12, 11]
+        include:
+          - postgres: 15
+            os: ubuntu-22.04
+          - postgres: 14
+            os: ubuntu-22.04
+          - postgres: 13
+            os: ubuntu-20.04
+          - postgres: 12
+            os: ubuntu-20.04
+          - postgres: 11
+            os: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
       - uses: ankane/setup-postgres@v1
