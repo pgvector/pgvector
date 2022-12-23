@@ -40,6 +40,11 @@ PG_CONFIG ?= pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
+# for Mac
+ifeq ($(PROVE),)
+	PROVE = prove
+endif
+
 # for Postgres 15
 PROVE_FLAGS += -I ./test/perl
 
