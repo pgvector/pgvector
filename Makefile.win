@@ -59,12 +59,12 @@ installcheck:
 	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
 
 uninstall:
-	rm -f "$(PKGLIBDIR)\$(SHLIB)"
-	rm -f "$(SHAREDIR)\extension\$(EXTENSION).control"
-	rm -f "$(SHAREDIR)\extension\vector--*.sql"
+	del /f "$(PKGLIBDIR)\$(SHLIB)"
+	del /f "$(SHAREDIR)\extension\$(EXTENSION).control"
+	del /f "$(SHAREDIR)\extension\vector--*.sql"
 
 clean:
-	rm -f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp
-	rm -f $(OBJS)
-	rm -rf sql\$(EXTENSION)--$(EXTVERSION).sql
-	rm -rf results regression.diffs regression.out tmp_check tmp_check_iso log output_iso
+	del /f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp
+	del /f $(OBJS)
+	del /f sql\$(EXTENSION)--$(EXTVERSION).sql
+	del /f /s /q results regression.diffs regression.out tmp_check tmp_check_iso log output_iso
