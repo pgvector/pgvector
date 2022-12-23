@@ -24,6 +24,9 @@ sql\$(EXTENSION)--$(EXTVERSION).sql: sql\$(EXTENSION).sql
 	copy sql\$(EXTENSION).sql $@
 
 # TODO use pg_config
+!ifndef PGROOT
+!error PGROOT is not set
+!endif
 BINDIR = $(PGROOT)\bin
 INCLUDEDIR = $(PGROOT)\include
 INCLUDEDIR_SERVER = $(PGROOT)\include\server
