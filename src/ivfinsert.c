@@ -130,9 +130,14 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 			/* Unlock extend relation lock as early as possible */
 			UnlockReleaseBuffer(metabuf);
 
-			/* Unlock rest */
-			UnlockReleaseBuffer(newbuf);
+			/* Unlock previous buffer */
 			UnlockReleaseBuffer(buf);
+
+			/* Prepare new buffer */
+			state = GenericXLogStart(rel);
+			buf = newbuf;
+			page = GenericXLogRegisterBuffer(state, buf, 0);
+			break;
 		}
 	}
 
