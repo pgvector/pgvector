@@ -1,6 +1,7 @@
 ## 0.4.0 (unreleased)
 
 - Changed text representation for vector elements to match `real`
+- Changed storage for vector from `plain` to `extended`
 - Improved accuracy of text parsing for certain inputs
 - Added experimental support for Windows
 - Dropped support for Postgres 10
