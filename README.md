@@ -188,9 +188,9 @@ vector_norm(vector) | Euclidean norm
 
 ### Aggregate Functions
 
-Function | Description
---- | ---
-avg(vector) | arithmetic mean [unreleased]
+Function | Description | Partial Mode
+--- | --- | ---
+avg(vector) | arithmetic mean [unreleased] | Yes
 
 ## Libraries
 
