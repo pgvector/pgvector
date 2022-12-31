@@ -180,17 +180,17 @@ Operator | Description
 
 Function | Description
 --- | ---
-cosine_distance(vector, vector) | cosine distance
-inner_product(vector, vector) | inner product
-l2_distance(vector, vector) | Euclidean distance
-vector_dims(vector) | number of dimensions
-vector_norm(vector) | Euclidean norm
+cosine_distance(vector, vector) → double precision | cosine distance
+inner_product(vector, vector) → double precision | inner product
+l2_distance(vector, vector) → double precision | Euclidean distance
+vector_dims(vector) → integer | number of dimensions
+vector_norm(vector) → double precision | Euclidean norm
 
 ### Aggregate Functions
 
 Function | Description | Partial Mode
 --- | --- | ---
-avg(vector) | arithmetic mean [unreleased] | Yes
+avg(vector) → vector | arithmetic mean [unreleased] | Yes
 
 ## Libraries
 
