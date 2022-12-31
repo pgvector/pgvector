@@ -84,6 +84,26 @@ CREATE FUNCTION vector_negative_inner_product(vector, vector) RETURNS float8
 CREATE FUNCTION vector_spherical_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION vector_accum(double precision[], vector) RETURNS double precision[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_avg(double precision[]) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_combine(double precision[], double precision[]) RETURNS double precision[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- aggregates
+
+CREATE AGGREGATE avg(vector) (
+	SFUNC = vector_accum,
+	STYPE = double precision[],
+	FINALFUNC = vector_avg,
+	COMBINEFUNC = vector_combine,
+	INITCOND = '{0}',
+	PARALLEL = SAFE
+);
+
 -- cast functions
 
 CREATE FUNCTION vector(vector, integer, boolean) RETURNS vector

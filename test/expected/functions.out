@@ -52,3 +52,23 @@ SELECT cosine_distance('[1,2]', '[0,0]');
 
 SELECT cosine_distance('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
+SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
+    avg    
+-----------
+ [2,3.5,5]
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
+    avg    
+-----------
+ [2,3.5,5]
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY[]::vector[]) v;
+ avg 
+-----
+ 
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
+ERROR:  expected 2 dimensions, not 1
