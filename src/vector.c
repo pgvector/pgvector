@@ -9,12 +9,12 @@
 #include "libpq/pqformat.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
-#include "utils/float.h"
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
 
 #if PG_VERSION_NUM >= 120000
 #include "common/shortest_dec.h"
+#include "utils/float.h"
 #else
 #include <float.h>
 #endif
@@ -99,6 +99,16 @@ CheckStateArray(ArrayType *statearray, const char *caller)
 		elog(ERROR, "%s: expected state array", caller);
 	return (float8 *) ARR_DATA_PTR(statearray);
 }
+
+#if PG_VERSION_NUM < 120000
+static pg_noinline void
+float_overflow_error(void)
+{
+	ereport(ERROR,
+			(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+			 errmsg("value out of range: overflow")));
+}
+#endif
 
 /*
  * Print vector - useful for debugging
