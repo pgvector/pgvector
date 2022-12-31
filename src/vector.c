@@ -9,12 +9,12 @@
 #include "libpq/pqformat.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
+#include "utils/float.h"
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
 
 #if PG_VERSION_NUM >= 120000
 #include "common/shortest_dec.h"
-#include "utils/float.h"
 #else
 #include <float.h>
 #endif
