@@ -12,11 +12,11 @@ $node->start;
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (r1 real, r2 real, r3 real, v vector(3));");
-$node->safe_psql("postgres",
-	"INSERT INTO tst SELECT r1, r2, r3, ARRAY[r1, r2, r3] FROM (
+$node->safe_psql("postgres", qq(
+	INSERT INTO tst SELECT r1, r2, r3, ARRAY[r1, r2, r3] FROM (
 		SELECT random() + 1.01 AS r1, random() + 2.01 AS r2, random() + 3.01 AS r3 FROM generate_series(1, 1000000) t
-	) i;"
-);
+	) i;
+));
 
 # Test matches real
 my $r1 = $node->safe_psql("postgres", "SELECT AVG(r1)::float4 FROM tst;");
