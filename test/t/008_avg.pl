@@ -18,15 +18,17 @@ $node->safe_psql("postgres", qq(
 	) i;
 ));
 
+# Test avg
+my $avg = $node->safe_psql("postgres", "SELECT AVG(v) FROM tst;");
+like($avg, qr/\[1\.5/);
+like($avg, qr/,2\.5/);
+like($avg, qr/,3\.5/);
+
 # Test matches real
 my $r1 = $node->safe_psql("postgres", "SELECT AVG(r1)::float4 FROM tst;");
 my $r2 = $node->safe_psql("postgres", "SELECT AVG(r2)::float4 FROM tst;");
 my $r3 = $node->safe_psql("postgres", "SELECT AVG(r3)::float4 FROM tst;");
-my $avg = $node->safe_psql("postgres", "SELECT AVG(v) FROM tst;");
 is($avg, "[$r1,$r2,$r3]");
-like($avg, qr/\[1\.5/);
-like($avg, qr/,2\.5/);
-like($avg, qr/,3\.5/);
 
 # Test explain
 my $explain = $node->safe_psql("postgres", "EXPLAIN SELECT AVG(v) FROM tst;");
