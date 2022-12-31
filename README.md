@@ -186,6 +186,12 @@ l2_distance(vector, vector) | Euclidean distance
 vector_dims(vector) | number of dimensions
 vector_norm(vector) | Euclidean norm
 
+### Aggregate Functions
+
+Function | Description
+--- | ---
+avg(vector) | arithmetic mean [unreleased]
+
 ## Libraries
 
 Libraries that use pgvector:
