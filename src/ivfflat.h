@@ -3,8 +3,8 @@
 
 #include "postgres.h"
 
-#if PG_VERSION_NUM < 100000
-#error "Requires PostgreSQL 10+"
+#if PG_VERSION_NUM < 110000
+#error "Requires PostgreSQL 11+"
 #endif
 
 #include "access/generic_xlog.h"
