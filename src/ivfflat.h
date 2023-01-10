@@ -23,6 +23,8 @@
 #include "portability/instr_time.h"
 #endif
 
+#define IVFFLAT_MAX_DIM VECTOR_MAX_DIM
+
 /* Support functions */
 #define IVFFLAT_DISTANCE_PROC 1
 #define IVFFLAT_NORM_PROC 2

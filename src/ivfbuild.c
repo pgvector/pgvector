@@ -338,6 +338,9 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
+	if (buildstate->dimensions > IVFFLAT_MAX_DIM)
+		elog(ERROR, "ivfflat index cannot have more than %d dimensions", IVFFLAT_MAX_DIM);
+
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;
 
