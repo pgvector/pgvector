@@ -25,8 +25,7 @@ CREATE TYPE vector (
 	OUTPUT    = vector_out,
 	TYPMOD_IN = vector_typmod_in,
 	RECEIVE   = vector_recv,
-	SEND      = vector_send,
-	STORAGE   = extended
+	SEND      = vector_send
 );
 
 -- functions
