@@ -6,6 +6,7 @@
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
+#include "utils/memutils.h"
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_progress.h"
@@ -118,27 +119,20 @@ SampleRows(IvfflatBuildState * buildstate)
 }
 
 /*
- * Callback for table_index_build_scan
+ * Add tuple to sort
  */
 static void
-BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
-			  bool *isnull, bool tupleIsAlive, void *state)
+AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState * buildstate)
 {
-	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
 	double		distance;
 	double		minDistance = DBL_MAX;
 	int			closestCenter = -1;
 	VectorArray centers = buildstate->centers;
 	TupleTableSlot *slot = buildstate->slot;
-	Datum		value = values[0];
 	int			i;
 
-#if PG_VERSION_NUM < 130000
-	ItemPointer tid = &hup->t_self;
-#endif
-
-	if (isnull[0])
-		return;
+	/* Detoast once for all calls */
+	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -184,6 +178,34 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	tuplesort_puttupleslot(buildstate->sortstate, slot);
 
 	buildstate->indtuples++;
+}
+
+/*
+ * Callback for table_index_build_scan
+ */
+static void
+BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
+			  bool *isnull, bool tupleIsAlive, void *state)
+{
+	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
+	MemoryContext oldCtx;
+
+#if PG_VERSION_NUM < 130000
+	ItemPointer tid = &hup->t_self;
+#endif
+
+	if (isnull[0])
+		return;
+
+	/* Use memory context since detoast can allocate */
+	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
+
+	/* Add tuple to sort */
+	AddTupleToSort(index, tid, values, buildstate);
+
+	/* Reset memory context */
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextReset(buildstate->tmpCtx);
 }
 
 /*
@@ -331,6 +353,10 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	/* Reuse for each tuple */
 	buildstate->normvec = InitVector(buildstate->dimensions);
 
+	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
+											   "Ivfflat build temporary context",
+											   ALLOCSET_DEFAULT_SIZES);
+
 #ifdef IVFFLAT_KMEANS_DEBUG
 	buildstate->inertia = 0;
 	buildstate->listSums = palloc0(sizeof(double) * buildstate->lists);
@@ -352,6 +378,8 @@ FreeBuildState(IvfflatBuildState * buildstate)
 	pfree(buildstate->listSums);
 	pfree(buildstate->listCounts);
 #endif
+
+	MemoryContextDelete(buildstate->tmpCtx);
 }
 
 /*

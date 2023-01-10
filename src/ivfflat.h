@@ -145,6 +145,9 @@ typedef struct IvfflatBuildState
 	Tuplesortstate *sortstate;
 	TupleDesc	tupdesc;
 	TupleTableSlot *slot;
+
+	/* Memory */
+	MemoryContext tmpCtx;
 }			IvfflatBuildState;
 
 typedef struct IvfflatMetaPageData
