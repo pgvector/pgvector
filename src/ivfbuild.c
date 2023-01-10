@@ -215,6 +215,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	ItemPointer tid = &hup->t_self;
 #endif
 
+	/* Skip nulls */
 	if (isnull[0])
 		return;
 
