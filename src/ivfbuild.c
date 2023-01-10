@@ -39,20 +39,16 @@
 #endif
 
 /*
- * Callback for sampling
+ * Add sample
  */
 static void
-SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
-			   bool *isnull, bool tupleIsAlive, void *state)
+AddSample(Datum *values, IvfflatBuildState * buildstate)
 {
-	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
 	VectorArray samples = buildstate->samples;
 	int			targsamples = samples->maxlen;
-	Datum		value = values[0];
 
-	/* Skip nulls */
-	if (isnull[0])
-		return;
+	/* Detoast once for all calls */
+	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/*
 	 * Normalize with KMEANS_NORM_PROC since spherical distance function
@@ -88,6 +84,31 @@ SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 		buildstate->rowstoskip -= 1;
 	}
+}
+
+/*
+ * Callback for sampling
+ */
+static void
+SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
+			   bool *isnull, bool tupleIsAlive, void *state)
+{
+	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
+	MemoryContext oldCtx;
+
+	/* Skip nulls */
+	if (isnull[0])
+		return;
+
+	/* Use memory context since detoast can allocate */
+	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
+
+	/* Add sample */
+	AddSample(values, state);
+
+	/* Reset memory context */
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextReset(buildstate->tmpCtx);
 }
 
 /*
