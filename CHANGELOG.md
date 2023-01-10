@@ -1,6 +1,7 @@
 ## 0.4.0 (unreleased)
 
 - Changed text representation for vector elements to match `real`
+- Changed storage for vector from `plain` to `extended` for new installations
 - Improved accuracy of text parsing for certain inputs
 - Added `avg` aggregate for vector
 - Added experimental support for Windows
