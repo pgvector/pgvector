@@ -4,6 +4,7 @@
 
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "utils/memutils.h"
 
 /*
  * Find the list that minimizes the distance function
@@ -57,8 +58,11 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
  * Insert a tuple into the index
  */
 static void
-InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
+InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel)
 {
+	IndexTuple	itup;
+	Datum		value;
+	FmgrInfo   *normprocinfo;
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
@@ -67,11 +71,27 @@ InsertTuple(Relation rel, IndexTuple itup, Relation heapRel, Datum *values)
 	ListInfo	listInfo;
 	BlockNumber originalInsertPage;
 
+	/* Detoast once for all calls */
+	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+	/* Normalize if needed */
+	normprocinfo = IvfflatOptionalProcInfo(rel, IVFFLAT_NORM_PROC);
+	if (normprocinfo != NULL)
+	{
+		if (!IvfflatNormValue(normprocinfo, rel->rd_indcollation[0], &value, NULL))
+			return;
+	}
+
 	/* Find the insert page - sets the page and list info */
 	FindInsertPage(rel, values, &insertPage, &listInfo);
 	Assert(BlockNumberIsValid(insertPage));
 	originalInsertPage = insertPage;
 
+	/* Form tuple */
+	itup = index_form_tuple(RelationGetDescr(rel), &value, isnull);
+	itup->t_tid = *heap_tid;
+
+	/* Get tuple size */
 	itemsz = MAXALIGN(IndexTupleSize(itup));
 	Assert(itemsz <= BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(IvfflatPageOpaqueData)));
 
@@ -164,33 +184,28 @@ ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
 			  ,IndexInfo *indexInfo
 )
 {
-	IndexTuple	itup;
-	Datum		value;
-	FmgrInfo   *normprocinfo;
+	MemoryContext oldCtx;
+	MemoryContext insertCtx;
 
 	/* Skip nulls */
 	if (isnull[0])
 		return false;
 
-	/* Detoast once for all calls */
-	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	/*
+	 * Use memory context since detoast, IvfflatNormValue, and
+	 * index_form_tuple can allocate
+	 */
+	insertCtx = AllocSetContextCreate(CurrentMemoryContext,
+									  "Ivfflat insert temporary context",
+									  ALLOCSET_DEFAULT_SIZES);
+	oldCtx = MemoryContextSwitchTo(insertCtx);
 
-	/* Normalize if needed */
-	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		if (!IvfflatNormValue(normprocinfo, index->rd_indcollation[0], &value, NULL))
-			return false;
-	}
+	/* Insert tuple */
+	InsertTuple(index, values, isnull, heap_tid, heap);
 
-	itup = index_form_tuple(RelationGetDescr(index), &value, isnull);
-	itup->t_tid = *heap_tid;
-	InsertTuple(index, itup, heap, &value);
-	pfree(itup);
-
-	/* Clean up if we allocated a new value */
-	if (value != values[0])
-		pfree(DatumGetPointer(value));
+	/* Delete memory context */
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextDelete(insertCtx);
 
 	return false;
 }
