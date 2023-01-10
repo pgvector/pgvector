@@ -168,10 +168,12 @@ ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
 	Datum		value;
 	FmgrInfo   *normprocinfo;
 
+	/* Skip nulls */
 	if (isnull[0])
 		return false;
 
-	value = values[0];
+	/* Detoast once for all calls */
+	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Normalize if needed */
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
