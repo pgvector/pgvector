@@ -2,6 +2,8 @@
 
 - Changed text representation for vector elements to match `real`
 - Changed storage for vector from `plain` to `extended`
+- Increased max dimensions for vector from 1024 to 16000
+- Increased max dimensions for index from 1024 to 2000
 - Improved accuracy of text parsing for certain inputs
 - Added `avg` aggregate for vector
 - Added experimental support for Windows

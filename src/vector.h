@@ -3,7 +3,7 @@
 
 #include "postgres.h"
 
-#define VECTOR_MAX_DIM 1024
+#define VECTOR_MAX_DIM 16000
 
 #define VECTOR_SIZE(_dim)		(offsetof(Vector, x) + sizeof(float)*(_dim))
 #define DatumGetVector(x)		((Vector *) PG_DETOAST_DATUM(x))
