@@ -1,4 +1,4 @@
-## 0.4.0 (unreleased)
+## 0.4.0 (2023-01-11)
 
 If upgrading with Postgres < 13, see [this note](https://github.com/pgvector/pgvector#040).
 
