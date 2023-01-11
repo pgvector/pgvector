@@ -277,6 +277,16 @@ ALTER EXTENSION vector UPDATE;
 
 ## Upgrade Notes
 
+### 0.4.0
+
+For Postgres < 13, remove this line from `sql/vector--0.3.2--0.4.0.sql`:
+
+```sql
+ALTER TYPE vector SET (STORAGE = extended);
+```
+
+Then run `make install` and `ALTER EXTENSION vector UPDATE;`.
+
 ### 0.3.1
 
 If upgrading from 0.2.7 or 0.3.0, recreate all `ivfflat` indexes after upgrading to ensure all data is indexed.

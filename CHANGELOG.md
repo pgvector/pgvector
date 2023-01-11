@@ -1,5 +1,7 @@
 ## 0.4.0 (unreleased)
 
+If upgrading with Postgres < 13, see [this note](#040).
+
 - Changed text representation for vector elements to match `real`
 - Changed storage for vector from `plain` to `extended`
 - Increased max dimensions for vector from 1024 to 16000
