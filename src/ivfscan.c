@@ -277,6 +277,10 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		value = scan->orderByData->sk_argument;
 
+		/* Value should not be compressed or toasted */
+		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
+		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
+
 		if (so->normprocinfo != NULL)
 		{
 			/* No items will match if normalization fails */
