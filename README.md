@@ -77,7 +77,7 @@ Cosine distance
 CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops);
 ```
 
-Indexes should be created after the table has some data for optimal clustering. Also, unlike typical indexes which only affect performance, you may see different results for queries after adding an approximate index.
+Indexes should be created after the table has some data for optimal clustering. Also, unlike typical indexes which only affect performance, you may see different results for queries after adding an approximate index. Vectors with up to 2,000 dimensions can be indexed.
 
 ### Index Options
 
@@ -119,10 +119,9 @@ SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
 The phases are:
 
 1. `initializing`
-2. `sampling table`
-3. `performing k-means`
-4. `sorting tuples`
-5. `loading tuples`
+2. `performing k-means`
+3. `sorting tuples`
+4. `loading tuples`
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
 
@@ -164,7 +163,7 @@ CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000
 
 ### Vector Type
 
-Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single precision floating-point number (like the `real` type in Postgres), and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Vectors can have up to 1024 dimensions.
+Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single precision floating-point number (like the `real` type in Postgres), and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Vectors can have up to 16,000 dimensions.
 
 ### Vector Operators
 
@@ -190,7 +189,7 @@ vector_norm(vector) → double precision | Euclidean norm
 
 Function | Description | Partial Mode
 --- | --- | ---
-avg(vector) → vector | arithmetic mean [unreleased] | Yes
+avg(vector) → vector | arithmetic mean | Yes
 
 ## Libraries
 
@@ -216,12 +215,12 @@ A non-partitioned table has a limit of 32 TB by default in Postgres. A partition
 
 Yes, pgvector uses the write-ahead log (WAL), which allows for replication and point-in-time recovery.
 
-#### What if my data has more than 1024 dimensions?
+#### What if I want to index vectors with more than 2,000 dimensions?
 
 Two things you can try are:
 
 1. use dimensionality reduction
-2. compile Postgres with a larger block size (`./configure --with-blocksize=32`) and edit the limit in `src/vector.h`
+2. compile Postgres with a larger block size (`./configure --with-blocksize=32`) and edit the limit in `src/ivfflat.h`
 
 ## Additional Installation Methods
 
