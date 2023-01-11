@@ -193,17 +193,16 @@ avg(vector) → vector | arithmetic mean | Yes
 
 ## Libraries
 
-Libraries that use pgvector:
-
-- [pgvector-python](https://github.com/pgvector/pgvector-python) (Python)
-- [Neighbor](https://github.com/ankane/neighbor) (Ruby)
-- [pgvector-ruby](https://github.com/pgvector/pgvector-ruby) (Ruby)
-- [pgvector-node](https://github.com/pgvector/pgvector-node) (Node.js)
-- [pgvector-go](https://github.com/pgvector/pgvector-go) (Go)
-- [pgvector-php](https://github.com/pgvector/pgvector-php) (PHP)
-- [pgvector-rust](https://github.com/pgvector/pgvector-rust) (Rust)
-- [pgvector-cpp](https://github.com/pgvector/pgvector-cpp) (C++)
-- [pgvector-elixir](https://github.com/pgvector/pgvector-elixir) (Elixir)
+Language | Libraries
+--- | ---
+Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
+Ruby | [Neighbor](https://github.com/ankane/neighbor), [pgvector-ruby](https://github.com/pgvector/pgvector-ruby)
+Node | [pgvector-node](https://github.com/pgvector/pgvector-node)
+Go | [pgvector-go](https://github.com/pgvector/pgvector-go)
+PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
+Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
+C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
+Elixir | [pgvector-elixir](https://github.com/pgvector/pgvector-elixir)
 
 ## Frequently Asked Questions
 
