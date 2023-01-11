@@ -1,6 +1,6 @@
 ## 0.4.0 (unreleased)
 
-If upgrading with Postgres < 13, see [this note](#040).
+If upgrading with Postgres < 13, see [this note](https://github.com/pgvector/pgvector#040).
 
 - Changed text representation for vector elements to match `real`
 - Changed storage for vector from `plain` to `extended`

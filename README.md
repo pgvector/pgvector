@@ -14,7 +14,7 @@ Supports L2 distance, inner product, and cosine distance
 
 ## Installation
 
-Compile and install the extension (supports Postgres 10+)
+Compile and install the extension (supports Postgres 11+)
 
 ```sh
 git clone --branch v0.3.2 https://github.com/pgvector/pgvector.git
