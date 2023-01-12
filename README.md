@@ -29,7 +29,7 @@ Then load it in databases where you want to use it
 CREATE EXTENSION vector;
 ```
 
-You can also install it with [Docker](#docker), [Homebrew](#homebrew), or [PGXN](#pgxn)
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), or [conda-forge](#conda-forge)
 
 ## Getting Started
 
@@ -256,6 +256,16 @@ Install from the [PostgreSQL Extension Network](https://pgxn.org/dist/vector) wi
 ```sh
 pgxn install vector
 ```
+
+### conda-forge
+
+Install from [conda-forge](https://anaconda.org/conda-forge/pgvector) with:
+
+```sh
+conda install -c conda-forge pgvector
+```
+
+This method is community-maintained by [@mmcauliffe](https://github.com/mmcauliffe)
 
 ## Hosted Postgres
 
