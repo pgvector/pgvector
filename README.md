@@ -265,7 +265,7 @@ Install from [conda-forge](https://anaconda.org/conda-forge/pgvector) with:
 conda install -c conda-forge pgvector
 ```
 
-This method is community-maintained by [@mmcauliffe](https://github.com/mmcauliffe)
+This method is [community-maintained](https://github.com/conda-forge/pgvector-feedstock) by [@mmcauliffe](https://github.com/mmcauliffe)
 
 ## Hosted Postgres
 
