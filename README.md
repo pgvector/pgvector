@@ -187,9 +187,9 @@ vector_norm(vector) → double precision | Euclidean norm
 
 ### Aggregate Functions
 
-Function | Description | Partial Mode
+Function | Description
 --- | --- | ---
-avg(vector) → vector | arithmetic mean | Yes
+avg(vector) → vector | arithmetic mean
 
 ## Libraries
 
