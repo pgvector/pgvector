@@ -288,7 +288,7 @@ ALTER EXTENSION vector UPDATE;
 
 ### 0.4.0
 
-For Postgres < 13, remove this line from `sql/vector--0.3.2--0.4.0.sql`:
+If upgrading with Postgres < 13, remove this line from `sql/vector--0.3.2--0.4.0.sql`:
 
 ```sql
 ALTER TYPE vector SET (STORAGE = extended);
