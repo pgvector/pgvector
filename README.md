@@ -272,7 +272,7 @@ This method is [community-maintained](https://github.com/conda-forge/pgvector-fe
 Some Postgres providers only support specific extensions. To request a new extension:
 
 - Amazon RDS - follow the instructions on [this page](https://aws.amazon.com/rds/postgresql/faqs/)
-- Google Cloud SQL - follow the instructions on [this page](https://cloud.google.com/sql/docs/postgres/extensions#requesting-support-for-a-new-extension)
+- Google Cloud SQL - vote or comment on [this page](https://issuetracker.google.com/issues/265172065)
 - DigitalOcean Managed Databases - vote or comment on [this page](https://ideas.digitalocean.com/app-framework-services/p/pgvector-extension-for-postgresql)
 - Azure Database for PostgreSQL - vote or comment on [this page](https://feedback.azure.com/d365community/idea/7b423322-6189-ed11-a81b-000d3ae49307)
 
