@@ -13,7 +13,7 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (v vector(3));");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT ARRAY[random(), random(), random()] FROM generate_series(1, 100000) i;"
+	"INSERT INTO tst SELECT random_vector(3) FROM generate_series(1, 100000) i;"
 );
 
 $node->safe_psql("postgres", "CREATE INDEX lists50 ON tst USING ivfflat (v) WITH (lists = 50);");

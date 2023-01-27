@@ -44,11 +44,6 @@ sub test_index_replay
 	return;
 }
 
-# Use ARRAY[random(), random(), random(), ...] over
-# SELECT array_agg(random()) FROM generate_series(1, $dim)
-# to generate different values for each row
-my $array_sql = join(",", ('random()') x $dim);
-
 # Initialize primary node
 $node_primary = get_new_node('primary');
 $node_primary->init(allows_streaming => 1);
@@ -75,7 +70,7 @@ $node_replica->start;
 $node_primary->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node_primary->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
 $node_primary->safe_psql("postgres",
-	"INSERT INTO tst SELECT i % 10, ARRAY[$array_sql] FROM generate_series(1, 100000) i;"
+	"INSERT INTO tst SELECT i % 10, random_vector($dim) FROM generate_series(1, 100000) i;"
 );
 $node_primary->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
@@ -91,7 +86,7 @@ for my $i (1 .. 10)
 	test_index_replay("vacuum $i");
 	my ($start, $end) = (100001 + ($i - 1) * 10000, 100000 + $i * 10000);
 	$node_primary->safe_psql("postgres",
-		"INSERT INTO tst SELECT i % 10, ARRAY[$array_sql] FROM generate_series($start, $end) i;"
+		"INSERT INTO tst SELECT i % 10, random_vector($dim) FROM generate_series($start, $end) i;"
 	);
 	test_index_replay("insert $i");
 }

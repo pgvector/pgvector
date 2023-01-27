@@ -52,6 +52,9 @@ CREATE FUNCTION vector_add(vector, vector) RETURNS vector
 CREATE FUNCTION vector_sub(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION random_vector(integer) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE STRICT PARALLEL SAFE;
+
 -- private functions
 
 CREATE FUNCTION vector_lt(vector, vector) RETURNS bool

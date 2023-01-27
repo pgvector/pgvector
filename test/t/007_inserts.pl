@@ -6,8 +6,6 @@ use Test::More tests => 5;
 
 my $dim = 768;
 
-my $array_sql = join(",", ('random()') x $dim);
-
 # Initialize node
 my $node = get_new_node('node');
 $node->init;
@@ -17,7 +15,7 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (v vector($dim));");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT ARRAY[$array_sql] FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT random_vector($dim) FROM generate_series(1, 10000) i;"
 );
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
 
@@ -28,7 +26,7 @@ $node->pgbench(
 	[qr{^$}],
 	"concurrent INSERTs",
 	{
-		"007_inserts" => "INSERT INTO tst SELECT ARRAY[$array_sql] FROM generate_series(1, 10) i;"
+		"007_inserts" => "INSERT INTO tst SELECT random_vector($dim) FROM generate_series(1, 10) i;"
 	}
 );
 

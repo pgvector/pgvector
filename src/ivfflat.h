@@ -10,14 +10,9 @@
 #include "access/generic_xlog.h"
 #include "access/reloptions.h"
 #include "nodes/execnodes.h"
-#include "port.h"				/* for strtof() and random() */
 #include "utils/sampling.h"
 #include "utils/tuplesort.h"
 #include "vector.h"
-
-#if PG_VERSION_NUM >= 150000
-#include "common/pg_prng.h"
-#endif
 
 #ifdef IVFFLAT_BENCH
 #include "portability/instr_time.h"
@@ -66,14 +61,6 @@
 	} while (0)
 #else
 #define IvfflatBench(name, code) (code)
-#endif
-
-#if PG_VERSION_NUM >= 150000
-#define RandomDouble() pg_prng_double(&pg_global_prng_state)
-#define RandomInt() pg_prng_uint32(&pg_global_prng_state)
-#else
-#define RandomDouble() (((double) random()) / MAX_RANDOM_VALUE)
-#define RandomInt() random()
 #endif
 
 /* Variables */

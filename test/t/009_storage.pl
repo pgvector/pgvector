@@ -17,7 +17,7 @@ $node->safe_psql("postgres", "CREATE TABLE tst (v1 vector(1024), v2 vector(1024)
 
 # Test insert succeeds
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT array_agg(n), array_agg(n), array_agg(n) FROM generate_series(1, $dim) n"
+	"INSERT INTO tst SELECT random_vector($dim), random_vector($dim), random_vector($dim)"
 );
 
 # Change storage to PLAIN
@@ -27,6 +27,6 @@ $node->safe_psql("postgres", "ALTER TABLE tst ALTER COLUMN v3 SET STORAGE PLAIN"
 
 # Test insert fails
 my ($ret, $stdout, $stderr) = $node->psql("postgres",
-	"INSERT INTO tst SELECT array_agg(n), array_agg(n), array_agg(n) FROM generate_series(1, $dim) n"
+	"INSERT INTO tst SELECT random_vector($dim), random_vector($dim), random_vector($dim)"
 );
 like($stderr, qr/row is too big/);

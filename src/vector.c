@@ -950,3 +950,22 @@ vector_avg(PG_FUNCTION_ARGS)
 
 	PG_RETURN_POINTER(result);
 }
+
+/*
+ * Generate a random vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(random_vector);
+Datum
+random_vector(PG_FUNCTION_ARGS)
+{
+	int32		dim = PG_GETARG_INT32(0);
+	Vector	   *result;
+
+	CheckDim(dim);
+
+	result = InitVector(dim);
+	for (int i = 0; i < dim; i++)
+		result->x[i] = RandomDouble();
+
+	PG_RETURN_POINTER(result);
+}

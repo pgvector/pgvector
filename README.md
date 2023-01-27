@@ -184,6 +184,7 @@ inner_product(vector, vector) → double precision | inner product
 l2_distance(vector, vector) → double precision | Euclidean distance
 vector_dims(vector) → integer | number of dimensions
 vector_norm(vector) → double precision | Euclidean norm
+random_vector(integer) → vector | random vector [unreleased]
 
 ### Aggregate Functions
 
