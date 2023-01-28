@@ -269,9 +269,7 @@ This method is [community-maintained](https://github.com/conda-forge/pgvector-fe
 
 ## Hosted Postgres
 
-pgvector is available on:
-
-- Supabase
+pgvector is available on [these providers](https://github.com/pgvector/pgvector/issues/54).
 
 To request a new extension on other providers:
 
