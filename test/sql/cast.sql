@@ -2,6 +2,7 @@ SELECT ARRAY[1,2,3]::vector;
 SELECT ARRAY[1.0,2.0,3.0]::vector;
 SELECT ARRAY[1,2,3]::float4[]::vector;
 SELECT ARRAY[1,2,3]::float8[]::vector;
+SELECT ARRAY[1,2,3]::numeric[]::vector;
 SELECT '{NULL}'::real[]::vector;
 SELECT '{NaN}'::real[]::vector;
 SELECT '{Infinity}'::real[]::vector;
