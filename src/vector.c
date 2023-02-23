@@ -822,7 +822,7 @@ vector_accum(PG_FUNCTION_ARGS)
 	if (newarr)
 	{
 		for (int i = 0; i < dim; i++)
-			statedatums[i + 1] = Float8GetDatumFast(x[i]);
+			statedatums[i + 1] = Float8GetDatumFast((double) x[i]);
 	}
 	else
 	{

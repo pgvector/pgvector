@@ -3,6 +3,10 @@
 
 #include "postgres.h"
 
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
+
 #define VECTOR_MAX_DIM 16000
 
 #define VECTOR_SIZE(_dim)		(offsetof(Vector, x) + sizeof(float)*(_dim))
