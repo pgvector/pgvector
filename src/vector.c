@@ -416,7 +416,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 		else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 			result->x[i] = DatumGetFloat4(elemsp[i]);
 		else if (ARR_ELEMTYPE(array) == NUMERICOID)
-			result->x[i] = DatumGetFloat4(DirectFunctionCall1(numeric_float4, NumericGetDatum(elemsp[i])));
+			result->x[i] = DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i]));
 		else
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
