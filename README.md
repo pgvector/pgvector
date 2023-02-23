@@ -231,9 +231,9 @@ Get the [Docker image](https://hub.docker.com/r/ankane/pgvector) with:
 docker pull ankane/pgvector
 ```
 
-This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres).
+This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (run it the same way).
 
-You can also build the image manually
+You can also build the image manually:
 
 ```sh
 git clone --branch v0.4.0 https://github.com/pgvector/pgvector.git
