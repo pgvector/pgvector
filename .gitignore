@@ -7,6 +7,7 @@ regression.*
 *.so
 *.bc
 *.dll
+*.dylib
 *.obj
 *.lib
 *.exp
