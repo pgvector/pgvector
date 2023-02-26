@@ -1,4 +1,5 @@
 /dist/
+/log/
 /results/
 /tmp_check/
 /sql/vector--?.?.?.sql
