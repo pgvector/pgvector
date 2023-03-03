@@ -193,7 +193,7 @@ avg(vector) → vector | arithmetic mean
 
 ## Libraries
 
-Language | Libraries
+Language | Libraries / Examples
 --- | ---
 Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
 Ruby | [Neighbor](https://github.com/ankane/neighbor), [pgvector-ruby](https://github.com/pgvector/pgvector-ruby)
