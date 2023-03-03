@@ -97,7 +97,7 @@ Specify the number of probes (1 by default)
 SET ivfflat.probes = 1;
 ```
 
-A higher value improves recall at the cost of speed.
+A higher value improves recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search.
 
 Use `SET LOCAL` inside a transaction to set it for a single query
 
