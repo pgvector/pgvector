@@ -204,6 +204,7 @@ PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
 Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
 Elixir | [pgvector-elixir](https://github.com/pgvector/pgvector-elixir)
+Julia | [pgvector-julia](https://github.com/pgvector/pgvector-julia)
 
 ## Frequently Asked Questions
 
