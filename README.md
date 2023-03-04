@@ -195,17 +195,17 @@ avg(vector) → vector | arithmetic mean
 
 Language | Libraries / Examples
 --- | ---
-Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
-Ruby | [Neighbor](https://github.com/ankane/neighbor), [pgvector-ruby](https://github.com/pgvector/pgvector-ruby)
-Node | [pgvector-node](https://github.com/pgvector/pgvector-node)
-Go | [pgvector-go](https://github.com/pgvector/pgvector-go)
-Java, Scala | [pgvector-java](https://github.com/pgvector/pgvector-java)
-R | [pgvector-r](https://github.com/pgvector/pgvector-r)
-PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
-Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
 Elixir | [pgvector-elixir](https://github.com/pgvector/pgvector-elixir)
+Go | [pgvector-go](https://github.com/pgvector/pgvector-go)
+Java, Scala | [pgvector-java](https://github.com/pgvector/pgvector-java)
 Julia | [pgvector-julia](https://github.com/pgvector/pgvector-julia)
+Node | [pgvector-node](https://github.com/pgvector/pgvector-node)
+PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
+Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
+R | [pgvector-r](https://github.com/pgvector/pgvector-r)
+Ruby | [Neighbor](https://github.com/ankane/neighbor), [pgvector-ruby](https://github.com/pgvector/pgvector-ruby)
+Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
 
 ## Frequently Asked Questions
 
