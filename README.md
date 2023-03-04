@@ -206,7 +206,7 @@ Node | [pgvector-node](https://github.com/pgvector/pgvector-node)
 PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
 Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
 R | [pgvector-r](https://github.com/pgvector/pgvector-r)
-Ruby | [Neighbor](https://github.com/ankane/neighbor), [pgvector-ruby](https://github.com/pgvector/pgvector-ruby)
+Ruby | [pgvector-ruby](https://github.com/pgvector/pgvector-ruby), [Neighbor](https://github.com/ankane/neighbor)
 Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
 
 ## Frequently Asked Questions
