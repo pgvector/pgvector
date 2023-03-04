@@ -191,7 +191,9 @@ Function | Description
 --- | ---
 avg(vector) → vector | arithmetic mean
 
-## Libraries
+## Languages
+
+Use pgvector from any language with a Postgres client
 
 Language | Libraries / Examples
 --- | ---
