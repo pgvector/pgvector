@@ -198,6 +198,7 @@ Use pgvector from any language with a Postgres client
 Language | Libraries / Examples
 --- | ---
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
+C# | [pgvector-dotnet](https://github.com/pgvector/pgvector-dotnet)
 Elixir | [pgvector-elixir](https://github.com/pgvector/pgvector-elixir)
 Go | [pgvector-go](https://github.com/pgvector/pgvector-go)
 Java, Scala | [pgvector-java](https://github.com/pgvector/pgvector-java)
