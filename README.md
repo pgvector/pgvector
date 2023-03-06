@@ -189,7 +189,7 @@ EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
 
 ## Languages
 
-Use pgvector from any language with a Postgres client.
+Use pgvector from any language with a Postgres client. You can even generate and store vectors in one language and query them in another.
 
 Language | Libraries / Examples
 --- | ---
@@ -206,8 +206,6 @@ Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
 R | [pgvector-r](https://github.com/pgvector/pgvector-r)
 Ruby | [pgvector-ruby](https://github.com/pgvector/pgvector-ruby), [Neighbor](https://github.com/ankane/neighbor)
 Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
-
-You can even generate and store vectors in one language and query them in another.
 
 ## Frequently Asked Questions
 
