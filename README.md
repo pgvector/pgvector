@@ -71,6 +71,12 @@ SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
 
 Note: Combine with `ORDER BY` and `LIMIT` to use an index
 
+Get the average of vectors
+
+```sql
+SELECT AVG(embedding) FROM items;
+```
+
 ## Indexing
 
 Speed up queries with an approximate index. Add an index for each distance function you want to use.
