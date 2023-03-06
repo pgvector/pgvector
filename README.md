@@ -187,38 +187,6 @@ Use `EXPLAIN ANALYZE` to debug performance
 EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
 ```
 
-## Reference
-
-### Vector Type
-
-Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single precision floating-point number (like the `real` type in Postgres), and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Vectors can have up to 16,000 dimensions.
-
-### Vector Operators
-
-Operator | Description
---- | ---
-\+ | element-wise addition
-\- | element-wise subtraction
-<-> | Euclidean distance
-<#> | negative inner product
-<=> | cosine distance
-
-### Vector Functions
-
-Function | Description
---- | ---
-cosine_distance(vector, vector) → double precision | cosine distance
-inner_product(vector, vector) → double precision | inner product
-l2_distance(vector, vector) → double precision | Euclidean distance
-vector_dims(vector) → integer | number of dimensions
-vector_norm(vector) → double precision | Euclidean norm
-
-### Aggregate Functions
-
-Function | Description
---- | ---
-avg(vector) → vector | arithmetic mean
-
 ## Languages
 
 Use pgvector from any language with a Postgres client.
@@ -257,6 +225,38 @@ Two things you can try are:
 
 1. use dimensionality reduction
 2. compile Postgres with a larger block size (`./configure --with-blocksize=32`) and edit the limit in `src/ivfflat.h`
+
+## Reference
+
+### Vector Type
+
+Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single precision floating-point number (like the `real` type in Postgres), and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Vectors can have up to 16,000 dimensions.
+
+### Vector Operators
+
+Operator | Description
+--- | ---
+\+ | element-wise addition
+\- | element-wise subtraction
+<-> | Euclidean distance
+<#> | negative inner product
+<=> | cosine distance
+
+### Vector Functions
+
+Function | Description
+--- | ---
+cosine_distance(vector, vector) → double precision | cosine distance
+inner_product(vector, vector) → double precision | inner product
+l2_distance(vector, vector) → double precision | Euclidean distance
+vector_dims(vector) → integer | number of dimensions
+vector_norm(vector) → double precision | Euclidean norm
+
+### Aggregate Functions
+
+Function | Description
+--- | ---
+avg(vector) → vector | arithmetic mean
 
 ## Additional Installation Methods
 
