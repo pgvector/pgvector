@@ -55,6 +55,22 @@ Also supports inner product (`<#>`) and cosine distance (`<=>`)
 
 Note: `<#>` returns the negative inner product since Postgres only supports `ASC` order index scans on operators
 
+## Querying
+
+Use a `SELECT` clause to get the distance
+
+```sql
+SELECT embedding <-> '[3,1,2]' AS distance FROM items;
+```
+
+Use a `WHERE` clause to get rows within a certain distance
+
+```sql
+SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
+```
+
+Note: Combine with `ORDER BY` and `LIMIT` to use an index
+
 ## Indexing
 
 Speed up queries with an approximate index. Add an index for each distance function you want to use.
@@ -144,22 +160,6 @@ To index many different values of `category_id`, consider [partitioning](https:/
 ```sql
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
-
-## Querying
-
-Use a `SELECT` clause to get the distance
-
-```sql
-SELECT embedding <-> '[3,1,2]' AS distance FROM items;
-```
-
-Use a `WHERE` clause to get rows within a certain distance
-
-```sql
-SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 100;
-```
-
-Note: Combine with `ORDER BY` and `LIMIT` to use an index
 
 ## Performance
 
