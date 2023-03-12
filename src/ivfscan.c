@@ -5,6 +5,7 @@
 #include "access/relscan.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "pgstat.h"
 #include "storage/bufmgr.h"
 
 #include "catalog/pg_operator_d.h"
@@ -266,6 +267,9 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (so->first)
 	{
 		Datum		value;
+
+		/* Count index scan for stats */
+		pgstat_count_index_scan(scan->indexRelation);
 
 		/* Safety check */
 		if (scan->orderByData == NULL)

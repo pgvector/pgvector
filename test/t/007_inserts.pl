@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 5;
+use Test::More tests => 7;
 
 my $dim = 768;
 
@@ -32,10 +32,16 @@ $node->pgbench(
 	}
 );
 
+sub idx_scan
+{
+	$node->safe_psql("postgres", "SELECT idx_scan FROM pg_stat_user_indexes WHERE indexrelid = 'tst_v_idx'::regclass;");
+}
+
 my $expected = 10000 + 5 * 100 * 10;
 
 my $count = $node->safe_psql("postgres", "SELECT COUNT(*) FROM tst;");
 is($count, $expected);
+is(idx_scan(), 0);
 
 $count = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
@@ -43,3 +49,4 @@ $count = $node->safe_psql("postgres", qq(
 	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1)) t;
 ));
 is($count, $expected);
+is(idx_scan(), 1);
