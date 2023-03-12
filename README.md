@@ -294,7 +294,7 @@ pgxn install vector
 
 ### conda-forge
 
-Install from [conda-forge](https://anaconda.org/conda-forge/pgvector) with:
+With Conda Postgres, install from [conda-forge](https://anaconda.org/conda-forge/pgvector) with:
 
 ```sh
 conda install -c conda-forge pgvector
