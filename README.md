@@ -181,7 +181,7 @@ To speed up queries with an index, increase the number of inverted lists (at the
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
 ```
 
-Use `EXPLAIN ANALYZE` to debug performance
+Use `EXPLAIN ANALYZE` to debug performance.
 
 ```sql
 EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
