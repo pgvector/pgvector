@@ -34,7 +34,7 @@ $node->pgbench(
 
 sub idx_scan
 {
-	# stats do not update instantaneously
+	# Stats do not update instantaneously
 	# https://www.postgresql.org/docs/current/monitoring-stats.html#MONITORING-STATS-VIEWS
 	sleep(1);
 	$node->safe_psql("postgres", "SELECT pg_stat_clear_snapshot();");
