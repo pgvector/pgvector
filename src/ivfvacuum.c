@@ -146,8 +146,10 @@ ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 	if (info->analyze_only)
 		return stats;
 
+	/* stats is NULL if ambulkdelete not called */
+	/* OK to return NULL if index not changed */
 	if (stats == NULL)
-		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
+		return NULL;
 
 	stats->num_pages = RelationGetNumberOfBlocks(rel);
 
