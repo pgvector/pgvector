@@ -1,5 +1,6 @@
 ## 0.4.1 (unreleased)
 
+- Improved performance of cosine distance
 - Fixed index scan count
 
 ## 0.4.0 (2023-01-11)

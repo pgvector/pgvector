@@ -568,7 +568,7 @@ cosine_distance(PG_FUNCTION_ARGS)
 		normb += bx[i] * bx[i];
 	}
 
-	PG_RETURN_FLOAT8(1 - (distance / (sqrt(norma) * sqrt(normb))));
+	PG_RETURN_FLOAT8(1 - (distance / sqrt(norma * normb)));
 }
 
 /*
