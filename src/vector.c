@@ -568,7 +568,7 @@ cosine_distance(PG_FUNCTION_ARGS)
 		normb += bx[i] * bx[i];
 	}
 
-	/* sqrt(a) * sqrt(b) == sqrt(a * b) */
+	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
 	PG_RETURN_FLOAT8(1 - (distance / sqrt(norma * normb)));
 }
 
