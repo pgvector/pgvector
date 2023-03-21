@@ -1,5 +1,5 @@
 EXTENSION = vector
-EXTVERSION = 0.4.0
+EXTVERSION = 0.4.1
 
 OBJS = src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\vector.obj
 
