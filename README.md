@@ -281,7 +281,7 @@ docker build -t pgvector .
 With Homebrew Postgres, you can use:
 
 ```sh
-brew install pgvector/brew/pgvector
+brew install pgvector
 ```
 
 ### PGXN
