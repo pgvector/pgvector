@@ -50,6 +50,18 @@ SELECT cosine_distance('[1,2]', '[0,0]');
              NaN
 (1 row)
 
+SELECT cosine_distance('[1,1]', '[1,1]');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('[1,1]', '[-1,-1]');
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
 SELECT cosine_distance('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
