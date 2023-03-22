@@ -22,10 +22,28 @@ SELECT round(vector_norm('[1,1]')::numeric, 5);
  1.41421
 (1 row)
 
-SELECT round(l2_distance('[1,2]', '[0,0]')::numeric, 5);
-  round  
----------
- 2.23607
+SELECT vector_norm('[3,4]');
+ vector_norm 
+-------------
+           5
+(1 row)
+
+SELECT vector_norm('[0,1]');
+ vector_norm 
+-------------
+           1
+(1 row)
+
+SELECT l2_distance('[0,0]', '[3,4]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
+SELECT l2_distance('[0,0]', '[0,1]');
+ l2_distance 
+-------------
+           1
 (1 row)
 
 SELECT l2_distance('[1,2]', '[3]');
@@ -38,10 +56,10 @@ SELECT inner_product('[1,2]', '[3,4]');
 
 SELECT inner_product('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
-SELECT round(cosine_distance('[1,2]', '[2,4]')::numeric, 5);
-  round  
----------
- 0.00000
+SELECT cosine_distance('[1,2]', '[2,4]');
+ cosine_distance 
+-----------------
+               0
 (1 row)
 
 SELECT cosine_distance('[1,2]', '[0,0]');
