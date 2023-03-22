@@ -276,6 +276,13 @@ cd pgvector
 docker build -t pgvector .
 ```
 
+On Apple Silicon M1/M2, setup up [buildx](https://docs.docker.com/build/building/multi-platform/#getting-started) and then:
+```sh
+git clone https://github.com/pgvector/pgvector.git
+cd pgvector
+docker buildx build --platform linux/arm64 -t pgvector .
+```
+
 ### Homebrew
 
 With Homebrew Postgres, you can use:
