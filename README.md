@@ -109,7 +109,10 @@ Specify the number of inverted lists (100 by default)
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
 ```
 
-A lower value provides better recall at the cost of speed. A [good place to start](https://github.com/facebookresearch/faiss/issues/112) is `4 * sqrt(rows)`.
+A lower value provides better recall at the cost of speed. A good place to start is:
+
+- `rows / 1000` for up to 1M rows
+- `sqrt(rows)` for over 1M rows
 
 ### Query Options
 
