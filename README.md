@@ -109,7 +109,7 @@ Specify the number of inverted lists (100 by default)
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
 ```
 
-A [good place to start](https://github.com/facebookresearch/faiss/issues/112) is `4 * sqrt(rows)`
+A lower value provides better recall at the cost of speed. A [good place to start](https://github.com/facebookresearch/faiss/issues/112) is `4 * sqrt(rows)`.
 
 ### Query Options
 
@@ -119,7 +119,7 @@ Specify the number of probes (1 by default)
 SET ivfflat.probes = 1;
 ```
 
-A higher value improves recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search (at which point the planner won’t use the index)
+A higher value provides better recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search (at which point the planner won’t use the index)
 
 Use `SET LOCAL` inside a transaction to set it for a single query
 
