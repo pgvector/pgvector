@@ -6,3 +6,4 @@
 regression.*
 *.o
 *.so
+.github/*

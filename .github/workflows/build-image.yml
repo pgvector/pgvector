@@ -34,5 +34,6 @@ jobs:
           tags: ghcr.io/x-b-e/server-pg:latest
           build-args: |
             PG_MAJOR=13
-          # outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=XBE server base
-          # cache-from: ghcr.io/x-b-e/server-base
+            PG_TAG=13-13.3
+          # outputs: type=image,name=target,annotation-index.org.opencontainers.image.description=XBE server pg
+          # cache-from: ghcr.io/x-b-e/server-pg
