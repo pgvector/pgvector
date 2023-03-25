@@ -1,10 +1,8 @@
-SET client_min_messages = warning;
-CREATE EXTENSION IF NOT EXISTS vector;
---SET force_parallel_mode = on;
+-- SET force_parallel_mode = on;
 SET parallel_setup_cost = 10;
 SET parallel_tuple_cost = 0.001;
-SET min_parallel_table_scan_size = 0;
-SET min_parallel_index_scan_size = 0;
+SET min_parallel_table_scan_size = 1;
+SET min_parallel_index_scan_size = 1;
 
 CREATE TABLE t (id integer, val vector(3));
 INSERT INTO t (id, val) SELECT n, ARRAY[random(), random(), random()] FROM generate_series(1,1000000) n;
