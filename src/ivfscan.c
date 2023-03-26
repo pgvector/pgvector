@@ -111,6 +111,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	Datum		datum;
 	bool		isnull;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
+	double		tuples = 0;
 
 #if PG_VERSION_NUM >= 120000
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
@@ -159,6 +160,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				ExecStoreVirtualTuple(slot);
 
 				tuplesort_puttupleslot(so->sortstate, slot);
+
+				tuples++;
 			}
 
 			searchPage = IvfflatPageGetOpaque(page)->nextblkno;
@@ -166,6 +169,13 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			UnlockReleaseBuffer(buf);
 		}
 	}
+
+	/* TODO Scan more lists */
+	if (tuples < 100)
+		ereport(DEBUG1,
+				(errmsg("index scan found few tuples"),
+				 errdetail("index may have been created without data or lists is too high"),
+				 errhint("recreate the index and possibly decrease lists")));
 
 	tuplesort_performsort(so->sortstate);
 }
