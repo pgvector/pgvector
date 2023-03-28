@@ -325,8 +325,6 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->prefetched_tuples[tuple_index].indexblkno = indexblkno;
 	}
 	so->n_prefetch_requests += n_prefetched;
-	if (so->n_prefetch_requests != 0)
-		so->n_prefetch_requests -= 1; /* consume one prefetched item */
 	if (so->n_prefetch_requests != 0 || tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
 	{
 		ItemPointer tid;
@@ -335,6 +333,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (so->n_prefetch_requests != 0)
 		{
 			size_t tuple_index = so->curr_tuple++ % MAX_IO_CONCURRENCY;
+			so->n_prefetch_requests -= 1; /* consume one prefetched item */
 			tid = &so->prefetched_tuples[tuple_index].tid;
 			indexblkno = so->prefetched_tuples[tuple_index].indexblkno;
 		}
