@@ -11,6 +11,7 @@
 #include "access/reloptions.h"
 #include "nodes/execnodes.h"
 #include "port.h"				/* for strtof() and random() */
+#include "storage/bufmgr.h"
 #include "utils/sampling.h"
 #include "utils/tuplesort.h"
 #include "vector.h"
