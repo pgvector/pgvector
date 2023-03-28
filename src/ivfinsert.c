@@ -120,6 +120,7 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			Buffer		metabuf;
 			Buffer		newbuf;
 			Page		newpage;
+			int         n_registered_buffers = 1;
 
 			/*
 			 * From ReadBufferExtended: Caller is responsible for ensuring
@@ -131,9 +132,16 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 
 			for (int i = 0; i < IVFFLAT_LIST_EXTEND_QUANTUM; i++)
 			{
+				if (n_registered_buffers >= MAX_GENERIC_XLOG_PAGES)
+				{
+					GenericXLogFinish(state);
+					state = GenericXLogStart(rel);
+					n_registered_buffers = 0;
+				}
 				/* Add a new page */
 				newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
 				newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
+				n_registered_buffers += 1;
 
 				/* Init new page */
 				IvfflatInitPage(newbuf, newpage);
