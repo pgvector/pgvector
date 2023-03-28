@@ -25,6 +25,9 @@
 
 #define IVFFLAT_MAX_DIM 2000
 
+#define IVFFLAT_LIST_EXTEND_QUANTUM 8
+#define IVFFLAT_MAX_PREFETCH 8
+
 /* Support functions */
 #define IVFFLAT_DISTANCE_PROC 1
 #define IVFFLAT_NORM_PROC 2
@@ -187,6 +190,12 @@ typedef struct IvfflatScanList
 	double		distance;
 }			IvfflatScanList;
 
+typedef struct IvfflatTupleData
+{
+	ItemPointerData tid;
+	BlockNumber indexblkno;
+}			IvfflatTuple;
+
 typedef struct IvfflatScanOpaqueData
 {
 	int			probes;
@@ -203,6 +212,13 @@ typedef struct IvfflatScanOpaqueData
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
+
+	/* Prefetch state */
+	size_t prefetch_limit;
+	size_t n_prefetch_requests;
+	size_t curr_tuple;
+	IvfflatTuple prefetched_tuples[MAX_IO_CONCURRENCY];
+	BlockNumber last_prefetched_index_blockno;
 
 	/* Lists */
 	pairingheap *listQueue;

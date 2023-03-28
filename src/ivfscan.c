@@ -5,7 +5,9 @@
 #include "access/relscan.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "optimizer/cost.h"
 #include "storage/bufmgr.h"
+#include "utils/spccache.h"
 
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
@@ -118,11 +120,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 #endif
 
 	/*
-	 * Reuse same set of shared buffers for scan
-	 *
-	 * See postgres/src/backend/storage/buffer/README for description
+	 * BAS_BULKREAD use ring buffer and so prevent prewarming cache even if there is enough space in shared buffers
 	 */
-	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
+	BufferAccessStrategy bas = GetAccessStrategy(BAS_NORMAL);
 
 	/* Search closest probes lists */
 	while (!pairingheap_is_empty(so->listQueue))
@@ -130,8 +130,15 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
 
 		/* Search all entry pages for list */
-		while (BlockNumberIsValid(searchPage))
+		for (int chunk_offs = 0; BlockNumberIsValid(searchPage); chunk_offs++)
 		{
+			if (so->prefetch_limit != 0 && chunk_offs % IVFFLAT_LIST_EXTEND_QUANTUM == 0)
+			{
+				for (int i = 0; i < IVFFLAT_LIST_EXTEND_QUANTUM; i++)
+				{
+					PrefetchBuffer(scan->indexRelation, MAIN_FORKNUM, searchPage+i);
+				}
+			}
 			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
@@ -200,6 +207,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	so->collation = index->rd_indcollation[0];
 
+	so->prefetch_limit = get_tablespace_io_concurrency(scan->indexRelation->rd_rel->reltablespace);
+
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
 	so->tupdesc = CreateTemplateTupleDesc(3);
@@ -256,6 +265,7 @@ bool
 ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+	int n_prefetched;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -291,16 +301,48 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
+		so->n_prefetch_requests = 0;
+		so->last_prefetched_index_blockno = InvalidBlockNumber;
+		so->curr_tuple = 0;
 
 		/* Clean up if we allocated a new value */
 		if (value != scan->orderByData->sk_argument)
 			pfree(DatumGetPointer(value));
 	}
-
-	if (tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
+	for (n_prefetched = 0; so->n_prefetch_requests + n_prefetched < so->prefetch_limit
+			 && tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL); n_prefetched++)
 	{
 		ItemPointer tid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
 		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
+		size_t tuple_index = (so->curr_tuple + so->n_prefetch_requests + n_prefetched) % MAX_IO_CONCURRENCY;
+		if (indexblkno != so->last_prefetched_index_blockno)
+		{
+			so->last_prefetched_index_blockno = indexblkno;
+			PrefetchBuffer(scan->indexRelation, MAIN_FORKNUM, indexblkno);
+		}
+		PrefetchBuffer(scan->heapRelation, MAIN_FORKNUM, ItemPointerGetBlockNumber(tid));
+		so->prefetched_tuples[tuple_index].tid = *tid;
+		so->prefetched_tuples[tuple_index].indexblkno = indexblkno;
+	}
+	so->n_prefetch_requests += n_prefetched;
+	if (so->n_prefetch_requests != 0)
+		so->n_prefetch_requests -= 1; /* consume one prefetched item */
+	if (so->n_prefetch_requests != 0 || tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
+	{
+		ItemPointer tid;
+		BlockNumber indexblkno;
+
+		if (so->n_prefetch_requests != 0)
+		{
+			size_t tuple_index = so->curr_tuple++ % MAX_IO_CONCURRENCY;
+			tid = &so->prefetched_tuples[tuple_index].tid;
+			indexblkno = so->prefetched_tuples[tuple_index].indexblkno;
+		}
+		else
+		{
+			tid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
+			indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
+		}
 
 #if PG_VERSION_NUM >= 120000
 		scan->xs_heaptid = *tid;

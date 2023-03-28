@@ -129,29 +129,35 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			metabuf = ReadBuffer(rel, IVFFLAT_METAPAGE_BLKNO);
 			LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
-			/* Add a new page */
-			newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
-			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
+			for (int i = 0; i < IVFFLAT_LIST_EXTEND_QUANTUM; i++)
+			{
+				/* Add a new page */
+				newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
+				newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 
-			/* Init new page */
-			IvfflatInitPage(newbuf, newpage);
+				/* Init new page */
+				IvfflatInitPage(newbuf, newpage);
 
-			/* Update insert page */
-			insertPage = BufferGetBlockNumber(newbuf);
+				/* Update insert page */
+				insertPage = BufferGetBlockNumber(newbuf);
 
-			/* Update previous buffer */
-			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
+				/* Update previous buffer */
+				IvfflatPageGetOpaque(page)->nextblkno = insertPage;
 
-			/* Commit */
-			MarkBufferDirty(newbuf);
-			MarkBufferDirty(buf);
+				/* Commit */
+				MarkBufferDirty(newbuf);
+				MarkBufferDirty(buf);
+
+				/* Unlock previous buffer */
+				UnlockReleaseBuffer(buf);
+
+				page = newpage;
+				buf = newbuf;
+			}
 			GenericXLogFinish(state);
 
 			/* Unlock extend relation lock as early as possible */
 			UnlockReleaseBuffer(metabuf);
-
-			/* Unlock previous buffer */
-			UnlockReleaseBuffer(buf);
 
 			/* Prepare new buffer */
 			state = GenericXLogStart(rel);
