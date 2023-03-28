@@ -134,9 +134,11 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			{
 				if (n_registered_buffers >= MAX_GENERIC_XLOG_PAGES)
 				{
+					IvfflatPageGetOpaque(page)->nextblkno = InvalidBlockNumber;
 					GenericXLogFinish(state);
 					state = GenericXLogStart(rel);
-					n_registered_buffers = 0;
+					page = GenericXLogRegisterBuffer(state, buf, 0);
+					n_registered_buffers = 1;
 				}
 				/* Add a new page */
 				newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
