@@ -120,7 +120,6 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			Buffer		metabuf;
 			Buffer		newbuf;
 			Page		newpage;
-			int         n_registered_buffers = 1;
 
 			/*
 			 * From ReadBufferExtended: Caller is responsible for ensuring
@@ -132,18 +131,9 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 
 			for (int i = 0; i < IVFFLAT_LIST_EXTEND_QUANTUM; i++)
 			{
-				if (n_registered_buffers >= MAX_GENERIC_XLOG_PAGES)
-				{
-					IvfflatPageGetOpaque(page)->nextblkno = InvalidBlockNumber;
-					GenericXLogFinish(state);
-					state = GenericXLogStart(rel);
-					page = GenericXLogRegisterBuffer(state, buf, 0);
-					n_registered_buffers = 1;
-				}
 				/* Add a new page */
 				newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
 				newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
-				n_registered_buffers += 1;
 
 				/* Init new page */
 				IvfflatInitPage(newbuf, newpage);
@@ -157,22 +147,18 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 				/* Commit */
 				MarkBufferDirty(newbuf);
 				MarkBufferDirty(buf);
+				GenericXLogFinish(state);
 
 				/* Unlock previous buffer */
 				UnlockReleaseBuffer(buf);
 
-				page = newpage;
+				state = GenericXLogStart(rel);
 				buf = newbuf;
+				page = GenericXLogRegisterBuffer(state, buf, 0);
 			}
-			GenericXLogFinish(state);
 
 			/* Unlock extend relation lock as early as possible */
 			UnlockReleaseBuffer(metabuf);
-
-			/* Prepare new buffer */
-			state = GenericXLogStart(rel);
-			buf = newbuf;
-			page = GenericXLogRegisterBuffer(state, buf, 0);
 			break;
 		}
 	}
