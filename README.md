@@ -30,7 +30,7 @@ Then load it in databases where you want to use it
 CREATE EXTENSION vector;
 ```
 
-You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), or [conda-forge](#conda-forge)
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [Yum](#yum), or [conda-forge](#conda-forge)
 
 ## Getting Started
 
@@ -296,6 +296,18 @@ Install from the [PostgreSQL Extension Network](https://pgxn.org/dist/vector) wi
 ```sh
 pgxn install vector
 ```
+
+### Yum
+
+RPM packages are available from the [PostgreSQL Yum Repository](https://yum.postgresql.org/). Follow the [setup instructions](https://www.postgresql.org/download/linux/redhat/) for your distribution and run:
+
+```sh
+sudo yum install pgvector_15
+# or
+sudo dnf install pgvector_15
+```
+
+Note: Replace `15` with your Postgres server version
 
 ### conda-forge
 
