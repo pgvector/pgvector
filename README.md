@@ -187,7 +187,7 @@ To speed up queries without an index, increase `max_parallel_workers_per_gather`
 SET max_parallel_workers_per_gather = 4;
 ```
 
-If vectors are normalized to length 1 (like those from [OpenAI](https://platform.openai.com/docs/guides/embeddings/limitations-risks)), use inner product instead of cosine distance for best performance.
+If vectors are normalized to length 1 (like those from [OpenAI](https://platform.openai.com/docs/guides/embeddings/which-distance-function-should-i-use)), use inner product for best performance.
 
 ```sql
 SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 1;
