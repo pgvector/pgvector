@@ -173,22 +173,32 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 ## Performance
 
+Use `EXPLAIN ANALYZE` to debug performance.
+
+```sql
+EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
+```
+
+### Exact Search
+
 To speed up queries without an index, increase `max_parallel_workers_per_gather`.
 
 ```sql
 SET max_parallel_workers_per_gather = 4;
 ```
 
+If vectors are normalized to length 1 (like those from [OpenAI](https://platform.openai.com/docs/guides/embeddings/limitations-risks)), use inner product instead of cosine distance for best performance.
+
+```sql
+SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 1;
+```
+
+### Approximate Search
+
 To speed up queries with an index, increase the number of inverted lists (at the expense of recall).
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
-```
-
-Use `EXPLAIN ANALYZE` to debug performance.
-
-```sql
-EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
 ```
 
 ## Languages
