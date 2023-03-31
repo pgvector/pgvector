@@ -467,6 +467,7 @@ l2_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
+	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
 		diff = ax[i] - bx[i];
@@ -493,6 +494,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
+	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
 		diff = ax[i] - bx[i];
@@ -517,6 +519,7 @@ inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
+	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 		distance += ax[i] * bx[i];
 
@@ -538,6 +541,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
+	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 		distance += ax[i] * bx[i];
 
@@ -561,6 +565,7 @@ cosine_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
+	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
 		distance += ax[i] * bx[i];
@@ -587,6 +592,7 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
+	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 		distance += a->x[i] * b->x[i];
 
@@ -622,6 +628,7 @@ vector_norm(PG_FUNCTION_ARGS)
 	float	   *ax = a->x;
 	double		norm = 0.0;
 
+	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 		norm += ax[i] * ax[i];
 
@@ -646,6 +653,8 @@ vector_add(PG_FUNCTION_ARGS)
 
 	result = InitVector(a->dim);
 	rx = result->x;
+
+	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 		rx[i] = ax[i] + bx[i];
 
@@ -670,6 +679,8 @@ vector_sub(PG_FUNCTION_ARGS)
 
 	result = InitVector(a->dim);
 	rx = result->x;
+
+	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 		rx[i] = ax[i] - bx[i];
 
