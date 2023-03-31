@@ -151,7 +151,7 @@ The phases are:
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
 
-### Partial Indexes
+### Hybrid Search
 
 Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
 
