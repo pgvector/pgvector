@@ -118,7 +118,7 @@ By default, pgvector performs exact nearest neighbor search, which provides perf
 Two important things to achieve good recall are:
 
 1. Create the index *after* the table has some data
-2. Choose an appropriate value for lists (lower is better for recall, higher is better for speed)
+2. Choose an appropriate number of lists (lower is better for recall, higher is better for speed)
 
 A good place to start is:
 
