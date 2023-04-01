@@ -78,10 +78,16 @@ SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
 
 Note: Combine with `ORDER BY` and `LIMIT` to use an index
 
-Get the average of vectors
+Average vectors
 
 ```sql
 SELECT AVG(embedding) FROM items;
+```
+
+Average groups of vectors
+
+```sql
+SELECT category_id, AVG(embedding) FROM items GROUP BY category_id;
 ```
 
 ## Indexing
