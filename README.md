@@ -71,6 +71,12 @@ Update vectors
 UPDATE items SET embedding = '[1,2,3]' WHERE id = 1;
 ```
 
+Delete vectors
+
+```sql
+DELETE FROM items WHERE id = 1;
+```
+
 ## Querying
 
 Use a `SELECT` clause to get the distance
