@@ -196,7 +196,7 @@ SELECT * FROM items WHERE category_id = 123 ORDER BY embedding <-> '[3,1,2]' LIM
 can be indexed with:
 
 ```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WHERE (category_id = 123);
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100) WHERE (category_id = 123);
 ```
 
 To index many different values of `category_id`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `category_id`.
