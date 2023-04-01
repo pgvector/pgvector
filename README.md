@@ -2,13 +2,7 @@
 
 Open-source vector similarity search for Postgres
 
-```sql
-CREATE TABLE items (embedding vector(3));
-CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops);
-SELECT * FROM items ORDER BY embedding <-> '[1,2,3]' LIMIT 5;
-```
-
-Supports L2 distance, inner product, and cosine distance
+Supports exact and approximate nearest neighbor search for L2 distance, inner product, and cosine distance
 
 [![Build Status](https://github.com/pgvector/pgvector/workflows/build/badge.svg?branch=master)](https://github.com/pgvector/pgvector/actions)
 
