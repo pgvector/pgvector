@@ -43,7 +43,7 @@ CREATE TABLE items (embedding vector(3));
 Insert values
 
 ```sql
-INSERT INTO items VALUES ('[1,2,3]'), ('[4,5,6]');
+INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
 ```
 
 Get the nearest neighbor by L2 distance
