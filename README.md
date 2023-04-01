@@ -113,7 +113,9 @@ SELECT category_id, AVG(embedding) FROM items GROUP BY category_id;
 
 ## Indexing
 
-By default, pgvector performs exact nearest neighbor search, which provides perfect recall. If this is too slow for your application, you can add an index to use approximate nearest neighbor search. Unlike typical indexes which only affect performance, you will see different results (lower recall) for queries after adding an approximate index.
+By default, pgvector performs exact nearest neighbor search, which provides perfect recall.
+
+You can add an index to use approximate nearest neighbor search, which trades some recall for performance. *Unlike typical indexes, you will see different results for queries after adding an approximate index.*
 
 Two keys to achieving good recall are:
 
