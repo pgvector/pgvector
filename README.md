@@ -113,40 +113,39 @@ SELECT category_id, AVG(embedding) FROM items GROUP BY category_id;
 
 ## Indexing
 
-Speed up queries with an approximate index. Add an index for each distance function you want to use.
+By default, pgvector performs exact nearest neighbor search, which provides perfect recall. If this is too slow for your application, you can add an index to use approximate nearest neighbor search. Unlike typical indexes which only affect performance, you will see different results (lower recall) for queries after adding an approximate index.
+
+Two important things to achieve good recall are:
+
+1. Create the index *after* the table has some data
+2. Choose an appropriate value for lists (lower is better for recall, higher is better for speed)
+
+A good place to start is:
+
+- `rows / 1000` for up to 1M rows
+- `sqrt(rows)` for over 1M rows
+
+Add an index for each distance function you want to use.
 
 L2 distance
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops);
-```
-
-Inner product
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_ip_ops);
-```
-
-Cosine distance
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops);
-```
-
-Indexes should be created after the table has some data for optimal clustering. Also, unlike typical indexes which only affect performance, you may see different results for queries after adding an approximate index. Vectors with up to 2,000 dimensions can be indexed.
-
-### Index Options
-
-Specify the number of inverted lists (100 by default)
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
 ```
 
-A lower value provides better recall at the cost of speed. A good place to start is:
+Inner product
 
-- `rows / 1000` for up to 1M rows
-- `sqrt(rows)` for over 1M rows
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_ip_ops) WITH (lists = 100);
+```
+
+Cosine distance
+
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+Vectors with up to 2,000 dimensions can be indexed.
 
 ### Query Options
 
