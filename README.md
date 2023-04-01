@@ -37,7 +37,7 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#p
 Create a vector column with 3 dimensions
 
 ```sql
-CREATE TABLE items (embedding vector(3));
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding vector(3));
 ```
 
 Insert values
@@ -46,15 +46,38 @@ Insert values
 INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
 ```
 
-Get the nearest neighbor by L2 distance
+Get the nearest neighbors by L2 distance
 
 ```sql
-SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
+SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
 Also supports inner product (`<#>`) and cosine distance (`<=>`)
 
 Note: `<#>` returns the negative inner product since Postgres only supports `ASC` order index scans on operators
+
+## Storing
+
+Insert vectors
+
+```sql
+INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
+```
+
+Note: `COPY` is also supported
+
+Upsert vectors
+
+```sql
+INSERT INTO items (id, embedding) VALUES (1, '[1,2,3]'), (2, '[4,5,6]')
+    ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding;
+```
+
+Update vectors
+
+```sql
+UPDATE items SET embedding = '[1,2,3]' WHERE id = 1;
+```
 
 ## Querying
 
