@@ -64,6 +64,12 @@ Use a `SELECT` clause to get the distance
 SELECT embedding <-> '[3,1,2]' AS distance FROM items;
 ```
 
+For cosine similarity, use 1 - cosine distance
+
+```sql
+SELECT 1 - (embedding <=> '[3,1,2]') AS similarity FROM items;
+```
+
 Use a `WHERE` clause to get rows within a certain distance
 
 ```sql
