@@ -18,6 +18,14 @@ make
 make install # may need sudo
 ```
 
+If you have multiple server installations you will want to specify the installation's `PG_CONFIG` path.
+```sh
+...
+export PG_CONFIG=/Applications/Postgres.app/Contents/Versions/latest/bin/pg_config
+make
+make install
+```
+
 Then load it in databases where you want to use it
 
 ```sql
