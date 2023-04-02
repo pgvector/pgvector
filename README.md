@@ -103,7 +103,7 @@ Get the nearest neighbors to a row
 SELECT * FROM items WHERE id != 1 ORDER BY embedding <-> (SELECT embedding FROM items WHERE id = 1) LIMIT 5;
 ```
 
-Use a `WHERE` clause to get rows within a certain distance
+Get rows within a certain distance
 
 ```sql
 SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
@@ -113,7 +113,7 @@ Note: Combine with `ORDER BY` and `LIMIT` to use an index
 
 #### Distances
 
-Use a `SELECT` clause to get the distance
+Get the distance
 
 ```sql
 SELECT embedding <-> '[3,1,2]' AS distance FROM items;
@@ -244,7 +244,7 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 Use `EXPLAIN ANALYZE` to debug performance.
 
 ```sql
-EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 1;
+EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
 ### Exact Search
@@ -258,7 +258,7 @@ SET max_parallel_workers_per_gather = 4;
 If vectors are normalized to length 1 (like [OpenAI embeddings](https://platform.openai.com/docs/guides/embeddings/which-distance-function-should-i-use)), use inner product for best performance.
 
 ```sql
-SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 1;
+SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
 ```
 
 ### Approximate Search
