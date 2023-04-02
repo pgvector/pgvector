@@ -343,7 +343,7 @@ avg(vector) → vector | arithmetic mean
 
 ## Installation Notes
 
-### Multiple Postgres Installations
+### Postgres Location
 
 If your machine has multiple Postgres installations, specify the path to [pg_config](https://www.postgresql.org/docs/current/app-pgconfig.html) with:
 
