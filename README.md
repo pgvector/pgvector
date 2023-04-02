@@ -18,19 +18,13 @@ make
 make install # may need sudo
 ```
 
-If you have multiple server installations you will want to specify the installation's `PG_CONFIG` path.
-```sh
-...
-export PG_CONFIG=/Applications/Postgres.app/Contents/Versions/latest/bin/pg_config
-make
-make install
-```
-
 Then load it in databases where you want to use it
 
 ```sql
 CREATE EXTENSION vector;
 ```
+
+See the [installation notes](#additional-installation-instructions) if you run into issues
 
 You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [Yum](#yum), or [conda-forge](#conda-forge)
 
@@ -348,6 +342,17 @@ Function | Description
 avg(vector) → vector | arithmetic mean
 
 ## Additional Installation Instructions
+
+### Multiple Postgres Installations
+
+If your machine has multiple Postgres installations, specify the one to use with:
+
+```sh
+export PG_CONFIG=/Applications/Postgres.app/Contents/Versions/latest/bin/pg_config
+make clean
+make
+make install
+```
 
 ### Ubuntu and Debian
 
