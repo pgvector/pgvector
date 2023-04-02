@@ -111,7 +111,7 @@ SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
 
 Note: Combine with `ORDER BY` and `LIMIT` to use an index
 
-### Distances
+#### Distances
 
 Use a `SELECT` clause to get the distance
 
@@ -131,7 +131,7 @@ For cosine similarity, use 1 - cosine distance
 SELECT 1 - (embedding <=> '[3,1,2]') AS similarity FROM items;
 ```
 
-### Averages
+#### Averages
 
 Average vectors
 
