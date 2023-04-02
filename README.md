@@ -103,10 +103,26 @@ Get the nearest neighbors to another row
 SELECT * FROM items WHERE id != 1 ORDER BY embedding <-> (SELECT embedding FROM items WHERE id = 1) LIMIT 5;
 ```
 
+Use a `WHERE` clause to get rows within a certain distance
+
+```sql
+SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
+```
+
+Note: Combine with `ORDER BY` and `LIMIT` to use an index
+
+### Distances
+
 Use a `SELECT` clause to get the distance
 
 ```sql
 SELECT embedding <-> '[3,1,2]' AS distance FROM items;
+```
+
+For inner product, multiply by -1 (since `<#>` returns the negative inner product)
+
+```sql
+SELECT -1 * (embedding <#> '[3,1,2]') AS inner_product FROM items;
 ```
 
 For cosine similarity, use 1 - cosine distance
@@ -115,13 +131,7 @@ For cosine similarity, use 1 - cosine distance
 SELECT 1 - (embedding <=> '[3,1,2]') AS similarity FROM items;
 ```
 
-Use a `WHERE` clause to get rows within a certain distance
-
-```sql
-SELECT * FROM items WHERE embedding <-> '[3,1,2]' < 5;
-```
-
-Note: Combine with `ORDER BY` and `LIMIT` to use an index
+### Averages
 
 Average vectors
 
