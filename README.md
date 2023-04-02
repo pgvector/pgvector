@@ -52,6 +52,18 @@ Note: `<#>` returns the negative inner product since Postgres only supports `ASC
 
 ## Storing
 
+Create a new table with a vector column
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding vector(3));
+```
+
+Or add a vector column to an existing table
+
+```sql
+ALTER TABLE items ADD COLUMN embedding vector(3);
+```
+
 Insert vectors
 
 ```sql
