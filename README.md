@@ -24,7 +24,7 @@ Then load it in databases where you want to use it
 CREATE EXTENSION vector;
 ```
 
-See the [installation notes](#additional-installation-instructions) if you run into issues
+See the [installation notes](#installation-notes) if you run into issues
 
 You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [Yum](#yum), or [conda-forge](#conda-forge)
 
@@ -341,7 +341,7 @@ Function | Description
 --- | ---
 avg(vector) → vector | arithmetic mean
 
-## Additional Installation Instructions
+## Installation Notes
 
 ### Multiple Postgres Installations
 
@@ -375,6 +375,8 @@ cd pgvector
 nmake /F Makefile.win
 nmake /F Makefile.win install
 ```
+
+## Additional Installation Methods
 
 ### Docker
 
