@@ -91,6 +91,18 @@ DELETE FROM items WHERE id = 1;
 
 ## Querying
 
+Get the nearest neighbors to a vector
+
+```sql
+SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+```
+
+Get the nearest neighbors to another row
+
+```sql
+SELECT * FROM items WHERE id != 1 ORDER BY embedding <-> (SELECT embedding FROM items WHERE id = 1) LIMIT 5;
+```
+
 Use a `SELECT` clause to get the distance
 
 ```sql
