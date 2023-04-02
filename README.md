@@ -353,9 +353,11 @@ export PG_CONFIG=/Applications/Postgres.app/Contents/Versions/latest/bin/pg_conf
 
 Then re-run the installation instructions (run `make clean` before `make` if needed)
 
-### Ubuntu and Debian
+### Missing Header
 
 If compilation fails with `fatal error: postgres.h: No such file or directory`, make sure Postgres development files are installed on the server.
+
+For Ubuntu and Debian, use:
 
 ```sh
 sudo apt-get install postgresql-server-dev-15
