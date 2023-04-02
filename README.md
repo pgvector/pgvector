@@ -128,7 +128,7 @@ SELECT -1 * (embedding <#> '[3,1,2]') AS inner_product FROM items;
 For cosine similarity, use 1 - cosine distance
 
 ```sql
-SELECT 1 - (embedding <=> '[3,1,2]') AS similarity FROM items;
+SELECT 1 - (embedding <=> '[3,1,2]') AS cosine_similarity FROM items;
 ```
 
 #### Averages
