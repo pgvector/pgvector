@@ -131,7 +131,7 @@ For cosine similarity, use 1 - cosine distance
 SELECT 1 - (embedding <=> '[3,1,2]') AS cosine_similarity FROM items;
 ```
 
-#### Averages
+#### Averaging
 
 Average vectors
 
