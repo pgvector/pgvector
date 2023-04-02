@@ -305,7 +305,29 @@ Function | Description
 --- | ---
 avg(vector) → vector | arithmetic mean
 
-## Additional Installation Methods
+## Additional Installation Instructions
+
+### Ubuntu and Debian
+
+If compilation fails with `fatal error: postgres.h: No such file or directory`, make sure Postgres development files are installed on the server.
+
+```sh
+sudo apt-get install postgresql-server-dev-15
+```
+
+Note: Replace `15` with your Postgres server version
+
+### Windows
+
+Support for Windows is currently experimental. Use `nmake` to build:
+
+```cmd
+set "PGROOT=C:\Program Files\PostgreSQL\15"
+git clone --branch v0.4.1 https://github.com/pgvector/pgvector.git
+cd pgvector
+nmake /F Makefile.win
+nmake /F Makefile.win install
+```
 
 ### Docker
 
