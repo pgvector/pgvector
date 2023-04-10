@@ -14,6 +14,7 @@
 #endif
 
 int			ivfflat_probes;
+int			ivfflat_bound;
 static relopt_kind ivfflat_relopt_kind;
 
 /*
@@ -33,6 +34,10 @@ IvfflatInit(void)
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
 							1, 1, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	DefineCustomIntVariable("ivfflat.bound", "Sets the max results from index (experimental)",
+							NULL, &ivfflat_bound,
+							0, 0, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
 }
 
 /*
