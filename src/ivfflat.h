@@ -78,6 +78,7 @@
 
 /* Variables */
 extern int	ivfflat_probes;
+extern int	ivfflat_bound;
 
 /* Exported functions */
 PGDLLEXPORT void _PG_init(void);
