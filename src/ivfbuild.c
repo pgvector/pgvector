@@ -431,7 +431,17 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	/* TODO Ensure within maintenance_work_mem */
 	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions);
 	if (buildstate->heap != NULL)
+	{
 		SampleRows(buildstate);
+
+		if (buildstate->samples->length < buildstate->lists)
+		{
+			ereport(NOTICE,
+					(errmsg("index created with little data"),
+					 errdetail("this will cause poor recall"),
+					 errhint("drop the index until the table has more data")));
+		}
+	}
 
 	/* Calculate centers */
 	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));

@@ -1,3 +1,7 @@
+## 0.4.2 (unreleased)
+
+- Added notice when index created with little data
+
 ## 0.4.1 (2023-03-21)
 
 - Improved performance of cosine distance
