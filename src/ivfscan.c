@@ -124,7 +124,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	 *
 	 * See postgres/src/backend/storage/buffer/README for description
 	 */
-	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
+	BufferAccessStrategy bas = GetAccessStrategy(BAS_NORMAL);
 
 	/* Search closest probes lists */
 	while (!pairingheap_is_empty(so->listQueue))
