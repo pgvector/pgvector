@@ -437,7 +437,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 		if (buildstate->samples->length < buildstate->lists)
 		{
 			ereport(NOTICE,
-					(errmsg("index created with little data"),
+					(errmsg("ivfflat index created with little data"),
 					 errdetail("this will cause poor recall"),
 					 errhint("drop the index until the table has more data")));
 		}
