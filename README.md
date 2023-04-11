@@ -153,7 +153,7 @@ By default, pgvector performs exact nearest neighbor search, which provides perf
 
 You can add an index to use approximate nearest neighbor search, which trades some recall for performance. Unlike typical indexes, you will see different results for queries after adding an approximate index.
 
-Two keys to achieving good recall are:
+Three keys to achieving good recall are:
 
 1. Create the index *after* the table has some data
 2. Choose an appropriate number of lists (lower is better for recall, higher is better for speed)
@@ -162,6 +162,8 @@ A good place to start is:
 
 - `rows / 1000` for up to 1M rows
 - `sqrt(rows)` for over 1M rows
+
+3. Choose an appropriate [number of probes](#query-options) when querying
 
 Add an index for each distance function you want to use.
 
@@ -190,7 +192,7 @@ Vectors with up to 2,000 dimensions can be indexed.
 Specify the number of probes (1 by default)
 
 ```sql
-SET ivfflat.probes = 1;
+SET ivfflat.probes = 10;
 ```
 
 A higher value provides better recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search (at which point the planner won’t use the index)
@@ -199,7 +201,7 @@ Use `SET LOCAL` inside a transaction to set it for a single query
 
 ```sql
 BEGIN;
-SET LOCAL ivfflat.probes = 1;
+SET LOCAL ivfflat.probes = 10;
 SELECT ...
 COMMIT;
 ```
