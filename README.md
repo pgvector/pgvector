@@ -288,6 +288,7 @@ Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
 R | [pgvector-r](https://github.com/pgvector/pgvector-r)
 Ruby | [pgvector-ruby](https://github.com/pgvector/pgvector-ruby), [Neighbor](https://github.com/ankane/neighbor)
 Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
+Swift | [pgvector-swift](https://github.com/pgvector/pgvector-swift)
 
 ## Frequently Asked Questions
 
