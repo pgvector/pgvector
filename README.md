@@ -2,7 +2,11 @@
 
 Open-source vector similarity search for Postgres
 
-Supports exact and approximate nearest neighbor search for L2 distance, inner product, and cosine distance
+Supports
+
+- exact and approximate nearest neighbor search
+- L2 distance, inner product, and cosine distance
+- any [language](#languages) with a Postgres client
 
 [![Build Status](https://github.com/pgvector/pgvector/workflows/build/badge.svg?branch=master)](https://github.com/pgvector/pgvector/actions)
 
