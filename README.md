@@ -275,6 +275,7 @@ Language | Libraries / Examples
 --- | ---
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
 C# | [pgvector-dotnet](https://github.com/pgvector/pgvector-dotnet)
+Crystal | [pgvector-crystal](https://github.com/pgvector/pgvector-crystal)
 Elixir | [pgvector-elixir](https://github.com/pgvector/pgvector-elixir)
 Go | [pgvector-go](https://github.com/pgvector/pgvector-go)
 Haskell | [pgvector-haskell](https://github.com/pgvector/pgvector-haskell)
