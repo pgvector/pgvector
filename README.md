@@ -40,7 +40,7 @@ Create a vector column with 3 dimensions
 CREATE TABLE items (id bigserial PRIMARY KEY, embedding vector(3));
 ```
 
-Insert values
+Insert vectors
 
 ```sql
 INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
@@ -128,7 +128,7 @@ SELECT embedding <-> '[3,1,2]' AS distance FROM items;
 For inner product, multiply by -1 (since `<#>` returns the negative inner product)
 
 ```sql
-SELECT -1 * (embedding <#> '[3,1,2]') AS inner_product FROM items;
+SELECT (embedding <#> '[3,1,2]') * -1 AS inner_product FROM items;
 ```
 
 For cosine similarity, use 1 - cosine distance
@@ -137,7 +137,7 @@ For cosine similarity, use 1 - cosine distance
 SELECT 1 - (embedding <=> '[3,1,2]') AS cosine_similarity FROM items;
 ```
 
-#### Averaging
+#### Aggregates
 
 Average vectors
 
