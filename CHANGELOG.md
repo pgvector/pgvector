@@ -1,6 +1,7 @@
 ## 0.4.2 (unreleased)
 
 - Added notice when index created with little data
+- Fixed installation error with Postgres 12.0-12.2
 
 ## 0.4.1 (2023-03-21)
 

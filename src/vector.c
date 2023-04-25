@@ -100,7 +100,7 @@ CheckStateArray(ArrayType *statearray, const char *caller)
 	return (float8 *) ARR_DATA_PTR(statearray);
 }
 
-#if PG_VERSION_NUM < 120000
+#if PG_VERSION_NUM < 120003
 static pg_noinline void
 float_overflow_error(void)
 {
