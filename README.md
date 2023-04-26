@@ -448,6 +448,7 @@ To request a new extension on other providers:
 - Google Cloud SQL - vote or comment on [this page](https://issuetracker.google.com/issues/265172065)
 - Azure Database - vote or comment on [this page](https://feedback.azure.com/d365community/idea/7b423322-6189-ed11-a81b-000d3ae49307)
 - DigitalOcean Managed Databases - vote or comment on [this page](https://ideas.digitalocean.com/app-framework-services/p/pgvector-extension-for-postgresql)
+- Heroku Postgres - vote or comment on [this page](https://github.com/heroku/roadmap/issues/156)
 
 ## Upgrading
 
