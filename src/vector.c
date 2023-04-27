@@ -74,16 +74,10 @@ CheckDim(int dim)
 static inline void
 CheckElement(float value)
 {
-	if (isnan(value))
+	if (!isfinite(value))
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("NaN not allowed in vector")));
-
-
-	if (isinf(value))
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("infinite value not allowed in vector")));
+				 errmsg("NaN/Inf not allowed in vector")));
 }
 
 /*
