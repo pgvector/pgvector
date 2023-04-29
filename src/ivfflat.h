@@ -187,6 +187,14 @@ typedef struct IvfflatScanList
 	double		distance;
 }			IvfflatScanList;
 
+typedef struct IvfflatScanItem
+{
+	pairingheap_node ph_node;
+	BlockNumber searchPage;
+	double		distance;
+	ItemPointerData tid;
+}			IvfflatScanItem;
+
 typedef struct IvfflatScanOpaqueData
 {
 	int			probes;
@@ -203,6 +211,13 @@ typedef struct IvfflatScanOpaqueData
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
+
+	/* Items */
+	int			maxItems;
+	int			itemCount;
+	pairingheap *itemQueue;
+	IvfflatScanItem *items;
+	IvfflatScanItem **sortedItems;
 
 	/* Lists */
 	pairingheap *listQueue;
