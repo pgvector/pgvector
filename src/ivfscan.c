@@ -232,7 +232,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
 
-	so->maxItems = 1024;
+	so->maxItems = 10;
 	so->itemCount = 0;
 	so->itemQueue = pairingheap_allocate(CompareItems, scan);
 	so->items = palloc(sizeof(IvfflatScanItem) * (so->maxItems + 1));
