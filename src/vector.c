@@ -492,8 +492,6 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	double		distance = 0.0;
 	double		diff;
 
-	CheckDims(a, b);
-
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
