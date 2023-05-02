@@ -419,7 +419,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 
 	/* Target 50 samples per list, with at least 10000 samples */
 	/* The number of samples has a large effect on index build time */
-	numSamples = buildstate->lists * 50;
+	numSamples = buildstate->lists * 200;
 	if (numSamples < 10000)
 		numSamples = 10000;
 
