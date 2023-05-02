@@ -312,6 +312,10 @@ Two things you can try are:
 1. use dimensionality reduction
 2. compile Postgres with a larger block size (`./configure --with-blocksize=32`) and edit the limit in `src/ivfflat.h`
 
+#### Why am I seeing less results after adding an index?
+
+The index was likely created with too little data for the number of lists. Drop the index until the table has more data.
+
 ## Reference
 
 ### Vector Type
