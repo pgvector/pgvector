@@ -206,6 +206,7 @@ typedef struct IvfflatScanOpaqueData
 
 	/* Lists */
 	pairingheap *listQueue;
+	double		minDistance;
 	IvfflatScanList lists[FLEXIBLE_ARRAY_MEMBER];	/* must come last */
 }			IvfflatScanOpaqueData;
 

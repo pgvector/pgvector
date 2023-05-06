@@ -60,6 +60,9 @@ GetScanLists(IndexScanDesc scan, Datum value)
 			/* Use procinfo from the index instead of scan key for performance */
 			distance = DatumGetFloat8(FunctionCall2Coll(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
 
+			if (distance < so->minDistance)
+				so->minDistance = distance;
+
 			if (listCount < so->probes)
 			{
 				scanlist = &so->lists[listCount];
@@ -129,7 +132,13 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	/* Search closest probes lists */
 	while (!pairingheap_is_empty(so->listQueue))
 	{
-		searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
+		IvfflatScanList *scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
+
+		/* Query-aware dynamic pruning */
+		if (scanlist->distance > 2 * so->minDistance)
+			continue;
+
+		searchPage = scanlist->startPage;
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
@@ -252,6 +261,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 
 	so->first = true;
 	pairingheap_reset(so->listQueue);
+	so->minDistance = DBL_MAX;
 
 	if (keys && scan->numberOfKeys > 0)
 		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
