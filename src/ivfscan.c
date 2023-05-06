@@ -135,7 +135,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		IvfflatScanList *scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
 
 		/* Query-aware dynamic pruning */
-		if (scanlist->distance > 2 * so->minDistance)
+		if (fabs(scanlist->distance) > 1.5 * fabs(so->minDistance))
 			continue;
 
 		searchPage = scanlist->startPage;
