@@ -59,7 +59,13 @@ dist:
 	mkdir -p dist
 	git archive --format zip --prefix=$(EXTENSION)-$(EXTVERSION)/ --output dist/$(EXTENSION)-$(EXTVERSION).zip master
 
-.PHONY: docker
+.PHONY: docker-local
 
-docker:
+docker-local:
+	docker build --pull --no-cache --platform linux/amd64 -t ankane/pgvector:local .
+
+.PHONY: docker-release
+
+docker-release:
 	docker buildx build --push --pull --no-cache --platform linux/amd64,linux/arm64 -t ankane/pgvector:latest .
+	docker buildx build --push --platform linux/amd64,linux/arm64 -t ankane/pgvector:v0.4.1 .
