@@ -18,6 +18,14 @@ ifeq ($(shell uname -s), Darwin)
 		OPTFLAGS =
 	endif
 endif
+# PowerPC
+ifneq ($(filter ppc64%,$(shell uname -m)),)
+	OPTFLAGS = -mcpu=native -mtune=native -maltivec
+	# POWER9
+	ifneq (,$(findstring POWER9,$(shell grep "POWER9" /proc/cpuinfo)))
+		OPTFLAGS += -mpower9-vector
+	endif
+endif
 
 # For auto-vectorization:
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
