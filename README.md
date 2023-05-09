@@ -307,10 +307,7 @@ Yes, pgvector uses the write-ahead log (WAL), which allows for replication and p
 
 #### What if I want to index vectors with more than 2,000 dimensions?
 
-Two things you can try are:
-
-1. use dimensionality reduction
-2. compile Postgres with a larger block size (`./configure --with-blocksize=32`) and edit the limit in `src/ivfflat.h`
+You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Dimensionality_reduction) at the moment.
 
 #### Why am I seeing less results after adding an index?
 
