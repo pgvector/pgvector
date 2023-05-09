@@ -70,3 +70,11 @@ jobs:
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
+      - uses: actions/upload-artifact@v3
+        with:
+          name: postgres-${{ matrix.postgres }}-pgvector-latest
+          path: |
+            vector.dll
+            vector.control
+            sql
+
