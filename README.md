@@ -355,7 +355,11 @@ If your machine has multiple Postgres installations, specify the path to [pg_con
 export PG_CONFIG=/Applications/Postgres.app/Contents/Versions/latest/bin/pg_config
 ```
 
-Then re-run the installation instructions (run `make clean` before `make` if needed)
+Then re-run the installation instructions (run `make clean` before `make` if needed). If `sudo` is needed for `make install`, use:
+
+```sh
+sudo --preserve-env=PG_CONFIG make install
+```
 
 ### Missing Header
 
