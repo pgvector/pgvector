@@ -409,6 +409,8 @@ With Homebrew Postgres, you can use:
 brew install pgvector
 ```
 
+Note: This only adds it to the `postgresql@14` formula
+
 ### PGXN
 
 Install from the [PostgreSQL Extension Network](https://pgxn.org/dist/vector) with:
