@@ -396,10 +396,8 @@ array_to_vector(PG_FUNCTION_ARGS)
 	get_typlenbyvalalign(ARR_ELEMTYPE(array), &typlen, &typbyval, &typalign);
 	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, &nullsp, &nelemsp);
 
-	if (typmod == -1)
-		CheckDim(nelemsp);
-	else
-		CheckExpectedDim(typmod, nelemsp);
+	CheckDim(nelemsp);
+	CheckExpectedDim(typmod, nelemsp);
 
 	result = InitVector(nelemsp);
 	for (i = 0; i < nelemsp; i++)
