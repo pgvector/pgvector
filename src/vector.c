@@ -950,6 +950,7 @@ vector_avg(PG_FUNCTION_ARGS)
 
 	/* Create vector */
 	dim = STATE_DIMS(statearray);
+	CheckDim(dim);
 	result = InitVector(dim);
 	for (int i = 0; i < dim; i++)
 	{
