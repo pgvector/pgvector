@@ -174,8 +174,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	if (tuples < 100)
 		ereport(DEBUG1,
 				(errmsg("index scan found few tuples"),
-				 errdetail("index may have been created without data or lists is too high"),
-				 errhint("recreate the index and possibly decrease lists")));
+				 errdetail("Index may have been created with little data."),
+				 errhint("Recreate the index and possibly decrease lists.")));
 
 	tuplesort_performsort(so->sortstate);
 }
