@@ -2,7 +2,7 @@
 	"name": "vector",
 	"abstract": "Open-source vector similarity search for Postgres",
 	"description": "Supports L2 distance, inner product, and cosine distance",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"maintainer": [
 		"Andrew Kane <andrew@ankane.org>"
 	],
@@ -20,7 +20,7 @@
 		"vector": {
 			"file": "sql/vector.sql",
 			"docfile": "README.md",
-			"version": "0.4.1",
+			"version": "0.4.2",
 			"abstract": "Open-source vector similarity search for Postgres"
 		}
 	},

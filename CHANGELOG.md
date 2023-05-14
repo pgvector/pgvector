@@ -1,4 +1,4 @@
-## 0.4.2 (unreleased)
+## 0.4.2 (2023-05-13)
 
 - Added notice when index created with little data
 - Fixed dimensions check for some direct function calls
