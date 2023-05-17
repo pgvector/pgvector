@@ -1,3 +1,7 @@
+## 0.4.3 (unreleased)
+
+- Fixed installation error when `float8` is pass by reference
+
 ## 0.4.2 (2023-05-13)
 
 - Added notice when index created with little data
