@@ -827,12 +827,12 @@ vector_accum(PG_FUNCTION_ARGS)
 	n = statevalues[0] + 1.0;
 
 	statedatums = CreateStateDatums(dim);
-	statedatums[0] = Float8GetDatumFast(n);
+	statedatums[0] = Float8GetDatum(n);
 
 	if (newarr)
 	{
 		for (int i = 0; i < dim; i++)
-			statedatums[i + 1] = Float8GetDatumFast((double) x[i]);
+			statedatums[i + 1] = Float8GetDatum((double) x[i]);
 	}
 	else
 	{
@@ -843,7 +843,7 @@ vector_accum(PG_FUNCTION_ARGS)
 			if (isinf(v))
 				float_overflow_error();
 
-			statedatums[i + 1] = Float8GetDatumFast(v);
+			statedatums[i + 1] = Float8GetDatum(v);
 		}
 	}
 
@@ -888,7 +888,7 @@ vector_combine(PG_FUNCTION_ARGS)
 		dim = STATE_DIMS(statearray2);
 		statedatums = CreateStateDatums(dim);
 		for (int i = 1; i <= dim; i++)
-			statedatums[i] = Float8GetDatumFast(statevalues2[i]);
+			statedatums[i] = Float8GetDatum(statevalues2[i]);
 	}
 	else if (n2 == 0.0)
 	{
@@ -896,7 +896,7 @@ vector_combine(PG_FUNCTION_ARGS)
 		dim = STATE_DIMS(statearray1);
 		statedatums = CreateStateDatums(dim);
 		for (int i = 1; i <= dim; i++)
-			statedatums[i] = Float8GetDatumFast(statevalues1[i]);
+			statedatums[i] = Float8GetDatum(statevalues1[i]);
 	}
 	else
 	{
@@ -911,11 +911,11 @@ vector_combine(PG_FUNCTION_ARGS)
 			if (isinf(v))
 				float_overflow_error();
 
-			statedatums[i] = Float8GetDatumFast(v);
+			statedatums[i] = Float8GetDatum(v);
 		}
 	}
 
-	statedatums[0] = Float8GetDatumFast(n);
+	statedatums[0] = Float8GetDatum(n);
 
 	result = construct_array(statedatums, dim + 1,
 							 FLOAT8OID,
