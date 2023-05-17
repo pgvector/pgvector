@@ -1,6 +1,6 @@
 ## 0.4.3 (unreleased)
 
-- Fixed installation error when `float8` is pass by reference
+- Fixed compilation error when `float8` is pass by reference
 - Fixed segmentation fault with index creation on i386
 
 ## 0.4.2 (2023-05-13)
