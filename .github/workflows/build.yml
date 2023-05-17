@@ -70,3 +70,20 @@ jobs:
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
+  i386:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:11
+      options: --platform linux/386
+    steps:
+      - run: apt-get update && apt-get install -y build-essential git libipc-run-perl postgresql-13 postgresql-server-dev-13 sudo
+      - run: service postgresql start
+      - run: |
+          git clone ${{ github.repositoryUrl }} pgvector
+          cd pgvector
+          git checkout ${{ github.sha }}
+          make
+          make install
+          chown -R postgres .
+          sudo -u postgres make installcheck
+          sudo -u postgres make prove_installcheck
