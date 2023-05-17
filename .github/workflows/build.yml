@@ -79,7 +79,7 @@ jobs:
       - run: apt-get update && apt-get install -y build-essential git libipc-run-perl postgresql-13 postgresql-server-dev-13 sudo
       - run: service postgresql start
       - run: |
-          git clone ${{ github.repositoryUrl }} pgvector
+          git clone https://github.com/${{ github.repository }}.git pgvector
           cd pgvector
           git checkout ${{ github.sha }}
           make
