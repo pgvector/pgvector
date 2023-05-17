@@ -575,7 +575,7 @@ static void
 CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 {
 	AttrNumber	attNums[] = {1};
-	Oid			sortOperators[] = {Float8LessOperator};
+	Oid			sortOperators[] = {Int4LessOperator};
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
 
