@@ -132,6 +132,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		}
 	}
 
+	FreeAccessStrategy(bas);
+
 	return stats;
 }
 

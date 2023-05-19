@@ -170,6 +170,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		}
 	}
 
+	FreeAccessStrategy(bas);
+
 	/* TODO Scan more lists */
 	if (tuples < 100)
 		ereport(DEBUG1,
