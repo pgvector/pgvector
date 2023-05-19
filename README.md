@@ -30,7 +30,7 @@ CREATE EXTENSION vector;
 
 See the [installation notes](#installation-notes) if you run into issues
 
-You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [Yum](#yum), or [conda-forge](#conda-forge)
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge)
 
 ## Getting Started
 
@@ -422,6 +422,18 @@ Install from the [PostgreSQL Extension Network](https://pgxn.org/dist/vector) wi
 ```sh
 pgxn install vector
 ```
+
+### APT
+
+Note: This is currently only available in [testing distributions](https://wiki.postgresql.org/wiki/Apt/FAQ#What_are_the_testing_distributions.3F).
+
+Debian and Ubuntu packages are available from the [PostgreSQL APT Repository](https://wiki.postgresql.org/wiki/Apt). Follow the [setup instructions](https://wiki.postgresql.org/wiki/Apt#Quickstart) and run:
+
+```sh
+sudo apt install postgresql-15-pgvector
+```
+
+Note: Replace `15` with your Postgres server version
 
 ### Yum
 
