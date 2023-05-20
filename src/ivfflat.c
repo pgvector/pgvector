@@ -7,6 +7,7 @@
 #include "ivfflat.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
+#include "utils/spccache.h"
 
 #if PG_VERSION_NUM >= 120000
 #include "commands/progress.h"
@@ -68,7 +69,8 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 {
 	GenericCosts costs;
 	int			lists;
-	Selectivity ratio;
+	double		ratio;
+	double		spc_seq_page_cost;
 	Relation	indexRel;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
@@ -92,14 +94,14 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	index_close(indexRel, NoLock);
 
 	/* Get the ratio of lists that we need to visit */
-	ratio = ((Selectivity) ivfflat_probes) / lists;
+	ratio = ((double) ivfflat_probes) / lists;
 	if (ratio > 1.0)
 		ratio = 1.0;
 
 	/*
 	 * This gives us the subset of tuples to visit. This value is passed into
 	 * the generic cost estimator to determine the number of pages to visit
-	 * during the inded scan.
+	 * during the index scan.
 	 */
 	costs.numIndexTuples = path->indexinfo->rel->tuples * ratio;
 
@@ -110,14 +112,18 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
+	/* Reduce cost for sequential pages */
+	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
+	costs.indexTotalCost -= 0.9 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+
 	/*
-	 * if the list selectivity is lower than what is returned from the generic
+	 * If the list selectivity is lower than what is returned from the generic
 	 * cost estimator, use that.
 	 */
 	if (ratio < costs.indexSelectivity)
 		costs.indexSelectivity = ratio;
 
-	*indexStartupCost = costs.indexStartupCost;
+	*indexStartupCost = costs.indexTotalCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
