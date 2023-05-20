@@ -68,7 +68,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 {
 	GenericCosts costs;
 	int			lists;
-	double		ratio;
+	Selectivity ratio;
 	Relation	indexRel;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
@@ -87,6 +87,22 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	MemSet(&costs, 0, sizeof(costs));
 
+	indexRel = index_open(path->indexinfo->indexoid, NoLock);
+	lists = IvfflatGetLists(indexRel);
+	index_close(indexRel, NoLock);
+
+	/* Get the ratio of lists that we need to visit */
+	ratio = ((Selectivity) ivfflat_probes) / lists;
+	if (ratio > 1.0)
+		ratio = 1.0;
+
+	/*
+	 * This gives us the subset of tuples to visit. This value is passed into
+	 * the generic cost estimator to determine the number of pages to visit
+	 * during the inded scan.
+	 */
+	costs.numIndexTuples = path->indexinfo->rel->tuples * ratio;
+
 #if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
 #else
@@ -94,18 +110,14 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
-	indexRel = index_open(path->indexinfo->indexoid, NoLock);
-	lists = IvfflatGetLists(indexRel);
-	index_close(indexRel, NoLock);
+	/*
+	 * if the list selectivity is lower than what is returned from the generic
+	 * cost estimator, use that.
+	 */
+	if (ratio < costs.indexSelectivity)
+		costs.indexSelectivity = ratio;
 
-	ratio = ((double) ivfflat_probes) / lists;
-	if (ratio > 1)
-		ratio = 1;
-
-	costs.indexTotalCost *= ratio;
-
-	/* Startup cost and total cost are same */
-	*indexStartupCost = costs.indexTotalCost;
+	*indexStartupCost = costs.indexStartupCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
