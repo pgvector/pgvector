@@ -63,8 +63,8 @@ ivfflatbuildphasename(int64 phasenum)
 static void
 ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 					Cost *indexStartupCost, Cost *indexTotalCost,
-					Selectivity *indexSelectivity, double *indexCorrelation
-					,double *indexPages
+					Selectivity *indexSelectivity, double *indexCorrelation,
+					double *indexPages
 )
 {
 	GenericCosts costs;
