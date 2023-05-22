@@ -425,8 +425,6 @@ pgxn install vector
 
 ### APT
 
-Note: This is currently only available in [testing distributions](https://wiki.postgresql.org/wiki/Apt/FAQ#What_are_the_testing_distributions.3F).
-
 Debian and Ubuntu packages are available from the [PostgreSQL APT Repository](https://wiki.postgresql.org/wiki/Apt). Follow the [setup instructions](https://wiki.postgresql.org/wiki/Apt#Quickstart) and run:
 
 ```sh
