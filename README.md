@@ -368,7 +368,7 @@ If compilation fails with `fatal error: postgres.h: No such file or directory`, 
 For Ubuntu and Debian, use:
 
 ```sh
-sudo apt-get install postgresql-server-dev-15
+sudo apt install postgresql-server-dev-15
 ```
 
 Note: Replace `15` with your Postgres server version
