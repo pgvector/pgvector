@@ -8,6 +8,8 @@ Supports
 - L2 distance, inner product, and cosine distance
 - any [language](#languages) with a Postgres client
 
+Plus [ACID](https://en.wikipedia.org/wiki/ACID) compliance, point-in-time recovery, JOINs, and more
+
 [![Build Status](https://github.com/pgvector/pgvector/workflows/build/badge.svg?branch=master)](https://github.com/pgvector/pgvector/actions)
 
 ## Installation
