@@ -32,7 +32,7 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#p
 
 Enable the extension (do this once in each database where you want to use it)
 
-```sql
+```tsql
 CREATE EXTENSION vector;
 ```
 
@@ -129,7 +129,7 @@ SELECT embedding <-> '[3,1,2]' AS distance FROM items;
 
 For inner product, multiply by -1 (since `<#>` returns the negative inner product)
 
-```sql
+```tsql
 SELECT (embedding <#> '[3,1,2]') * -1 AS inner_product FROM items;
 ```
 
@@ -261,7 +261,7 @@ SET max_parallel_workers_per_gather = 4;
 
 If vectors are normalized to length 1 (like [OpenAI embeddings](https://platform.openai.com/docs/guides/embeddings/which-distance-function-should-i-use)), use inner product for best performance.
 
-```sql
+```tsql
 SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
 ```
 
