@@ -231,7 +231,7 @@ There are a few ways to index nearest neighbor queries with a `WHERE` clause
 SELECT * FROM items WHERE category_id = 123 ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
-Create an index on one or more of the `WHERE` columns for exact search
+Create an index on one [or more](https://www.postgresql.org/docs/current/indexes-multicolumn.html) of the `WHERE` columns for exact search
 
 ```sql
 CREATE INDEX ON items (category_id);
