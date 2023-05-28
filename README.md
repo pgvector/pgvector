@@ -32,7 +32,7 @@ CREATE EXTENSION vector;
 
 See the [installation notes](#installation-notes) if you run into issues
 
-You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge)
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgres-app) and many [hosted providers](#hosted-postgres)
 
 ## Getting Started
 
@@ -456,6 +456,10 @@ conda install -c conda-forge pgvector
 ```
 
 This method is [community-maintained](https://github.com/conda-forge/pgvector-feedstock) by [@mmcauliffe](https://github.com/mmcauliffe)
+
+### Postgres.app
+
+Download the [latest release](https://postgresapp.com/downloads.html) with Postgres 15+.
 
 ## Hosted Postgres
 
