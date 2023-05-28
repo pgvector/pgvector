@@ -24,17 +24,17 @@ make
 make install # may need sudo
 ```
 
-Then load it in databases where you want to use it
-
-```sql
-CREATE EXTENSION vector;
-```
-
 See the [installation notes](#installation-notes) if you run into issues
 
 You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres)
 
 ## Getting Started
+
+Enable the extension (do this once in each database where you want to use it)
+
+```sql
+CREATE EXTENSION vector;
+```
 
 Create a vector column with 3 dimensions
 
