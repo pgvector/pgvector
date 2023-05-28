@@ -240,7 +240,8 @@ CREATE INDEX ON items (category_id);
 Or a [partial index](https://www.postgresql.org/docs/current/indexes-partial.html) on the vector column for approximate search
 
 ```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100) WHERE (category_id = 123);
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100)
+    WHERE (category_id = 123);
 ```
 
 Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) for approximate search on many different values of the `WHERE` columns
