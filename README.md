@@ -32,7 +32,7 @@ CREATE EXTENSION vector;
 
 See the [installation notes](#installation-notes) if you run into issues
 
-You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgres-app) and many [hosted providers](#hosted-postgres)
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres)
 
 ## Getting Started
 
