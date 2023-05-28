@@ -255,9 +255,8 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 Use together with Postgres [full-text search](https://www.postgresql.org/docs/current/textsearch-intro.html) for hybrid search.
 
 ```sql
-SELECT id, content, ts_rank_cd(textsearch, query) AS rank
-    FROM items, to_tsquery('hello & search') query
-    WHERE textsearch @@ query ORDER BY rank DESC LIMIT 5;
+SELECT id, content FROM items, to_tsquery('hello & search') query
+    WHERE textsearch @@ query ORDER BY ts_rank_cd(textsearch, query) DESC LIMIT 5;
 ```
 
 ## Performance
