@@ -223,21 +223,27 @@ The phases are:
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
 
-### Partial Indexes
+### Filtering
 
-Consider [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html) for queries with a `WHERE` clause
+There are a few ways to index nearest neighbor queries with a `WHERE` clause
 
 ```sql
 SELECT * FROM items WHERE category_id = 123 ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
-can be indexed with:
+Create an index on one or more of the `WHERE` columns for exact search
+
+```sql
+CREATE INDEX ON items (category_id);
+```
+
+Or a [partial index](https://www.postgresql.org/docs/current/indexes-partial.html) on the vector column for approximate search
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100) WHERE (category_id = 123);
 ```
 
-To index many different values of `category_id`, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) on `category_id`.
+Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) for approximate search on many different values of the `WHERE` columns
 
 ```sql
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
