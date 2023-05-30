@@ -140,6 +140,7 @@ typedef struct HnswOptions
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			m;				/* number of connections */
 	int			efConstruction; /* size of dynamic candidate list */
+	int 		dims;	/* dimensions of each vector datum */
 }			HnswOptions;
 
 typedef struct HnswSpool
@@ -324,7 +325,7 @@ void		HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogS
 void		HnswInit(void);
 List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
 HnswElement HnswGetEntryPoint(Relation index);
-void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
+void		HnswGetMetaPageInfo(Relation index, int *m, int *dims, HnswElement *entryPoint);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
@@ -359,5 +360,6 @@ IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
+int 		HnswGetBuildStateDims(Relation index);
 
 #endif

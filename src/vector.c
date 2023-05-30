@@ -60,18 +60,6 @@ CheckDims(Vector * a, Vector * b)
 }
 
 /*
- * Ensure expected dimensions
- */
-static inline void
-CheckExpectedDim(int32 typmod, int dim)
-{
-	if (typmod != -1 && typmod != dim)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("expected %d dimensions, not %d", typmod, dim)));
-}
-
-/*
  * Ensure valid dimensions
  */
 static inline void

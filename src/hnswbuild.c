@@ -304,6 +304,8 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	Vector  	*vec = DatumGetVector(value);
+	CheckExpectedDim(buildstate->dimensions, vec->dim);
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -459,14 +461,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
-	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
-	/* Require column to have dimensions to be indexed */
-	if (buildstate->dimensions < 0)
-		elog(ERROR, "column does not have dimensions");
-
-	if (buildstate->dimensions > HNSW_MAX_DIM)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", HNSW_MAX_DIM);
+	buildstate->dimensions = HnswGetBuildStateDims(index);
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
 		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");

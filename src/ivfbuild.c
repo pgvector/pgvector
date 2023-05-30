@@ -174,6 +174,8 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	Vector *	vec = DatumGetVector(value);
+	CheckExpectedDim(buildstate->dimensions, vec->dim);
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -352,15 +354,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->indexInfo = indexInfo;
 
 	buildstate->lists = IvfflatGetLists(index);
-	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
-
-	/* Require column to have dimensions to be indexed */
-	if (buildstate->dimensions < 0)
-		elog(ERROR, "column does not have dimensions");
-
-	if (buildstate->dimensions > IVFFLAT_MAX_DIM)
-		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", IVFFLAT_MAX_DIM);
-
+	buildstate->dimensions = IvfflatGetBuildStateDims(index);
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;
 

@@ -104,6 +104,7 @@ typedef struct IvfflatOptions
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			lists;			/* number of lists */
+	int			dims;			/* dimensions of each vector datum */
 }			IvfflatOptions;
 
 typedef struct IvfflatSpool
@@ -303,5 +304,6 @@ IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);
 void		ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		ivfflatgettuple(IndexScanDesc scan, ScanDirection dir);
 void		ivfflatendscan(IndexScanDesc scan);
+int		IvfflatGetBuildStateDims(Relation index);
 
 #endif

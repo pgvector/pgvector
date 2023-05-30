@@ -226,7 +226,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
  * Get the metapage info
  */
 void
-HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
+HnswGetMetaPageInfo(Relation index, int *m, int *dims, HnswElement *entryPoint)
 {
 	Buffer		buf;
 	Page		page;
@@ -239,6 +239,8 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 
 	if (m != NULL)
 		*m = metap->m;
+	if (dims != NULL)
+		*dims = metap->dimensions;
 
 	if (entryPoint != NULL)
 	{
@@ -259,7 +261,7 @@ HnswGetEntryPoint(Relation index)
 {
 	HnswElement entryPoint;
 
-	HnswGetMetaPageInfo(index, NULL, &entryPoint);
+	HnswGetMetaPageInfo(index, NULL, NULL, &entryPoint);
 
 	return entryPoint;
 }
@@ -1070,4 +1072,26 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 
 		ep = w;
 	}
+}
+
+
+int
+HnswGetBuildStateDims(Relation index)
+{
+	int dims = TupleDescAttr(index->rd_att, 0)->atttypmod;
+	HnswOptions *opts = (HnswOptions *) index->rd_options;
+
+	/* Require column to have dimensions to be indexed */
+	if (dims < 0)
+	{
+
+		if (opts && opts->dims >= 0)
+			dims = opts->dims;
+		else
+			elog(ERROR, "column does not have dimensions");
+	}
+
+	if (dims > HNSW_MAX_DIM)
+		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", HNSW_MAX_DIM);
+	return dims;
 }

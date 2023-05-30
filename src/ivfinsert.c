@@ -76,9 +76,16 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	BlockNumber insertPage = InvalidBlockNumber;
 	ListInfo	listInfo;
 	BlockNumber originalInsertPage;
+	Vector		*vec;
+	int 		dims;
 
 	/* Detoast once for all calls */
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	vec = DatumGetVector(value);
+
+	/* check dim */
+	IvfflatGetMetaPageInfo(index, NULL, &dims);
+	CheckExpectedDim(dims, vec->dim);
 
 	/* Normalize if needed */
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);

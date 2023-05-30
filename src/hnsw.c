@@ -37,6 +37,10 @@ HnswInit(void)
 #endif
 		);
 
+	add_int_reloption(hnsw_relopt_kind, "dims", "Expected number of vector dimensions",
+					  -1, -1, HNSW_MAX_DIM
+					  ,AccessExclusiveLock
+		);
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
@@ -97,7 +101,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	MemSet(&costs, 0, sizeof(costs));
 
 	index = index_open(path->indexinfo->indexoid, NoLock);
-	HnswGetMetaPageInfo(index, &m, NULL);
+	HnswGetMetaPageInfo(index, &m, NULL, NULL);
 	index_close(index, NoLock);
 
 	/* Approximate entry level */
@@ -131,6 +135,7 @@ hnswoptions(Datum reloptions, bool validate)
 	static const relopt_parse_elt tab[] = {
 		{"m", RELOPT_TYPE_INT, offsetof(HnswOptions, m)},
 		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, efConstruction)},
+		{"dims", RELOPT_TYPE_INT, offsetof(HnswOptions, dims)},
 	};
 
 #if PG_VERSION_NUM >= 130000

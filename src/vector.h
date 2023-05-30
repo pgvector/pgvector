@@ -20,4 +20,15 @@ Vector	   *InitVector(int dim);
 void		PrintVector(char *msg, Vector * vector);
 int			vector_cmp_internal(Vector * a, Vector * b);
 
+/*
+ * Ensure expected dimensions
+ */
+static inline void
+CheckExpectedDim(int32 expectedDim, int dim)
+{
+	if (expectedDim != -1 && expectedDim != dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("expected %d dimensions, not %d", expectedDim, dim)));
+}
 #endif

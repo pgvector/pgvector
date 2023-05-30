@@ -493,9 +493,12 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	Oid			collation = index->rd_indcollation[0];
 	HnswElement dup;
 	LOCKMODE	lockmode = ShareLock;
+	Vector		*vec;
+	int		dims;
 
 	/* Detoast once for all calls */
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	vec = DatumGetVector(value);
 
 	/* Normalize if needed */
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
@@ -512,8 +515,15 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	 */
 	LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
-	/* Get m and entry point */
-	HnswGetMetaPageInfo(index, &m, &entryPoint);
+	/* Get m and entry point and check dim */
+	HnswGetMetaPageInfo(index, &m, &dims, &entryPoint);
+	if ( dims != -1 && dims != vec->dim)
+	{
+		UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("expected %d dimensions, not %d", dims, vec->dim)));
+	}
 
 	/* Create an element */
 	element = HnswInitElement(heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m));

@@ -184,7 +184,8 @@ IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
 	page = BufferGetPage(buf);
 	metap = IvfflatPageGetMeta(page);
 
-	*lists = metap->lists;
+	if (lists != NULL)
+		*lists = metap->lists;
 
 	if (dimensions != NULL)
 		*dimensions = metap->dimensions;
@@ -237,4 +238,24 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 		GenericXLogAbort(state);
 		UnlockReleaseBuffer(buf);
 	}
+}
+
+int
+IvfflatGetBuildStateDims(Relation index)
+{
+	int dims = TupleDescAttr(index->rd_att, 0)->atttypmod;
+	IvfflatOptions *opts = (IvfflatOptions *) index->rd_options;
+
+	/* Require column to have dimensions to be indexed */
+	if (dims < 0)
+	{
+		if (opts && opts->dims >= 0)
+			dims = opts->dims;
+		else
+			elog(ERROR, "column does not have dimensions");
+	}
+
+	if (dims > IVFFLAT_MAX_DIM)
+		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", IVFFLAT_MAX_DIM);
+	return dims;
 }

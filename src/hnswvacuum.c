@@ -594,7 +594,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 												ALLOCSET_DEFAULT_SIZES);
 
 	/* Get m from metapage */
-	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
+	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL, NULL);
 
 	/* Create hash table */
 	hash_ctl.keysize = sizeof(ItemPointerData);

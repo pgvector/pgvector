@@ -29,6 +29,10 @@ IvfflatInit(void)
 					  ,AccessExclusiveLock
 #endif
 		);
+	add_int_reloption(ivfflat_relopt_kind, "dims", "Expected number of vector dimensions",
+					  -1, -1, IVFFLAT_MAX_DIM
+					  ,AccessExclusiveLock
+		);
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
@@ -152,6 +156,7 @@ ivfflatoptions(Datum reloptions, bool validate)
 {
 	static const relopt_parse_elt tab[] = {
 		{"lists", RELOPT_TYPE_INT, offsetof(IvfflatOptions, lists)},
+		{"dims", RELOPT_TYPE_INT, offsetof(IvfflatOptions, dims)},
 	};
 
 #if PG_VERSION_NUM >= 130000

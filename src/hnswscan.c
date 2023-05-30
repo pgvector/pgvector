@@ -23,7 +23,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	HnswElement entryPoint;
 
 	/* Get m and entry point */
-	HnswGetMetaPageInfo(index, &m, &entryPoint);
+	HnswGetMetaPageInfo(index, &m, NULL, &entryPoint);
 
 	if (entryPoint == NULL)
 		return NIL;
