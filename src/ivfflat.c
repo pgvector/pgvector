@@ -72,6 +72,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	double		ratio;
 	double		spc_seq_page_cost;
 	Relation	indexRel;
+	Cost		startupCost;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
 #endif
@@ -112,16 +113,18 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
+	startupCost = costs.indexTotalCost;
+
 	/* Adjust cost if needed since TOAST not included in seq scan cost */
 	if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
 		get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
 		/* Change page cost from random to sequential */
-		costs.indexTotalCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		startupCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 		/* Remove cost of extra pages */
-		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+		startupCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
 	}
 
 	/*
@@ -131,7 +134,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (ratio < costs.indexSelectivity)
 		costs.indexSelectivity = ratio;
 
-	*indexStartupCost = costs.indexTotalCost;
+	*indexStartupCost = startupCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
