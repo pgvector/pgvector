@@ -4,12 +4,16 @@ SELECT '[1,2,3]'::vector + '[4,5,6]';
  [5,7,9]
 (1 row)
 
+SELECT '[3e38]'::vector + '[3e38]';
+ERROR:  value out of range: overflow
 SELECT '[1,2,3]'::vector - '[4,5,6]';
   ?column?  
 ------------
  [-3,-3,-3]
 (1 row)
 
+SELECT '[-3e38]'::vector - '[3e38]';
+ERROR:  value out of range: overflow
 SELECT vector_dims('[1,2,3]');
  vector_dims 
 -------------

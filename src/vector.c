@@ -656,6 +656,10 @@ vector_add(PG_FUNCTION_ARGS)
 	for (int i = 0, imax = a->dim; i < imax; i++)
 		rx[i] = ax[i] + bx[i];
 
+	for (int i = 0, imax = a->dim; i < imax; i++)
+		if (isinf(rx[i]))
+			float_overflow_error();
+
 	PG_RETURN_POINTER(result);
 }
 
@@ -681,6 +685,10 @@ vector_sub(PG_FUNCTION_ARGS)
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 		rx[i] = ax[i] - bx[i];
+
+	for (int i = 0, imax = a->dim; i < imax; i++)
+		if (isinf(rx[i]))
+			float_overflow_error();
 
 	PG_RETURN_POINTER(result);
 }

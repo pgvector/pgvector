@@ -1,5 +1,7 @@
 SELECT '[1,2,3]'::vector + '[4,5,6]';
+SELECT '[3e38]'::vector + '[3e38]';
 SELECT '[1,2,3]'::vector - '[4,5,6]';
+SELECT '[-3e38]'::vector - '[3e38]';
 
 SELECT vector_dims('[1,2,3]');
 
