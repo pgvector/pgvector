@@ -398,9 +398,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 			if (centerCounts[j] > 0)
 			{
-				for (k = 0; k < dimensions; k++)
-					vec->x[k] /= centerCounts[j];
-
 				/* Double avoids overflow, but requires more memory */
 				/* TODO Update bounds */
 				for (k = 0; k < dimensions; k++)
@@ -408,6 +405,9 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 					if (isinf(vec->x[k]))
 						vec->x[k] = vec->x[k] > 0 ? FLT_MAX : -FLT_MAX;
 				}
+
+				for (k = 0; k < dimensions; k++)
+					vec->x[k] /= centerCounts[j];
 			}
 			else
 			{
