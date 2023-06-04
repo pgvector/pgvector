@@ -404,8 +404,10 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 				/* Double avoids overflow, but requires more memory */
 				/* TODO Update bounds */
 				for (k = 0; k < dimensions; k++)
+				{
 					if (isinf(vec->x[k]))
 						vec->x[k] = vec->x[k] > 0 ? FLT_MAX : -FLT_MAX;
+				}
 			}
 			else
 			{
