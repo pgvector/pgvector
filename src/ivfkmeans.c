@@ -469,13 +469,16 @@ CheckCenters(Relation index, VectorArray centers)
 	if (centers->length != centers->maxlen)
 		elog(ERROR, "Not enough centers. Please report a bug.");
 
-	/* Ensure no infinite values */
+	/* Ensure no NaN or infinite values */
 	for (i = 0; i < centers->length; i++)
 	{
 		vec = VectorArrayGet(centers, i);
 
 		for (j = 0; j < vec->dim; j++)
 		{
+			if (isnan(vec->x[j]))
+				elog(ERROR, "NaN detected. Please report a bug.");
+
 			if (isinf(vec->x[j]))
 				elog(ERROR, "Infinite value detected. Please report a bug.");
 		}
