@@ -171,6 +171,9 @@ vector_in(PG_FUNCTION_ARGS)
 		x[dim] = strtof(pt, &stringEnd);
 		CheckElement(x[dim]);
 		dim++;
+		// stringEnd is space is OK to support SELECT '[   1  ,       2     ]'::vector(2);
+		while (isspace((unsigned char)*stringEnd))
+          stringEnd++;
 
 		if (stringEnd == pt)
 			ereport(ERROR,
