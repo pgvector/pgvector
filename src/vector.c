@@ -477,6 +477,8 @@ vector_to_float4(PG_FUNCTION_ARGS)
 	/* Use TYPALIGN_INT for float4 */
 	result = construct_array(d, vec->dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
 
+	pfree(d);
+
 	PG_RETURN_POINTER(result);
 }
 
