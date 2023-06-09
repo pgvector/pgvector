@@ -87,9 +87,7 @@ CheckElement(float value)
 }
 
 /*
- * PostgreSQL has with the array_isspace function for the character checking which is reimplemented
- * as vector_isspace, as it's static, source code link:
- * https://github.com/postgres/postgres/blob/378d73ef204d0dcbeab834d52478e8cb90578ab7/src/backend/utils/adt/arrayfuncs.c#L438
+ * Check for whitespace, since array_isspace() is static
  */
 static inline bool
 vector_isspace(char ch)
@@ -216,7 +214,8 @@ vector_in(PG_FUNCTION_ARGS)
 				 errdetail("Unexpected end of input.")));
 
 	stringEnd++;
-	/* only whitespace is allowed after the closing brace */
+
+	/* Only whitespace is allowed after the closing brace */
 	while (vector_isspace(*stringEnd))
 		stringEnd++;
 
