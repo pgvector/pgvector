@@ -10,6 +10,12 @@ SELECT '[-1,2,3]'::vector;
  [-1,2,3]
 (1 row)
 
+SELECT ' [ 1,  2 ,    3  ] '::vector(3);
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
 SELECT '[1.23456]'::vector;
   vector   
 -----------

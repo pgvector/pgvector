@@ -1,5 +1,6 @@
 SELECT '[1,2,3]'::vector;
 SELECT '[-1,2,3]'::vector;
+SELECT ' [ 1,  2 ,    3  ] '::vector(3);
 SELECT '[1.23456]'::vector;
 SELECT '[hello,1]'::vector;
 SELECT '[NaN,1]'::vector;

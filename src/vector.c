@@ -87,6 +87,24 @@ CheckElement(float value)
 }
 
 /*
+ * PostgreSQL has with the array_isspace function for the character checking which is reimplemented
+ * as vector_isspace, as it's static, source code link:
+ * https://github.com/postgres/postgres/blob/378d73ef204d0dcbeab834d52478e8cb90578ab7/src/backend/utils/adt/arrayfuncs.c#L438
+ */
+static inline bool
+vector_isspace(char ch)
+{
+	if (ch == ' ' ||
+		ch == '\t' ||
+		ch == '\n' ||
+		ch == '\r' ||
+		ch == '\v' ||
+		ch == '\f')
+		return true;
+	return false;
+}
+
+/*
  * Check state array
  */
 static float8 *
@@ -150,6 +168,9 @@ vector_in(PG_FUNCTION_ARGS)
 	char	   *stringEnd;
 	Vector	   *result;
 
+	while (vector_isspace(*str))
+		str++;
+
 	if (*str != '[')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -172,6 +193,9 @@ vector_in(PG_FUNCTION_ARGS)
 		CheckElement(x[dim]);
 		dim++;
 
+		while (vector_isspace(*stringEnd))
+          stringEnd++;
+
 		if (stringEnd == pt)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -191,7 +215,12 @@ vector_in(PG_FUNCTION_ARGS)
 				 errmsg("malformed vector literal"),
 				 errdetail("Unexpected end of input.")));
 
-	if (stringEnd[1] != '\0')
+	stringEnd++;
+	/* only whitespace is allowed after the closing brace */
+	while (vector_isspace(*stringEnd))
+		stringEnd++;
+
+	if (*stringEnd != '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("malformed vector literal"),
