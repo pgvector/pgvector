@@ -84,7 +84,6 @@ CheckElementOrFree(float value, Vector * vec)
 				 errmsg("NaN not allowed in vector")));
 	}
 
-
 	if (isinf(value))
 	{
 		if (vec != NULL)
