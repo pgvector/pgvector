@@ -475,19 +475,19 @@ Datum
 vector_to_float4(PG_FUNCTION_ARGS)
 {
 	Vector	   *vec = PG_GETARG_VECTOR_P(0);
-	Datum	   *d;
+	Datum	   *datums;
 	ArrayType  *result;
 	int			i;
 
-	d = (Datum *) palloc(sizeof(Datum) * vec->dim);
+	datums = (Datum *) palloc(sizeof(Datum) * vec->dim);
 
 	for (i = 0; i < vec->dim; i++)
-		d[i] = Float4GetDatum(vec->x[i]);
+		datums[i] = Float4GetDatum(vec->x[i]);
 
 	/* Use TYPALIGN_INT for float4 */
-	result = construct_array(d, vec->dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
+	result = construct_array(datums, vec->dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
 
-	pfree(d);
+	pfree(datums);
 
 	PG_RETURN_POINTER(result);
 }
