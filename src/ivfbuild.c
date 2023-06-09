@@ -147,7 +147,7 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 {
 	double		distance;
 	double		minDistance = DBL_MAX;
-	int			closestCenter = -1;
+	int			closestCenter = 0;
 	VectorArray centers = buildstate->centers;
 	TupleTableSlot *slot = buildstate->slot;
 	int			i;
