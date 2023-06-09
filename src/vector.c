@@ -447,6 +447,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
 					 errmsg("array must not containing NULLs")));
 
+		/* TODO Move outside loop in 0.5.0 */
 		if (ARR_ELEMTYPE(array) == INT4OID)
 			result->x[i] = DatumGetInt32(elemsp[i]);
 		else if (ARR_ELEMTYPE(array) == FLOAT8OID)
