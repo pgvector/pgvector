@@ -193,13 +193,13 @@ vector_in(PG_FUNCTION_ARGS)
 		CheckElement(x[dim]);
 		dim++;
 
-		while (vector_isspace(*stringEnd))
-          stringEnd++;
-
 		if (stringEnd == pt)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type vector: \"%s\"", pt)));
+
+		while (vector_isspace(*stringEnd))
+			stringEnd++;
 
 		if (*stringEnd != '\0' && *stringEnd != ']')
 			ereport(ERROR,
