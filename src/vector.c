@@ -903,6 +903,7 @@ vector_accum(PG_FUNCTION_ARGS)
 		{
 			double		v = statevalues[i + 1] + x[i];
 
+			/* Check for overflow */
 			if (isinf(v))
 			{
 				pfree(statedatums);
@@ -974,6 +975,7 @@ vector_combine(PG_FUNCTION_ARGS)
 		{
 			double		v = statevalues1[i] + statevalues2[i];
 
+			/* Check for overflow */
 			if (isinf(v))
 			{
 				pfree(statedatums);
