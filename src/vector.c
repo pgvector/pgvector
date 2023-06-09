@@ -330,7 +330,10 @@ vector_recv(PG_FUNCTION_ARGS)
 
 	result = InitVector(dim);
 	for (i = 0; i < dim; i++)
+	{
 		result->x[i] = pq_getmsgfloat4(buf);
+		CheckElement(result->x[i]);
+	}
 
 	PG_RETURN_POINTER(result);
 }
