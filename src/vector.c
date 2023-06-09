@@ -193,7 +193,7 @@ vector_in(PG_FUNCTION_ARGS)
 		CheckElement(x[dim]);
 		dim++;
 
-		while (vector_isspace((unsigned char)*stringEnd))
+		while (vector_isspace(*stringEnd))
           stringEnd++;
 
 		if (stringEnd == pt)
@@ -217,7 +217,7 @@ vector_in(PG_FUNCTION_ARGS)
 
 	stringEnd++;
 	/* only whitespace is allowed after the closing brace */
-	while (vector_isspace((unsigned char)*stringEnd))
+	while (vector_isspace(*stringEnd))
 		stringEnd++;
 
 	if (*stringEnd != '\0')
