@@ -1,6 +1,6 @@
 ## 0.4.3 (unreleased)
 
-- Added support for more spaces in text representation
+- Improved support for spaces with text representation
 - Fixed infinite and NaN values with binary representation
 - Fixed infinite values with vector addition and subtraction
 - Fixed infinite values with list centers
