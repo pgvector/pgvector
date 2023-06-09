@@ -1005,7 +1005,6 @@ vector_avg(PG_FUNCTION_ARGS)
 	float8		n;
 	uint16		dim;
 	Vector	   *result;
-	float		v;
 
 	/* Check array before using */
 	statevalues = CheckStateArray(statearray, "vector_avg");
@@ -1021,9 +1020,8 @@ vector_avg(PG_FUNCTION_ARGS)
 	result = InitVector(dim);
 	for (int i = 0; i < dim; i++)
 	{
-		v = statevalues[i + 1] / n;
-		CheckElementOrFree(v, result);
-		result->x[i] = v;
+		result->x[i] = statevalues[i + 1] / n;
+		CheckElementOrFree(result->x[i], result);
 	}
 
 	PG_RETURN_POINTER(result);
