@@ -88,11 +88,11 @@ CheckElement(float value)
 
 /*
  * PostgreSQL has with the array_isspace function for the character checking which is reimplemented
- * here, as it's static, source code:
+ * as vector_isspace, as it's static, source code link:
  * https://github.com/postgres/postgres/blob/378d73ef204d0dcbeab834d52478e8cb90578ab7/src/backend/utils/adt/arrayfuncs.c#L438
  */
 static inline bool
-array_isspace(char ch)
+vector_isspace(char ch)
 {
 	if (ch == ' ' ||
 		ch == '\t' ||
@@ -168,11 +168,7 @@ vector_in(PG_FUNCTION_ARGS)
 	char	   *stringEnd;
 	Vector	   *result;
 
-	/*
-	 * Note: we currently allow whitespace between, but not within,
-	 * dimension items.
-	 */
-	while (array_isspace(*str))
+	while (vector_isspace(*str))
 		str++;
 
 	if (*str != '[')
@@ -196,8 +192,8 @@ vector_in(PG_FUNCTION_ARGS)
 		x[dim] = strtof(pt, &stringEnd);
 		CheckElement(x[dim]);
 		dim++;
-		// stringEnd is space is OK to support SELECT '[   1  ,       2     ]'::vector(2);
-		while (array_isspace((unsigned char)*stringEnd))
+
+		while (vector_isspace((unsigned char)*stringEnd))
           stringEnd++;
 
 		if (stringEnd == pt)
@@ -221,7 +217,7 @@ vector_in(PG_FUNCTION_ARGS)
 
 	stringEnd++;
 	/* only whitespace is allowed after the closing brace */
-	while (array_isspace((unsigned char)*stringEnd))
+	while (vector_isspace((unsigned char)*stringEnd))
 		stringEnd++;
 
 	if (*stringEnd != '\0')
