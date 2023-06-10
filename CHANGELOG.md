@@ -1,4 +1,4 @@
-## 0.4.3 (unreleased)
+## 0.4.3 (2023-06-10)
 
 - Improved cost estimation
 - Improved support for spaces with text representation

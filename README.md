@@ -18,7 +18,7 @@ Compile and install the extension (supports Postgres 11+)
 
 ```sh
 cd /tmp
-git clone --branch v0.4.2 https://github.com/pgvector/pgvector.git
+git clone --branch v0.4.3 https://github.com/pgvector/pgvector.git
 cd pgvector
 make
 make install # may need sudo
@@ -397,7 +397,7 @@ Support for Windows is currently experimental. Use `nmake` to build:
 
 ```cmd
 set "PGROOT=C:\Program Files\PostgreSQL\15"
-git clone --branch v0.4.2 https://github.com/pgvector/pgvector.git
+git clone --branch v0.4.3 https://github.com/pgvector/pgvector.git
 cd pgvector
 nmake /F Makefile.win
 nmake /F Makefile.win install
@@ -418,7 +418,7 @@ This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (r
 You can also build the image manually:
 
 ```sh
-git clone --branch v0.4.2 https://github.com/pgvector/pgvector.git
+git clone --branch v0.4.3 https://github.com/pgvector/pgvector.git
 cd pgvector
 docker build --build-arg PG_MAJOR=15 -t myuser/pgvector .
 ```
