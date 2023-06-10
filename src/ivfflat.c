@@ -71,8 +71,8 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	int			lists;
 	double		ratio;
 	double		spc_seq_page_cost;
+	double		seqPageRatio = 0.5;
 	Relation	indexRel;
-	Cost		startupCost;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
 #endif
@@ -115,25 +115,17 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
-	/* Use total cost since most work happens before first tuple is returned */
-	startupCost = costs.indexTotalCost;
+	/* Change some page cost from random to sequential */
+	costs.indexTotalCost -= seqPageRatio * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
-	if (costs.spc_random_page_cost >= spc_seq_page_cost)
+	/* Adjust cost if needed since TOAST not included in seq scan cost */
+	if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
-		/* Adjust cost if needed since TOAST not included in seq scan cost */
-		if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
-		{
-			/* Change page cost from random to sequential */
-			startupCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		/* Change rest of page cost from random to sequential */
+		costs.indexTotalCost -= (1 - seqPageRatio) * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
-			/* Remove cost of extra pages */
-			startupCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
-		}
-		else if (ratio < 0.5)
-		{
-			/* Change some page cost from random to sequential */
-			startupCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
-		}
+		/* Remove cost of extra pages */
+		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
 	}
 
 	/*
@@ -143,7 +135,8 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (ratio < costs.indexSelectivity)
 		costs.indexSelectivity = ratio;
 
-	*indexStartupCost = startupCost;
+	/* Use total cost since most work happens before first tuple is returned */
+	*indexStartupCost = costs.indexTotalCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
