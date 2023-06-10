@@ -104,7 +104,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 * the generic cost estimator to determine the number of pages to visit
 	 * during the index scan.
 	 */
-	costs.numIndexTuples = path->indexinfo->rel->tuples * ratio;
+	costs.numIndexTuples = path->indexinfo->tuples * ratio;
 
 #if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
