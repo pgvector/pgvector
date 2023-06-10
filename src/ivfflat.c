@@ -118,7 +118,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	/* Use total cost since most work happens before first tuple is returned */
 	startupCost = costs.indexTotalCost;
 
-	if (costs.spc_random_page_cost > spc_seq_page_cost)
+	if (costs.spc_random_page_cost >= spc_seq_page_cost)
 	{
 		/* Adjust cost if needed since TOAST not included in seq scan cost */
 		if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
