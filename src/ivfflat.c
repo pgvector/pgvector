@@ -7,6 +7,7 @@
 #include "ivfflat.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
+#include "utils/spccache.h"
 
 #if PG_VERSION_NUM >= 120000
 #include "commands/progress.h"
@@ -69,7 +70,9 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	GenericCosts costs;
 	int			lists;
 	double		ratio;
+	double		spc_seq_page_cost;
 	Relation	indexRel;
+	Cost		startupCost;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
 #endif
@@ -87,6 +90,22 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	MemSet(&costs, 0, sizeof(costs));
 
+	indexRel = index_open(path->indexinfo->indexoid, NoLock);
+	lists = IvfflatGetLists(indexRel);
+	index_close(indexRel, NoLock);
+
+	/* Get the ratio of lists that we need to visit */
+	ratio = ((double) ivfflat_probes) / lists;
+	if (ratio > 1.0)
+		ratio = 1.0;
+
+	/*
+	 * This gives us the subset of tuples to visit. This value is passed into
+	 * the generic cost estimator to determine the number of pages to visit
+	 * during the index scan.
+	 */
+	costs.numIndexTuples = path->indexinfo->rel->tuples * ratio;
+
 #if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
 #else
@@ -94,18 +113,28 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
-	indexRel = index_open(path->indexinfo->indexoid, NoLock);
-	lists = IvfflatGetLists(indexRel);
-	index_close(indexRel, NoLock);
+	startupCost = costs.indexTotalCost;
 
-	ratio = ((double) ivfflat_probes) / lists;
-	if (ratio > 1)
-		ratio = 1;
+	/* Adjust cost if needed since TOAST not included in seq scan cost */
+	if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
+	{
+		get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
-	costs.indexTotalCost *= ratio;
+		/* Change page cost from random to sequential */
+		startupCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
-	/* Startup cost and total cost are same */
-	*indexStartupCost = costs.indexTotalCost;
+		/* Remove cost of extra pages */
+		startupCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+	}
+
+	/*
+	 * If the list selectivity is lower than what is returned from the generic
+	 * cost estimator, use that.
+	 */
+	if (ratio < costs.indexSelectivity)
+		costs.indexSelectivity = ratio;
+
+	*indexStartupCost = startupCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
