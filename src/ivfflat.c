@@ -118,19 +118,22 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
-	/* Adjust cost if needed since TOAST not included in seq scan cost */
-	if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
+	if (costs.spc_random_page_cost > spc_seq_page_cost)
 	{
-		/* Change page cost from random to sequential */
-		startupCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		/* Adjust cost if needed since TOAST not included in seq scan cost */
+		if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
+		{
+			/* Change page cost from random to sequential */
+			startupCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
-		/* Remove cost of extra pages */
-		startupCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
-	}
-	else if (ratio < 0.5)
-	{
-		/* Change some page cost from random to sequential */
-		startupCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+			/* Remove cost of extra pages */
+			startupCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+		}
+		else if (ratio < 0.5)
+		{
+			/* Change some page cost from random to sequential */
+			startupCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		}
 	}
 
 	/*
