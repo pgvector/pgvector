@@ -420,7 +420,7 @@ You can also build the image manually:
 ```sh
 git clone --branch v0.4.2 https://github.com/pgvector/pgvector.git
 cd pgvector
-docker build --build-arg PG_MAJOR=15 -t pgvector .
+docker build --build-arg PG_MAJOR=15 -t myuser/pgvector .
 ```
 
 ### Homebrew
