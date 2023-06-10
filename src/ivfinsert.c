@@ -39,7 +39,7 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
 			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, values[0], PointerGetDatum(&list->center)));
 
-			if (distance < minDistance)
+			if (distance < minDistance || !BlockNumberIsValid(*insertPage))
 			{
 				*insertPage = list->insertPage;
 				listInfo->blkno = nextblkno;
