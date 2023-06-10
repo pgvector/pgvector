@@ -25,6 +25,8 @@ jobs:
           postgres-version: ${{ matrix.postgres }}
           dev-files: true
       - run: make
+        env:
+          PG_CFLAGS: -Wall -Werror
       - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
@@ -44,6 +46,8 @@ jobs:
         with:
           postgres-version: 14
       - run: make
+        env:
+          PG_CFLAGS: -Wall -Werror
       - run: make install
       - run: make installcheck
       - if: ${{ failure() }}
@@ -87,3 +91,5 @@ jobs:
           chown -R postgres .
           sudo -u postgres make installcheck
           sudo -u postgres make prove_installcheck
+        env:
+          PG_CFLAGS: -Wall -Werror
