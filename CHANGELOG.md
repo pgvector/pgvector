@@ -1,5 +1,6 @@
 ## 0.4.3 (unreleased)
 
+- Improved cost estimation
 - Improved support for spaces with text representation
 - Fixed infinite and NaN values with binary representation
 - Fixed infinite values with vector addition and subtraction
