@@ -23,6 +23,10 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 	OffsetNumber offno;
 	OffsetNumber maxoffno;
 
+	/* Avoid compiler warning */
+	listInfo->blkno = nextblkno;
+	listInfo->offno = FirstOffsetNumber;
+
 	procinfo = index_getprocinfo(rel, 1, IVFFLAT_DISTANCE_PROC);
 	collation = rel->rd_indcollation[0];
 

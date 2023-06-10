@@ -8,6 +8,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - postgres: 16
+            os: ubuntu-22.04
           - postgres: 15
             os: ubuntu-22.04
           - postgres: 14
