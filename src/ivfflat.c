@@ -113,10 +113,10 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
+	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
+
 	/* Use total cost since most work happens before first tuple is returned */
 	startupCost = costs.indexTotalCost;
-
-	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
 	if (costs.spc_random_page_cost > spc_seq_page_cost)
 	{
