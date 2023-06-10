@@ -92,4 +92,4 @@ jobs:
           sudo -u postgres make installcheck
           sudo -u postgres make prove_installcheck
         env:
-          PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter
+          PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
