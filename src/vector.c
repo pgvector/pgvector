@@ -72,27 +72,17 @@ CheckDim(int dim)
  * Ensure finite elements
  */
 static inline void
-CheckElementOrFree(float value, Vector * vec)
+CheckElement(float value)
 {
 	if (isnan(value))
-	{
-		if (vec != NULL)
-			pfree(vec);
-
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("NaN not allowed in vector")));
-	}
 
 	if (isinf(value))
-	{
-		if (vec != NULL)
-			pfree(vec);
-
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("infinite value not allowed in vector")));
-	}
 }
 
 /*
@@ -198,7 +188,7 @@ vector_in(PG_FUNCTION_ARGS)
 
 		/* Use strtof like float4in to avoid a double-rounding problem */
 		x[dim] = strtof(pt, &stringEnd);
-		CheckElementOrFree(x[dim], NULL);
+		CheckElement(x[dim]);
 		dim++;
 
 		if (stringEnd == pt)
@@ -372,7 +362,7 @@ vector_recv(PG_FUNCTION_ARGS)
 	for (i = 0; i < dim; i++)
 	{
 		result->x[i] = pq_getmsgfloat4(buf);
-		CheckElementOrFree(result->x[i], result);
+		CheckElement(result->x[i]);
 	}
 
 	PG_RETURN_POINTER(result);
@@ -464,7 +454,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("unsupported array type")));
 
-		CheckElementOrFree(result->x[i], result);
+		CheckElement(result->x[i]);
 	}
 
 	PG_RETURN_POINTER(result);
@@ -706,10 +696,7 @@ vector_add(PG_FUNCTION_ARGS)
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
 		if (isinf(rx[i]))
-		{
-			pfree(result);
 			float_overflow_error();
-		}
 	}
 
 	PG_RETURN_POINTER(result);
@@ -742,10 +729,7 @@ vector_sub(PG_FUNCTION_ARGS)
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
 		if (isinf(rx[i]))
-		{
-			pfree(result);
 			float_overflow_error();
-		}
 	}
 
 	PG_RETURN_POINTER(result);
@@ -908,10 +892,7 @@ vector_accum(PG_FUNCTION_ARGS)
 
 			/* Check for overflow */
 			if (isinf(v))
-			{
-				pfree(statedatums);
 				float_overflow_error();
-			}
 
 			statedatums[i + 1] = Float8GetDatum(v);
 		}
@@ -980,10 +961,7 @@ vector_combine(PG_FUNCTION_ARGS)
 
 			/* Check for overflow */
 			if (isinf(v))
-			{
-				pfree(statedatums);
 				float_overflow_error();
-			}
 
 			statedatums[i] = Float8GetDatum(v);
 		}
@@ -1028,7 +1006,7 @@ vector_avg(PG_FUNCTION_ARGS)
 	for (int i = 0; i < dim; i++)
 	{
 		result->x[i] = statevalues[i + 1] / n;
-		CheckElementOrFree(result->x[i], result);
+		CheckElement(result->x[i]);
 	}
 
 	PG_RETURN_POINTER(result);
