@@ -163,7 +163,7 @@ Three keys to achieving good recall are:
 
 1. Create the index *after* the table has some data
 2. Choose an appropriate number of lists - a good place to start is `rows / 1000` for up to 1M rows and `sqrt(rows)` for over 1M rows
-3. When querying, specify an appropriate number of [probes](#query-options) (higher is better for recall, lower is better for speed) - a good place to start is `lists / 10` for up to 1M rows and `sqrt(lists)` for over 1M rows
+3. When querying, specify an appropriate number of [probes](#query-options) (higher is better for recall, lower is better for speed) - a good place to start is `sqrt(lists)`
 
 Add an index for each distance function you want to use.
 
