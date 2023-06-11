@@ -186,6 +186,9 @@ vector_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 					 errmsg("vector cannot have more than %d dimensions", VECTOR_MAX_DIM)));
 
+		while (vector_isspace(*pt))
+			pt++;
+
 		/* Use strtof like float4in to avoid a double-rounding problem */
 		x[dim] = strtof(pt, &stringEnd);
 		CheckElement(x[dim]);
