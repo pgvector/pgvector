@@ -164,7 +164,7 @@ vector_in(PG_FUNCTION_ARGS)
 	char	   *pt;
 	char	   *stringEnd;
 	Vector	   *result;
-	char       *lit = pstrdup(str);
+	char	   *lit = pstrdup(str);
 
 	while (vector_isspace(*str))
 		str++;
