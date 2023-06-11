@@ -569,6 +569,21 @@ PrintKmeansMetrics(IvfflatBuildState * buildstate)
 #endif
 
 /*
+ * Scan table for tuples to index
+ */
+static void
+ScanTable(IvfflatBuildState * buildstate)
+{
+#if PG_VERSION_NUM >= 120000
+	buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
+												   true, true, BuildCallback, (void *) buildstate, NULL);
+#else
+	buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
+											   true, BuildCallback, (void *) buildstate, NULL);
+#endif
+}
+
+/*
  * Create entry pages
  */
 static void
@@ -585,25 +600,17 @@ CreateEntryPages(IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	/* Add tuples to sort */
 	if (buildstate->heap != NULL)
-	{
-#if PG_VERSION_NUM >= 120000
-		buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-													   true, true, BuildCallback, (void *) buildstate, NULL);
-#else
-		buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-												   true, BuildCallback, (void *) buildstate, NULL);
-#endif
-	}
+		IvfflatBench("assign tuples", ScanTable(buildstate));
 
 	/* Sort */
-	tuplesort_performsort(buildstate->sortstate);
+	IvfflatBench("sort tuples", tuplesort_performsort(buildstate->sortstate));
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	PrintKmeansMetrics(buildstate);
 #endif
 
 	/* Insert */
-	InsertTuples(buildstate->index, buildstate, forkNum);
+	IvfflatBench("load tuples", InsertTuples(buildstate->index, buildstate, forkNum));
 	tuplesort_end(buildstate->sortstate);
 }
 
@@ -621,7 +628,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 	/* Create pages */
 	CreateMetaPage(index, buildstate->dimensions, buildstate->lists, forkNum);
 	CreateListPages(index, buildstate->centers, buildstate->dimensions, buildstate->lists, forkNum, &buildstate->listInfo);
-	IvfflatBench("CreateEntryPages", CreateEntryPages(buildstate, forkNum));
+	CreateEntryPages(buildstate, forkNum);
 
 	FreeBuildState(buildstate);
 }
