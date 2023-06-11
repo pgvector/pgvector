@@ -53,7 +53,9 @@ CheckExpectedDim(int32 typmod, int dim)
 				 errmsg("expected %d dimensions, not %d", typmod, dim)));
 }
 
-
+/*
+ * Ensure valid dimension
+ */
 static inline void
 CheckDim(int dim)
 {
