@@ -189,6 +189,12 @@ vector_in(PG_FUNCTION_ARGS)
 		while (vector_isspace(*pt))
 			pt++;
 
+		/* Check for empty string like float4in */
+		if (*pt == '\0')
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
+
 		/* Use strtof like float4in to avoid a double-rounding problem */
 		x[dim] = strtof(pt, &stringEnd);
 		CheckElement(x[dim]);
