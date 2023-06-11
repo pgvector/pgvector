@@ -194,7 +194,7 @@ vector_in(PG_FUNCTION_ARGS)
 		if (stringEnd == pt)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type vector: \"%s\"", pt)));
+					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
 
 		while (vector_isspace(*stringEnd))
 			stringEnd++;
@@ -202,7 +202,7 @@ vector_in(PG_FUNCTION_ARGS)
 		if (*stringEnd != '\0' && *stringEnd != ']')
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type vector: \"%s\"", pt)));
+					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
 
 		pt = strtok(NULL, ",");
 	}

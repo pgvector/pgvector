@@ -23,7 +23,7 @@ SELECT '[1.23456]'::vector;
 (1 row)
 
 SELECT '[hello,1]'::vector;
-ERROR:  invalid input syntax for type vector: "hello"
+ERROR:  invalid input syntax for type vector: "[hello,1]"
 LINE 1: SELECT '[hello,1]'::vector;
                ^
 SELECT '[NaN,1]'::vector;
@@ -62,7 +62,7 @@ ERROR:  vector must have at least 1 dimension
 LINE 1: SELECT '[]'::vector;
                ^
 SELECT '[1,]'::vector;
-ERROR:  invalid input syntax for type vector: "]"
+ERROR:  invalid input syntax for type vector: "[1,]"
 LINE 1: SELECT '[1,]'::vector;
                ^
 SELECT '[1,2,3]'::vector(2);
