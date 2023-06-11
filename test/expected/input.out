@@ -43,12 +43,12 @@ ERROR:  infinite value not allowed in vector
 LINE 1: SELECT '[4e38,1]'::vector;
                ^
 SELECT '[1,2,3'::vector;
-ERROR:  malformed vector literal
+ERROR:  malformed vector literal: "[1,2,3"
 LINE 1: SELECT '[1,2,3'::vector;
                ^
 DETAIL:  Unexpected end of input.
 SELECT '[1,2,3]9'::vector;
-ERROR:  malformed vector literal
+ERROR:  malformed vector literal: "[1,2,3]9"
 LINE 1: SELECT '[1,2,3]9'::vector;
                ^
 DETAIL:  Junk after closing right brace.

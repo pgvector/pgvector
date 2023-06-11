@@ -174,6 +174,7 @@ vector_in(PG_FUNCTION_ARGS)
 	char	   *pt;
 	char	   *stringEnd;
 	Vector	   *result;
+	char       *lit = pstrdup(str);
 
 	while (vector_isspace(*str))
 		str++;
@@ -181,7 +182,7 @@ vector_in(PG_FUNCTION_ARGS)
 	if (*str != '[')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed vector literal: \"%s\"", str),
+				 errmsg("malformed vector literal: \"%s\"", lit),
 				 errdetail("Vector contents must start with \"[\".")));
 
 	str++;
@@ -219,7 +220,7 @@ vector_in(PG_FUNCTION_ARGS)
 	if (*stringEnd != ']')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed vector literal"),
+				 errmsg("malformed vector literal: \"%s\"", lit),
 				 errdetail("Unexpected end of input.")));
 
 	stringEnd++;
@@ -231,13 +232,15 @@ vector_in(PG_FUNCTION_ARGS)
 	if (*stringEnd != '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed vector literal"),
+				 errmsg("malformed vector literal: \"%s\"", lit),
 				 errdetail("Junk after closing right brace.")));
 
 	if (dim < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("vector must have at least 1 dimension")));
+
+	pfree(lit);
 
 	CheckExpectedDim(typmod, dim);
 

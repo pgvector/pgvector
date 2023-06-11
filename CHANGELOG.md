@@ -1,3 +1,7 @@
+## 0.4.4 (unreleased)
+
+- Improved error message for malformed vector literal
+
 ## 0.4.3 (2023-06-10)
 
 - Improved cost estimation
