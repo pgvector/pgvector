@@ -1,6 +1,7 @@
 ## 0.4.4 (unreleased)
 
 - Improved error message for malformed vector literal
+- Fixed consecutive delimiters with text representation
 
 ## 0.4.3 (2023-06-10)
 

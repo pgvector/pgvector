@@ -225,6 +225,15 @@ vector_in(PG_FUNCTION_ARGS)
 				 errmsg("malformed vector literal: \"%s\"", lit),
 				 errdetail("Junk after closing right brace.")));
 
+	/* Ensure no consecutive delimiters since strtok skips */
+	for (pt = lit + 1; *pt != '\0'; pt++)
+	{
+		if (pt[-1] == ',' && *pt == ',')
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+					 errmsg("malformed vector literal: \"%s\"", lit)));
+	}
+
 	if (dim < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
