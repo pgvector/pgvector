@@ -126,30 +126,6 @@ float_overflow_error(void)
 #endif
 
 /*
- * Print vector - useful for debugging
- */
-void
-PrintVector(char *msg, Vector * vector)
-{
-	StringInfoData buf;
-	int			dim = vector->dim;
-	int			i;
-
-	initStringInfo(&buf);
-
-	appendStringInfoChar(&buf, '[');
-	for (i = 0; i < dim; i++)
-	{
-		if (i > 0)
-			appendStringInfoString(&buf, ",");
-		appendStringInfoString(&buf, float8out_internal(vector->x[i]));
-	}
-	appendStringInfoChar(&buf, ']');
-
-	elog(INFO, "%s = %s", msg, buf.data);
-}
-
-/*
  * Convert textual representation to internal representation
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_in);
@@ -318,6 +294,18 @@ vector_out(PG_FUNCTION_ARGS)
 
 	PG_FREE_IF_COPY(vector, 0);
 	PG_RETURN_CSTRING(buf);
+}
+
+/*
+ * Print vector - useful for debugging
+ */
+void
+PrintVector(char *msg, Vector * vector)
+{
+	char	   *out = DatumGetPointer(DirectFunctionCall1(vector_out, PointerGetDatum(vector)));
+
+	elog(INFO, "%s = %s", msg, out);
+	pfree(out);
 }
 
 /*
