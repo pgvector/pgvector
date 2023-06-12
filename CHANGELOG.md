@@ -1,14 +1,14 @@
 ## 0.4.4 (unreleased)
 
 - Improved error message for malformed vector literal
-- Fixed segmentation fault with text representation
-- Fixed consecutive delimiters with text representation
+- Fixed segmentation fault with text input
+- Fixed consecutive delimiters with text input
 
 ## 0.4.3 (2023-06-10)
 
 - Improved cost estimation
-- Improved support for spaces with text representation
-- Fixed infinite and NaN values with binary representation
+- Improved support for spaces with text input
+- Fixed infinite and NaN values with binary input
 - Fixed infinite values with vector addition and subtraction
 - Fixed infinite values with list centers
 - Fixed compilation error when `float8` is pass by reference
