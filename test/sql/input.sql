@@ -9,6 +9,7 @@ SELECT '[Infinity,1]'::vector;
 SELECT '[-Infinity,1]'::vector;
 SELECT '[1e38,-1e38]'::vector;
 SELECT '[1e+38,-1e+38]'::vector;
+SELECT '[1e-38,-1e-38]'::vector;
 SELECT '[4e38,1]'::vector;
 SELECT '[1,2,3'::vector;
 SELECT '[1,2,3]9'::vector;
