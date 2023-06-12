@@ -44,6 +44,18 @@ SELECT '[-Infinity,1]'::vector;
 ERROR:  infinite value not allowed in vector
 LINE 1: SELECT '[-Infinity,1]'::vector;
                ^
+SELECT '[1e38,-1e38]'::vector;
+     vector     
+----------------
+ [1e+38,-1e+38]
+(1 row)
+
+SELECT '[1e+38,-1e+38]'::vector;
+     vector     
+----------------
+ [1e+38,-1e+38]
+(1 row)
+
 SELECT '[4e38,1]'::vector;
 ERROR:  infinite value not allowed in vector
 LINE 1: SELECT '[4e38,1]'::vector;
