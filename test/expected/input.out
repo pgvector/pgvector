@@ -4,10 +4,10 @@ SELECT '[1,2,3]'::vector;
  [1,2,3]
 (1 row)
 
-SELECT '[-1,2,3]'::vector;
-  vector  
-----------
- [-1,2,3]
+SELECT '[-1,-2,-3]'::vector;
+   vector   
+------------
+ [-1,-2,-3]
 (1 row)
 
 SELECT '[1.,2.,3.]'::vector;
