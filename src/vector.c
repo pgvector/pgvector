@@ -194,7 +194,7 @@ vector_in(PG_FUNCTION_ARGS)
 		pt = strtok(NULL, ",");
 	}
 
-	if (*stringEnd != ']')
+	if (stringEnd == NULL || *stringEnd != ']')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("malformed vector literal: \"%s\"", lit),

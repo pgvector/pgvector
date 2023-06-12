@@ -81,6 +81,16 @@ ERROR:  malformed vector literal: "1,2,3"
 LINE 1: SELECT '1,2,3'::vector;
                ^
 DETAIL:  Vector contents must start with "[".
+SELECT '['::vector;
+ERROR:  malformed vector literal: "["
+LINE 1: SELECT '['::vector;
+               ^
+DETAIL:  Unexpected end of input.
+SELECT '[,'::vector;
+ERROR:  malformed vector literal: "[,"
+LINE 1: SELECT '[,'::vector;
+               ^
+DETAIL:  Unexpected end of input.
 SELECT '[]'::vector;
 ERROR:  vector must have at least 1 dimension
 LINE 1: SELECT '[]'::vector;
