@@ -1,4 +1,4 @@
-## 0.4.4 (unreleased)
+## 0.4.4 (2023-06-12)
 
 - Improved error message for malformed vector literal
 - Fixed segmentation fault with text input
