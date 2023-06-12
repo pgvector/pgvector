@@ -42,7 +42,7 @@ CheckDims(Vector * a, Vector * b)
 }
 
 /*
- * Ensure expected dimension
+ * Ensure expected dimensions
  */
 static inline void
 CheckExpectedDim(int32 typmod, int dim)
@@ -54,7 +54,7 @@ CheckExpectedDim(int32 typmod, int dim)
 }
 
 /*
- * Ensure valid dimension
+ * Ensure valid dimensions
  */
 static inline void
 CheckDim(int dim)
