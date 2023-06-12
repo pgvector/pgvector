@@ -71,6 +71,10 @@ SELECT '[1,]'::vector;
 ERROR:  invalid input syntax for type vector: "[1,]"
 LINE 1: SELECT '[1,]'::vector;
                ^
+SELECT '[1a]'::vector;
+ERROR:  invalid input syntax for type vector: "[1a]"
+LINE 1: SELECT '[1a]'::vector;
+               ^
 SELECT '[1,,3]'::vector;
 ERROR:  malformed vector literal: "[1,,3]"
 LINE 1: SELECT '[1,,3]'::vector;
