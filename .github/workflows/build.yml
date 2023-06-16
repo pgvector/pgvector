@@ -88,7 +88,8 @@ jobs:
       - run: |
           git clone https://github.com/${{ github.repository }}.git pgvector
           cd pgvector
-          git checkout ${{ github.ref }}
+          git fetch origin ${{ github.ref }}
+          git reset --hard FETCH_HEAD
           make
           make install
           chown -R postgres .
