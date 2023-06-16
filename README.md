@@ -255,7 +255,7 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 Use together with Postgres [full-text search](https://www.postgresql.org/docs/current/textsearch-intro.html) for hybrid search ([Python example](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search.py)).
 
 ```sql
-SELECT id, content FROM items, to_tsquery('hello & search') query
+SELECT id, content FROM items, plainto_tsquery('hello search') query
     WHERE textsearch @@ query ORDER BY ts_rank_cd(textsearch, query) DESC LIMIT 5;
 ```
 
