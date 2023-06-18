@@ -7,7 +7,7 @@
 /*
  * Bulk delete tuples from the index
  */
-IndexBulkDeleteResult *
+extern IndexBulkDeleteResult *
 ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 				  IndexBulkDeleteCallback callback, void *callback_state)
 {
@@ -140,7 +140,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 /*
  * Clean up after a VACUUM operation
  */
-IndexBulkDeleteResult *
+extern IndexBulkDeleteResult *
 ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 {
 	Relation	rel = info->index;

@@ -232,19 +232,25 @@ void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 
 /* Index access methods */
-IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);
-void		ivfflatbuildempty(Relation index);
-bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique
+extern IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);
+extern void		ivfflatbuildempty(Relation index);
+extern bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique
 #if PG_VERSION_NUM >= 140000
 						  ,bool indexUnchanged
 #endif
 						  ,IndexInfo *indexInfo
 );
-IndexBulkDeleteResult *ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state);
-IndexBulkDeleteResult *ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
-IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);
-void		ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
-bool		ivfflatgettuple(IndexScanDesc scan, ScanDirection dir);
-void		ivfflatendscan(IndexScanDesc scan);
+extern IndexBulkDeleteResult *ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state);
+extern IndexBulkDeleteResult *ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
+extern IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);
+extern void		ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
+extern bool		ivfflatgettuple(IndexScanDesc scan, ScanDirection dir);
+extern void		ivfflatendscan(IndexScanDesc scan);
+extern void		ivfflatcostestimate(struct PlannerInfo *root, struct IndexPath *path, double loop_count, Cost *indexStartupCost, Cost *indexTotalCost, Selectivity *indexSelectivity, double *indexCorrelation, double *indexPages);
+extern bytea	*ivfflatoptions(Datum reloptions, bool validate);
+#if PG_VERSION_NUM >= 120000
+extern char		*ivfflatbuildphasename(int64 phasenum);
+#endif
+extern bool		ivfflatvalidate(Oid opclassoid);
 
 #endif

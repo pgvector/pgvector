@@ -636,7 +636,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 /*
  * Build the index for a logged table
  */
-IndexBuildResult *
+extern IndexBuildResult *
 ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 {
 	IndexBuildResult *result;
@@ -654,7 +654,7 @@ ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 /*
  * Build the index for an unlogged table
  */
-void
+extern void
 ivfflatbuildempty(Relation index)
 {
 	IndexInfo  *indexInfo = BuildIndexInfo(index);

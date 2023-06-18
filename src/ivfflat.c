@@ -39,7 +39,7 @@ _PG_init(void)
  * Get the name of index build phase
  */
 #if PG_VERSION_NUM >= 120000
-static char *
+extern char *
 ivfflatbuildphasename(int64 phasenum)
 {
 	switch (phasenum)
@@ -61,7 +61,7 @@ ivfflatbuildphasename(int64 phasenum)
 /*
  * Estimate the cost of an index scan
  */
-static void
+extern void
 ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 					Cost *indexStartupCost, Cost *indexTotalCost,
 					Selectivity *indexSelectivity, double *indexCorrelation,
@@ -147,7 +147,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 /*
  * Parse and validate the reloptions
  */
-static bytea *
+extern bytea *
 ivfflatoptions(Datum reloptions, bool validate)
 {
 	static const relopt_parse_elt tab[] = {
@@ -176,7 +176,7 @@ ivfflatoptions(Datum reloptions, bool validate)
 /*
  * Validate catalog entries for the specified operator class
  */
-static bool
+extern bool
 ivfflatvalidate(Oid opclassoid)
 {
 	return true;

@@ -179,7 +179,7 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 /*
  * Insert a tuple into the index
  */
-bool
+extern bool
 ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
 			  Relation heap, IndexUniqueCheck checkUnique
 #if PG_VERSION_NUM >= 140000

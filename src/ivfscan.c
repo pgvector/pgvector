@@ -185,7 +185,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 /*
  * Prepare for an index scan
  */
-IndexScanDesc
+extern IndexScanDesc
 ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 {
 	IndexScanDesc scan;
@@ -242,7 +242,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 /*
  * Start or restart an index scan
  */
-void
+extern void
 ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
@@ -265,7 +265,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 /*
  * Fetch the next tuple in the given scan
  */
-bool
+extern bool
 ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
@@ -345,7 +345,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 /*
  * End a scan and release resources
  */
-void
+extern void
 ivfflatendscan(IndexScanDesc scan)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
