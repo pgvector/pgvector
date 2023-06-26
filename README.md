@@ -483,7 +483,6 @@ pgvector is available on [these providers](https://github.com/pgvector/pgvector/
 
 To request a new extension on other providers:
 
-- Google Cloud SQL - vote or comment on [this page](https://issuetracker.google.com/issues/265172065)
 - DigitalOcean Managed Databases - vote or comment on [this page](https://ideas.digitalocean.com/managed-database/p/pgvector-extension-for-postgresql)
 - Heroku Postgres - vote or comment on [this page](https://github.com/heroku/roadmap/issues/156)
 
