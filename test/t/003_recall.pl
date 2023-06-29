@@ -94,5 +94,6 @@ foreach (@operators) {
 		test_recall(1, 0.75, $operator);
 		test_recall(10, 0.95, $operator);
 	}
+	# Account for equal distances
 	test_recall(100, 0.9975, $operator);
 }
