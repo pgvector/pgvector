@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 3;
+use Test::More;
 
 # Initialize node
 my $node = get_new_node('node');
@@ -29,3 +29,5 @@ my ($ret, $stdout, $stderr) = $node->psql("postgres",
 	"CREATE INDEX lists10000 ON tst USING ivfflat (v) WITH (lists = 10000);"
 );
 like($stderr, qr/memory required is/);
+
+done_testing();

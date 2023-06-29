@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 1;
+use Test::More;
 
 my $dim = 1024;
 
@@ -30,3 +30,5 @@ my ($ret, $stdout, $stderr) = $node->psql("postgres",
 	"INSERT INTO tst SELECT array_agg(n), array_agg(n), array_agg(n) FROM generate_series(1, $dim) n"
 );
 like($stderr, qr/row is too big/);
+
+done_testing();

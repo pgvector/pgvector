@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 7;
+use Test::More;
 
 my $dim = 768;
 
@@ -53,3 +53,5 @@ $count = $node->safe_psql("postgres", qq(
 ));
 is($count, $expected);
 is(idx_scan(), 1);
+
+done_testing();
