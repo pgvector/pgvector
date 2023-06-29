@@ -23,9 +23,9 @@ foreach (@operators) {
 
 	# Add index
 	my $opclass;
-	if ($operator == "<->") {
+	if ($operator eq "<->") {
 		$opclass = "vector_l2_ops";
-	} elsif ($operator == "<#>") {
+	} elsif ($operator eq "<#>") {
 		$opclass = "vector_ip_ops";
 	} else {
 		$opclass = "vector_cosine_ops";
