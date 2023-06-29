@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 14;
+use Test::More;
 
 my $node;
 my @queries = ();
@@ -97,3 +97,5 @@ foreach (@operators) {
 	# Account for equal distances
 	test_recall(100, 0.9975, $operator);
 }
+
+done_testing();

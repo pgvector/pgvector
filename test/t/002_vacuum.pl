@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 1;
+use Test::More;
 
 my $dim = 3;
 
@@ -39,3 +39,5 @@ $node->safe_psql("postgres",
 # Check size
 my $new_size = $node->safe_psql("postgres", "SELECT pg_total_relation_size('tst_v_idx');");
 is($size, $new_size, "size does not change");
+
+done_testing();

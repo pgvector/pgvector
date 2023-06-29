@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 3;
+use Test::More;
 
 # Initialize node
 my $node = get_new_node('node');
@@ -34,3 +34,5 @@ $node->safe_psql("postgres",
 
 # Test no error for duplicate centers
 test_centers(10);
+
+done_testing();

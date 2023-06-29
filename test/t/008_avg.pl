@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 5;
+use Test::More;
 
 # Initialize node
 my $node = get_new_node('node');
@@ -33,3 +33,5 @@ is($avg, "[$r1,$r2,$r3]");
 # Test explain
 my $explain = $node->safe_psql("postgres", "EXPLAIN SELECT AVG(v) FROM tst;");
 like($explain, qr/Partial Aggregate/);
+
+done_testing();

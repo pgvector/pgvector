@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use PostgresNode;
 use TestLib;
-use Test::More tests => 60;
+use Test::More;
 
 # Initialize node
 my $node = get_new_node('node');
@@ -43,3 +43,5 @@ foreach (@operators) {
 		is($res, $query);
 	}
 }
+
+done_testing();
