@@ -142,6 +142,10 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
 	*indexPages = costs.numIndexPages;
+
+	elog(INFO, "ivfflatcostestimate = %f", costs.indexTotalCost);
+	/* Cost estimates for parallel workers applied outside of amcostestimate */
+	elog(INFO, "parallel_workers = %d, parallel aware = %d", path->path.parallel_workers, path->path.parallel_aware);
 }
 
 /*
@@ -182,6 +186,25 @@ ivfflatvalidate(Oid opclassoid)
 	return true;
 }
 
+static Size
+ivfflatestimateparallelscan()
+{
+	elog(INFO, "ivfflatestimateparallelscan");
+	return 0;
+}
+
+static void
+ivfflatinitparallelscan(void *target)
+{
+	elog(INFO, "ivfflatinitparallelscan");
+}
+
+static void
+ivfflatparallelrescan(IndexScanDesc scan)
+{
+	elog(INFO, "ivfflatparallelrescan");
+}
+
 /*
  * Define index handler
  *
@@ -209,7 +232,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amstorage = false;
 	amroutine->amclusterable = false;
 	amroutine->ampredlocks = false;
-	amroutine->amcanparallel = false;
+	amroutine->amcanparallel = true;
 	amroutine->amcaninclude = false;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
@@ -243,9 +266,9 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amrestrpos = NULL;
 
 	/* Interface functions to support parallel index scans */
-	amroutine->amestimateparallelscan = NULL;
-	amroutine->aminitparallelscan = NULL;
-	amroutine->amparallelrescan = NULL;
+	amroutine->amestimateparallelscan = ivfflatestimateparallelscan;
+	amroutine->aminitparallelscan = ivfflatinitparallelscan;
+	amroutine->amparallelrescan = ivfflatparallelrescan;
 
 	PG_RETURN_POINTER(amroutine);
 }

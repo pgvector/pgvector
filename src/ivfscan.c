@@ -126,6 +126,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	 */
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
+	if (scan->parallel_scan != NULL)
+		elog(INFO, "parallel scan");
+
 	/* Search closest probes lists */
 	while (!pairingheap_is_empty(so->listQueue))
 	{
