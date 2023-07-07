@@ -647,11 +647,9 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 	if (dp > 1)
 		dp = 1;
 
-	distance = negate ?
-		0.5 + (dp*(0.33333333*dp + 0.16666666)):
-		0.5 - (dp*(0.33333333*dp + 0.16666666));
+	distance = dp*(dp*(1.31196852822*dp - 1.45311472663) + 0.64114619624);
 
-	PG_RETURN_FLOAT8(distance);
+	PG_RETURN_FLOAT8(negate ? 0.5 + distance : 0.5 - distance);
 }
 
 /*
