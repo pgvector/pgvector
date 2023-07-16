@@ -437,6 +437,11 @@ array_to_vector(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("array must be 1-D")));
 
+	if (ARR_HASNULL(array) && array_contains_nulls(array))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("array must not contain nulls")));
+
 	get_typlenbyvalalign(ARR_ELEMTYPE(array), &typlen, &typbyval, &typalign);
 	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, &nullsp, &nelemsp);
 
@@ -446,11 +451,6 @@ array_to_vector(PG_FUNCTION_ARGS)
 	result = InitVector(nelemsp);
 	for (int i = 0; i < nelemsp; i++)
 	{
-		if (nullsp[i])
-			ereport(ERROR,
-					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-					 errmsg("array must not containing NULLs")));
-
 		/* TODO Move outside loop in 0.5.0 */
 		if (ARR_ELEMTYPE(array) == INT4OID)
 			result->x[i] = DatumGetInt32(elemsp[i]);
