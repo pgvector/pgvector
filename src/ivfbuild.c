@@ -257,14 +257,8 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 static void
 InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 {
-	Buffer		buf;
-	Page		page;
-	GenericXLogState *state;
 	int			list;
 	IndexTuple	itup = NULL;	/* silence compiler warning */
-	BlockNumber startPage;
-	BlockNumber insertPage;
-	Size		itemsz;
 	int64		inserted = 0;
 
 #if PG_VERSION_NUM >= 120000
@@ -282,6 +276,12 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	for (int i = 0; i < buildstate->centers->length; i++)
 	{
+		Buffer		buf;
+		Page		page;
+		GenericXLogState *state;
+		BlockNumber startPage;
+		BlockNumber insertPage;
+
 		/* Can take a while, so ensure we can interrupt */
 		/* Needs to be called when no buffer locks are held */
 		CHECK_FOR_INTERRUPTS();
@@ -295,7 +295,8 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 		while (list == i)
 		{
 			/* Check for free space */
-			itemsz = MAXALIGN(IndexTupleSize(itup));
+			Size		itemsz = MAXALIGN(IndexTupleSize(itup));
+
 			if (PageGetFreeSpace(page) < itemsz)
 				IvfflatAppendPage(index, &buf, &page, &state, forkNum);
 
