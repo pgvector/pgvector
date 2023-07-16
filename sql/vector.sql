@@ -55,6 +55,9 @@ CREATE FUNCTION vector_add(vector, vector) RETURNS vector
 CREATE FUNCTION vector_sub(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION vector_mul(vector, vector) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- private functions
 
 CREATE FUNCTION vector_lt(vector, vector) RETURNS bool
@@ -172,6 +175,11 @@ CREATE OPERATOR + (
 CREATE OPERATOR - (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_sub,
 	COMMUTATOR = -
+);
+
+CREATE OPERATOR * (
+	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_mul,
+	COMMUTATOR = *
 );
 
 CREATE OPERATOR < (

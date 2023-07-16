@@ -343,6 +343,7 @@ Operator | Description
 --- | ---
 \+ | element-wise addition
 \- | element-wise subtraction
+\* | element-wise multiplication [unreleased]
 <-> | Euclidean distance
 <#> | negative inner product
 <=> | cosine distance

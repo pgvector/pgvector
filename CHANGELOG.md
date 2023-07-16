@@ -2,6 +2,7 @@
 
 - Added support for parallel index builds
 - Added `l1_distance` function
+- Added element-wise multiplication for vectors
 
 ## 0.4.4 (2023-06-12)
 

@@ -125,6 +125,14 @@ float_overflow_error(void)
 			(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 			 errmsg("value out of range: overflow")));
 }
+
+static pg_noinline void
+float_underflow_error(void)
+{
+	ereport(ERROR,
+			(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+			 errmsg("value out of range: underflow")));
+}
 #endif
 
 /*
@@ -754,6 +762,42 @@ vector_sub(PG_FUNCTION_ARGS)
 	{
 		if (isinf(rx[i]))
 			float_overflow_error();
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Multiply vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_mul);
+Datum
+vector_mul(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	float	   *ax = a->x;
+	float	   *bx = b->x;
+	Vector	   *result;
+	float	   *rx;
+
+	CheckDims(a, b);
+
+	result = InitVector(a->dim);
+	rx = result->x;
+
+	/* Auto-vectorized */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+		rx[i] = ax[i] * bx[i];
+
+	/* Check for overflow and underflow */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+		if (isinf(rx[i]))
+			float_overflow_error();
+
+		if (rx[i] == 0 && !(ax[i] == 0 || bx[i] == 0))
+			float_underflow_error();
 	}
 
 	PG_RETURN_POINTER(result);
