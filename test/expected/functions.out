@@ -130,6 +130,12 @@ SELECT avg(v) FROM unnest(ARRAY[]::vector[]) v;
 
 SELECT avg(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
 ERROR:  expected 2 dimensions, not 1
+SELECT avg(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
+   avg   
+---------
+ [3e+38]
+(1 row)
+
 SELECT vector_avg(array_agg(n)) FROM generate_series(1, 16002) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
