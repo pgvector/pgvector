@@ -99,12 +99,24 @@ CREATE FUNCTION vector_avg(double precision[]) RETURNS vector
 CREATE FUNCTION vector_combine(double precision[], double precision[]) RETURNS double precision[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION vector_sum(double precision[]) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- aggregates
 
 CREATE AGGREGATE avg(vector) (
 	SFUNC = vector_accum,
 	STYPE = double precision[],
 	FINALFUNC = vector_avg,
+	COMBINEFUNC = vector_combine,
+	INITCOND = '{0}',
+	PARALLEL = SAFE
+);
+
+CREATE AGGREGATE sum(vector) (
+	SFUNC = vector_accum,
+	STYPE = double precision[],
+	FINALFUNC = vector_sum,
 	COMBINEFUNC = vector_combine,
 	INITCOND = '{0}',
 	PARALLEL = SAFE

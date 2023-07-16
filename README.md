@@ -364,6 +364,7 @@ vector_norm(vector) → double precision | Euclidean norm
 Function | Description
 --- | ---
 avg(vector) → vector | arithmetic mean
+sum(vector) → vector | sum [unreleased]
 
 ## Installation Notes
 

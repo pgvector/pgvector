@@ -34,3 +34,10 @@ SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
 SELECT avg(v) FROM unnest(ARRAY[]::vector[]) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
 SELECT vector_avg(array_agg(n)) FROM generate_series(1, 16002) n;
+
+SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
+SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
+SELECT sum(v) FROM unnest(ARRAY[]::vector[]) v;
+SELECT sum(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
+SELECT sum(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
+SELECT vector_sum(array_agg(n)) FROM generate_series(1, 16002) n;

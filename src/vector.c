@@ -1077,3 +1077,42 @@ vector_avg(PG_FUNCTION_ARGS)
 
 	PG_RETURN_POINTER(result);
 }
+
+/*
+ * Sum vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_sum);
+Datum
+vector_sum(PG_FUNCTION_ARGS)
+{
+	ArrayType  *statearray = PG_GETARG_ARRAYTYPE_P(0);
+	float8	   *statevalues;
+	float8		n;
+	uint16		dim;
+	Vector	   *result;
+
+	/* Check array before using */
+	statevalues = CheckStateArray(statearray, "vector_sum");
+	n = statevalues[0];
+
+	/* SQL defines AVG of no values to be NULL */
+	if (n == 0.0)
+		PG_RETURN_NULL();
+
+	/* Create vector */
+	dim = STATE_DIMS(statearray);
+	CheckDim(dim);
+	result = InitVector(dim);
+	for (int i = 0; i < dim; i++)
+	{
+		result->x[i] = statevalues[i + 1];
+
+		/* Check for overflow */
+		if (isinf(result->x[i]))
+			float_overflow_error();
+
+		CheckElement(result->x[i]);
+	}
+
+	PG_RETURN_POINTER(result);
+}
