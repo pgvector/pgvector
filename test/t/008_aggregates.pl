@@ -28,8 +28,8 @@ sub test_aggregate
 	like($res, qr/,2\.5/);
 	like($res, qr/,3\.5/);
 
-	# Test matches real
-	# TODO test sum
+	# Test matches real for avg
+	# Cannot test sum since sum(real) varies between calls
 	if ($agg eq 'avg') {
 		my $r1 = $node->safe_psql("postgres", "SELECT $agg(r1)::float4 FROM tst;");
 		my $r2 = $node->safe_psql("postgres", "SELECT $agg(r2)::float4 FROM tst;");
