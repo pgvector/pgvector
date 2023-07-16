@@ -4,6 +4,7 @@
 
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "storage/lmgr.h"
 #include "utils/memutils.h"
 
 /*
@@ -121,7 +122,6 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 		}
 		else
 		{
-			Buffer		metabuf;
 			Buffer		newbuf;
 			Page		newpage;
 
@@ -130,14 +130,16 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			 * that only one backend tries to extend a relation at the same
 			 * time!
 			 */
-			metabuf = ReadBuffer(rel, IVFFLAT_METAPAGE_BLKNO);
-			LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
+			LockRelationForExtension(rel, ExclusiveLock);
 
 			/* Add a new page */
 			newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
-			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
+
+			/* Unlock extend relation lock as early as possible */
+			UnlockRelationForExtension(rel, ExclusiveLock);
 
 			/* Init new page */
+			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 			IvfflatInitPage(newbuf, newpage);
 
 			/* Update insert page */
@@ -150,9 +152,6 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			MarkBufferDirty(newbuf);
 			MarkBufferDirty(buf);
 			GenericXLogFinish(state);
-
-			/* Unlock extend relation lock as early as possible */
-			UnlockReleaseBuffer(metabuf);
 
 			/* Unlock previous buffer */
 			UnlockReleaseBuffer(buf);
