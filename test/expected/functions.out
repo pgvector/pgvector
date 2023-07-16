@@ -157,8 +157,6 @@ SELECT sum(v) FROM unnest(ARRAY[]::vector[]) v;
 (1 row)
 
 SELECT sum(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
-ERROR:  expected 2 dimensions, not 1
+ERROR:  different vector dimensions 2 and 1
 SELECT sum(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
 ERROR:  value out of range: overflow
-SELECT vector_sum(array_agg(n)) FROM generate_series(1, 16002) n;
-ERROR:  vector cannot have more than 16000 dimensions

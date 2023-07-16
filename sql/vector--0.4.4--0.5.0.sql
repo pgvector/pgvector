@@ -12,14 +12,9 @@ CREATE OPERATOR * (
 	COMMUTATOR = *
 );
 
-CREATE FUNCTION vector_sum(double precision[]) RETURNS vector
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
 CREATE AGGREGATE sum(vector) (
-	SFUNC = vector_accum,
-	STYPE = double precision[],
-	FINALFUNC = vector_sum,
-	COMBINEFUNC = vector_combine,
-	INITCOND = '{0}',
+	SFUNC = vector_add,
+	STYPE = vector,
+	COMBINEFUNC = vector_add,
 	PARALLEL = SAFE
 );
