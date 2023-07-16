@@ -223,7 +223,7 @@ The phases are:
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
 
-### Filtering
+## Filtering
 
 There are a few ways to index nearest neighbor queries with a `WHERE` clause
 
