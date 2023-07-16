@@ -14,6 +14,7 @@ SELECT '[4e38,1]'::vector;
 SELECT '[1,2,3'::vector;
 SELECT '[1,2,3]9'::vector;
 SELECT '1,2,3'::vector;
+SELECT ''::vector;
 SELECT '['::vector;
 SELECT '[,'::vector;
 SELECT '[]'::vector;
