@@ -8,6 +8,7 @@
 #endif
 
 #include "access/generic_xlog.h"
+#include "access/parallel.h"
 #include "access/reloptions.h"
 #include "nodes/execnodes.h"
 #include "port.h"				/* for strtof() and random() */
@@ -17,6 +18,10 @@
 
 #if PG_VERSION_NUM >= 150000
 #include "common/pg_prng.h"
+#endif
+
+#if PG_VERSION_NUM < 120000
+#include "access/relscan.h"
 #endif
 
 #ifdef IVFFLAT_BENCH
@@ -105,6 +110,56 @@ typedef struct IvfflatOptions
 	int			lists;			/* number of lists */
 }			IvfflatOptions;
 
+typedef struct IvfflatSpool
+{
+	Tuplesortstate *sortstate;
+	Relation	heap;
+	Relation	index;
+}			IvfflatSpool;
+
+typedef struct IvfflatShared
+{
+	/* Immutable state */
+	Oid			heaprelid;
+	Oid			indexrelid;
+	bool		isconcurrent;
+	int			scantuplesortstates;
+
+	/* Worker progress */
+	ConditionVariable workersdonecv;
+
+	/* Mutex for mutable state */
+	slock_t		mutex;
+
+	/* Mutable state */
+	int			nparticipantsdone;
+	double		reltuples;
+	double		indtuples;
+
+#ifdef IVFFLAT_KMEANS_DEBUG
+	double		inertia;
+#endif
+
+#if PG_VERSION_NUM < 120000
+	ParallelHeapScanDescData heapdesc;	/* must come last */
+#endif
+}			IvfflatShared;
+
+#if PG_VERSION_NUM >= 120000
+#define ParallelTableScanFromIvfflatShared(shared) \
+	(ParallelTableScanDesc) ((char *) (shared) + BUFFERALIGN(sizeof(IvfflatShared)))
+#endif
+
+typedef struct IvfflatLeader
+{
+	ParallelContext *pcxt;
+	int			nparticipanttuplesorts;
+	IvfflatShared *ivfshared;
+	Sharedsort *sharedsort;
+	Snapshot	snapshot;
+	Vector	   *ivfcenters;
+}			IvfflatLeader;
+
 typedef struct IvfflatBuildState
 {
 	/* Info */
@@ -150,6 +205,9 @@ typedef struct IvfflatBuildState
 
 	/* Memory */
 	MemoryContext tmpCtx;
+
+	/* Parallel builds */
+	IvfflatLeader *ivfleader;
 }			IvfflatBuildState;
 
 typedef struct IvfflatMetaPageData
@@ -230,6 +288,7 @@ void		IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogStat
 Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
 void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
+PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */
 IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);

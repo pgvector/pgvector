@@ -1,3 +1,7 @@
+## 0.5.0 (unreleased)
+
+- Added support for parallel index builds
+
 ## 0.4.4 (2023-06-12)
 
 - Improved error message for malformed vector literal

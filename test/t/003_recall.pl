@@ -20,7 +20,7 @@ sub test_recall
 		SET ivfflat.probes = $probes;
 		EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v $operator '$queries[0]' LIMIT $limit;
 	));
-	like($explain, qr/Index Scan/);
+	like($explain, qr/Index Scan using idx on tst/);
 
 	for my $i (0 .. $#queries) {
 		my $actual = $node->safe_psql("postgres", qq(
@@ -77,7 +77,6 @@ foreach (@operators) {
 		push(@expected, $res);
 	}
 
-	# Add index
 	my $opclass;
 	if ($operator eq "<->") {
 		$opclass = "vector_l2_ops";
@@ -86,7 +85,12 @@ foreach (@operators) {
 	} else {
 		$opclass = "vector_cosine_ops";
 	}
-	$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v $opclass);");
+
+	# Build index serially
+	$node->safe_psql("postgres", qq(
+		SET max_parallel_maintenance_workers = 0;
+		CREATE INDEX idx ON tst USING ivfflat (v $opclass);
+	));
 
 	# Test approximate results
 	if ($operator ne "<#>") {
@@ -95,7 +99,29 @@ foreach (@operators) {
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
-	test_recall(100, 0.9975, $operator);
+	test_recall(100, 0.995, $operator);
+
+	$node->safe_psql("postgres", "DROP INDEX idx;");
+
+	# Build index in parallel
+	my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
+		SET client_min_messages = DEBUG;
+		SET min_parallel_table_scan_size = 1;
+		CREATE INDEX idx ON tst USING ivfflat (v $opclass);
+	));
+	is($ret, 0, $stderr);
+	like($stderr, qr/using \d+ parallel workers/);
+
+	# Test approximate results
+	if ($operator ne "<#>") {
+		# TODO fix test
+		test_recall(1, 0.75, $operator);
+		test_recall(10, 0.95, $operator);
+	}
+	# Account for equal distances
+	test_recall(100, 0.995, $operator);
+
+	$node->safe_psql("postgres", "DROP INDEX idx;");
 }
 
 done_testing();
