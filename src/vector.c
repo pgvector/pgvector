@@ -449,24 +449,37 @@ array_to_vector(PG_FUNCTION_ARGS)
 	CheckExpectedDim(typmod, nelemsp);
 
 	result = InitVector(nelemsp);
-	for (int i = 0; i < nelemsp; i++)
-	{
-		/* TODO Move outside loop in 0.5.0 */
-		if (ARR_ELEMTYPE(array) == INT4OID)
-			result->x[i] = DatumGetInt32(elemsp[i]);
-		else if (ARR_ELEMTYPE(array) == FLOAT8OID)
-			result->x[i] = DatumGetFloat8(elemsp[i]);
-		else if (ARR_ELEMTYPE(array) == FLOAT4OID)
-			result->x[i] = DatumGetFloat4(elemsp[i]);
-		else if (ARR_ELEMTYPE(array) == NUMERICOID)
-			result->x[i] = DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i]));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("unsupported array type")));
 
-		CheckElement(result->x[i]);
+	if (ARR_ELEMTYPE(array) == INT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = DatumGetInt32(elemsp[i]);
 	}
+	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = DatumGetFloat8(elemsp[i]);
+	}
+	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = DatumGetFloat4(elemsp[i]);
+	}
+	else if (ARR_ELEMTYPE(array) == NUMERICOID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i]));
+	}
+	else
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("unsupported array type")));
+	}
+
+	/* Check elements */
+	for (int i = 0; i < result->dim; i++)
+		CheckElement(result->x[i]);
 
 	PG_RETURN_POINTER(result);
 }
