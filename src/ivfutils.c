@@ -35,9 +35,7 @@ VectorArrayFree(VectorArray arr)
 void
 PrintVectorArray(char *msg, VectorArray arr)
 {
-	int			i;
-
-	for (i = 0; i < arr->length; i++)
+	for (int i = 0; i < arr->length; i++)
 		PrintVector(msg, VectorArrayGet(arr, i));
 }
 
@@ -78,20 +76,16 @@ IvfflatOptionalProcInfo(Relation rel, uint16 procnum)
 bool
 IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
 {
-	Vector	   *v;
-	int			i;
-	double		norm;
-
-	norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
+	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
 	if (norm > 0)
 	{
-		v = DatumGetVector(*value);
+		Vector	   *v = DatumGetVector(*value);
 
 		if (result == NULL)
 			result = InitVector(v->dim);
 
-		for (i = 0; i < v->dim; i++)
+		for (int i = 0; i < v->dim; i++)
 			result->x[i] = v->x[i] / norm;
 
 		*value = PointerGetDatum(result);

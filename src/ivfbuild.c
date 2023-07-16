@@ -150,7 +150,6 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 	int			closestCenter = 0;
 	VectorArray centers = buildstate->centers;
 	TupleTableSlot *slot = buildstate->slot;
-	int			i;
 
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
@@ -163,7 +162,7 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 	}
 
 	/* Find the list that minimizes the distance */
-	for (i = 0; i < centers->length; i++)
+	for (int i = 0; i < centers->length; i++)
 	{
 		distance = DatumGetFloat8(FunctionCall2Coll(buildstate->procinfo, buildstate->collation, value, PointerGetDatum(VectorArrayGet(centers, i))));
 
@@ -266,7 +265,6 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	BlockNumber startPage;
 	BlockNumber insertPage;
 	Size		itemsz;
-	int			i;
 	int64		inserted = 0;
 
 #if PG_VERSION_NUM >= 120000
@@ -282,7 +280,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 
-	for (i = 0; i < buildstate->centers->length; i++)
+	for (int i = 0; i < buildstate->centers->length; i++)
 	{
 		/* Can take a while, so ensure we can interrupt */
 		/* Needs to be called when no buffer locks are held */
@@ -483,7 +481,6 @@ static void
 CreateListPages(Relation index, VectorArray centers, int dimensions,
 				int lists, ForkNumber forkNum, ListInfo * *listInfo)
 {
-	int			i;
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
@@ -497,7 +494,7 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	buf = IvfflatNewBuffer(index, forkNum);
 	IvfflatInitRegisterPage(index, &buf, &page, &state);
 
-	for (i = 0; i < lists; i++)
+	for (int i = 0; i < lists; i++)
 	{
 		/* Load list */
 		list->startPage = InvalidBlockNumber;

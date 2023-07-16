@@ -136,7 +136,6 @@ vector_in(PG_FUNCTION_ARGS)
 {
 	char	   *str = PG_GETARG_CSTRING(0);
 	int32		typmod = PG_GETARG_INT32(2);
-	int			i;
 	float		x[VECTOR_MAX_DIM];
 	int			dim = 0;
 	char	   *pt;
@@ -231,7 +230,7 @@ vector_in(PG_FUNCTION_ARGS)
 	CheckExpectedDim(typmod, dim);
 
 	result = InitVector(dim);
-	for (i = 0; i < dim; i++)
+	for (int i = 0; i < dim; i++)
 		result->x[i] = x[i];
 
 	PG_RETURN_POINTER(result);
@@ -248,7 +247,6 @@ vector_out(PG_FUNCTION_ARGS)
 	int			dim = vector->dim;
 	char	   *buf;
 	char	   *ptr;
-	int			i;
 	int			n;
 
 #if PG_VERSION_NUM < 120000
@@ -275,7 +273,7 @@ vector_out(PG_FUNCTION_ARGS)
 
 	*ptr = '[';
 	ptr++;
-	for (i = 0; i < dim; i++)
+	for (int i = 0; i < dim; i++)
 	{
 		if (i > 0)
 		{
@@ -353,7 +351,6 @@ vector_recv(PG_FUNCTION_ARGS)
 	Vector	   *result;
 	int16		dim;
 	int16		unused;
-	int			i;
 
 	dim = pq_getmsgint(buf, sizeof(int16));
 	unused = pq_getmsgint(buf, sizeof(int16));
@@ -367,7 +364,7 @@ vector_recv(PG_FUNCTION_ARGS)
 				 errmsg("expected unused to be 0, not %d", unused)));
 
 	result = InitVector(dim);
-	for (i = 0; i < dim; i++)
+	for (int i = 0; i < dim; i++)
 	{
 		result->x[i] = pq_getmsgfloat4(buf);
 		CheckElement(result->x[i]);
@@ -385,12 +382,11 @@ vector_send(PG_FUNCTION_ARGS)
 {
 	Vector	   *vec = PG_GETARG_VECTOR_P(0);
 	StringInfoData buf;
-	int			i;
 
 	pq_begintypsend(&buf);
 	pq_sendint(&buf, vec->dim, sizeof(int16));
 	pq_sendint(&buf, vec->unused, sizeof(int16));
-	for (i = 0; i < vec->dim; i++)
+	for (int i = 0; i < vec->dim; i++)
 		pq_sendfloat4(&buf, vec->x[i]);
 
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
@@ -420,7 +416,6 @@ array_to_vector(PG_FUNCTION_ARGS)
 {
 	ArrayType  *array = PG_GETARG_ARRAYTYPE_P(0);
 	int32		typmod = PG_GETARG_INT32(1);
-	int			i;
 	Vector	   *result;
 	int16		typlen;
 	bool		typbyval;
@@ -441,7 +436,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 	CheckExpectedDim(typmod, nelemsp);
 
 	result = InitVector(nelemsp);
-	for (i = 0; i < nelemsp; i++)
+	for (int i = 0; i < nelemsp; i++)
 	{
 		if (nullsp[i])
 			ereport(ERROR,
@@ -478,11 +473,10 @@ vector_to_float4(PG_FUNCTION_ARGS)
 	Vector	   *vec = PG_GETARG_VECTOR_P(0);
 	Datum	   *datums;
 	ArrayType  *result;
-	int			i;
 
 	datums = (Datum *) palloc(sizeof(Datum) * vec->dim);
 
-	for (i = 0; i < vec->dim; i++)
+	for (int i = 0; i < vec->dim; i++)
 		datums[i] = Float4GetDatum(vec->x[i]);
 
 	/* Use TYPALIGN_INT for float4 */
@@ -749,11 +743,9 @@ vector_sub(PG_FUNCTION_ARGS)
 int
 vector_cmp_internal(Vector * a, Vector * b)
 {
-	int			i;
-
 	CheckDims(a, b);
 
-	for (i = 0; i < a->dim; i++)
+	for (int i = 0; i < a->dim; i++)
 	{
 		if (a->x[i] < b->x[i])
 			return -1;

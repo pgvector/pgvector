@@ -16,7 +16,6 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 {
 	FmgrInfo   *procinfo;
 	Oid			collation;
-	int			i;
 	int64		j;
 	double		distance;
 	double		sum;
@@ -36,7 +35,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	for (j = 0; j < numSamples; j++)
 		weight[j] = DBL_MAX;
 
-	for (i = 0; i < numCenters; i++)
+	for (int i = 0; i < numCenters; i++)
 	{
 		CHECK_FOR_INTERRUPTS();
 
@@ -88,13 +87,12 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 static inline void
 ApplyNorm(FmgrInfo *normprocinfo, Oid collation, Vector * vec)
 {
-	int			i;
 	double		norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(vec)));
 
 	/* TODO Handle zero norm */
 	if (norm > 0)
 	{
-		for (i = 0; i < vec->dim; i++)
+		for (int i = 0; i < vec->dim; i++)
 			vec->x[i] /= norm;
 	}
 }
@@ -114,8 +112,6 @@ CompareVectors(const void *a, const void *b)
 static void
 QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 {
-	int			i;
-	int			j;
 	Vector	   *vec;
 	int			dimensions = centers->dim;
 	Oid			collation = index->rd_indcollation[0];
@@ -125,7 +121,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 	if (samples->length > 0)
 	{
 		qsort(samples->items, samples->length, VECTOR_SIZE(samples->dim), CompareVectors);
-		for (i = 0; i < samples->length; i++)
+		for (int i = 0; i < samples->length; i++)
 		{
 			vec = VectorArrayGet(samples, i);
 
@@ -145,7 +141,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
 		vec->dim = dimensions;
 
-		for (j = 0; j < dimensions; j++)
+		for (int j = 0; j < dimensions; j++)
 			vec->x[j] = RandomDouble();
 
 		/* Normalize if needed (only needed for random centers) */
@@ -471,19 +467,17 @@ CheckCenters(Relation index, VectorArray centers)
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
 	Vector	   *vec;
-	int			i;
-	int			j;
 	double		norm;
 
 	if (centers->length != centers->maxlen)
 		elog(ERROR, "Not enough centers. Please report a bug.");
 
 	/* Ensure no NaN or infinite values */
-	for (i = 0; i < centers->length; i++)
+	for (int i = 0; i < centers->length; i++)
 	{
 		vec = VectorArrayGet(centers, i);
 
-		for (j = 0; j < vec->dim; j++)
+		for (int j = 0; j < vec->dim; j++)
 		{
 			if (isnan(vec->x[j]))
 				elog(ERROR, "NaN detected. Please report a bug.");
@@ -496,7 +490,7 @@ CheckCenters(Relation index, VectorArray centers)
 	/* Ensure no duplicate centers */
 	/* Fine to sort in-place */
 	qsort(centers->items, centers->length, VECTOR_SIZE(centers->dim), CompareVectors);
-	for (i = 1; i < centers->length; i++)
+	for (int i = 1; i < centers->length; i++)
 	{
 		if (CompareVectors(VectorArrayGet(centers, i), VectorArrayGet(centers, i - 1)) == 0)
 			elog(ERROR, "Duplicate centers detected. Please report a bug.");
@@ -509,7 +503,7 @@ CheckCenters(Relation index, VectorArray centers)
 	{
 		collation = index->rd_indcollation[0];
 
-		for (i = 0; i < centers->length; i++)
+		for (int i = 0; i < centers->length; i++)
 		{
 			norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(VectorArrayGet(centers, i))));
 			if (norm == 0)
