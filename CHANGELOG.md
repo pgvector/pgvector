@@ -1,6 +1,7 @@
 ## 0.5.0 (unreleased)
 
 - Added support for parallel index builds
+- Added `l1_distance` function
 
 ## 0.4.4 (2023-06-12)
 

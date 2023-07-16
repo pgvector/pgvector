@@ -86,6 +86,20 @@ SELECT cosine_distance('[1,1]', '[-1,-1]');
 
 SELECT cosine_distance('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
+SELECT l1_distance('[0,0]', '[3,4]');
+ l1_distance 
+-------------
+           7
+(1 row)
+
+SELECT l1_distance('[0,0]', '[0,1]');
+ l1_distance 
+-------------
+           1
+(1 row)
+
+SELECT l1_distance('[1,2]', '[3]');
+ERROR:  different vector dimensions 2 and 1
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
     avg    
 -----------
