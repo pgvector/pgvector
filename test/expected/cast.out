@@ -38,6 +38,8 @@ SELECT '{-Infinity}'::real[]::vector;
 ERROR:  infinite value not allowed in vector
 SELECT '{}'::real[]::vector;
 ERROR:  vector must have at least 1 dimension
+SELECT '{{1}}'::real[]::vector;
+ERROR:  array must be 1-D
 SELECT '[1,2,3]'::vector::real[];
  float4  
 ---------

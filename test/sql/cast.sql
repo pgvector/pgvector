@@ -8,6 +8,7 @@ SELECT '{NaN}'::real[]::vector;
 SELECT '{Infinity}'::real[]::vector;
 SELECT '{-Infinity}'::real[]::vector;
 SELECT '{}'::real[]::vector;
+SELECT '{{1}}'::real[]::vector;
 SELECT '[1,2,3]'::vector::real[];
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
