@@ -3,13 +3,12 @@
 #include <float.h>
 
 #include "access/relscan.h"
+#include "catalog/pg_operator_d.h"
+#include "catalog/pg_type_d.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
-
-#include "catalog/pg_operator_d.h"
-#include "catalog/pg_type_d.h"
 
 /*
  * Compare list distances

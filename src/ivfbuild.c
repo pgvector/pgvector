@@ -5,6 +5,8 @@
 #include "access/parallel.h"
 #include "access/xact.h"
 #include "catalog/index.h"
+#include "catalog/pg_operator_d.h"
+#include "catalog/pg_type_d.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
@@ -25,9 +27,6 @@
 #define PROGRESS_CREATEIDX_TUPLES_TOTAL 0
 #define PROGRESS_CREATEIDX_TUPLES_DONE 0
 #endif
-
-#include "catalog/pg_operator_d.h"
-#include "catalog/pg_type_d.h"
 
 #if PG_VERSION_NUM >= 130000
 #define CALLBACK_ITEM_POINTER ItemPointer tid

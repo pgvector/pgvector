@@ -2,18 +2,17 @@
 
 #include <math.h>
 
-#include "ivfflat.h"
-#include "vector.h"
-
-#include "fmgr.h"
-#include "port.h"				/* for strtof() */
 #include "catalog/pg_type.h"
+#include "fmgr.h"
+#include "ivfflat.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
+#include "port.h"				/* for strtof() */
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
+#include "vector.h"
 
 #if PG_VERSION_NUM >= 120000
 #include "common/shortest_dec.h"
