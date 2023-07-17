@@ -51,13 +51,13 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		{
 			BlockNumber searchPage = startPages[coffno - FirstOffsetNumber];
 			BlockNumber insertPage = InvalidBlockNumber;
-			GenericXLogState *state;
 
 			/* Iterate over entry pages */
 			while (BlockNumberIsValid(searchPage))
 			{
 				Buffer		buf;
 				Page		page;
+				GenericXLogState *state;
 				OffsetNumber offno;
 				OffsetNumber maxoffno;
 				OffsetNumber deletable[MaxOffsetNumber];
@@ -125,7 +125,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			if (BlockNumberIsValid(insertPage))
 			{
 				listInfo.offno = coffno;
-				IvfflatUpdateList(index, state, listInfo, insertPage, InvalidBlockNumber, InvalidBlockNumber, MAIN_FORKNUM);
+				IvfflatUpdateList(index, listInfo, insertPage, InvalidBlockNumber, InvalidBlockNumber, MAIN_FORKNUM);
 			}
 		}
 	}

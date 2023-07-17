@@ -176,12 +176,13 @@ IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **st
  * Update the start or insert page of a list
  */
 void
-IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo,
+IvfflatUpdateList(Relation index, ListInfo listInfo,
 				  BlockNumber insertPage, BlockNumber originalInsertPage,
 				  BlockNumber startPage, ForkNumber forkNum)
 {
 	Buffer		buf;
 	Page		page;
+	GenericXLogState *state;
 	IvfflatList list;
 	bool		changed = false;
 
