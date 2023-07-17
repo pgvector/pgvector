@@ -12,14 +12,14 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 				  IndexBulkDeleteCallback callback, void *callback_state)
 {
 	Relation	index = info->index;
-	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
+	BlockNumber blkno = IVFFLAT_HEAD_BLKNO;
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
 	if (stats == NULL)
 		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
 
 	/* Iterate over list pages */
-	while (BlockNumberIsValid(nextblkno))
+	while (BlockNumberIsValid(blkno))
 	{
 		Buffer		cbuf;
 		Page		cpage;
@@ -28,7 +28,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		BlockNumber startPages[MaxOffsetNumber];
 		ListInfo	listInfo;
 
-		cbuf = ReadBuffer(index, nextblkno);
+		cbuf = ReadBuffer(index, blkno);
 		LockBuffer(cbuf, BUFFER_LOCK_SHARE);
 		cpage = BufferGetPage(cbuf);
 
@@ -42,8 +42,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			startPages[coffno - FirstOffsetNumber] = list->startPage;
 		}
 
-		listInfo.blkno = nextblkno;
-		nextblkno = IvfflatPageGetOpaque(cpage)->nextblkno;
+		listInfo.blkno = blkno;
+		blkno = IvfflatPageGetOpaque(cpage)->nextblkno;
 
 		UnlockReleaseBuffer(cbuf);
 
