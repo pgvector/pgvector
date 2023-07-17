@@ -20,7 +20,7 @@ static relopt_kind ivfflat_relopt_kind;
  * Initialize index options and variables
  */
 void
-_PG_init(void)
+IvfflatInit(void)
 {
 	ivfflat_relopt_kind = add_reloption_kind();
 	add_int_reloption(ivfflat_relopt_kind, "lists", "Number of inverted lists",

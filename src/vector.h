@@ -14,6 +14,9 @@
 #define PG_GETARG_VECTOR_P(x)	DatumGetVector(PG_GETARG_DATUM(x))
 #define PG_RETURN_VECTOR_P(x)	PG_RETURN_POINTER(x)
 
+/* Exported functions */
+PGDLLEXPORT void _PG_init(void);
+
 typedef struct Vector
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */

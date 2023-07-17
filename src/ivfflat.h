@@ -84,9 +84,6 @@
 /* Variables */
 extern int	ivfflat_probes;
 
-/* Exported functions */
-PGDLLEXPORT void _PG_init(void);
-
 typedef struct VectorArrayData
 {
 	int			length;
@@ -288,6 +285,7 @@ void		IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogStat
 Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
 void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
+void		IvfflatInit(void);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */

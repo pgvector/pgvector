@@ -2,7 +2,9 @@
 
 #include <math.h>
 
+#include "ivfflat.h"
 #include "vector.h"
+
 #include "fmgr.h"
 #include "catalog/pg_type.h"
 #include "lib/stringinfo.h"
@@ -28,6 +30,15 @@
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
 PG_MODULE_MAGIC;
+
+/*
+ * Initialize index options and variables
+ */
+void
+_PG_init(void)
+{
+	IvfflatInit();
+}
 
 /*
  * Ensure same dimensions
