@@ -11,7 +11,7 @@
 #include "access/parallel.h"
 #include "access/reloptions.h"
 #include "nodes/execnodes.h"
-#include "port.h"				/* for strtof() and random() */
+#include "port.h"				/* for random() */
 #include "utils/sampling.h"
 #include "utils/tuplesort.h"
 #include "vector.h"

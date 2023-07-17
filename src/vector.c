@@ -6,6 +6,7 @@
 #include "vector.h"
 
 #include "fmgr.h"
+#include "port.h"				/* for strtof() */
 #include "catalog/pg_type.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
