@@ -48,8 +48,8 @@ ivfflatbuildphasename(int64 phasenum)
 			return "initializing";
 		case PROGRESS_IVFFLAT_PHASE_KMEANS:
 			return "performing k-means";
-		case PROGRESS_IVFFLAT_PHASE_SORT:
-			return "sorting tuples";
+		case PROGRESS_IVFFLAT_PHASE_ASSIGN:
+			return "assigning tuples";
 		case PROGRESS_IVFFLAT_PHASE_LOAD:
 			return "loading tuples";
 		default:
