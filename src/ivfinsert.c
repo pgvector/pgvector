@@ -125,17 +125,9 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			Buffer		newbuf;
 			Page		newpage;
 
-			/*
-			 * From ReadBufferExtended: Caller is responsible for ensuring
-			 * that only one backend tries to extend a relation at the same
-			 * time!
-			 */
-			LockRelationForExtension(rel, ExclusiveLock);
-
 			/* Add a new page */
+			LockRelationForExtension(rel, ExclusiveLock);
 			newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
-
-			/* Unlock extend relation lock as early as possible */
 			UnlockRelationForExtension(rel, ExclusiveLock);
 
 			/* Init new page */
