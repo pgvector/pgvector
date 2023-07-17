@@ -12,25 +12,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 				  IndexBulkDeleteCallback callback, void *callback_state)
 {
 	Relation	index = info->index;
-	Buffer		cbuf;
-	Page		cpage;
-	Buffer		buf;
-	Page		page;
-	IvfflatList list;
-	IndexTuple	itup;
-	ItemPointer htup;
-	OffsetNumber deletable[MaxOffsetNumber];
-	int			ndeletable;
-	BlockNumber startPages[MaxOffsetNumber];
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
-	BlockNumber searchPage;
-	BlockNumber insertPage;
-	GenericXLogState *state;
-	OffsetNumber coffno;
-	OffsetNumber cmaxoffno;
-	OffsetNumber offno;
-	OffsetNumber maxoffno;
-	ListInfo	listInfo;
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
 	if (stats == NULL)
@@ -39,6 +21,13 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	/* Iterate over list pages */
 	while (BlockNumberIsValid(nextblkno))
 	{
+		Buffer		cbuf;
+		Page		cpage;
+		OffsetNumber coffno;
+		OffsetNumber cmaxoffno;
+		BlockNumber startPages[MaxOffsetNumber];
+		ListInfo	listInfo;
+
 		cbuf = ReadBuffer(index, nextblkno);
 		LockBuffer(cbuf, BUFFER_LOCK_SHARE);
 		cpage = BufferGetPage(cbuf);
@@ -48,7 +37,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		/* Iterate over lists */
 		for (coffno = FirstOffsetNumber; coffno <= cmaxoffno; coffno = OffsetNumberNext(coffno))
 		{
-			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, coffno));
+			IvfflatList list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, coffno));
+
 			startPages[coffno - FirstOffsetNumber] = list->startPage;
 		}
 
@@ -59,12 +49,20 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 		for (coffno = FirstOffsetNumber; coffno <= cmaxoffno; coffno = OffsetNumberNext(coffno))
 		{
-			searchPage = startPages[coffno - FirstOffsetNumber];
-			insertPage = InvalidBlockNumber;
+			BlockNumber searchPage = startPages[coffno - FirstOffsetNumber];
+			BlockNumber insertPage = InvalidBlockNumber;
+			GenericXLogState *state;
 
 			/* Iterate over entry pages */
 			while (BlockNumberIsValid(searchPage))
 			{
+				Buffer		buf;
+				Page		page;
+				OffsetNumber offno;
+				OffsetNumber maxoffno;
+				OffsetNumber deletable[MaxOffsetNumber];
+				int			ndeletable;
+
 				vacuum_delay_point();
 
 				buf = ReadBufferExtended(index, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
@@ -86,8 +84,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 				/* Find deleted tuples */
 				for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 				{
-					itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
-					htup = &(itup->t_tid);
+					IndexTuple	itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
+					ItemPointer htup = &(itup->t_tid);
 
 					if (callback(htup, callback_state))
 					{
