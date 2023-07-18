@@ -627,9 +627,9 @@ cosine_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	double		distance = 0.0;
-	double		norma = 0.0;
-	double		normb = 0.0;
+	float		distance = 0.0;
+	float		norma = 0.0;
+	float		normb = 0.0;
 
 	CheckDims(a, b);
 
@@ -642,7 +642,7 @@ cosine_distance(PG_FUNCTION_ARGS)
 	}
 
 	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
-	PG_RETURN_FLOAT8(1 - (distance / sqrt(norma * normb)));
+	PG_RETURN_FLOAT8(1.0 - ((double) distance / sqrt((double) norma * (double) normb)));
 }
 
 /*
