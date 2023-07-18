@@ -4,6 +4,7 @@
 - Added `l1_distance` function
 - Added element-wise multiplication for vectors
 - Added `sum` aggregate
+- Improved performance of distance functions
 
 ## 0.4.4 (2023-06-12)
 
