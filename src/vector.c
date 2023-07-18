@@ -530,8 +530,8 @@ l2_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	double		distance = 0.0;
-	double		diff;
+	float		distance = 0.0;
+	float		diff;
 
 	CheckDims(a, b);
 
@@ -542,7 +542,7 @@ l2_distance(PG_FUNCTION_ARGS)
 		distance += diff * diff;
 	}
 
-	PG_RETURN_FLOAT8(sqrt(distance));
+	PG_RETURN_FLOAT8(sqrt((double)distance));
 }
 
 /*
@@ -557,8 +557,8 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	double		distance = 0.0;
-	double		diff;
+	float		distance = 0.0;
+	float		diff;
 
 	CheckDims(a, b);
 
@@ -569,7 +569,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 		distance += diff * diff;
 	}
 
-	PG_RETURN_FLOAT8(distance);
+	PG_RETURN_FLOAT8((double)distance);
 }
 
 /*
@@ -583,7 +583,7 @@ inner_product(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	double		distance = 0.0;
+	float		distance = 0.0;
 
 	CheckDims(a, b);
 
@@ -591,7 +591,7 @@ inner_product(PG_FUNCTION_ARGS)
 	for (int i = 0; i < a->dim; i++)
 		distance += ax[i] * bx[i];
 
-	PG_RETURN_FLOAT8(distance);
+	PG_RETURN_FLOAT8((double)distance);
 }
 
 /*
@@ -605,7 +605,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	double		distance = 0.0;
+	float		distance = 0.0;
 
 	CheckDims(a, b);
 
@@ -613,7 +613,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	for (int i = 0; i < a->dim; i++)
 		distance += ax[i] * bx[i];
 
-	PG_RETURN_FLOAT8(distance * -1);
+	PG_RETURN_FLOAT8((double)distance * -1);
 }
 
 /*
@@ -656,14 +656,16 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	double		distance = 0.0;
+	float		dp = 0.0;
+	double		distance;
 
 	CheckDims(a, b);
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		distance += a->x[i] * b->x[i];
+		dp += a->x[i] * b->x[i];
 
+	distance = (double) dp;
 	/* Prevent NaN with acos with loss of precision */
 	if (distance > 1)
 		distance = 1;
@@ -716,13 +718,13 @@ vector_norm(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	float	   *ax = a->x;
-	double		norm = 0.0;
+	float		norm = 0.0;
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 		norm += ax[i] * ax[i];
 
-	PG_RETURN_FLOAT8(sqrt(norm));
+	PG_RETURN_FLOAT8(sqrt((double)norm));
 }
 
 /*
