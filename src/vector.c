@@ -542,7 +542,7 @@ l2_distance(PG_FUNCTION_ARGS)
 		distance += diff * diff;
 	}
 
-	PG_RETURN_FLOAT8(sqrt((double)distance));
+	PG_RETURN_FLOAT8(sqrt((double) distance));
 }
 
 /*
@@ -569,7 +569,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 		distance += diff * diff;
 	}
 
-	PG_RETURN_FLOAT8((double)distance);
+	PG_RETURN_FLOAT8((double) distance);
 }
 
 /*
@@ -591,7 +591,7 @@ inner_product(PG_FUNCTION_ARGS)
 	for (int i = 0; i < a->dim; i++)
 		distance += ax[i] * bx[i];
 
-	PG_RETURN_FLOAT8((double)distance);
+	PG_RETURN_FLOAT8((double) distance);
 }
 
 /*
@@ -613,7 +613,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	for (int i = 0; i < a->dim; i++)
 		distance += ax[i] * bx[i];
 
-	PG_RETURN_FLOAT8((double)distance * -1);
+	PG_RETURN_FLOAT8((double) distance * -1);
 }
 
 /*
@@ -724,7 +724,7 @@ vector_norm(PG_FUNCTION_ARGS)
 	for (int i = 0; i < a->dim; i++)
 		norm += ax[i] * ax[i];
 
-	PG_RETURN_FLOAT8(sqrt((double)norm));
+	PG_RETURN_FLOAT8(sqrt((double) norm));
 }
 
 /*
