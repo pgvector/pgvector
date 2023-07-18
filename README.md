@@ -484,11 +484,6 @@ Download the [latest release](https://postgresapp.com/downloads.html) with Postg
 
 pgvector is available on [these providers](https://github.com/pgvector/pgvector/issues/54).
 
-To request a new extension on other providers:
-
-- DigitalOcean Managed Databases - vote or comment on [this page](https://ideas.digitalocean.com/managed-database/p/pgvector-extension-for-postgresql)
-- Heroku Postgres - vote or comment on [this page](https://github.com/heroku/roadmap/issues/156)
-
 ## Upgrading
 
 Install the latest version and run:
