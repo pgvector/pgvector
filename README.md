@@ -327,7 +327,38 @@ Yes, pgvector uses the write-ahead log (WAL), which allows for replication and p
 
 You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Dimensionality_reduction) at the moment.
 
-#### Why am I seeing less results after adding an index?
+## Troubleshooting
+
+#### Why isn’t a query using an index?
+
+The cost estimates in pgvector < 0.4.3 did not always work well with the planner. You can encourage the planner to use an index for a query with:
+
+```sql
+BEGIN;
+SET LOCAL enable_seqscan = off;
+SELECT ...
+COMMIT;
+```
+
+#### Why isn’t a query using a parallel table scan?
+
+The planner doesn’t consider [out-of-line storage](https://www.postgresql.org/docs/current/storage-toast.html) in cost estimates, which can make a serial scan look cheaper. You can reduce the cost of a parallel scan for a query with:
+
+```sql
+BEGIN;
+SET LOCAL min_parallel_table_scan_size = 1;
+SET LOCAL parallel_setup_cost = 1;
+SELECT ...
+COMMIT;
+```
+
+or choose to store vectors inline:
+
+```sql
+ALTER TABLE items ALTER COLUMN embedding SET STORAGE PLAIN;
+```
+
+#### Why are there less results for a query after adding an index?
 
 The index was likely created with too little data for the number of lists. Drop the index until the table has more data.
 
