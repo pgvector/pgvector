@@ -362,6 +362,10 @@ ALTER TABLE items ALTER COLUMN embedding SET STORAGE PLAIN;
 
 The index was likely created with too little data for the number of lists. Drop the index until the table has more data.
 
+```sql
+DROP INDEX index_name;
+```
+
 ## Reference
 
 ### Vector Type
