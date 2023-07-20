@@ -331,7 +331,20 @@ You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Di
 
 #### Why isn’t a query using an index?
 
-The cost estimation in pgvector < 0.4.3 does not always work well with the planner. You can encourage the planner to use an index for a query with:
+pgvector < 0.4.3 used a different costing algorithm that would often cause the PostgreSQL query planner to not use the index in the query. However, there are several methods you can use to help guide PostgreSQL to use the index.
+
+The first method is to lower `random_page_cost`. By default, PostgreSQL sets `random_page_cost` to `4.0`, which in pgvector < 0.4.3 would cause PostgreSQL to stop choosing to use the index after a small number of probes. Setting `random_page_cost` to a lower value will give greater weight to using the index while still allowing PostgreSQL to consider a sequential scan. For example:
+
+For example:
+
+```sql
+BEGIN;
+SET LOCAL random_page_cost = 1.0;
+SELECT ...
+COMMIT;
+```
+
+The second method is to disable PostgreSQL from considering a sequential scan during the planning process (which regardless, PostgreSQL will always consider, but "disabling" sequential scans makes the cost of performing one very high). This will increase the chance that PostgreSQL will use the index, but you should be careful about using this method as there are cases where the sequential scan can be faster than the index scan. For example:
 
 ```sql
 BEGIN;
