@@ -331,7 +331,7 @@ You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Di
 
 #### Why isn’t a query using an index?
 
-The cost estimation in pgvector < 0.4.3 did not always work well with the planner. You can encourage the planner to use an index for a query with:
+The cost estimation in pgvector < 0.4.3 does not always work well with the planner. You can encourage the planner to use an index for a query with:
 
 ```sql
 BEGIN;
