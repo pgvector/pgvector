@@ -423,6 +423,14 @@ cd pgvector
 docker build --build-arg PG_MAJOR=15 -t myuser/pgvector .
 ```
 
+The default image is based on Debian 11 (bullseye). To build an [Alpine](https://www.alpinelinux.org/) image, use `Dockerfile.alpine`:
+
+```sh
+git clone --branch v0.4.4 https://github.com/pgvector/pgvector.git
+cd pgvector
+docker build --build-arg PG_MAJOR=15 -t myuser/pgvector -f Dockerfile.alpine .
+```
+
 ### Homebrew
 
 With Homebrew Postgres, you can use:
