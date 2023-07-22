@@ -612,42 +612,20 @@ GetCandidateDistance(HnswCandidate * hc, Datum q, FmgrInfo *procinfo, Oid collat
 }
 
 /*
- * Check if a candidate is a list member by pointer
+ * Add to visited
  */
-static bool
-HnswListMemberByPointer(List *v, HnswCandidate * e)
+static inline void
+AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
 {
-	ListCell   *lc2;
-
-	foreach(lc2, v)
+	if (index == NULL)
+		hash_search(v, &hc->element, HASH_ENTER, found);
+	else
 	{
-		HnswCandidate *v2 = (HnswCandidate *) lfirst(lc2);
+		ItemPointerData indextid;
 
-		if (v2->element == e->element)
-			return true;
+		ItemPointerSet(&indextid, hc->element->blkno, hc->element->offno);
+		hash_search(v, &indextid, HASH_ENTER, found);
 	}
-
-	return false;
-}
-
-/*
- * Check if a candidate is a list member by block and offset
- */
-static bool
-HnswListMemberByBlock(List *v, HnswCandidate * e)
-{
-	ListCell   *lc2;
-
-	foreach(lc2, v)
-	{
-		HnswCandidate *v2 = (HnswCandidate *) lfirst(lc2);
-
-		/* Neighbor page not set yet */
-		if (v2->element->blkno == e->element->blkno && v2->element->offno == e->element->offno)
-			return true;
-	}
-
-	return false;
 }
 
 /*
@@ -659,17 +637,34 @@ SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinf
 	ListCell   *lc2;
 
 	List	   *w = NIL;
-	List	   *v = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
 	int			wlen = 0;
+	HASHCTL		hash_ctl;
+	HTAB	   *v;
+
+	/* Create hash table */
+	if (index == NULL)
+	{
+		hash_ctl.keysize = sizeof(HnswElement *);
+		hash_ctl.entrysize = sizeof(HnswElement *);
+	}
+	else
+	{
+		hash_ctl.keysize = sizeof(ItemPointerData);
+		hash_ctl.entrysize = sizeof(ItemPointerData);
+	}
+
+	hash_ctl.hcxt = CurrentMemoryContext;
+	v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
 	/* Add entry points to v, C, and W */
 	foreach(lc2, ep)
 	{
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
 
-		v = lappend(v, hc);
+		AddToVisited(v, hc, index, NULL);
+
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
 
@@ -696,14 +691,11 @@ SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinf
 			HnswCandidate *e = &neighborhood->items[i];
 			bool		visited;
 
-			/* TODO Use hash for v? */
-			visited = index == NULL ? HnswListMemberByPointer(v, e) : HnswListMemberByBlock(v, e);
+			AddToVisited(v, e, index, &visited);
 
 			if (!visited)
 			{
 				float		eDistance;
-
-				v = lappend(v, e);
 
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 
