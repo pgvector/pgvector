@@ -5,6 +5,7 @@
 - Added element-wise multiplication for vectors
 - Added `sum` aggregate
 - Improved performance of distance functions
+- Fixed out of range results for cosine distance
 
 ## 0.4.4 (2023-06-12)
 
