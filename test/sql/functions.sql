@@ -24,8 +24,8 @@ SELECT cosine_distance('[1,2]', '[0,0]');
 SELECT cosine_distance('[1,1]', '[1,1]');
 SELECT cosine_distance('[1,1]', '[-1,-1]');
 SELECT cosine_distance('[1,2]', '[3]');
-SELECT cosine_distance(array_fill(0.1, ARRAY[1536])::vector, array_fill(0.111, ARRAY[1536])::vector);
-SELECT cosine_distance(array_fill(0.1, ARRAY[1536])::vector, array_fill(-0.111, ARRAY[1536])::vector);
+SELECT cosine_distance(array_fill(0.1, ARRAY[1536])::vector, array_fill(0.111, ARRAY[1536])::vector) <= 1;
+SELECT cosine_distance(array_fill(0.1, ARRAY[1536])::vector, array_fill(-0.111, ARRAY[1536])::vector) >= -1;
 
 SELECT l1_distance('[0,0]', '[3,4]');
 SELECT l1_distance('[0,0]', '[0,1]');

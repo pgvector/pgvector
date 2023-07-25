@@ -645,6 +645,12 @@ cosine_distance(PG_FUNCTION_ARGS)
 	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
 	similarity = (double) distance / sqrt((double) norma * (double) normb);
 
+#ifdef _MSC_VER
+	/* /fp:fast may not propagate NaN */
+	if (isnan(similarity))
+		PG_RETURN_FLOAT8(NAN);
+#endif
+
 	/* Keep in range */
 	if (similarity > 1)
 		similarity = 1.0;
