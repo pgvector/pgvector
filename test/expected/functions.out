@@ -62,6 +62,12 @@ SELECT l2_distance('[0,0]', '[0,1]');
 
 SELECT l2_distance('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
+SELECT l2_distance('[3e38]', '[-3e38]');
+ l2_distance 
+-------------
+    Infinity
+(1 row)
+
 SELECT inner_product('[1,2]', '[3,4]');
  inner_product 
 ---------------
@@ -70,6 +76,12 @@ SELECT inner_product('[1,2]', '[3,4]');
 
 SELECT inner_product('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
+SELECT inner_product('[3e38]', '[3e38]');
+ inner_product 
+---------------
+      Infinity
+(1 row)
+
 SELECT cosine_distance('[1,2]', '[2,4]');
  cosine_distance 
 -----------------
@@ -108,6 +120,12 @@ SELECT cosine_distance('[1,1]', '[-1.1,-1.1]');
                2
 (1 row)
 
+SELECT cosine_distance('[3e38]', '[3e38]');
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
 SELECT l1_distance('[0,0]', '[3,4]');
  l1_distance 
 -------------
@@ -122,6 +140,12 @@ SELECT l1_distance('[0,0]', '[0,1]');
 
 SELECT l1_distance('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
+SELECT l1_distance('[3e38]', '[-3e38]');
+ l1_distance 
+-------------
+    Infinity
+(1 row)
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
     avg    
 -----------
