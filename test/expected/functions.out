@@ -96,16 +96,16 @@ SELECT cosine_distance('[1,1]', '[-1,-1]');
 
 SELECT cosine_distance('[1,2]', '[3]');
 ERROR:  different vector dimensions 2 and 1
-SELECT cosine_distance(array_fill(0.1, ARRAY[1536])::vector, array_fill(0.111, ARRAY[1536])::vector) <= 1;
- ?column? 
-----------
- t
+SELECT cosine_distance('[1,1]', '[1.1,1.1]');
+ cosine_distance 
+-----------------
+               0
 (1 row)
 
-SELECT cosine_distance(array_fill(0.1, ARRAY[1536])::vector, array_fill(-0.111, ARRAY[1536])::vector) >= -1;
- ?column? 
-----------
- t
+SELECT cosine_distance('[1,1]', '[-1.1,-1.1]');
+ cosine_distance 
+-----------------
+               2
 (1 row)
 
 SELECT l1_distance('[0,0]', '[3,4]');
