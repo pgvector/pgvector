@@ -25,6 +25,17 @@ CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 	return 0;
 }
 
+static Datum
+getdistance(IvfflatScanOpaque so, Datum v1, Datum v2)
+{
+	/* Use procinfo from the index instead of scan key for performance */
+	if (DatumGetPointer(v1) == NULL || DatumGetPointer(v2) == NULL)
+		return Float8GetDatum(0.0);
+	else
+		return FunctionCall2Coll(so->procinfo, so->collation, v1, v2);
+}
+
+
 /*
  * Get lists and sort by distance
  */
@@ -56,8 +67,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 		{
 			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
 
-			/* Use procinfo from the index instead of scan key for performance */
-			distance = DatumGetFloat8(FunctionCall2Coll(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
+			distance = DatumGetFloat8(getdistance(so, PointerGetDatum(&list->center), value));
 
 			if (listCount < so->probes)
 			{
@@ -150,7 +160,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				 * performance
 				 */
 				ExecClearTuple(slot);
-				slot->tts_values[0] = FunctionCall2Coll(so->procinfo, so->collation, datum, value);
+				slot->tts_values[0] = getdistance(so, datum, value);
 				slot->tts_isnull[0] = false;
 				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
 				slot->tts_isnull[1] = false;
@@ -285,29 +295,31 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan ivfflat index without order");
 
-		/* No items will match if null */
 		if (scan->orderByData->sk_flags & SK_ISNULL)
-			return false;
-
-		value = scan->orderByData->sk_argument;
-
-		/* Value should not be compressed or toasted */
-		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
-		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
-
-		if (so->normprocinfo != NULL)
+			value = PointerGetDatum(0);
+		else
 		{
-			/* No items will match if normalization fails */
-			if (!IvfflatNormValue(so->normprocinfo, so->collation, &value, NULL))
-				return false;
-		}
 
+			value = scan->orderByData->sk_argument;
+
+			/* Value should not be compressed or toasted */
+			Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
+			Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
+
+			if (so->normprocinfo != NULL)
+			{
+				/* No items will match if normalization fails */
+				if (!IvfflatNormValue(so->normprocinfo, so->collation, &value, NULL))
+					return false;
+			}
+
+		}
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
 
 		/* Clean up if we allocated a new value */
-		if (value != scan->orderByData->sk_argument)
+		if (value != scan->orderByData->sk_argument && DatumGetPointer(value) != NULL)
 			pfree(DatumGetPointer(value));
 	}
 

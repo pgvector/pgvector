@@ -12,8 +12,11 @@ SELECT * FROM t ORDER BY val <=> '[3,3,3]';
 (3 rows)
 
 SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector);
- val 
------
-(0 rows)
+   val   
+---------
+ [1,2,3]
+ [1,1,1]
+ [1,2,4]
+(3 rows)
 
 DROP TABLE t;
