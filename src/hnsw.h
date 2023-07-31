@@ -248,6 +248,7 @@ void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
 void		HnswInitNeighbors(HnswElement element, int m);
 bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel);
 void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadvec);
+void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);

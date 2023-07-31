@@ -80,12 +80,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 
 	/* Prepare tuple */
 	etup = palloc0(esize);
-	etup->heaptids[0] = *((ItemPointer) linitial(e->heaptids));
-	for (int i = 1; i < HNSW_HEAPTIDS; i++)
-		ItemPointerSetInvalid(&etup->heaptids[i]);
-	etup->level = e->level;
-	etup->deleted = 0;
-	memcpy(&etup->vec, e->vec, VECTOR_SIZE(dimensions));
+	HnswSetElementTuple(etup, e);
 
 	/* Find a page to insert the item */
 	for (;;)

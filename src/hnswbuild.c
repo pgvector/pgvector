@@ -109,17 +109,8 @@ CreateElementPages(HnswBuildState * buildstate)
 		e->neighborPage = neighborPage++;
 
 		/* Set item data */
-		for (int i = 0; i < HNSW_HEAPTIDS; i++)
-		{
-			if (i < list_length(e->heaptids))
-				element->heaptids[i] = *((ItemPointer) list_nth(e->heaptids, i));
-			else
-				ItemPointerSetInvalid(&element->heaptids[i]);
-		}
-		element->level = e->level;
-		element->deleted = 0;
+		HnswSetElementTuple(element, e);
 		element->neighborPage = e->neighborPage;
-		memcpy(&element->vec, e->vec, VECTOR_SIZE(dimensions));
 
 		/* Ensure free space */
 		if (PageGetFreeSpace(page) < elementsz)

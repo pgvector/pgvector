@@ -603,6 +603,24 @@ HnswFreeElement(HnswElement element)
 }
 
 /*
+ * Set element tuple, except for neighbor page
+ */
+void
+HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
+{
+	for (int i = 0; i < HNSW_HEAPTIDS; i++)
+	{
+		if (i < list_length(element->heaptids))
+			etup->heaptids[i] = *((ItemPointer) list_nth(element->heaptids, i));
+		else
+			ItemPointerSetInvalid(&etup->heaptids[i]);
+	}
+	etup->level = element->level;
+	etup->deleted = 0;
+	memcpy(&etup->vec, element->vec, VECTOR_SIZE(element->vec->dim));
+}
+
+/*
  * Get the distance for a candidate
  */
 static float
