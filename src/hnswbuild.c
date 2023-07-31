@@ -151,9 +151,6 @@ CreateElementPages(HnswBuildState * buildstate)
 		e->offno = PageAddItem(page, (Item) element, elementsz, InvalidOffsetNumber, false, false);
 		if (e->offno == InvalidOffsetNumber)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
-
-		if (e == buildstate->entryPoint)
-			UpdateMetaPage(index, true, e, InvalidBlockNumber, forkNum);
 	}
 
 	insertPage = BufferGetBlockNumber(buf);
@@ -163,7 +160,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 
-	UpdateMetaPage(index, false, NULL, insertPage, forkNum);
+	UpdateMetaPage(index, true, buildstate->entryPoint, insertPage, forkNum);
 }
 
 /*

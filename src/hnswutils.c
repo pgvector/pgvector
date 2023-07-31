@@ -876,8 +876,16 @@ UpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNu
 
 	if (updateEntry)
 	{
-		metap->entryBlkno = entryPoint->blkno;
-		metap->entryOffno = entryPoint->offno;
+		if (entryPoint == NULL)
+		{
+			metap->entryBlkno = InvalidBlockNumber;
+			metap->entryOffno = InvalidOffsetNumber;
+		}
+		else
+		{
+			metap->entryBlkno = entryPoint->blkno;
+			metap->entryOffno = entryPoint->offno;
+		}
 	}
 
 	if (BlockNumberIsValid(insertPage))
