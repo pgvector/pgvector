@@ -308,7 +308,7 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 		idx = HnswGetIndex(update, m);
 
 		/* Make robust against issues */
-		if (idx < HNSW_NEIGHBOR_COUNT(itemid))
+		if (idx < (int) HNSW_NEIGHBOR_COUNT(itemid))
 		{
 			HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
 
