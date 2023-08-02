@@ -292,7 +292,7 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 		GenericXLogState *state;
 		HnswUpdate *update = lfirst(lc);
 		ItemId		itemid;
-		Size		neighborsz;
+		Size		ntupSize;
 		int			idx;
 		OffsetNumber offno = update->hc.element->neighborOffno;
 
@@ -303,7 +303,7 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
 		itemid = PageGetItemId(page, offno);
-		neighborsz = ItemIdGetLength(itemid);
+		ntupSize = ItemIdGetLength(itemid);
 
 		idx = HnswGetIndex(update, m);
 
@@ -319,7 +319,7 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 			neighbor->distance = update->hc.distance;
 
 			/* Update connections */
-			if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, neighborsz))
+			if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, ntupSize))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 			/* Commit */
