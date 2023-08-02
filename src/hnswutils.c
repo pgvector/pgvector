@@ -456,10 +456,6 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 	if (distance != NULL)
 		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->vec)));
 
-	/* Load neighbors if on same page */
-	if (element->neighborPage == element->blkno)
-		LoadNeighborsFromPage(element, index, page);
-
 	UnlockReleaseBuffer(buf);
 }
 
