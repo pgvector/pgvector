@@ -71,7 +71,7 @@ $node_replica->init_from_backup($node_primary, $backup_name,
 	has_streaming => 1);
 $node_replica->start;
 
-# Create ivfflat index on primary
+# Create hnsw index on primary
 $node_primary->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node_primary->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
 $node_primary->safe_psql("postgres",
