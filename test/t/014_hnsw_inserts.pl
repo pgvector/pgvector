@@ -4,7 +4,8 @@ use PostgresNode;
 use TestLib;
 use Test::More;
 
-my $dim = 768;
+# Ensures elements and neighbors on both same and different pages
+my $dim = 1900;
 
 my $array_sql = join(",", ('random()') x $dim);
 
@@ -16,6 +17,9 @@ $node->start;
 # Create table and index
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (v vector($dim));");
+$node->safe_psql("postgres",
+	"INSERT INTO tst SELECT ARRAY[$array_sql] FROM generate_series(1, 100) i;"
+);
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops);");
 
 $node->pgbench(
@@ -37,7 +41,7 @@ sub idx_scan
 	$node->safe_psql("postgres", "SELECT idx_scan FROM pg_stat_user_indexes WHERE indexrelid = 'tst_v_idx'::regclass;");
 }
 
-my $expected = 5 * 100 * 10;
+my $expected = 100 + 5 * 100 * 10;
 
 my $count = $node->safe_psql("postgres", "SELECT COUNT(*) FROM tst;");
 is($count, $expected);

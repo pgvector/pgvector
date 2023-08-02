@@ -38,13 +38,18 @@
 #define HNSW_MIN_EF_SEARCH		10
 #define HNSW_MAX_EF_SEARCH		1000
 
+#define HNSW_ELEMENT_TUPLE_TYPE  1
+#define HNSW_NEIGHBOR_TUPLE_TYPE 2
+
 #define HNSW_HEAPTIDS 10
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
 #define PROGRESS_HNSW_PHASE_LOAD		2
 
-#define HNSW_ELEMENT_TUPLE_SIZE(_dim)	(offsetof(HnswElementTupleData, vec) + VECTOR_SIZE(_dim))
+#define HNSW_ELEMENT_TUPLE_SIZE(_dim)	MAXALIGN(offsetof(HnswElementTupleData, vec) + VECTOR_SIZE(_dim))
+#define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, neighbors) + ((level) + 2) * (m) * sizeof(HnswNeighborTupleItem))
+#define HNSW_NEIGHBOR_COUNT(itemid) ((ItemIdGetLength(itemid) - offsetof(HnswNeighborTupleData, neighbors)) / sizeof(HnswNeighborTupleItem))
 
 #define HnswPageGetOpaque(page)	((HnswPageOpaque) PageGetSpecialPointer(page))
 #define HnswPageGetMeta(page)	((HnswMetaPageData *) PageGetContents(page))
@@ -59,6 +64,9 @@
 #define list_delete_last(list) list_truncate(list, list_length(list) - 1)
 #define list_sort(list, cmp) list_qsort(list, cmp)
 #endif
+
+#define HnswIsElementTuple(tup) ((tup)->type == HNSW_ELEMENT_TUPLE_TYPE)
+#define HnswIsNeighborTuple(tup) ((tup)->type == HNSW_NEIGHBOR_TUPLE_TYPE)
 
 #define GetLayerM(m, layer) (layer == 0 ? m * 2 : m)
 #define HnswGetMl(m) (1 / log(m))
@@ -77,6 +85,7 @@ typedef struct HnswElementData
 	BlockNumber blkno;
 	OffsetNumber offno;
 	BlockNumber neighborPage;
+	OffsetNumber neighborOffno;
 	Vector	   *vec;
 }			HnswElementData;
 
@@ -175,21 +184,32 @@ typedef HnswPageOpaqueData * HnswPageOpaque;
 
 typedef struct HnswElementTupleData
 {
-	ItemPointerData heaptids[HNSW_HEAPTIDS];
+	uint8		type;
 	uint8		level;
 	uint8		deleted;
-	uint16		unused;
-	BlockNumber neighborPage;
+	uint8		unused;
+	ItemPointerData heaptids[HNSW_HEAPTIDS];
+	ItemPointerData neighbortid;
+	uint16		unused2;
 	Vector		vec;
 }			HnswElementTupleData;
 
 typedef HnswElementTupleData * HnswElementTuple;
 
-typedef struct HnswNeighborTupleData
+typedef struct HnswNeighborTupleItem
 {
 	ItemPointerData indextid;
 	uint16		unused;
 	float		distance;
+}			HnswNeighborTupleItem;
+
+typedef struct HnswNeighborTupleData
+{
+	uint8		type;
+	uint8		unused;
+	uint16		unused2;
+	uint32		unused3;
+	HnswNeighborTupleItem neighbors[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborTupleData;
 
 typedef HnswNeighborTupleData * HnswNeighborTuple;
@@ -236,14 +256,14 @@ Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		HnswInit(void);
-List	   *SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage);
+List	   *SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno);
 HnswElement GetEntryPoint(Relation index);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);
 HnswElement HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List **updates, bool vacuuming);
 HnswCandidate *EntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadvec);
 void		UpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum);
-void		AddNeighborsToPage(Relation index, Page page, HnswElement e, HnswNeighborTuple neighbor, Size neighborsz, int m);
+void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
 void		HnswInitNeighbors(HnswElement element, int m);
 bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel);
@@ -267,6 +287,6 @@ bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
 
 /* Ensure fits in uint8 */
-#define HnswGetMaxLevel(m) Min(((BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData))) / (MAXALIGN(sizeof(HnswNeighborTupleData)) + sizeof(ItemIdData)) / m) - 2, 255)
+#define HnswGetMaxLevel(m) Min(((BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - offsetof(HnswNeighborTupleData, neighbors) - sizeof(ItemIdData)) / (sizeof(HnswNeighborTupleItem)) / m) - 2, 255)
 
 #endif

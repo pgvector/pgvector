@@ -68,6 +68,30 @@ CreateMetaPage(HnswBuildState * buildstate)
 }
 
 /*
+ * Add a new page
+ */
+static void
+HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum)
+{
+	/* Add a new page */
+	Buffer		newbuf = HnswNewBuffer(index, forkNum);
+
+	/* Update previous page */
+	HnswPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(newbuf);
+
+	/* Commit */
+	MarkBufferDirty(*buf);
+	GenericXLogFinish(*state);
+	UnlockReleaseBuffer(*buf);
+
+	/* Prepare new page */
+	*buf = newbuf;
+	*state = GenericXLogStart(index);
+	*page = GenericXLogRegisterBuffer(*state, *buf, GENERIC_XLOG_FULL_IMAGE);
+	HnswInitPage(*buf, *page);
+}
+
+/*
  * Create element pages
  */
 static void
@@ -76,23 +100,23 @@ CreateElementPages(HnswBuildState * buildstate)
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
 	int			dimensions = buildstate->dimensions;
-	Size		elementsz;
-	HnswElementTuple element;
-	int			elementsPerPage;
-	BlockNumber neighborPage;
+	Size		etupSize;
+	Size		maxSize;
+	HnswElementTuple etup;
+	HnswNeighborTuple ntup;
 	BlockNumber insertPage;
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
 	ListCell   *lc;
 
-	/* Allocate once */
-	elementsz = MAXALIGN(HNSW_ELEMENT_TUPLE_SIZE(dimensions));
-	element = palloc0(elementsz);
+	/* Calculate sizes */
+	maxSize = BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData));
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
 
-	/* Calculate starting neighbor page */
-	elementsPerPage = (BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData))) / (elementsz + sizeof(ItemIdData));
-	neighborPage = HNSW_HEAD_BLKNO + (int) ceil(list_length(buildstate->elements) / (double) elementsPerPage);
+	/* Allocate once */
+	etup = palloc0(etupSize);
+	ntup = palloc0(maxSize);
 
 	/* Prepare first page */
 	buf = HnswNewBuffer(index, forkNum);
@@ -102,45 +126,46 @@ CreateElementPages(HnswBuildState * buildstate)
 
 	foreach(lc, buildstate->elements)
 	{
-		HnswElement e = lfirst(lc);
+		HnswElement element = lfirst(lc);
+		Size		ntupSize;
+		Size		combinedSize;
 
-		/* Calculate neighbor page */
-		/* Will be rechecked later */
-		e->neighborPage = neighborPage++;
+		HnswSetElementTuple(etup, element);
 
-		/* Set item data */
-		HnswSetElementTuple(element, e);
-		element->neighborPage = e->neighborPage;
+		/* Calculate sizes */
+		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
+		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 
-		/* Ensure free space */
-		if (PageGetFreeSpace(page) < elementsz)
+		/* Keep element and neighbors on the same page if possible */
+		if (PageGetFreeSpace(page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(page) < combinedSize))
+			HnswBuildAppendPage(index, &buf, &page, &state, forkNum);
+
+		/* Calculate offsets */
+		element->blkno = BufferGetBlockNumber(buf);
+		element->offno = OffsetNumberNext(PageGetMaxOffsetNumber(page));
+		if (combinedSize <= maxSize)
 		{
-			/* Add a new page */
-			Buffer		newbuf = HnswNewBuffer(index, forkNum);
-
-			/* Update previous page */
-			HnswPageGetOpaque(page)->nextblkno = BufferGetBlockNumber(newbuf);
-
-			/* Commit */
-			MarkBufferDirty(buf);
-			GenericXLogFinish(state);
-			UnlockReleaseBuffer(buf);
-
-			/* Can take a while, so ensure we can interrupt */
-			/* Needs to be called when no buffer locks are held */
-			CHECK_FOR_INTERRUPTS();
-
-			/* Prepare new page */
-			buf = newbuf;
-			state = GenericXLogStart(index);
-			page = GenericXLogRegisterBuffer(state, buf, GENERIC_XLOG_FULL_IMAGE);
-			HnswInitPage(buf, page);
+			element->neighborPage = element->blkno;
+			element->neighborOffno = OffsetNumberNext(element->offno);
+		}
+		else
+		{
+			element->neighborPage = element->blkno + 1;
+			element->neighborOffno = FirstOffsetNumber;
 		}
 
-		/* Add the item */
-		e->blkno = BufferGetBlockNumber(buf);
-		e->offno = PageAddItem(page, (Item) element, elementsz, InvalidOffsetNumber, false, false);
-		if (e->offno == InvalidOffsetNumber)
+		ItemPointerSet(&etup->neighbortid, element->neighborPage, element->neighborOffno);
+
+		/* Add element */
+		if (PageAddItem(page, (Item) etup, etupSize, InvalidOffsetNumber, false, false) != element->offno)
+			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+
+		/* Add new page if needed */
+		if (PageGetFreeSpace(page) < ntupSize)
+			HnswBuildAppendPage(index, &buf, &page, &state, forkNum);
+
+		/* Add placeholder for neighbors */
+		if (PageAddItem(page, (Item) ntup, ntupSize, InvalidOffsetNumber, false, false) != element->neighborOffno)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 	}
 
@@ -162,13 +187,12 @@ CreateNeighborPages(HnswBuildState * buildstate)
 {
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
-	Size		neighborsz;
-	HnswNeighborTuple neighbor;
+	int			m = buildstate->m;
 	ListCell   *lc;
+	HnswNeighborTuple ntup;
 
 	/* Allocate once */
-	neighborsz = MAXALIGN(sizeof(HnswNeighborTupleData));
-	neighbor = palloc0(neighborsz);
+	ntup = palloc0(BLCKSZ);
 
 	foreach(lc, buildstate->elements)
 	{
@@ -176,23 +200,17 @@ CreateNeighborPages(HnswBuildState * buildstate)
 		Buffer		buf;
 		Page		page;
 		GenericXLogState *state;
+		Size		neighborsz = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 
-		/* Can take a while, so ensure we can interrupt */
-		/* Needs to be called when no buffer locks are held */
-		CHECK_FOR_INTERRUPTS();
-
-		buf = HnswNewBuffer(index, forkNum);
-
-		/* Check block number */
-		if (BufferGetBlockNumber(buf) != e->neighborPage)
-			elog(ERROR, "expected neighbor page %d, got %d", e->neighborPage, BufferGetBlockNumber(buf));
-
-		/* Prepare page */
+		buf = ReadBufferExtended(index, forkNum, e->neighborPage, RBM_NORMAL, NULL);
+		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 		state = GenericXLogStart(index);
-		page = GenericXLogRegisterBuffer(state, buf, GENERIC_XLOG_FULL_IMAGE);
-		HnswInitPage(buf, page);
+		page = GenericXLogRegisterBuffer(state, buf, 0);
 
-		AddNeighborsToPage(index, page, e, neighbor, neighborsz, buildstate->m);
+		HnswSetNeighborTuple(ntup, e, m);
+
+		if (!PageIndexTupleOverwrite(page, e->neighborOffno, (Item) ntup, neighborsz))
+			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 		/* Commit */
 		MarkBufferDirty(buf);

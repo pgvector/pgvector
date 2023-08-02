@@ -212,6 +212,8 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 	/* Look for cached distance */
 	if (a->neighbors != NULL)
 	{
+		Assert(a->level >= lc);
+
 		for (int i = 0; i < a->neighbors[lc].length; i++)
 		{
 			if (a->neighbors[lc].items[i].element == b)
@@ -221,6 +223,8 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 
 	if (b->neighbors != NULL)
 	{
+		Assert(b->level >= lc);
+
 		for (int i = 0; i < b->neighbors[lc].length; i++)
 		{
 			if (b->neighbors[lc].items[i].element == a)
@@ -360,6 +364,55 @@ HnswAddHeapTid(HnswElement element, ItemPointer heaptid)
 }
 
 /*
+ * Load neighbors from page
+ */
+static void
+LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
+{
+	int			m = HnswGetM(index);
+	ItemId		itemid = PageGetItemId(page, element->neighborOffno);
+	int			neighborCount = (element->level + 2) * m;
+
+	HnswInitNeighbors(element, m);
+
+	/* If not, neighbor page represents new item */
+	/* Only caught if item has a different level */
+	/* TODO Use versioning to fix this? */
+	if (HNSW_NEIGHBOR_COUNT(itemid) == neighborCount)
+	{
+		HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
+
+		Assert(HnswIsNeighborTuple(ntup));
+
+		for (int i = 0; i < neighborCount; i++)
+		{
+			HnswElement e;
+			int			level;
+			HnswCandidate *hc;
+			HnswNeighborTupleItem *neighbor;
+			HnswNeighborArray *neighbors;
+
+			neighbor = &ntup->neighbors[i];
+
+			if (!ItemPointerIsValid(&neighbor->indextid))
+				continue;
+
+			e = CreateElementFromBlock(ItemPointerGetBlockNumber(&neighbor->indextid), ItemPointerGetOffsetNumber(&neighbor->indextid));
+
+			/* Calculate level based on offset */
+			level = element->level - i / m;
+			if (level < 0)
+				level = 0;
+
+			neighbors = &element->neighbors[level];
+			hc = &neighbors->items[neighbors->length++];
+			hc->element = e;
+			hc->distance = neighbor->distance;
+		}
+	}
+}
+
+/*
  * Load an element and optionally get its distance from q
  */
 void
@@ -376,6 +429,8 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 
 	item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, element->offno));
 
+	Assert(HnswIsElementTuple(item));
+
 	/* Load element */
 	element->heaptids = NIL;
 	for (int i = 0; i < HNSW_HEAPTIDS; i++)
@@ -387,7 +442,8 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 		HnswAddHeapTid(element, &item->heaptids[i]);
 	}
 	element->level = item->level;
-	element->neighborPage = item->neighborPage;
+	element->neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
+	element->neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
 	element->deleted = item->deleted;
 
 	if (loadvec)
@@ -399,6 +455,10 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 	/* Calculate distance */
 	if (distance != NULL)
 		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&item->vec)));
+
+	/* Load neighbors if on same page */
+	if (element->neighborPage == element->blkno)
+		LoadNeighborsFromPage(element, index, page);
 
 	UnlockReleaseBuffer(buf);
 }
@@ -512,53 +572,16 @@ HnswInitNeighbors(HnswElement element, int m)
  * Load neighbors
  */
 static void
-LoadNeighbors(HnswCandidate * c, Relation index)
+LoadNeighbors(HnswElement element, Relation index)
 {
 	Buffer		buf;
 	Page		page;
-	OffsetNumber offno;
-	OffsetNumber maxoffno;
-	HnswNeighborTuple neighbor;
-	HnswNeighborArray *neighbors;
-	int			m = HnswGetM(index);
 
-	buf = ReadBuffer(index, c->element->neighborPage);
+	buf = ReadBuffer(index, element->neighborPage);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
-	maxoffno = PageGetMaxOffsetNumber(page);
 
-	HnswInitNeighbors(c->element, m);
-
-	/* If not, neighbor page represents new item */
-	/* Only caught if item has a different level */
-	/* TODO Use versioning to fix this? */
-	if (maxoffno == (c->element->level + 2) * m)
-	{
-		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
-		{
-			HnswElement element;
-			int			level;
-			HnswCandidate *hc;
-
-			neighbor = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, offno));
-
-			if (!ItemPointerIsValid(&neighbor->indextid))
-				continue;
-
-			element = CreateElementFromBlock(ItemPointerGetBlockNumber(&neighbor->indextid), ItemPointerGetOffsetNumber(&neighbor->indextid));
-
-			/* Calculate level based on offset */
-			level = c->element->level - (offno - FirstOffsetNumber) / m;
-			if (level < 0)
-				level = 0;
-
-			neighbors = &c->element->neighbors[level];
-			hc = &neighbors->items[neighbors->length];
-			hc->element = element;
-			hc->distance = neighbor->distance;
-			neighbors->length++;
-		}
-	}
+	LoadNeighborsFromPage(element, index, page);
 
 	UnlockReleaseBuffer(buf);
 }
@@ -603,11 +626,14 @@ HnswFreeElement(HnswElement element)
 }
 
 /*
- * Set element tuple, except for neighbor page
+ * Set element tuple, except for neighbor info
  */
 void
 HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 {
+	etup->type = HNSW_ELEMENT_TUPLE_TYPE;
+	etup->level = element->level;
+	etup->deleted = 0;
 	for (int i = 0; i < HNSW_HEAPTIDS; i++)
 	{
 		if (i < list_length(element->heaptids))
@@ -615,8 +641,6 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
-	etup->level = element->level;
-	etup->deleted = 0;
 	memcpy(&etup->vec, element->vec, VECTOR_SIZE(element->vec->dim));
 }
 
@@ -650,7 +674,7 @@ AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
  * Algorithm 2 from paper
  */
 List *
-SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage)
+SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno)
 {
 	ListCell   *lc2;
 
@@ -699,7 +723,7 @@ SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinf
 			break;
 
 		if (c->element->neighbors == NULL)
-			LoadNeighbors(c, index);
+			LoadNeighbors(c->element, index);
 
 		/* Get the neighborhood at layer lc */
 		neighborhood = &c->element->neighbors[lc];
@@ -731,7 +755,7 @@ SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinf
 					continue;
 
 				/* Skip self for vacuuming update */
-				if (skipPage != NULL && e->element->neighborPage == *skipPage)
+				if (skipPage != NULL && e->element->neighborPage == *skipPage && e->element->neighborOffno == *skipOffno)
 					continue;
 
 				/* Stale read */
@@ -825,6 +849,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	Datum		q = PointerGetDatum(element->vec);
 	HnswElement dup;
 	BlockNumber *skipPage = vacuuming ? &element->neighborPage : NULL;
+	OffsetNumber *skipOffno = vacuuming ? &element->neighborOffno : NULL;
 
 	/* Get entry point and level */
 	if (entryPoint != NULL)
@@ -837,7 +862,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = SearchLayer(q, ep, 1, lc, index, procinfo, collation, true, skipPage);
+		w = SearchLayer(q, ep, 1, lc, index, procinfo, collation, true, skipPage, skipOffno);
 		ep = w;
 	}
 
@@ -848,7 +873,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	{
 		int			lm = GetLayerM(m, lc);
 
-		w = SearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage);
+		w = SearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
 		newNeighbors[lc] = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
 		ep = w;
 	}
@@ -913,11 +938,15 @@ UpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNu
 }
 
 /*
- * Add neighbors to page
+ * Set neighbor tuple
  */
 void
-AddNeighborsToPage(Relation index, Page page, HnswElement e, HnswNeighborTuple neighbor, Size neighborsz, int m)
+HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m)
 {
+	int			idx = 0;
+
+	ntup->type = HNSW_NEIGHBOR_TUPLE_TYPE;
+
 	for (int lc = e->level; lc >= 0; lc--)
 	{
 		HnswNeighborArray *neighbors = &e->neighbors[lc];
@@ -925,6 +954,8 @@ AddNeighborsToPage(Relation index, Page page, HnswElement e, HnswNeighborTuple n
 
 		for (int i = 0; i < lm; i++)
 		{
+			HnswNeighborTupleItem *neighbor = &ntup->neighbors[idx++];
+
 			if (i < neighbors->length)
 			{
 				HnswCandidate *hc = &neighbors->items[i];
@@ -937,9 +968,6 @@ AddNeighborsToPage(Relation index, Page page, HnswElement e, HnswNeighborTuple n
 				ItemPointerSetInvalid(&neighbor->indextid);
 				neighbor->distance = NAN;
 			}
-
-			if (PageAddItem(page, (Item) neighbor, neighborsz, InvalidOffsetNumber, false, false) == InvalidOffsetNumber)
-				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 		}
 	}
 }

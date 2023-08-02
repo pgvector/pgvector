@@ -62,6 +62,10 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			int			idx = 0;
 			bool		itemUpdated = false;
 
+			/* Skip neighbor tuples */
+			if (!HnswIsElementTuple(item))
+				continue;
+
 			if (ItemPointerIsValid(&item->heaptids[0]))
 			{
 				for (int i = 0; i < HNSW_HEAPTIDS; i++)
@@ -81,7 +85,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				if (itemUpdated)
 				{
-					Size		itemsz = MAXALIGN(HNSW_ELEMENT_TUPLE_SIZE(item->vec.dim));
+					Size		itemsz = HNSW_ELEMENT_TUPLE_SIZE(item->vec.dim);
 
 					/* Mark rest as invalid */
 					for (int i = idx; i < HNSW_HEAPTIDS; i++)
@@ -137,25 +141,30 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 	BufferAccessStrategy bas = vacuumstate->bas;
 	Buffer		buf;
 	Page		page;
-	OffsetNumber offno;
-	OffsetNumber maxoffno;
+	ItemId		itemid;
+	int			neighborCount;
+	HnswNeighborTuple ntup;
 	bool		needsUpdated = false;
 
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
-	maxoffno = PageGetMaxOffsetNumber(page);
+	itemid = PageGetItemId(page, element->neighborOffno);
+	ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
+	neighborCount = HNSW_NEIGHBOR_COUNT(itemid);
+
+	Assert(HnswIsNeighborTuple(ntup));
 
 	/* Check neighbors */
-	for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+	for (int i = 0; i < neighborCount; i++)
 	{
-		HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, offno));
+		HnswNeighborTupleItem *neighbor = &ntup->neighbors[i];
 
-		if (!ItemPointerIsValid(&ntup->indextid))
+		if (!ItemPointerIsValid(&neighbor->indextid))
 			continue;
 
 		/* Check if in deleted list */
-		if (DeletedContains(vacuumstate->deleted, &ntup->indextid))
+		if (DeletedContains(vacuumstate->deleted, &neighbor->indextid))
 		{
 			needsUpdated = true;
 			break;
@@ -184,7 +193,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	HnswElement entryPoint;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
-	Size		nsize = vacuumstate->nsize;
+	Size		neighborsz = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
 
 	/* Check if any neighbors point to deleted values */
 	if (!NeedsUpdated(vacuumstate, element))
@@ -217,13 +226,13 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	state = GenericXLogStart(index);
-	page = GenericXLogRegisterBuffer(state, buf, GENERIC_XLOG_FULL_IMAGE);
-
-	/* Overwrites existing page via InitPage */
-	HnswInitPage(buf, page);
+	page = GenericXLogRegisterBuffer(state, buf, 0);
 
 	/* Update neighbors */
-	AddNeighborsToPage(index, page, element, ntup, nsize, m);
+	HnswSetNeighborTuple(ntup, element, m);
+
+	if (!PageIndexTupleOverwrite(page, element->neighborOffno, (Item) ntup, neighborsz))
+		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	/* Commit */
 	MarkBufferDirty(buf);
@@ -309,13 +318,18 @@ RepairGraph(HnswVacuumState * vacuumstate)
 			HnswElementTuple item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
 			HnswElement element;
 
+			/* Skip neighbor tuples */
+			if (!HnswIsElementTuple(item))
+				continue;
+
 			/* Skip updating neighbors if being deleted */
 			if (!ItemPointerIsValid(&item->heaptids[0]))
 				continue;
 
 			/* Create an element */
 			element = palloc(sizeof(HnswElementData));
-			element->neighborPage = item->neighborPage;
+			element->neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
+			element->neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
 			element->level = item->level;
 			element->blkno = blkno;
 			element->offno = offno;
@@ -381,30 +395,68 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			Size		itemsz;
 			Buffer		nbuf;
 			Page		npage;
+			BlockNumber neighborPage;
+			OffsetNumber neighborOffno;
+			Size		ntupsz;
+			HnswNeighborTuple ntup;
+			int			neighborCount;
+
+			/* Skip neighbor tuples */
+			if (!HnswIsElementTuple(item))
+				continue;
 
 			if (ItemPointerIsValid(&item->heaptids[0]))
 				continue;
+
+			/* Calculate sizes */
+			itemsz = HNSW_ELEMENT_TUPLE_SIZE(item->vec.dim);
+			ntupsz = HNSW_NEIGHBOR_TUPLE_SIZE(item->level, vacuumstate->m);
+
+			neighborCount = (item->level + 2) * vacuumstate->m;
+
+			/* Get neighbor page */
+			neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
+			neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
+
+			if (neighborPage == blkno)
+			{
+				nbuf = buf;
+				npage = page;
+			}
+			else
+			{
+				nbuf = ReadBufferExtended(index, MAIN_FORKNUM, neighborPage, RBM_NORMAL, bas);
+				LockBuffer(nbuf, BUFFER_LOCK_EXCLUSIVE);
+				npage = GenericXLogRegisterBuffer(state, nbuf, 0);
+			}
+
+			ntup = (HnswNeighborTuple) PageGetItem(npage, PageGetItemId(npage, neighborOffno));
 
 			/* Overwrite element */
 			/* TODO Increment version? */
 			item->deleted = 1;
 			MemSet(&item->vec.x, 0, item->vec.dim * sizeof(float));
 
-			itemsz = MAXALIGN(HNSW_ELEMENT_TUPLE_SIZE(item->vec.dim));
+			/* Overwrite neighbors */
+			for (int i = 0; i < neighborCount; i++)
+			{
+				ItemPointerSetInvalid(&ntup->neighbors[i].indextid);
+				ntup->neighbors[i].distance = NAN;
+			}
+
 			if (!PageIndexTupleOverwrite(page, offno, (Item) item, itemsz))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
-			/* Overwrite neighbors */
-			nbuf = ReadBufferExtended(index, MAIN_FORKNUM, item->neighborPage, RBM_NORMAL, bas);
-			LockBuffer(nbuf, BUFFER_LOCK_EXCLUSIVE);
-			npage = GenericXLogRegisterBuffer(state, nbuf, GENERIC_XLOG_FULL_IMAGE);
-			HnswInitPage(nbuf, npage);
+			if (!PageIndexTupleOverwrite(npage, neighborOffno, (Item) ntup, ntupsz))
+				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 			/* Commit */
 			MarkBufferDirty(buf);
-			MarkBufferDirty(nbuf);
+			if (nbuf != buf)
+				MarkBufferDirty(nbuf);
 			GenericXLogFinish(state);
-			UnlockReleaseBuffer(nbuf);
+			if (nbuf != buf)
+				UnlockReleaseBuffer(nbuf);
 
 			/* Set to first free page */
 			if (!BlockNumberIsValid(insertPage))
@@ -445,8 +497,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
 	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	vacuumstate->collation = index->rd_indcollation[0];
-	vacuumstate->nsize = MAXALIGN(sizeof(HnswNeighborTupleData));
-	vacuumstate->ntup = palloc0(vacuumstate->nsize);
+	vacuumstate->ntup = palloc0(BLCKSZ);
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
 												ALLOCSET_DEFAULT_SIZES);

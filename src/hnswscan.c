@@ -27,12 +27,12 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = SearchLayer(q, ep, 1, lc, index, procinfo, collation, false, NULL);
+		w = SearchLayer(q, ep, 1, lc, index, procinfo, collation, false, NULL, NULL);
 		ep = w;
 	}
 
 	/* TODO Return all visited elements at level 0, not just ef search */
-	so->w = SearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL);
+	so->w = SearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL, NULL);
 }
 
 /*

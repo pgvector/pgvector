@@ -34,7 +34,7 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Page page, OffsetNumber *freeOffno, BlockNumber *neighborPage)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size neighborsz, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
@@ -43,15 +43,65 @@ HnswFreeOffset(Page page, OffsetNumber *freeOffno, BlockNumber *neighborPage)
 	{
 		HnswElementTuple item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
 
-		if (item->deleted)
+		/* Skip neighbor tuples */
+		if (!HnswIsElementTuple(item))
+			continue;
+
+		/* TODO Remove level check */
+		if (item->deleted && item->level == element->level)
 		{
-			*freeOffno = offno;
-			*neighborPage = item->neighborPage;
-			return true;
+			BlockNumber neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
+			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
+			ItemId		itemid;
+
+			if (neighborPage == BufferGetBlockNumber(buf))
+			{
+				*nbuf = buf;
+				*npage = page;
+			}
+			else
+			{
+				*nbuf = ReadBuffer(index, neighborPage);
+				LockBuffer(*nbuf, BUFFER_LOCK_EXCLUSIVE);
+
+				/* Skip WAL for now */
+				*npage = BufferGetPage(*nbuf);
+			}
+
+			itemid = PageGetItemId(*npage, neighborOffno);
+
+			/* Check for space on neighbor tuple page */
+			if (PageGetFreeSpace(*npage) + ItemIdGetLength(itemid) - sizeof(ItemIdData) >= neighborsz)
+			{
+				*freeOffno = offno;
+				*freeNeighborOffno = neighborOffno;
+				return true;
+			}
+			else if (*nbuf != buf)
+				UnlockReleaseBuffer(*nbuf);
 		}
 	}
 
 	return false;
+}
+
+/*
+ * Add a new page
+ */
+static void
+HnswInsertAppendPage(Relation index, Buffer *nbuf, Page *npage, GenericXLogState *state, Page page)
+{
+	/* Add a new page */
+	LockRelationForExtension(index, ExclusiveLock);
+	*nbuf = HnswNewBuffer(index, MAIN_FORKNUM);
+	UnlockRelationForExtension(index, ExclusiveLock);
+
+	/* Init new page */
+	*npage = GenericXLogRegisterBuffer(state, *nbuf, GENERIC_XLOG_FULL_IMAGE);
+	HnswInitPage(*nbuf, *npage);
+
+	/* Update previous buffer */
+	HnswPageGetOpaque(page)->nextblkno = BufferGetBlockNumber(*nbuf);
 }
 
 /*
@@ -63,24 +113,31 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	Size		esize;
+	Size		etupSize;
+	Size		ntupSize;
+	Size		combinedSize;
 	HnswElementTuple etup;
 	BlockNumber insertPage = GetInsertPage(index);
 	BlockNumber originalInsertPage = insertPage;
 	int			dimensions = e->vec->dim;
-	Size		nsize = MAXALIGN(sizeof(HnswNeighborTupleData));
-	HnswNeighborTuple ntup = palloc0(nsize);
+	HnswNeighborTuple ntup;
 	Buffer		nbuf;
 	Page		npage;
 	OffsetNumber freeOffno = InvalidOffsetNumber;
-	BlockNumber neighborPage = InvalidBlockNumber;
+	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
 
-	/* Get tuple size */
-	esize = MAXALIGN(HNSW_ELEMENT_TUPLE_SIZE(dimensions));
+	/* Calculate sizes */
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
+	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
+	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 
-	/* Prepare tuple */
-	etup = palloc0(esize);
+	/* Prepare element tuple */
+	etup = palloc0(etupSize);
 	HnswSetElementTuple(etup, e);
+
+	/* Prepare neighbor tuple */
+	ntup = palloc0(ntupSize);
+	HnswSetNeighborTuple(ntup, e, m);
 
 	/* Find a page to insert the item */
 	for (;;)
@@ -91,8 +148,29 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
-		if (HnswFreeOffset(page, &freeOffno, &neighborPage) || PageGetFreeSpace(page) >= esize)
+		/* Space for both */
+		if (PageGetFreeSpace(page) >= combinedSize)
+		{
+			nbuf = buf;
+			npage = page;
 			break;
+		}
+
+		/* Space for element but not neighbors and last page */
+		if (PageGetFreeSpace(page) >= etupSize && !BlockNumberIsValid(HnswPageGetOpaque(page)->nextblkno))
+		{
+			HnswInsertAppendPage(index, &nbuf, &npage, state, page);
+			break;
+		}
+
+		/* Space from deleted item */
+		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno))
+		{
+			if (nbuf != buf)
+				npage = GenericXLogRegisterBuffer(state, nbuf, 0);
+
+			break;
+		}
 
 		insertPage = HnswPageGetOpaque(page)->nextblkno;
 
@@ -107,28 +185,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 			Buffer		newbuf;
 			Page		newpage;
 
-			/*
-			 * From ReadBufferExtended: Caller is responsible for ensuring
-			 * that only one backend tries to extend a relation at the same
-			 * time!
-			 */
-			LockRelationForExtension(index, ExclusiveLock);
-
-			/* Add a new page */
-			newbuf = HnswNewBuffer(index, MAIN_FORKNUM);
-
-			/* Unlock extend relation lock as early as possible */
-			UnlockRelationForExtension(index, ExclusiveLock);
-
-			/* Init new page */
-			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
-			HnswInitPage(newbuf, newpage);
-
-			/* Update insert page */
-			insertPage = BufferGetBlockNumber(newbuf);
-
-			/* Update previous buffer */
-			HnswPageGetOpaque(page)->nextblkno = insertPage;
+			HnswInsertAppendPage(index, &newbuf, &newpage, state, page);
 
 			/* Commit */
 			MarkBufferDirty(newbuf);
@@ -142,58 +199,67 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 			state = GenericXLogStart(index);
 			buf = newbuf;
 			page = GenericXLogRegisterBuffer(state, buf, 0);
+
+			/* Create new page for neighbors if needed */
+			if (PageGetFreeSpace(page) < combinedSize)
+				HnswInsertAppendPage(index, &nbuf, &npage, state, page);
+			else
+			{
+				nbuf = buf;
+				npage = page;
+			}
+
 			break;
 		}
 	}
 
-	if (OffsetNumberIsValid(freeOffno))
-	{
-		/* Reuse existing page */
-		nbuf = ReadBuffer(index, neighborPage);
-		LockBuffer(nbuf, BUFFER_LOCK_EXCLUSIVE);
-	}
-	else
-	{
-		/* Add new page */
-		LockRelationForExtension(index, ExclusiveLock);
-		nbuf = HnswNewBuffer(index, MAIN_FORKNUM);
-		UnlockRelationForExtension(index, ExclusiveLock);
-	}
-
-	npage = GenericXLogRegisterBuffer(state, nbuf, GENERIC_XLOG_FULL_IMAGE);
-
-	/* Overwrites existing page via InitPage */
-	HnswInitPage(nbuf, npage);
-
-	/* Update neighbors */
-	AddNeighborsToPage(index, npage, e, ntup, nsize, m);
-
 	e->blkno = BufferGetBlockNumber(buf);
 	e->neighborPage = BufferGetBlockNumber(nbuf);
 
-	/* Set neighbor page for element */
-	etup->neighborPage = e->neighborPage;
+	insertPage = e->neighborPage;
 
-	/* Add to next offset */
 	if (OffsetNumberIsValid(freeOffno))
 	{
 		e->offno = freeOffno;
-		if (!PageIndexTupleOverwrite(page, freeOffno, (Item) etup, esize))
+		e->neighborOffno = freeNeighborOffno;
+	}
+	else
+	{
+		e->offno = OffsetNumberNext(PageGetMaxOffsetNumber(page));
+		if (nbuf == buf)
+			e->neighborOffno = OffsetNumberNext(e->offno);
+		else
+			e->neighborOffno = FirstOffsetNumber;
+	}
+
+	ItemPointerSet(&etup->neighbortid, e->neighborPage, e->neighborOffno);
+
+	/* Add element and neighbors */
+	if (OffsetNumberIsValid(freeOffno))
+	{
+		if (!PageIndexTupleOverwrite(page, e->offno, (Item) etup, etupSize))
+			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+
+		if (!PageIndexTupleOverwrite(npage, e->neighborOffno, (Item) ntup, ntupSize))
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 	}
 	else
 	{
-		e->offno = PageAddItem(page, (Item) etup, esize, InvalidOffsetNumber, false, false);
-		if (e->offno == InvalidOffsetNumber)
+		if (PageAddItem(page, (Item) etup, etupSize, InvalidOffsetNumber, false, false) != e->offno)
+			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+
+		if (PageAddItem(npage, (Item) ntup, ntupSize, InvalidOffsetNumber, false, false) != e->neighborOffno)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 	}
 
 	/* Commit */
 	MarkBufferDirty(buf);
-	MarkBufferDirty(nbuf);
+	if (nbuf != buf)
+		MarkBufferDirty(nbuf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
-	UnlockReleaseBuffer(nbuf);
+	if (nbuf != buf)
+		UnlockReleaseBuffer(nbuf);
 
 	/* Update the insert page */
 	if (insertPage != originalInsertPage)
@@ -201,12 +267,12 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 }
 
 /*
- * Calculate offset number for update
+ * Calculate index for update
  */
-static OffsetNumber
-HnswGetOffsetNumber(HnswUpdate * update, int m)
+static int
+HnswGetIndex(HnswUpdate * update, int m)
 {
-	return FirstOffsetNumber + (update->hc.element->level - update->level) * m + update->index;
+	return (update->hc.element->level - update->level) * m + update->index;
 }
 
 /*
@@ -215,36 +281,45 @@ HnswGetOffsetNumber(HnswUpdate * update, int m)
 static void
 UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 {
-	Buffer		buf;
-	Page		page;
-	GenericXLogState *state;
 	ListCell   *lc;
-	OffsetNumber offno;
-	Size		neighborsz = MAXALIGN(sizeof(HnswNeighborTupleData));
-	HnswNeighborTuple neighbor = palloc0(neighborsz);
 
 	/* Could update multiple at once for same element */
 	/* but should only happen a low percent of time, so keep simple for now */
 	foreach(lc, updates)
 	{
+		Buffer		buf;
+		Page		page;
+		GenericXLogState *state;
 		HnswUpdate *update = lfirst(lc);
+		ItemId		itemid;
+		Size		neighborsz;
+		int			idx;
+		OffsetNumber offno = update->hc.element->neighborOffno;
 
 		/* Register page */
 		buf = ReadBuffer(index, update->hc.element->neighborPage);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
-		offno = HnswGetOffsetNumber(update, m);
+
+		itemid = PageGetItemId(page, offno);
+		neighborsz = ItemIdGetLength(itemid);
+
+		idx = HnswGetIndex(update, m);
 
 		/* Make robust against issues */
-		if (offno <= PageGetMaxOffsetNumber(page))
+		if (idx < HNSW_NEIGHBOR_COUNT(itemid))
 		{
+			HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
+
+			HnswNeighborTupleItem *neighbor = &ntup->neighbors[idx];
+
 			/* Set item data */
 			ItemPointerSet(&neighbor->indextid, e->blkno, e->offno);
 			neighbor->distance = update->hc.distance;
 
 			/* Update connections */
-			if (!PageIndexTupleOverwrite(page, offno, (Item) neighbor, neighborsz))
+			if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, neighborsz))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 			/* Commit */
@@ -267,7 +342,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	Size		esize = MAXALIGN(HNSW_ELEMENT_TUPLE_SIZE(dup->vec->dim));
+	Size		esize = HNSW_ELEMENT_TUPLE_SIZE(dup->vec->dim);
 	HnswElementTuple etup;
 	int			i;
 
