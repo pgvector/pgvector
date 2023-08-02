@@ -109,7 +109,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				(void) hash_search(vacuumstate->deleted, &ip, HASH_ENTER, NULL);
 			}
-			else if (etup->level > highestLevel && !(highestPoint->blkno == entryPoint->blkno && highestPoint->offno == entryPoint->offno))
+			else if (etup->level > highestLevel && !(blkno == entryPoint->blkno && offno == entryPoint->offno))
 			{
 				/* Keep track of highest non-entry point */
 				/* TODO Keep track of closest one to entry point? */
@@ -258,6 +258,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	if (BlockNumberIsValid(highestPoint->blkno))
 	{
 		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
+		/* TODO Prevent deleted entry point from being neighbor */
 		RepairGraphElement(vacuumstate, highestPoint);
 	}
 
