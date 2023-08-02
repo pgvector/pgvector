@@ -195,7 +195,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	HnswElement entryPoint;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
-	Size		neighborsz = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
+	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
 
 	/* Check if any neighbors point to deleted values */
 	if (!NeedsUpdated(vacuumstate, element))
@@ -233,7 +233,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	/* Update neighbors */
 	HnswSetNeighborTuple(ntup, element, m);
 
-	if (!PageIndexTupleOverwrite(page, element->neighborOffno, (Item) ntup, neighborsz))
+	if (!PageIndexTupleOverwrite(page, element->neighborOffno, (Item) ntup, ntupSize))
 		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	/* Commit */

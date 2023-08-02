@@ -206,7 +206,7 @@ CreateNeighborPages(HnswBuildState * buildstate)
 		Buffer		buf;
 		Page		page;
 		GenericXLogState *state;
-		Size		neighborsz = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
+		Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 
 		/* Can take a while, so ensure we can interrupt */
 		/* Needs to be called when no buffer locks are held */
@@ -219,7 +219,7 @@ CreateNeighborPages(HnswBuildState * buildstate)
 
 		HnswSetNeighborTuple(ntup, e, m);
 
-		if (!PageIndexTupleOverwrite(page, e->neighborOffno, (Item) ntup, neighborsz))
+		if (!PageIndexTupleOverwrite(page, e->neighborOffno, (Item) ntup, ntupSize))
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 		/* Commit */

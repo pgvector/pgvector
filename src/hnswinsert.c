@@ -34,7 +34,7 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size neighborsz, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
@@ -71,7 +71,7 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			itemid = PageGetItemId(*npage, neighborOffno);
 
 			/* Check for space on neighbor tuple page */
-			if (PageGetFreeSpace(*npage) + ItemIdGetLength(itemid) - sizeof(ItemIdData) >= neighborsz)
+			if (PageGetFreeSpace(*npage) + ItemIdGetLength(itemid) - sizeof(ItemIdData) >= ntupSize)
 			{
 				*freeOffno = offno;
 				*freeNeighborOffno = neighborOffno;
