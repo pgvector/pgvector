@@ -1,5 +1,7 @@
 #include "postgres.h"
 
+#include <math.h>
+
 #include "commands/vacuum.h"
 #include "hnsw.h"
 #include "storage/bufmgr.h"
