@@ -60,47 +60,47 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 		/* Iterate over nodes */
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			HnswElementTuple item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
 			int			idx = 0;
 			bool		itemUpdated = false;
 
 			/* Skip neighbor tuples */
-			if (!HnswIsElementTuple(item))
+			if (!HnswIsElementTuple(etup))
 				continue;
 
-			if (ItemPointerIsValid(&item->heaptids[0]))
+			if (ItemPointerIsValid(&etup->heaptids[0]))
 			{
 				for (int i = 0; i < HNSW_HEAPTIDS; i++)
 				{
 					/* Stop at first unused */
-					if (!ItemPointerIsValid(&item->heaptids[i]))
+					if (!ItemPointerIsValid(&etup->heaptids[i]))
 						break;
 
-					if (vacuumstate->callback(&item->heaptids[i], vacuumstate->callback_state))
+					if (vacuumstate->callback(&etup->heaptids[i], vacuumstate->callback_state))
 						itemUpdated = true;
 					else
 					{
 						/* Move to front of list */
-						item->heaptids[idx++] = item->heaptids[i];
+						etup->heaptids[idx++] = etup->heaptids[i];
 					}
 				}
 
 				if (itemUpdated)
 				{
-					Size		itemsz = HNSW_ELEMENT_TUPLE_SIZE(item->vec.dim);
+					Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
 
 					/* Mark rest as invalid */
 					for (int i = idx; i < HNSW_HEAPTIDS; i++)
-						ItemPointerSetInvalid(&item->heaptids[i]);
+						ItemPointerSetInvalid(&etup->heaptids[i]);
 
-					if (!PageIndexTupleOverwrite(page, offno, (Item) item, itemsz))
+					if (!PageIndexTupleOverwrite(page, offno, (Item) etup, etupSize))
 						elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 					updated = true;
 				}
 			}
 
-			if (!ItemPointerIsValid(&item->heaptids[0]))
+			if (!ItemPointerIsValid(&etup->heaptids[0]))
 			{
 				ItemPointerData ip;
 
@@ -109,13 +109,13 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				(void) hash_search(vacuumstate->deleted, &ip, HASH_ENTER, NULL);
 			}
-			else if (item->level > highestLevel && !(highestPoint->blkno == entryPoint->blkno && highestPoint->offno == entryPoint->offno))
+			else if (etup->level > highestLevel && !(highestPoint->blkno == entryPoint->blkno && highestPoint->offno == entryPoint->offno))
 			{
 				/* Keep track of highest non-entry point */
 				/* TODO Keep track of closest one to entry point? */
 				highestPoint->blkno = blkno;
 				highestPoint->offno = offno;
-				highestLevel = item->level;
+				highestLevel = etup->level;
 			}
 		}
 
@@ -317,26 +317,26 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		/* Load items into memory to minimize locking */
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			HnswElementTuple item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
 			HnswElement element;
 
 			/* Skip neighbor tuples */
-			if (!HnswIsElementTuple(item))
+			if (!HnswIsElementTuple(etup))
 				continue;
 
 			/* Skip updating neighbors if being deleted */
-			if (!ItemPointerIsValid(&item->heaptids[0]))
+			if (!ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
 
 			/* Create an element */
 			element = palloc(sizeof(HnswElementData));
-			element->neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
-			element->neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
-			element->level = item->level;
+			element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+			element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
+			element->level = etup->level;
 			element->blkno = blkno;
 			element->offno = offno;
-			element->vec = palloc(VECTOR_SIZE(item->vec.dim));
-			memcpy(element->vec, &item->vec, VECTOR_SIZE(item->vec.dim));
+			element->vec = palloc(VECTOR_SIZE(etup->vec.dim));
+			memcpy(element->vec, &etup->vec, VECTOR_SIZE(etup->vec.dim));
 
 			elements = lappend(elements, element);
 		}
@@ -393,32 +393,32 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 		/* Update element and neighbors together */
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			HnswElementTuple item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
-			Size		itemsz;
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			HnswNeighborTuple ntup;
+			Size		etupSize;
+			Size		ntupSize;
 			Buffer		nbuf;
 			Page		npage;
 			BlockNumber neighborPage;
 			OffsetNumber neighborOffno;
-			Size		ntupsz;
-			HnswNeighborTuple ntup;
 			int			neighborCount;
 
 			/* Skip neighbor tuples */
-			if (!HnswIsElementTuple(item))
+			if (!HnswIsElementTuple(etup))
 				continue;
 
-			if (ItemPointerIsValid(&item->heaptids[0]))
+			if (ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
 
 			/* Calculate sizes */
-			itemsz = HNSW_ELEMENT_TUPLE_SIZE(item->vec.dim);
-			ntupsz = HNSW_NEIGHBOR_TUPLE_SIZE(item->level, vacuumstate->m);
+			etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
+			ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(etup->level, vacuumstate->m);
 
-			neighborCount = (item->level + 2) * vacuumstate->m;
+			neighborCount = (etup->level + 2) * vacuumstate->m;
 
 			/* Get neighbor page */
-			neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
-			neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
+			neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+			neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
 
 			if (neighborPage == blkno)
 			{
@@ -436,8 +436,8 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Overwrite element */
 			/* TODO Increment version? */
-			item->deleted = 1;
-			MemSet(&item->vec.x, 0, item->vec.dim * sizeof(float));
+			etup->deleted = 1;
+			MemSet(&etup->vec.x, 0, etup->vec.dim * sizeof(float));
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < neighborCount; i++)
@@ -446,10 +446,10 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 				ntup->neighbors[i].distance = NAN;
 			}
 
-			if (!PageIndexTupleOverwrite(page, offno, (Item) item, itemsz))
+			if (!PageIndexTupleOverwrite(page, offno, (Item) etup, etupSize))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
-			if (!PageIndexTupleOverwrite(npage, neighborOffno, (Item) ntup, ntupsz))
+			if (!PageIndexTupleOverwrite(npage, neighborOffno, (Item) ntup, ntupSize))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 			/* Commit */

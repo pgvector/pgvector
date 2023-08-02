@@ -420,41 +420,41 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 {
 	Buffer		buf;
 	Page		page;
-	HnswElementTuple item;
+	HnswElementTuple etup;
 
 	/* Read vector */
 	buf = ReadBuffer(index, element->blkno);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 
-	item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, element->offno));
+	etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, element->offno));
 
-	Assert(HnswIsElementTuple(item));
+	Assert(HnswIsElementTuple(etup));
 
 	/* Load element */
 	element->heaptids = NIL;
 	for (int i = 0; i < HNSW_HEAPTIDS; i++)
 	{
 		/* Can stop at first invalid */
-		if (!ItemPointerIsValid(&item->heaptids[i]))
+		if (!ItemPointerIsValid(&etup->heaptids[i]))
 			break;
 
-		HnswAddHeapTid(element, &item->heaptids[i]);
+		HnswAddHeapTid(element, &etup->heaptids[i]);
 	}
-	element->level = item->level;
-	element->neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
-	element->neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
-	element->deleted = item->deleted;
+	element->level = etup->level;
+	element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+	element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
+	element->deleted = etup->deleted;
 
 	if (loadvec)
 	{
-		element->vec = palloc(VECTOR_SIZE(item->vec.dim));
-		memcpy(element->vec, &item->vec, VECTOR_SIZE(item->vec.dim));
+		element->vec = palloc(VECTOR_SIZE(etup->vec.dim));
+		memcpy(element->vec, &etup->vec, VECTOR_SIZE(etup->vec.dim));
 	}
 
 	/* Calculate distance */
 	if (distance != NULL)
-		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&item->vec)));
+		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->vec)));
 
 	/* Load neighbors if on same page */
 	if (element->neighborPage == element->blkno)

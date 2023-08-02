@@ -41,17 +41,17 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 
 	for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 	{
-		HnswElementTuple item = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
 
 		/* Skip neighbor tuples */
-		if (!HnswIsElementTuple(item))
+		if (!HnswIsElementTuple(etup))
 			continue;
 
 		/* TODO Remove level check */
-		if (item->deleted && item->level == element->level)
+		if (etup->deleted && etup->level == element->level)
 		{
-			BlockNumber neighborPage = ItemPointerGetBlockNumber(&item->neighbortid);
-			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&item->neighbortid);
+			BlockNumber neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
 			ItemId		itemid;
 
 			if (neighborPage == BufferGetBlockNumber(buf))
