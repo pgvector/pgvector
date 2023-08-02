@@ -84,6 +84,12 @@ HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **
 	GenericXLogFinish(*state);
 	UnlockReleaseBuffer(*buf);
 
+	/* Can take a while, so ensure we can interrupt */
+	/* Needs to be called when no buffer locks are held */
+	LockBuffer(newbuf, BUFFER_LOCK_UNLOCK);
+	CHECK_FOR_INTERRUPTS();
+	LockBuffer(newbuf, BUFFER_LOCK_EXCLUSIVE);
+
 	/* Prepare new page */
 	*buf = newbuf;
 	*state = GenericXLogStart(index);
@@ -201,6 +207,10 @@ CreateNeighborPages(HnswBuildState * buildstate)
 		Page		page;
 		GenericXLogState *state;
 		Size		neighborsz = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
+
+		/* Can take a while, so ensure we can interrupt */
+		/* Needs to be called when no buffer locks are held */
+		CHECK_FOR_INTERRUPTS();
 
 		buf = ReadBufferExtended(index, forkNum, e->neighborPage, RBM_NORMAL, NULL);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
