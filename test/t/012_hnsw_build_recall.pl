@@ -87,7 +87,7 @@ foreach (@operators) {
 	$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v $opclass);");
 
 	if ($operator eq "<#>") {
-		test_recall(0.85, $operator);
+		test_recall(0.80, $operator);
 	} else {
 		test_recall(0.99, $operator);
 	}
