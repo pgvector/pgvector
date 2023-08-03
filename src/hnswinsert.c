@@ -47,8 +47,7 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 		if (!HnswIsElementTuple(etup))
 			continue;
 
-		/* TODO Remove level check */
-		if (etup->deleted && etup->level == element->level)
+		if (etup->deleted)
 		{
 			BlockNumber neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
