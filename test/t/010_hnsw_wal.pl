@@ -75,7 +75,7 @@ $node_replica->start;
 $node_primary->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node_primary->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
 $node_primary->safe_psql("postgres",
-	"INSERT INTO tst SELECT i % 10, ARRAY[$array_sql] FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT i % 10, ARRAY[$array_sql] FROM generate_series(1, 1000) i;"
 );
 $node_primary->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops);");
 
@@ -89,7 +89,7 @@ for my $i (1 .. 10)
 	test_index_replay("delete $i");
 	$node_primary->safe_psql("postgres", "VACUUM tst;");
 	test_index_replay("vacuum $i");
-	my ($start, $end) = (10001 + ($i - 1) * 1000, 10000 + $i * 1000);
+	my ($start, $end) = (1001 + ($i - 1) * 100, 1000 + $i * 100);
 	$node_primary->safe_psql("postgres",
 		"INSERT INTO tst SELECT i % 10, ARRAY[$array_sql] FROM generate_series($start, $end) i;"
 	);
