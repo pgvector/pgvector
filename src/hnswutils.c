@@ -919,11 +919,13 @@ UpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNu
 		{
 			metap->entryBlkno = InvalidBlockNumber;
 			metap->entryOffno = InvalidOffsetNumber;
+			metap->entryLevel = -1;
 		}
 		else
 		{
 			metap->entryBlkno = entryPoint->blkno;
 			metap->entryOffno = entryPoint->offno;
+			metap->entryLevel = entryPoint->level;
 		}
 	}
 

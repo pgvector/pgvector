@@ -168,6 +168,7 @@ typedef struct HnswMetaPageData
 	uint32		efConstruction;
 	BlockNumber entryBlkno;
 	OffsetNumber entryOffno;
+	int16		entryLevel;
 	BlockNumber insertPage;
 }			HnswMetaPageData;
 
