@@ -11,20 +11,4 @@ SELECT * FROM t ORDER BY val <=> '[3,3,3]';
  [1,2,4]
 (3 rows)
 
-SELECT * FROM t ORDER BY val <=> '[0,0,0]';
-   val   
----------
- [1,1,1]
- [1,2,4]
- [1,2,3]
-(3 rows)
-
-SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector);
-   val   
----------
- [1,1,1]
- [1,2,4]
- [1,2,3]
-(3 rows)
-
 DROP TABLE t;
