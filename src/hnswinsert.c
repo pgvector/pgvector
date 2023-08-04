@@ -54,7 +54,7 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			ItemId		itemid;
 
 			if (!BlockNumberIsValid(*firstFreePage))
-				*firstFreePage = BufferGetBlockNumber(buf);
+				*firstFreePage = neighborPage;
 
 			if (neighborPage == BufferGetBlockNumber(buf))
 			{
