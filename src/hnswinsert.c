@@ -34,7 +34,7 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *firstFreePage)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
@@ -52,6 +52,9 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			BlockNumber neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
 			ItemId		itemid;
+
+			if (!BlockNumberIsValid(*firstFreePage))
+				*firstFreePage = BufferGetBlockNumber(buf);
 
 			if (neighborPage == BufferGetBlockNumber(buf))
 			{
@@ -124,6 +127,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 	Page		npage;
 	OffsetNumber freeOffno = InvalidOffsetNumber;
 	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
+	BlockNumber firstFreePage = InvalidBlockNumber;
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
@@ -163,7 +167,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 		}
 
 		/* Space from deleted item */
-		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno))
+		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &firstFreePage))
 		{
 			if (nbuf != buf)
 				npage = GenericXLogRegisterBuffer(state, nbuf, 0);
@@ -261,7 +265,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 		UnlockReleaseBuffer(nbuf);
 
 	/* Update the insert page */
-	if (insertPage != originalInsertPage)
+	if (insertPage != originalInsertPage && (!OffsetNumberIsValid(freeOffno) || firstFreePage == insertPage))
 		UpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
 }
 
