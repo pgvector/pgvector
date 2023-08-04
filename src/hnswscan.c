@@ -128,7 +128,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan hnsw index without order");
 
-		/* No items will match if null */
 		if (scan->orderByData->sk_flags & SK_ISNULL)
 			value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
 		else
