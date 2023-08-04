@@ -36,6 +36,29 @@ GetScanItems(IndexScanDesc scan, Datum q)
 }
 
 /*
+ * Get dimensions from metapage
+ */
+static int
+GetDimensions(Relation index)
+{
+	Buffer		buf;
+	Page		page;
+	HnswMetaPage metap;
+	int			dimensions;
+
+	buf = ReadBuffer(index, HNSW_METAPAGE_BLKNO);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+	metap = HnswPageGetMeta(page);
+
+	dimensions = metap->dimensions;
+
+	UnlockReleaseBuffer(buf);
+
+	return dimensions;
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -107,19 +130,18 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		/* No items will match if null */
 		if (scan->orderByData->sk_flags & SK_ISNULL)
-			return false;
-
-		value = scan->orderByData->sk_argument;
-
-		/* Value should not be compressed or toasted */
-		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
-		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
-
-		if (so->normprocinfo != NULL)
+			value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
+		else
 		{
-			/* No items will match if normalization fails */
-			if (!HnswNormValue(so->normprocinfo, so->collation, &value, NULL))
-				return false;
+			value = scan->orderByData->sk_argument;
+
+			/* Value should not be compressed or toasted */
+			Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
+			Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
+
+			/* Fine if normalization fails */
+			if (so->normprocinfo != NULL)
+				HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
 		}
 
 		GetScanItems(scan, value);

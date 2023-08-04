@@ -13,9 +13,13 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 (4 rows)
 
 SELECT * FROM t ORDER BY val <-> (SELECT NULL::vector);
- val 
------
-(0 rows)
+   val   
+---------
+ [0,0,0]
+ [1,1,1]
+ [1,2,3]
+ [1,2,4]
+(4 rows)
 
 SELECT COUNT(*) FROM t;
  count 
