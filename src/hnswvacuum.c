@@ -409,6 +409,10 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			if (!HnswIsElementTuple(etup))
 				continue;
 
+			/* Skip deleted tuples */
+			if (etup->deleted)
+				continue;
+
 			if (ItemPointerIsValid(&etup->heaptids[0]))
 			{
 				stats->num_index_tuples++;
