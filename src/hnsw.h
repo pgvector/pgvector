@@ -68,7 +68,7 @@
 #define HnswIsElementTuple(tup) ((tup)->type == HNSW_ELEMENT_TUPLE_TYPE)
 #define HnswIsNeighborTuple(tup) ((tup)->type == HNSW_NEIGHBOR_TUPLE_TYPE)
 
-#define GetLayerM(m, layer) (layer == 0 ? m * 2 : m)
+#define HnswGetLayerM(m, layer) (layer == 0 ? m * 2 : m)
 #define HnswGetMl(m) (1 / log(m))
 
 /* Variables */
@@ -84,8 +84,8 @@ typedef struct HnswElementData
 	HnswNeighborArray *neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
-	BlockNumber neighborPage;
 	OffsetNumber neighborOffno;
+	BlockNumber neighborPage;
 	Vector	   *vec;
 }			HnswElementData;
 

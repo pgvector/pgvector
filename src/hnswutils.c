@@ -556,7 +556,7 @@ HnswInitNeighbors(HnswElement element, int m)
 	for (int lc = 0; lc <= level; lc++)
 	{
 		HnswNeighborArray *a;
-		int			lm = GetLayerM(m, lc);
+		int			lm = HnswGetLayerM(m, lc);
 
 		a = &element->neighbors[lc];
 		a->length = 0;
@@ -760,21 +760,19 @@ SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinf
 
 				if (eDistance < f->distance || wlen < ef)
 				{
-					/* copy e */
-					HnswCandidate *e2 = palloc(sizeof(HnswCandidate));
+					/* Copy e */
+					HnswCandidate *ec = palloc(sizeof(HnswCandidate));
 
-					e2->element = e->element;
-					e2->distance = eDistance;
+					ec->element = e->element;
+					ec->distance = eDistance;
 
-					pairingheap_add(C, &(CreatePairingHeapNode(e2)->ph_node));
-					pairingheap_add(W, &(CreatePairingHeapNode(e2)->ph_node));
+					pairingheap_add(C, &(CreatePairingHeapNode(ec)->ph_node));
+					pairingheap_add(W, &(CreatePairingHeapNode(ec)->ph_node));
 					wlen++;
 
+					/* No need to decrement wlen */
 					if (wlen > ef)
-					{
 						pairingheap_remove_first(W);
-						wlen--;
-					}
 				}
 			}
 		}
@@ -874,7 +872,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 
 	for (int lc = level; lc >= 0; lc--)
 	{
-		int			lm = GetLayerM(m, lc);
+		int			lm = HnswGetLayerM(m, lc);
 
 		w = SearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
 		if (removeEntryPoint)
@@ -893,7 +891,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	/* Update connections */
 	for (int lc = level; lc >= 0; lc--)
 	{
-		int			lm = GetLayerM(m, lc);
+		int			lm = HnswGetLayerM(m, lc);
 
 		AddConnections(element, newNeighbors[lc], lm, lc);
 
@@ -957,7 +955,7 @@ HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m)
 	for (int lc = e->level; lc >= 0; lc--)
 	{
 		HnswNeighborArray *neighbors = &e->neighbors[lc];
-		int			lm = GetLayerM(m, lc);
+		int			lm = HnswGetLayerM(m, lc);
 
 		for (int i = 0; i < lm; i++)
 		{

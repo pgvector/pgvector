@@ -345,7 +345,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	Size		esize = HNSW_ELEMENT_TUPLE_SIZE(dup->vec->dim);
+	Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(dup->vec->dim);
 	HnswElementTuple etup;
 	int			i;
 
@@ -375,7 +375,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 	etup->heaptids[i] = *((ItemPointer) linitial(element->heaptids));
 
 	/* Update index tuple */
-	if (!PageIndexTupleOverwrite(page, dup->offno, (Item) etup, esize))
+	if (!PageIndexTupleOverwrite(page, dup->offno, (Item) etup, etupSize))
 		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	/* Commit */
