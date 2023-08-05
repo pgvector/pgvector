@@ -146,10 +146,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		GetScanItems(scan, value);
 		so->first = false;
-
-		/* Clean up if we allocated a new value */
-		if (value != scan->orderByData->sk_argument)
-			pfree(DatumGetPointer(value));
 	}
 
 	while (list_length(so->w) > 0)
@@ -190,7 +186,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->buf = ReadBuffer(scan->indexRelation, indexblkno);
 
 		scan->xs_recheckorderby = false;
-
 		return true;
 	}
 
