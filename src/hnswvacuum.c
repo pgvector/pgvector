@@ -259,7 +259,6 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	if (BlockNumberIsValid(highestPoint->blkno))
 	{
 		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
-		/* TODO Prevent deleted entry point from being neighbor */
 		RepairGraphElement(vacuumstate, highestPoint);
 	}
 
