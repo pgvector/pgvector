@@ -1,6 +1,7 @@
 #include "postgres.h"
 
 #include <float.h>
+#include <math.h>
 
 #include "access/amapi.h"
 #include "commands/vacuum.h"
@@ -69,6 +70,9 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 				 double *indexPages)
 {
 	GenericCosts costs;
+	int			m;
+	int			entryLevel;
+	Relation	index;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
 #endif
@@ -86,6 +90,17 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	MemSet(&costs, 0, sizeof(costs));
 
+	index = index_open(path->indexinfo->indexoid, NoLock);
+	m = HnswGetM(index);
+	index_close(index, NoLock);
+
+	/* Approximate entry level */
+	entryLevel = (int) -log(1.0 / path->indexinfo->tuples) * HnswGetMl(m);
+
+	/* TODO Improve estimate of visited tuples (currently underestimates) */
+	/* Account for number of tuples (or entry level), m, and ef_search */
+	costs.numIndexTuples = (entryLevel + 2) * m;
+
 #if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
 #else
@@ -93,9 +108,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, qinfos, &costs);
 #endif
 
-	/* TODO Improve cost estimate */
-
-	*indexStartupCost = costs.indexStartupCost;
+	/* Use total cost since most work happens before first tuple is returned */
+	*indexStartupCost = costs.indexTotalCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
