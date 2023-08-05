@@ -4,6 +4,7 @@
 #include "hnsw.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
+#include "utils/memutils.h"
 
 /*
  * Algorithm 5 from paper
@@ -22,7 +23,6 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return;
 
-	/* TODO Use memory context */
 	ep = lappend(ep, EntryCandidate(entryPoint, q, index, procinfo, collation, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
@@ -31,7 +31,6 @@ GetScanItems(IndexScanDesc scan, Datum q)
 		ep = w;
 	}
 
-	/* TODO Return all visited elements at level 0, not just ef search */
 	so->w = SearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL, NULL);
 }
 
@@ -72,7 +71,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
 	so->buf = InvalidBuffer;
 	so->first = true;
-	so->w = NIL;
+	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
+									   "Hnsw scan temporary context",
+									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
@@ -93,8 +94,7 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
 	so->first = true;
-	list_free(so->w);
-	so->w = NIL;
+	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
 		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
@@ -110,6 +110,7 @@ bool
 hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -169,6 +170,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		hc->element->heaptids = list_delete_last(hc->element->heaptids);
 
+		MemoryContextSwitchTo(oldCtx);
+
 #if PG_VERSION_NUM >= 120000
 		scan->xs_heaptid = *tid;
 #else
@@ -187,9 +190,11 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->buf = ReadBuffer(scan->indexRelation, indexblkno);
 
 		scan->xs_recheckorderby = false;
+
 		return true;
 	}
 
+	MemoryContextSwitchTo(oldCtx);
 	return false;
 }
 
@@ -205,7 +210,7 @@ hnswendscan(IndexScanDesc scan)
 	if (BufferIsValid(so->buf))
 		ReleaseBuffer(so->buf);
 
-	list_free(so->w);
+	MemoryContextDelete(so->tmpCtx);
 
 	pfree(so);
 	scan->opaque = NULL;

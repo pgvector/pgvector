@@ -220,6 +220,7 @@ typedef struct HnswScanOpaqueData
 	bool		first;
 	Buffer		buf;
 	List	   *w;
+	MemoryContext tmpCtx;
 
 	/* Support functions */
 	FmgrInfo   *procinfo;
