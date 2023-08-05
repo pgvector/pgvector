@@ -366,6 +366,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
+	IndexBulkDeleteResult *stats = vacuumstate->stats;
 
 	while (BlockNumberIsValid(blkno))
 	{
@@ -409,7 +410,12 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 				continue;
 
 			if (ItemPointerIsValid(&etup->heaptids[0]))
+			{
+				stats->num_index_tuples++;
 				continue;
+			}
+
+			stats->tuples_removed++;
 
 			/* Calculate sizes */
 			etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
