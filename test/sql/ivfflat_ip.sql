@@ -7,6 +7,6 @@ CREATE INDEX ON t USING ivfflat (val vector_ip_ops) WITH (lists = 1);
 INSERT INTO t (val) VALUES ('[1,2,4]');
 
 SELECT * FROM t ORDER BY val <#> '[3,3,3]';
-SELECT * FROM t ORDER BY val <#> (SELECT NULL::vector);
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <#> (SELECT NULL::vector)) t2;
 
 DROP TABLE t;

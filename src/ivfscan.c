@@ -181,6 +181,29 @@ GetScanItems(IndexScanDesc scan, Datum value)
 }
 
 /*
+ * Get dimensions from metapage
+ */
+static int
+GetDimensions(Relation index)
+{
+	Buffer		buf;
+	Page		page;
+	IvfflatMetaPage metap;
+	int			dimensions;
+
+	buf = ReadBuffer(index, IVFFLAT_METAPAGE_BLKNO);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+	metap = IvfflatPageGetMeta(page);
+
+	dimensions = metap->dimensions;
+
+	UnlockReleaseBuffer(buf);
+
+	return dimensions;
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -285,21 +308,19 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan ivfflat index without order");
 
-		/* No items will match if null */
 		if (scan->orderByData->sk_flags & SK_ISNULL)
-			return false;
-
-		value = scan->orderByData->sk_argument;
-
-		/* Value should not be compressed or toasted */
-		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
-		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
-
-		if (so->normprocinfo != NULL)
+			value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
+		else
 		{
-			/* No items will match if normalization fails */
-			if (!IvfflatNormValue(so->normprocinfo, so->collation, &value, NULL))
-				return false;
+			value = scan->orderByData->sk_argument;
+
+			/* Value should not be compressed or toasted */
+			Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
+			Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
+
+			/* Fine if normalization fails */
+			if (so->normprocinfo != NULL)
+				IvfflatNormValue(so->normprocinfo, so->collation, &value, NULL);
 		}
 
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));

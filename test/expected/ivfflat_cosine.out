@@ -11,9 +11,16 @@ SELECT * FROM t ORDER BY val <=> '[3,3,3]';
  [1,2,4]
 (3 rows)
 
-SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector);
- val 
------
-(0 rows)
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> '[0,0,0]') t2;
+ count 
+-------
+     3
+(1 row)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector)) t2;
+ count 
+-------
+     3
+(1 row)
 
 DROP TABLE t;
