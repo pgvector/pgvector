@@ -214,6 +214,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 				return;
 
 			entryPoint = &vacuumstate->highestPoint;
+			entryPoint->neighbors = NULL;
 		}
 		else
 			entryPoint = NULL;

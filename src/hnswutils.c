@@ -846,15 +846,22 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	HnswElement dup;
 	BlockNumber *skipPage = vacuuming ? &element->neighborPage : NULL;
 	OffsetNumber *skipOffno = vacuuming ? &element->neighborOffno : NULL;
+	bool		removeEntryPoint;
+	HnswCandidate *entryCandidate;
 
 	/* Get entry point and level */
 	if (entryPoint != NULL)
 	{
-		ep = lappend(ep, EntryCandidate(entryPoint, q, index, procinfo, collation, true));
+		entryCandidate = EntryCandidate(entryPoint, q, index, procinfo, collation, true);
+		ep = lappend(ep, entryCandidate);
 		entryLevel = entryPoint->level;
+		removeEntryPoint = vacuuming && list_length(entryPoint->heaptids) == 0;
 	}
 	else
+	{
 		entryLevel = -1;
+		removeEntryPoint = false;
+	}
 
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
@@ -870,6 +877,8 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		int			lm = GetLayerM(m, lc);
 
 		w = SearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
+		if (removeEntryPoint)
+			w = list_delete_ptr(w, entryCandidate);
 		newNeighbors[lc] = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
 		ep = w;
 	}
