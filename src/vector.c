@@ -681,6 +681,7 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 		dp += a->x[i] * b->x[i];
 
 	distance = (double) dp;
+
 	/* Prevent NaN with acos with loss of precision */
 	if (distance > 1)
 		distance = 1;
