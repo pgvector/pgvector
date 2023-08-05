@@ -112,7 +112,6 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			else if (etup->level > highestLevel && !(blkno == entryPoint->blkno && offno == entryPoint->offno))
 			{
 				/* Keep track of highest non-entry point */
-				/* TODO Keep track of closest one to entry point? */
 				highestPoint->blkno = blkno;
 				highestPoint->offno = offno;
 				highestLevel = etup->level;
@@ -446,7 +445,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			ntup = (HnswNeighborTuple) PageGetItem(npage, PageGetItemId(npage, neighborOffno));
 
 			/* Overwrite element */
-			/* TODO Increment version? */
 			etup->deleted = 1;
 			MemSet(&etup->vec.x, 0, etup->vec.dim * sizeof(float));
 

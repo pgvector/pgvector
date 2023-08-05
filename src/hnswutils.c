@@ -375,9 +375,7 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
 
 	HnswInitNeighbors(element, m);
 
-	/* If not, neighbor page represents new item */
-	/* Only caught if item has a different level */
-	/* TODO Use versioning to fix this? */
+	/* Ensure expected neighbors */
 	if (HNSW_NEIGHBOR_COUNT(itemid) == neighborCount)
 	{
 		HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
