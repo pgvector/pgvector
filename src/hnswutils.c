@@ -611,7 +611,7 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
 void
 HnswFreeElement(HnswElement element)
 {
-	list_free(element->heaptids);
+	list_free_deep(element->heaptids);
 	for (int lc = 0; lc <= element->level; lc++)
 		pfree(element->neighbors[lc].items);
 	pfree(element->neighbors);

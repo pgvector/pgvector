@@ -183,6 +183,9 @@ CreateElementPages(HnswBuildState * buildstate)
 	UnlockReleaseBuffer(buf);
 
 	HnswUpdateMetaPage(index, true, buildstate->entryPoint, insertPage, forkNum);
+
+	pfree(etup);
+	pfree(ntup);
 }
 
 /*
@@ -227,6 +230,8 @@ CreateNeighborPages(HnswBuildState * buildstate)
 		GenericXLogFinish(state);
 		UnlockReleaseBuffer(buf);
 	}
+
+	pfree(ntup);
 }
 
 /*
@@ -430,6 +435,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 static void
 FreeBuildState(HnswBuildState * buildstate)
 {
+	pfree(buildstate->normvec);
 	MemoryContextDelete(buildstate->tmpCtx);
 }
 
