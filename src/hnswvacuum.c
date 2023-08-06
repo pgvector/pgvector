@@ -31,7 +31,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 	HnswElement highestPoint = &vacuumstate->highestPoint;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
-	HnswElement entryPoint = GetEntryPoint(vacuumstate->index);
+	HnswElement entryPoint = HnswGetEntryPoint(vacuumstate->index);
 
 	/* Store separately since highestPoint.level is uint8 */
 	int			highestLevel = -1;
@@ -201,7 +201,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 		return;
 
 	/* Refresh entry point for each element */
-	entryPoint = GetEntryPoint(index);
+	entryPoint = HnswGetEntryPoint(index);
 
 	/* Special case for entry point */
 	if (element->blkno == entryPoint->blkno && element->offno == entryPoint->offno)
@@ -261,7 +261,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		RepairGraphElement(vacuumstate, highestPoint);
 	}
 
-	entryPoint = GetEntryPoint(index);
+	entryPoint = HnswGetEntryPoint(index);
 	if (entryPoint != NULL)
 	{
 		ItemPointerData epData;
@@ -269,7 +269,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		ItemPointerSet(&epData, entryPoint->blkno, entryPoint->offno);
 
 		if (DeletedContains(vacuumstate->deleted, &epData))
-			UpdateMetaPage(index, true, highestPoint, InvalidBlockNumber, MAIN_FORKNUM);
+			HnswUpdateMetaPage(index, true, highestPoint, InvalidBlockNumber, MAIN_FORKNUM);
 		else
 		{
 			/* Highest point will be used to repair */
@@ -484,7 +484,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 		UnlockReleaseBuffer(buf);
 	}
 
-	UpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
+	HnswUpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
 }
 
 /*

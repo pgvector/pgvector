@@ -232,19 +232,27 @@ typedef HnswScanOpaqueData * HnswScanOpaque;
 
 typedef struct HnswVacuumState
 {
+	/* Info */
 	Relation	index;
 	IndexBulkDeleteResult *stats;
 	IndexBulkDeleteCallback callback;
 	void	   *callback_state;
+
+	/* Settings */
 	int			m;
 	int			efConstruction;
-	HTAB	   *deleted;
-	BufferAccessStrategy bas;
+
+	/* Support functions */
 	FmgrInfo   *procinfo;
 	Oid			collation;
+
+	/* Variables */
+	HTAB	   *deleted;
+	BufferAccessStrategy bas;
 	HnswNeighborTuple ntup;
-	Size		nsize;
 	HnswElementData highestPoint;
+
+	/* Memory */
 	MemoryContext tmpCtx;
 }			HnswVacuumState;
 
@@ -258,13 +266,13 @@ Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		HnswInit(void);
-List	   *SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno);
-HnswElement GetEntryPoint(Relation index);
+List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno);
+HnswElement HnswGetEntryPoint(Relation index);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);
 HnswElement HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List **updates, bool vacuuming);
-HnswCandidate *EntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadvec);
-void		UpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum);
+HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadvec);
+void		HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum);
 void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
 void		HnswInitNeighbors(HnswElement element, int m);

@@ -266,7 +266,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 
 	/* Update the insert page */
 	if (insertPage != originalInsertPage && (!OffsetNumberIsValid(freeOffno) || firstFreePage == insertPage))
-		UpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
+		HnswUpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
 }
 
 /*
@@ -405,7 +405,7 @@ WriteElement(Relation index, HnswElement element, int m, List *updates, HnswElem
 
 	/* Update metapage if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
-		UpdateMetaPage(index, true, element, InvalidBlockNumber, MAIN_FORKNUM);
+		HnswUpdateMetaPage(index, true, element, InvalidBlockNumber, MAIN_FORKNUM);
 }
 
 /*
@@ -442,7 +442,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	element->vec = DatumGetVector(value);
 
 	/* Get entry point */
-	entryPoint = GetEntryPoint(index);
+	entryPoint = HnswGetEntryPoint(index);
 
 	/* Insert element in graph */
 	dup = HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, &updates, false);

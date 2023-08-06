@@ -182,7 +182,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 
-	UpdateMetaPage(index, true, buildstate->entryPoint, insertPage, forkNum);
+	HnswUpdateMetaPage(index, true, buildstate->entryPoint, insertPage, forkNum);
 }
 
 /*

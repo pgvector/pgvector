@@ -18,20 +18,20 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	Oid			collation = so->collation;
 	List	   *ep = NIL;
 	List	   *w;
-	HnswElement entryPoint = GetEntryPoint(index);
+	HnswElement entryPoint = HnswGetEntryPoint(index);
 
 	if (entryPoint == NULL)
 		return;
 
-	ep = lappend(ep, EntryCandidate(entryPoint, q, index, procinfo, collation, false));
+	ep = lappend(ep, HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = SearchLayer(q, ep, 1, lc, index, procinfo, collation, false, NULL, NULL);
+		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, false, NULL, NULL);
 		ep = w;
 	}
 
-	so->w = SearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL, NULL);
+	so->w = HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL, NULL);
 }
 
 /*

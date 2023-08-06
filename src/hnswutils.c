@@ -141,7 +141,7 @@ CreateElementFromBlock(BlockNumber blkno, OffsetNumber offno)
  * Get the entry point
  */
 HnswElement
-GetEntryPoint(Relation index)
+HnswGetEntryPoint(Relation index)
 {
 	Buffer		buf;
 	Page		page;
@@ -668,7 +668,7 @@ AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
  * Algorithm 2 from paper
  */
 List *
-SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno)
+HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno)
 {
 	ListCell   *lc2;
 
@@ -791,7 +791,7 @@ SearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinf
  * Create a candidate for the entry point
  */
 HnswCandidate *
-EntryCandidate(HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadvec)
+HnswEntryCandidate(HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadvec)
 {
 	HnswCandidate *hc = palloc(sizeof(HnswCandidate));
 
@@ -848,7 +848,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	/* Get entry point and level */
 	if (entryPoint != NULL)
 	{
-		entryCandidate = EntryCandidate(entryPoint, q, index, procinfo, collation, true);
+		entryCandidate = HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true);
 		ep = lappend(ep, entryCandidate);
 		entryLevel = entryPoint->level;
 		removeEntryPoint = vacuuming && list_length(entryPoint->heaptids) == 0;
@@ -861,7 +861,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = SearchLayer(q, ep, 1, lc, index, procinfo, collation, true, skipPage, skipOffno);
+		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, true, skipPage, skipOffno);
 		ep = w;
 	}
 
@@ -872,7 +872,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	{
 		int			lm = HnswGetLayerM(m, lc);
 
-		w = SearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
+		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
 		if (removeEntryPoint)
 			w = list_delete_ptr(w, entryCandidate);
 		newNeighbors[lc] = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
@@ -904,7 +904,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
  * Update the metapage
  */
 void
-UpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum)
+HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum)
 {
 	Buffer		buf;
 	Page		page;
