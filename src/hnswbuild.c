@@ -378,6 +378,7 @@ HnswGetMaxInMemoryElements(int m, double ml, int dimensions)
 	Size		elementSize = sizeof(HnswElementData);
 	double		avgLevel = -log(0.5) * ml;
 
+	elementSize += sizeof(HnswNeighborArray) * (avgLevel + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (avgLevel + 2));
 	elementSize += sizeof(ItemPointerData);
 	elementSize += VECTOR_SIZE(dimensions);
