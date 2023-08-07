@@ -432,11 +432,13 @@ Note: Replace `15` with your Postgres server version
 
 ### Windows
 
-Support for Windows is currently experimental. Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed, and run (update the path as needed):
+Support for Windows is currently experimental. Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed, and run:
 
 ```cmd
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 ```
+
+Note: The exact path will vary depending on your Visual Studio version and edition
 
 Then use `nmake` to build:
 
