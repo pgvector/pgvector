@@ -23,20 +23,20 @@ void
 HnswInit(void)
 {
 	hnsw_relopt_kind = add_reloption_kind();
-	add_int_reloption(hnsw_relopt_kind, "m", "Number of connections",
+	add_int_reloption(hnsw_relopt_kind, "m", "Max number of connections",
 					  HNSW_DEFAULT_M, HNSW_MIN_M, HNSW_MAX_M
 #if PG_VERSION_NUM >= 130000
 					  ,AccessExclusiveLock
 #endif
 		);
-	add_int_reloption(hnsw_relopt_kind, "ef_construction", "Size of dynamic candidate list",
+	add_int_reloption(hnsw_relopt_kind, "ef_construction", "Size of the dynamic candidate list for construction",
 					  HNSW_DEFAULT_EF_CONSTRUCTION, HNSW_MIN_EF_CONSTRUCTION, HNSW_MAX_EF_CONSTRUCTION
 #if PG_VERSION_NUM >= 130000
 					  ,AccessExclusiveLock
 #endif
 		);
 
-	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of dynamic candidate list",
+	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 10..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
 }

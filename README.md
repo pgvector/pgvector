@@ -159,6 +159,15 @@ By default, pgvector performs exact nearest neighbor search, which provides perf
 
 You can add an index to use approximate nearest neighbor search, which trades some recall for performance. Unlike typical indexes, you will see different results for queries after adding an approximate index.
 
+Supported index types are:
+
+- [IVFFlat](#ivfflat)
+- [HNSW](#hnsw) (*coming in 0.5.0*)
+
+## IVFFlat
+
+TODO Add description
+
 Three keys to achieving good recall are:
 
 1. Create the index *after* the table has some data
@@ -206,7 +215,52 @@ SELECT ...
 COMMIT;
 ```
 
-### Indexing Progress
+## HNSW
+
+TODO Add description and options
+
+Add an index for each distance function you want to use.
+
+L2 distance
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 40);
+```
+
+Inner product
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_ip_ops) WITH (m = 16, ef_construction = 40);
+```
+
+Cosine distance
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 40);
+```
+
+Vectors with up to 2,000 dimensions can be indexed.
+
+### Query Options
+
+Specify the size of the dynamic candidate list for search (40 by default)
+
+```sql
+SET hnsw.ef_search = 100;
+```
+
+A higher value provides better recall at the cost of speed.
+
+Use `SET LOCAL` inside a transaction to set it for a single query
+
+```sql
+BEGIN;
+SET LOCAL hnsw.ef_search = 100;
+SELECT ...
+COMMIT;
+```
+
+## Indexing Progress
 
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
 
@@ -217,8 +271,8 @@ SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
 The phases are:
 
 1. `initializing`
-2. `performing k-means`
-3. `sorting tuples`
+2. `performing k-means` (IVFFlat only)
+3. `sorting tuples` (IVFFlat only)
 4. `loading tuples`
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
@@ -283,7 +337,7 @@ SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
 
 ### Approximate Search
 
-To speed up queries with an index, increase the number of inverted lists (at the expense of recall).
+To speed up queries with an IVFFlat index, increase the number of inverted lists (at the expense of recall).
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
@@ -358,7 +412,7 @@ or choose to store vectors inline:
 ALTER TABLE items ALTER COLUMN embedding SET STORAGE PLAIN;
 ```
 
-#### Why are there less results for a query after adding an index?
+#### Why are there less results for a query after adding an IVFFlat index?
 
 The index was likely created with too little data for the number of lists. Drop the index until the table has more data.
 
