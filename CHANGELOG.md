@@ -1,5 +1,6 @@
 ## 0.5.0 (unreleased)
 
+- Added HNSW index type
 - Added support for parallel index builds
 - Added `l1_distance` function
 - Added element-wise multiplication for vectors
