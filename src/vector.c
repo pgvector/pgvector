@@ -4,6 +4,7 @@
 
 #include "catalog/pg_type.h"
 #include "fmgr.h"
+#include "hnsw.h"
 #include "ivfflat.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
@@ -37,6 +38,7 @@ PG_MODULE_MAGIC;
 void
 _PG_init(void)
 {
+	HnswInit();
 	IvfflatInit();
 }
 

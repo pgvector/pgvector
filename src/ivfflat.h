@@ -3,10 +3,6 @@
 
 #include "postgres.h"
 
-#if PG_VERSION_NUM < 110000
-#error "Requires PostgreSQL 11+"
-#endif
-
 #include "access/generic_xlog.h"
 #include "access/parallel.h"
 #include "access/reloptions.h"
