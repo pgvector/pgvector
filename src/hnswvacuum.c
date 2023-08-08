@@ -20,7 +20,7 @@ DeletedContains(HTAB *deleted, ItemPointer indextid)
 }
 
 /*
- * Remove deleted heap tids
+ * Remove deleted heap TIDs
  *
  * OK to remove for entry point, since always considered for searches and inserts
  */
@@ -114,6 +114,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 				/* Keep track of highest non-entry point */
 				highestPoint->blkno = blkno;
 				highestPoint->offno = offno;
+				highestPoint->level = etup->level;
 				highestLevel = etup->level;
 			}
 		}
@@ -142,22 +143,18 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 	BufferAccessStrategy bas = vacuumstate->bas;
 	Buffer		buf;
 	Page		page;
-	ItemId		itemid;
-	int			neighborCount;
 	HnswNeighborTuple ntup;
 	bool		needsUpdated = false;
 
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
-	itemid = PageGetItemId(page, element->neighborOffno);
-	ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
-	neighborCount = HNSW_NEIGHBOR_COUNT(itemid);
+	ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, element->neighborOffno));
 
 	Assert(HnswIsNeighborTuple(ntup));
 
 	/* Check neighbors */
-	for (int i = 0; i < neighborCount; i++)
+	for (int i = 0; i < ntup->count; i++)
 	{
 		HnswNeighborTupleItem *neighbor = &ntup->neighbors[i];
 
@@ -213,26 +210,32 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 				return;
 
 			entryPoint = &vacuumstate->highestPoint;
+
+			/* Reset neighbors from previous update */
 			entryPoint->neighbors = NULL;
 		}
 		else
 			entryPoint = NULL;
 	}
 
+	/* Init fields */
 	HnswInitNeighbors(element, m);
 	element->heaptids = NIL;
 
+	/* Add element to graph, skipping itself */
 	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, NULL, true);
 
-	/* Write out new neighbors on page */
+	/* Update neighbor tuple */
+	/* Do this before getting page to minimize locking */
+	HnswSetNeighborTuple(ntup, element, m);
+
+	/* Get neighbor page */
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	state = GenericXLogStart(index);
 	page = GenericXLogRegisterBuffer(state, buf, 0);
 
-	/* Update neighbors */
-	HnswSetNeighborTuple(ntup, element, m);
-
+	/* Overwrite tuple */
 	if (!PageIndexTupleOverwrite(page, element->neighborOffno, (Item) ntup, ntupSize))
 		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
@@ -261,6 +264,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		RepairGraphElement(vacuumstate, highestPoint);
 	}
 
+	/* See if entry point needs updated */
 	entryPoint = HnswGetEntryPoint(index);
 	if (entryPoint != NULL)
 	{
@@ -402,7 +406,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			Page		npage;
 			BlockNumber neighborPage;
 			OffsetNumber neighborOffno;
-			int			neighborCount;
 
 			/* Skip neighbor tuples */
 			if (!HnswIsElementTuple(etup))
@@ -412,19 +415,19 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			if (etup->deleted)
 				continue;
 
+			/* Skip live tuples */
 			if (ItemPointerIsValid(&etup->heaptids[0]))
 			{
 				stats->num_index_tuples++;
 				continue;
 			}
 
+			/* Update stats */
 			stats->tuples_removed++;
 
 			/* Calculate sizes */
 			etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
 			ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(etup->level, vacuumstate->m);
-
-			neighborCount = (etup->level + 2) * vacuumstate->m;
 
 			/* Get neighbor page */
 			neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
@@ -449,15 +452,17 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			MemSet(&etup->vec.x, 0, etup->vec.dim * sizeof(float));
 
 			/* Overwrite neighbors */
-			for (int i = 0; i < neighborCount; i++)
+			for (int i = 0; i < ntup->count; i++)
 			{
 				ItemPointerSetInvalid(&ntup->neighbors[i].indextid);
 				ntup->neighbors[i].distance = NAN;
 			}
 
+			/* Overwrite element tuple */
 			if (!PageIndexTupleOverwrite(page, offno, (Item) etup, etupSize))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
+			/* Overwrite neighbor tuple */
 			if (!PageIndexTupleOverwrite(npage, neighborOffno, (Item) ntup, ntupSize))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
@@ -543,7 +548,7 @@ hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 	InitVacuumState(&vacuumstate, info, stats, callback, callback_state);
 
-	/* Pass 1: Remove heap tids */
+	/* Pass 1: Remove heap TIDs */
 	RemoveHeapTids(&vacuumstate);
 
 	/* Pass 2: Repair graph */

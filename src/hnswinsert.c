@@ -295,6 +295,7 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 		GenericXLogState *state;
 		HnswUpdate *update = lfirst(lc);
 		ItemId		itemid;
+		HnswNeighborTuple ntup;
 		Size		ntupSize;
 		int			idx;
 		OffsetNumber offno = update->hc.element->neighborOffno;
@@ -305,23 +306,24 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
+		/* Get tuple */
 		itemid = PageGetItemId(page, offno);
+		ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
 		ntupSize = ItemIdGetLength(itemid);
 
+		/* Calculate index */
 		idx = HnswGetIndex(update, m);
 
-		/* Make robust against issues */
-		if (idx < (int) HNSW_NEIGHBOR_COUNT(itemid))
+		/* Make robust to issues */
+		if (idx < ntup->count)
 		{
-			HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
-
 			HnswNeighborTupleItem *neighbor = &ntup->neighbors[idx];
 
-			/* Set item data */
+			/* Update neighbor */
 			ItemPointerSet(&neighbor->indextid, e->blkno, e->offno);
 			neighbor->distance = update->hc.distance;
 
-			/* Update connections */
+			/* Overwrite tuple */
 			if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, ntupSize))
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
@@ -337,7 +339,7 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 }
 
 /*
- * Add a heap tid to an existing element
+ * Add a heap TID to an existing element
  */
 static bool
 HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
@@ -371,10 +373,10 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 		return false;
 	}
 
-	/* Add heap tid */
+	/* Add heap TID */
 	etup->heaptids[i] = *((ItemPointer) linitial(element->heaptids));
 
-	/* Update index tuple */
+	/* Overwrite tuple */
 	if (!PageIndexTupleOverwrite(page, dup->offno, (Item) etup, etupSize))
 		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 

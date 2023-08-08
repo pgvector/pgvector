@@ -41,6 +41,7 @@
 #define HNSW_ELEMENT_TUPLE_TYPE  1
 #define HNSW_NEIGHBOR_TUPLE_TYPE 2
 
+/* Make graph robust against non-HOT updates */
 #define HNSW_HEAPTIDS 10
 
 /* Build phases */
@@ -49,7 +50,6 @@
 
 #define HNSW_ELEMENT_TUPLE_SIZE(_dim)	MAXALIGN(offsetof(HnswElementTupleData, vec) + VECTOR_SIZE(_dim))
 #define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, neighbors) + ((level) + 2) * (m) * sizeof(HnswNeighborTupleItem))
-#define HNSW_NEIGHBOR_COUNT(itemid) ((ItemIdGetLength(itemid) - offsetof(HnswNeighborTupleData, neighbors)) / sizeof(HnswNeighborTupleItem))
 
 #define HnswPageGetOpaque(page)	((HnswPageOpaque) PageGetSpecialPointer(page))
 #define HnswPageGetMeta(page)	((HnswMetaPageData *) PageGetContents(page))
@@ -164,8 +164,8 @@ typedef struct HnswMetaPageData
 	uint32		magicNumber;
 	uint32		version;
 	uint32		dimensions;
-	uint32		m;
-	uint32		efConstruction;
+	uint16		m;
+	uint16		efConstruction;
 	BlockNumber entryBlkno;
 	OffsetNumber entryOffno;
 	int16		entryLevel;
@@ -201,15 +201,14 @@ typedef struct HnswNeighborTupleItem
 {
 	ItemPointerData indextid;
 	uint16		unused;
-	float		distance;
+	float		distance;		/* improves performance of inserts */
 }			HnswNeighborTupleItem;
 
 typedef struct HnswNeighborTupleData
 {
 	uint8		type;
 	uint8		unused;
-	uint16		unused2;
-	uint32		unused3;
+	uint16		count;
 	HnswNeighborTupleItem neighbors[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborTupleData;
 
@@ -277,7 +276,7 @@ void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
 void		HnswInitNeighbors(HnswElement element, int m);
 bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel);
-void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadvec);
+void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec);
 void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
 
 /* Index access methods */

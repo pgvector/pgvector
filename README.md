@@ -166,7 +166,7 @@ Supported index types are:
 
 ## IVFFlat
 
-TODO Add description
+An IVFFlat index clusters vectors into lists, and then searches a subset of those lists. It has faster build times and uses less memory than HNSW, but has lower query performance.
 
 Three keys to achieving good recall are:
 
@@ -217,7 +217,12 @@ COMMIT;
 
 ## HNSW
 
-TODO Add description and options
+An HNSW index creates a multilayer graph between vectors. It has slower build times and uses more memory than IVFFlat, but has better query performance. There’s no training step like IVFFlat, so the index can be created without any data in the table.
+
+The options for HNSW are:
+
+- `m` - the max number of connections per layer (the bottom layer uses `2 * m`)
+- `ef_construction` - the size of the dynamic candidate list for constructing the graph
 
 Add an index for each distance function you want to use.
 
