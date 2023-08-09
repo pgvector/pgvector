@@ -754,7 +754,8 @@ normalize_l2(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	float	   *ax = a->x;
-	float		norm = 0.0;
+	double		norm = 0.0;
+	float		normf;
 	Vector	   *result;
 	float	   *rx;
 
@@ -763,15 +764,16 @@ normalize_l2(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		norm += ax[i] * ax[i];
+		norm += (double) ax[i] * (double) ax[i];
 
-	norm = sqrtf(norm);
+	norm = sqrt(norm);
+	normf = (float) norm;
 
-	if (norm > 0)
+	if (normf > 0)
 	{
 		/* Auto-vectorized */
 		for (int i = 0, imax = a->dim; i < imax; i++)
-			rx[i] = ax[i] / norm;
+			rx[i] = ax[i] / normf;
 
 		/* Check for overflow */
 		for (int i = 0, imax = a->dim; i < imax; i++)

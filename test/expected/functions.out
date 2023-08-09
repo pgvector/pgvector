@@ -72,6 +72,12 @@ SELECT normalize_l2('[0,0]');
  [0,0]
 (1 row)
 
+SELECT normalize_l2('[3e38]');
+ normalize_l2 
+--------------
+ [1]
+(1 row)
+
 SELECT l2_distance('[0,0]', '[3,4]');
  l2_distance 
 -------------

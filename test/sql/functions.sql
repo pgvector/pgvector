@@ -16,6 +16,7 @@ SELECT normalize_l2('[3,4]');
 SELECT normalize_l2('[3,0]');
 SELECT normalize_l2('[0,0.1]');
 SELECT normalize_l2('[0,0]');
+SELECT normalize_l2('[3e38]');
 
 SELECT l2_distance('[0,0]', '[3,4]');
 SELECT l2_distance('[0,0]', '[0,1]');
