@@ -49,7 +49,7 @@
 #define PROGRESS_HNSW_PHASE_LOAD		2
 
 #define HNSW_ELEMENT_TUPLE_SIZE(_dim)	MAXALIGN(offsetof(HnswElementTupleData, vec) + VECTOR_SIZE(_dim))
-#define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, neighbors) + ((level) + 2) * (m) * sizeof(HnswNeighborTupleItem))
+#define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, indextids) + ((level) + 2) * (m) * sizeof(ItemPointerData))
 
 #define HnswPageGetOpaque(page)	((HnswPageOpaque) PageGetSpecialPointer(page))
 #define HnswPageGetMeta(page)	((HnswMetaPageData *) PageGetContents(page))
@@ -197,19 +197,12 @@ typedef struct HnswElementTupleData
 
 typedef HnswElementTupleData * HnswElementTuple;
 
-typedef struct HnswNeighborTupleItem
-{
-	ItemPointerData indextid;
-	uint16		unused;
-	float		distance;		/* improves performance of inserts */
-}			HnswNeighborTupleItem;
-
 typedef struct HnswNeighborTupleData
 {
 	uint8		type;
 	uint8		unused;
 	uint16		count;
-	HnswNeighborTupleItem neighbors[FLEXIBLE_ARRAY_MEMBER];
+	ItemPointerData indextids[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborTupleData;
 
 typedef HnswNeighborTupleData * HnswNeighborTuple;
@@ -296,6 +289,6 @@ bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
 
 /* Ensure fits in uint8 */
-#define HnswGetMaxLevel(m) Min(((BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - offsetof(HnswNeighborTupleData, neighbors) - sizeof(ItemIdData)) / (sizeof(HnswNeighborTupleItem)) / m) - 2, 255)
+#define HnswGetMaxLevel(m) Min(((BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - offsetof(HnswNeighborTupleData, indextids) - sizeof(ItemIdData)) / (sizeof(ItemPointerData)) / m) - 2, 255)
 
 #endif

@@ -156,13 +156,13 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 	/* Check neighbors */
 	for (int i = 0; i < ntup->count; i++)
 	{
-		HnswNeighborTupleItem *neighbor = &ntup->neighbors[i];
+		ItemPointer indextid = &ntup->indextids[i];
 
-		if (!ItemPointerIsValid(&neighbor->indextid))
+		if (!ItemPointerIsValid(indextid))
 			continue;
 
 		/* Check if in deleted list */
-		if (DeletedContains(vacuumstate->deleted, &neighbor->indextid))
+		if (DeletedContains(vacuumstate->deleted, indextid))
 		{
 			needsUpdated = true;
 			break;
@@ -453,10 +453,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < ntup->count; i++)
-			{
-				ItemPointerSetInvalid(&ntup->neighbors[i].indextid);
-				ntup->neighbors[i].distance = NAN;
-			}
+				ItemPointerSetInvalid(&ntup->indextids[i]);
 
 			/* Overwrite element tuple */
 			if (!PageIndexTupleOverwrite(page, offno, (Item) etup, etupSize))

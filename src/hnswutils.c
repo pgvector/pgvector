@@ -309,20 +309,16 @@ HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m)
 
 		for (int i = 0; i < lm; i++)
 		{
-			HnswNeighborTupleItem *neighbor = &ntup->neighbors[idx++];
+			ItemPointer indextid = &ntup->indextids[idx++];
 
 			if (i < neighbors->length)
 			{
 				HnswCandidate *hc = &neighbors->items[i];
 
-				ItemPointerSet(&neighbor->indextid, hc->element->blkno, hc->element->offno);
-				neighbor->distance = hc->distance;
+				ItemPointerSet(indextid, hc->element->blkno, hc->element->offno);
 			}
 			else
-			{
-				ItemPointerSetInvalid(&neighbor->indextid);
-				neighbor->distance = NAN;
-			}
+				ItemPointerSetInvalid(indextid);
 		}
 	}
 
@@ -352,15 +348,15 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
 		HnswElement e;
 		int			level;
 		HnswCandidate *hc;
-		HnswNeighborTupleItem *neighbor;
+		ItemPointer indextid;
 		HnswNeighborArray *neighbors;
 
-		neighbor = &ntup->neighbors[i];
+		indextid = &ntup->indextids[i];
 
-		if (!ItemPointerIsValid(&neighbor->indextid))
+		if (!ItemPointerIsValid(indextid))
 			continue;
 
-		e = InitElementFromBlock(ItemPointerGetBlockNumber(&neighbor->indextid), ItemPointerGetOffsetNumber(&neighbor->indextid));
+		e = InitElementFromBlock(ItemPointerGetBlockNumber(indextid), ItemPointerGetOffsetNumber(indextid));
 
 		/* Calculate level based on offset */
 		level = element->level - i / m;
@@ -370,7 +366,6 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
 		neighbors = &element->neighbors[level];
 		hc = &neighbors->items[neighbors->length++];
 		hc->element = e;
-		hc->distance = neighbor->distance;
 	}
 }
 
@@ -850,30 +845,34 @@ UpdateConnections(HnswElement element, List *neighbors, int m, int lc, List **up
 			HnswCandidate *pruned = NULL;
 			List	   *c = NIL;
 
+			/* Load elements on insert */
+			if (index != NULL)
+			{
+				Datum		q = PointerGetDatum(hc->element->vec);
+
+				for (int i = 0; i < currentNeighbors->length; i++)
+				{
+					HnswCandidate *hc3 = &currentNeighbors->items[i];
+
+					if (hc3->element->vec == NULL)
+						HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
+					else
+						hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
+
+					/* Prune deleted element */
+					if (hc3->element->deleted)
+					{
+						pruned = &currentNeighbors->items[i];
+						break;
+					}
+				}
+			}
+
 			/* Add and sort candidates */
 			for (int i = 0; i < currentNeighbors->length; i++)
 				c = lappend(c, &currentNeighbors->items[i]);
 			c = lappend(c, &hc2);
 			list_sort(c, CompareCandidateDistances);
-
-			/* Load elements on insert */
-			if (index != NULL)
-			{
-				for (int i = 0; i < currentNeighbors->length; i++)
-				{
-					if (currentNeighbors->items[i].element->vec == NULL)
-					{
-						HnswLoadElement(currentNeighbors->items[i].element, NULL, NULL, index, procinfo, collation, true);
-
-						/* Prune deleted element */
-						if (currentNeighbors->items[i].element->deleted)
-						{
-							pruned = &currentNeighbors->items[i];
-							break;
-						}
-					}
-				}
-			}
 
 			if (pruned == NULL)
 			{

@@ -317,11 +317,10 @@ UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
 		/* Make robust to issues */
 		if (idx < ntup->count)
 		{
-			HnswNeighborTupleItem *neighbor = &ntup->neighbors[idx];
+			ItemPointer indextid = &ntup->indextids[idx];
 
 			/* Update neighbor */
-			ItemPointerSet(&neighbor->indextid, e->blkno, e->offno);
-			neighbor->distance = update->hc.distance;
+			ItemPointerSet(indextid, e->blkno, e->offno);
 
 			/* Overwrite tuple */
 			if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, ntupSize))
