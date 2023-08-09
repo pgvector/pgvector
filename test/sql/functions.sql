@@ -12,6 +12,11 @@ SELECT round(vector_norm('[1,1]')::numeric, 5);
 SELECT vector_norm('[3,4]');
 SELECT vector_norm('[0,1]');
 
+SELECT normalize_l2('[3,4]');
+SELECT normalize_l2('[3,0]');
+SELECT normalize_l2('[0,0.1]');
+SELECT normalize_l2('[0,0]');
+
 SELECT l2_distance('[0,0]', '[3,4]');
 SELECT l2_distance('[0,0]', '[0,1]');
 SELECT l2_distance('[1,2]', '[3]');

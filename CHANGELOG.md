@@ -3,6 +3,7 @@
 - Added HNSW index type
 - Added support for parallel index builds
 - Added `l1_distance` function
+- Added `normalize_l2` function
 - Added element-wise multiplication for vectors
 - Added `sum` aggregate
 - Improved performance of distance functions
