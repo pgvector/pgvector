@@ -859,8 +859,8 @@ UpdateConnections(HnswElement element, List *neighbors, int m, int lc, List **up
 					else
 						hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
 
-					/* Prune deleted element */
-					if (hc3->element->deleted)
+					/* Prune element if being deleted */
+					if (list_length(hc3->element->heaptids) == 0)
 					{
 						pruned = &currentNeighbors->items[i];
 						break;
@@ -868,14 +868,14 @@ UpdateConnections(HnswElement element, List *neighbors, int m, int lc, List **up
 				}
 			}
 
-			/* Add and sort candidates */
-			for (int i = 0; i < currentNeighbors->length; i++)
-				c = lappend(c, &currentNeighbors->items[i]);
-			c = lappend(c, &hc2);
-			list_sort(c, CompareCandidateDistances);
-
 			if (pruned == NULL)
 			{
+				/* Add and sort candidates */
+				for (int i = 0; i < currentNeighbors->length; i++)
+					c = lappend(c, &currentNeighbors->items[i]);
+				c = lappend(c, &hc2);
+				list_sort(c, CompareCandidateDistances);
+
 				SelectNeighbors(c, m, lc, procinfo, collation, &pruned);
 
 				/* Should not happen */
