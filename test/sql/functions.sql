@@ -11,6 +11,7 @@ SELECT vector_dims('[1,2,3]');
 SELECT round(vector_norm('[1,1]')::numeric, 5);
 SELECT vector_norm('[3,4]');
 SELECT vector_norm('[0,1]');
+SELECT vector_norm('[3e37,4e37]')::real;
 
 SELECT l2_distance('[0,0]', '[3,4]');
 SELECT l2_distance('[0,0]', '[0,1]');

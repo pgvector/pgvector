@@ -48,6 +48,12 @@ SELECT vector_norm('[0,1]');
            1
 (1 row)
 
+SELECT vector_norm('[3e37,4e37]')::real;
+ vector_norm 
+-------------
+       5e+37
+(1 row)
+
 SELECT l2_distance('[0,0]', '[3,4]');
  l2_distance 
 -------------

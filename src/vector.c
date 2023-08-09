@@ -736,13 +736,13 @@ vector_norm(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	float	   *ax = a->x;
-	float		norm = 0.0;
+	double		norm = 0.0;
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		norm += ax[i] * ax[i];
+		norm += (double) ax[i] * (double) ax[i];
 
-	PG_RETURN_FLOAT8(sqrt((double) norm));
+	PG_RETURN_FLOAT8(sqrt(norm));
 }
 
 /*
