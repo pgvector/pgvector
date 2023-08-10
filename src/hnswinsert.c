@@ -392,7 +392,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
  * Write changes to disk
  */
 static void
-WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, HnswElement dup, HnswElement entryPoint)
+WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement dup, HnswElement entryPoint)
 {
 	/* Try to add to existing page */
 	if (dup != NULL)
@@ -407,7 +407,19 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 
 	/* Update metapage if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
-		HnswUpdateMetaPage(index, true, element, InvalidBlockNumber, MAIN_FORKNUM);
+	{
+		/* TODO Lock metapage for entire block */
+		HnswElement newEntryPoint = HnswGetEntryPoint(index);
+
+		if (entryPoint == NULL && newEntryPoint != NULL)
+		{
+			/* Try again with new entry point */
+			HnswInsertElement(element, newEntryPoint, index, procinfo, collation, m, efConstruction, false);
+			UpdateNeighborPages(index, procinfo, collation, element, m);
+		}
+		else
+			HnswUpdateMetaPage(index, true, element, InvalidBlockNumber, MAIN_FORKNUM);
+	}
 }
 
 /*
@@ -452,7 +464,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	dup = HnswFindDuplicate(element);
 
 	/* Write to disk */
-	WriteElement(index, procinfo, collation, element, m, dup, entryPoint);
+	WriteElement(index, procinfo, collation, element, m, efConstruction, dup, entryPoint);
 
 	return true;
 }
