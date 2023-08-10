@@ -942,7 +942,6 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	}
 
 	/* Look for duplicates */
-	/* This must come last, since duplicate updates can fail */
 	if (level >= 0 && !vacuuming)
 	{
 		dup = HnswFindDuplicate(element);
