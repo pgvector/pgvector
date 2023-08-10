@@ -426,7 +426,7 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 		if (entryPoint == NULL && newEntryPoint != NULL)
 		{
 			/* Try again with new entry point */
-			HnswInsertElement(element, newEntryPoint, index, procinfo, collation, m, efConstruction, false);
+			HnswInsertElement(element, newEntryPoint, index, procinfo, collation, m, efConstruction, true);
 			UpdateNeighborPages(index, procinfo, collation, element, m);
 		}
 		else

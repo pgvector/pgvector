@@ -885,15 +885,15 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
  * Algorithm 1 from paper
  */
 void
-HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool vacuuming)
+HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing)
 {
 	List	   *ep = NIL;
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
 	Datum		q = PointerGetDatum(element->vec);
-	BlockNumber *skipPage = vacuuming ? &element->neighborPage : NULL;
-	OffsetNumber *skipOffno = vacuuming ? &element->neighborOffno : NULL;
+	BlockNumber *skipPage = existing ? &element->neighborPage : NULL;
+	OffsetNumber *skipOffno = existing ? &element->neighborOffno : NULL;
 	bool		removeEntryPoint;
 	HnswCandidate *entryCandidate;
 
@@ -903,7 +903,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		entryCandidate = HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true);
 		ep = lappend(ep, entryCandidate);
 		entryLevel = entryPoint->level;
-		removeEntryPoint = vacuuming && list_length(entryPoint->heaptids) == 0;
+		removeEntryPoint = existing && list_length(entryPoint->heaptids) == 0;
 	}
 	else
 	{
