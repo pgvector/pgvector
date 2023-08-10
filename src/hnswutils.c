@@ -892,7 +892,6 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	int			level = element->level;
 	int			entryLevel;
 	Datum		q = PointerGetDatum(element->vec);
-	HnswElement dup;
 	BlockNumber *skipPage = vacuuming ? &element->neighborPage : NULL;
 	OffsetNumber *skipOffno = vacuuming ? &element->neighborOffno : NULL;
 	bool		removeEntryPoint;
@@ -942,12 +941,8 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	}
 
 	/* Look for duplicates */
-	if (level >= 0 && !vacuuming)
-	{
-		dup = HnswFindDuplicate(element);
-		if (dup != NULL)
-			return dup;
-	}
+	if (!vacuuming)
+		return HnswFindDuplicate(element);
 
 	return NULL;
 }
