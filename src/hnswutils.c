@@ -447,7 +447,7 @@ GetCandidateDistance(HnswCandidate * hc, Datum q, FmgrInfo *procinfo, Oid collat
  * Create a candidate for the entry point
  */
 HnswCandidate *
-HnswEntryCandidate(HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadvec)
+HnswEntryCandidate(HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
 {
 	HnswCandidate *hc = palloc(sizeof(HnswCandidate));
 
@@ -455,7 +455,7 @@ HnswEntryCandidate(HnswElement entryPoint, Datum q, Relation index, FmgrInfo *pr
 	if (index == NULL)
 		hc->distance = GetCandidateDistance(hc, q, procinfo, collation);
 	else
-		HnswLoadElement(hc->element, &hc->distance, &q, index, procinfo, collation, loadvec);
+		HnswLoadElement(hc->element, &hc->distance, &q, index, procinfo, collation, loadVec);
 	return hc;
 }
 
