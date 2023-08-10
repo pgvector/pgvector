@@ -937,27 +937,11 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		if (removeEntryPoint)
 			w = list_delete_ptr(w, entryCandidate);
 
-		/* Always call on inserts since duplicate update can fail */
 		neighbors[lc] = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
-
-		ep = w;
-	}
-
-	/* Look for duplicate */
-	if (level >= 0 && !vacuuming)
-	{
-		dup = HnswFindDuplicate(element, neighbors[0]);
-		if (dup != NULL)
-			return dup;
-	}
-
-	/* Update connections */
-	for (int lc = level; lc >= 0; lc--)
-	{
-		int			lm = HnswGetLayerM(m, lc);
 
 		AddConnections(element, neighbors[lc], lm, lc);
 
+		/* Update connections */
 		if (!vacuuming && updateNeighbors == NULL)
 		{
 			ListCell   *lc2;
@@ -965,10 +949,21 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 			foreach(lc2, neighbors[lc])
 				HnswUpdateConnection(element, lfirst(lc2), lm, lc, NULL, index, procinfo, collation);
 		}
+
+		ep = w;
 	}
 
 	if (updateNeighbors != NULL)
 		*updateNeighbors = neighbors;
+
+	/* Look for duplicates */
+	/* This must come last, since duplicate updates can fail */
+	if (level >= 0 && !vacuuming)
+	{
+		dup = HnswFindDuplicate(element, neighbors[0]);
+		if (dup != NULL)
+			return dup;
+	}
 
 	return NULL;
 }
