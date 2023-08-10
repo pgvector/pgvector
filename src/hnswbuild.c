@@ -290,9 +290,9 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	/* Insert element in graph */
 	*dup = HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
+	/* Update neighbors if needed */
 	if (*dup == NULL)
 	{
-		/* Update neighbors */
 		for (int lc = element->level; lc >= 0; lc--)
 		{
 			int			lm = HnswGetLayerM(m, lc);
