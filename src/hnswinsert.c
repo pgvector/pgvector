@@ -319,9 +319,9 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 			{
 				/* Find free offset if still exists */
 				/* TODO Retry updating connections if not */
-				for (int i = 0; i < lm; i++)
-					if (!ItemPointerIsValid(&ntup->indextids[startIdx + i]))
-						idx = startIdx + i;
+				for (int j = 0; j < lm; j++)
+					if (!ItemPointerIsValid(&ntup->indextids[startIdx + j]))
+						idx = startIdx + j;
 			}
 			else
 				idx += startIdx;
