@@ -290,6 +290,7 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 			HnswNeighborTuple ntup;
 			Size		ntupSize;
 			int			idx = -1;
+			int			startIdx;
 			OffsetNumber offno = hc->element->neighborOffno;
 
 			/* Get latest neighbors */
@@ -312,10 +313,21 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 			ntupSize = ItemIdGetLength(itemid);
 
 			/* Calculate index for update */
-			idx += (hc->element->level - lc) * m;
+			startIdx = (hc->element->level - lc) * m;
+
+			if (idx == -2)
+			{
+				/* Find free offset if still exists */
+				/* TODO Retry updating connections if not */
+				for (int i = 0; i < lm; i++)
+					if (!ItemPointerIsValid(&ntup->indextids[startIdx + i]))
+						idx = startIdx + i;
+			}
+			else
+				idx += startIdx;
 
 			/* Make robust to issues */
-			if (idx < ntup->count)
+			if (idx >= 0 && idx < ntup->count)
 			{
 				ItemPointer indextid = &ntup->indextids[idx];
 

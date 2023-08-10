@@ -818,7 +818,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 
 		/* Track update */
 		if (updateIdx != NULL)
-			*updateIdx = currentNeighbors->length - 1;
+			*updateIdx = -2;
 	}
 	else
 	{
