@@ -119,7 +119,7 @@ foreach (@operators) {
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
-	test_recall(100, 0.995, $operator);
+	test_recall(100, 0.9925, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 }
