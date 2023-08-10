@@ -114,14 +114,16 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
-	/* Adjust cost if needed since TOAST not included in seq scan cost */
+	/*
+	 * Adjust cost if needed since TOAST not included in seq scan cost
+	 * Assuming the index also uses table TOAST, the numIndexPages
+	 * would be approximately equal to the rel->pages * ratio. Other
+	 * than that ivfflat index scan is sequence scan.
+	 */
 	if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
-		/* Change all page cost from random to sequential */
-		costs.indexTotalCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
-
-		/* Remove cost of extra pages */
-		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+		costs.indexTotalCost -= costs.numIndexPages * costs.spc_random_page_cost -
+			path->indexinfo->rel->pages * ratio * spc_seq_page_cost;
 	}
 	else
 	{
