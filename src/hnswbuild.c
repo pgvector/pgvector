@@ -288,7 +288,10 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	memcpy(element->vec, DatumGetVector(value), VECTOR_SIZE(buildstate->dimensions));
 
 	/* Insert element in graph */
-	*dup = HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+
+	/* Look for duplicate */
+	*dup = HnswFindDuplicate(element);
 
 	/* Update neighbors if needed */
 	if (*dup == NULL)

@@ -743,7 +743,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswC
 /*
  * Find duplicate element
  */
-static HnswElement
+HnswElement
 HnswFindDuplicate(HnswElement e)
 {
 	HnswNeighborArray *neighbors = &e->neighbors[0];
@@ -884,7 +884,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 /*
  * Algorithm 1 from paper
  */
-HnswElement
+void
 HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool vacuuming)
 {
 	List	   *ep = NIL;
@@ -939,10 +939,4 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 
 		ep = w;
 	}
-
-	/* Look for duplicates */
-	if (!vacuuming)
-		return HnswFindDuplicate(element);
-
-	return NULL;
 }

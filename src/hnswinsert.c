@@ -446,7 +446,10 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	entryPoint = HnswGetEntryPoint(index);
 
 	/* Insert element in graph */
-	dup = HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, false);
+	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, false);
+
+	/* Look for duplicate */
+	dup = HnswFindDuplicate(element);
 
 	/* Write to disk */
 	WriteElement(index, procinfo, collation, element, m, dup, entryPoint);
