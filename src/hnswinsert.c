@@ -270,70 +270,72 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 }
 
 /*
- * Calculate index for update
- */
-static int
-HnswGetIndex(HnswUpdate * update, int m)
-{
-	return (update->hc.element->level - update->level) * m + update->index;
-}
-
-/*
  * Update neighbors
  */
 static void
-UpdateNeighborPages(Relation index, HnswElement e, int m, List *updates)
+UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, List **neighbors)
 {
-	ListCell   *lc;
-
-	/* Could update multiple at once for same element */
-	/* but should only happen a low percent of time, so keep simple for now */
-	foreach(lc, updates)
+	for (int lc = e->level; lc >= 0; lc--)
 	{
-		Buffer		buf;
-		Page		page;
-		GenericXLogState *state;
-		HnswUpdate *update = lfirst(lc);
-		ItemId		itemid;
-		HnswNeighborTuple ntup;
-		Size		ntupSize;
-		int			idx;
-		OffsetNumber offno = update->hc.element->neighborOffno;
+		int			lm = HnswGetLayerM(m, lc);
+		List	   *levelNeighbors = neighbors[lc];
+		ListCell   *lc2;
 
-		/* Register page */
-		buf = ReadBuffer(index, update->hc.element->neighborPage);
-		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-		state = GenericXLogStart(index);
-		page = GenericXLogRegisterBuffer(state, buf, 0);
-
-		/* Get tuple */
-		itemid = PageGetItemId(page, offno);
-		ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
-		ntupSize = ItemIdGetLength(itemid);
-
-		/* Calculate index */
-		idx = HnswGetIndex(update, m);
-
-		/* Make robust to issues */
-		if (idx < ntup->count)
+		foreach(lc2, levelNeighbors)
 		{
-			ItemPointer indextid = &ntup->indextids[idx];
+			HnswCandidate *hc = lfirst(lc2);
+			Buffer		buf;
+			Page		page;
+			GenericXLogState *state;
+			ItemId		itemid;
+			HnswNeighborTuple ntup;
+			Size		ntupSize;
+			int			idx = -1;
+			OffsetNumber offno = hc->element->neighborOffno;
 
-			/* Update neighbor */
-			ItemPointerSet(indextid, e->blkno, e->offno);
+			/* Get latest neighbors */
+			HnswLoadNeighbors(hc->element, index);
 
-			/* Overwrite tuple */
-			if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, ntupSize))
-				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+			HnswUpdateConnection(e, hc, lm, lc, &idx, index, procinfo, collation);
 
-			/* Commit */
-			MarkBufferDirty(buf);
-			GenericXLogFinish(state);
+			if (idx == -1)
+				continue;
+
+			/* Register page */
+			buf = ReadBuffer(index, hc->element->neighborPage);
+			LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+			state = GenericXLogStart(index);
+			page = GenericXLogRegisterBuffer(state, buf, 0);
+
+			/* Get tuple */
+			itemid = PageGetItemId(page, offno);
+			ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
+			ntupSize = ItemIdGetLength(itemid);
+
+			/* Calculate index for update */
+			idx += (hc->element->level - lc) * m;
+
+			/* Make robust to issues */
+			if (idx < ntup->count)
+			{
+				ItemPointer indextid = &ntup->indextids[idx];
+
+				/* Update neighbor */
+				ItemPointerSet(indextid, e->blkno, e->offno);
+
+				/* Overwrite tuple */
+				if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, ntupSize))
+					elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+
+				/* Commit */
+				MarkBufferDirty(buf);
+				GenericXLogFinish(state);
+			}
+			else
+				GenericXLogAbort(state);
+
+			UnlockReleaseBuffer(buf);
 		}
-		else
-			GenericXLogAbort(state);
-
-		UnlockReleaseBuffer(buf);
 	}
 }
 
@@ -391,7 +393,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
  * Write changes to disk
  */
 static void
-WriteElement(Relation index, HnswElement element, int m, List *updates, HnswElement dup, HnswElement entryPoint)
+WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, List **neighbors, HnswElement dup, HnswElement entryPoint)
 {
 	/* Try to add to existing page */
 	if (dup != NULL)
@@ -402,7 +404,7 @@ WriteElement(Relation index, HnswElement element, int m, List *updates, HnswElem
 
 	/* If fails, take this path */
 	WriteNewElementPages(index, element, m);
-	UpdateNeighborPages(index, element, m, updates);
+	UpdateNeighborPages(index, procinfo, collation, element, m, neighbors);
 
 	/* Update metapage if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -424,7 +426,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	double		ml = HnswGetMl(m);
 	FmgrInfo   *procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	Oid			collation = index->rd_indcollation[0];
-	List	   *updates = NIL;
+	List	  **neighbors;
 	HnswElement dup;
 
 	/* Detoast once for all calls */
@@ -446,10 +448,10 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	entryPoint = HnswGetEntryPoint(index);
 
 	/* Insert element in graph */
-	dup = HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, &updates, false);
+	dup = HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, &neighbors, false);
 
 	/* Write to disk */
-	WriteElement(index, element, m, updates, dup, entryPoint);
+	WriteElement(index, procinfo, collation, element, m, neighbors, dup, entryPoint);
 
 	return true;
 }

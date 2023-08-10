@@ -372,8 +372,8 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
 /*
  * Load neighbors
  */
-static void
-LoadNeighbors(HnswElement element, Relation index)
+void
+HnswLoadNeighbors(HnswElement element, Relation index)
 {
 	Buffer		buf;
 	Page		page;
@@ -571,7 +571,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 			break;
 
 		if (c->element->neighbors == NULL)
-			LoadNeighbors(c->element, index);
+			HnswLoadNeighbors(c->element, index);
 
 		/* Get the neighborhood at layer lc */
 		neighborhood = &c->element->neighbors[lc];
@@ -800,102 +800,82 @@ CompareCandidateDistances(const void *a, const void *b)
 }
 
 /*
- * Create update
- */
-static HnswUpdate *
-CreateUpdate(HnswCandidate * hc, int level, int index)
-{
-	HnswUpdate *update = palloc(sizeof(HnswUpdate));
-
-	update->hc = *hc;
-	update->level = level;
-	update->index = index;
-	return update;
-}
-
-/*
  * Update connections
  */
-static void
-UpdateConnections(HnswElement element, List *neighbors, int m, int lc, List **updates, Relation index, FmgrInfo *procinfo, Oid collation)
+void
+HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
-	ListCell   *lc2;
+	HnswNeighborArray *currentNeighbors = &hc->element->neighbors[lc];
 
-	foreach(lc2, neighbors)
+	HnswCandidate hc2;
+
+	hc2.element = element;
+	hc2.distance = hc->distance;
+
+	if (currentNeighbors->length < m)
 	{
-		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
-		HnswNeighborArray *currentNeighbors = &hc->element->neighbors[lc];
+		currentNeighbors->items[currentNeighbors->length++] = hc2;
 
-		HnswCandidate hc2;
+		/* Track update */
+		if (updateIdx != NULL)
+			*updateIdx = currentNeighbors->length - 1;
+	}
+	else
+	{
+		/* Shrink connections */
+		HnswCandidate *pruned = NULL;
+		List	   *c = NIL;
 
-		hc2.element = element;
-		hc2.distance = hc->distance;
-
-		if (currentNeighbors->length < m)
+		/* Load elements on insert */
+		if (index != NULL)
 		{
-			currentNeighbors->items[currentNeighbors->length++] = hc2;
+			Datum		q = PointerGetDatum(hc->element->vec);
 
-			/* Track updates */
-			if (updates != NULL)
-				*updates = lappend(*updates, CreateUpdate(hc, lc, currentNeighbors->length - 1));
-		}
-		else
-		{
-			/* Shrink connections */
-			HnswCandidate *pruned = NULL;
-			List	   *c = NIL;
-
-			/* Load elements on insert */
-			if (index != NULL)
-			{
-				Datum		q = PointerGetDatum(hc->element->vec);
-
-				for (int i = 0; i < currentNeighbors->length; i++)
-				{
-					HnswCandidate *hc3 = &currentNeighbors->items[i];
-
-					if (hc3->element->vec == NULL)
-						HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
-					else
-						hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
-
-					/* Prune element if being deleted */
-					if (list_length(hc3->element->heaptids) == 0)
-					{
-						pruned = &currentNeighbors->items[i];
-						break;
-					}
-				}
-			}
-
-			if (pruned == NULL)
-			{
-				/* Add and sort candidates */
-				for (int i = 0; i < currentNeighbors->length; i++)
-					c = lappend(c, &currentNeighbors->items[i]);
-				c = lappend(c, &hc2);
-				list_sort(c, CompareCandidateDistances);
-
-				SelectNeighbors(c, m, lc, procinfo, collation, &pruned);
-
-				/* Should not happen */
-				if (pruned == NULL)
-					continue;
-			}
-
-			/* Find and replace the pruned element */
 			for (int i = 0; i < currentNeighbors->length; i++)
 			{
-				if (currentNeighbors->items[i].element == pruned->element)
+				HnswCandidate *hc3 = &currentNeighbors->items[i];
+
+				if (hc3->element->vec == NULL)
+					HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
+				else
+					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
+
+				/* Prune element if being deleted */
+				if (list_length(hc3->element->heaptids) == 0)
 				{
-					currentNeighbors->items[i] = hc2;
-
-					/* Track updates */
-					if (updates != NULL)
-						*updates = lappend(*updates, CreateUpdate(hc, lc, i));
-
+					pruned = &currentNeighbors->items[i];
 					break;
 				}
+			}
+		}
+
+		if (pruned == NULL)
+		{
+			/* Add and sort candidates */
+			for (int i = 0; i < currentNeighbors->length; i++)
+				c = lappend(c, &currentNeighbors->items[i]);
+			c = lappend(c, &hc2);
+			list_sort(c, CompareCandidateDistances);
+
+			SelectNeighbors(c, m, lc, procinfo, collation, &pruned);
+
+			/* Should not happen */
+			if (pruned == NULL)
+				return;
+		}
+
+		/* Find and replace the pruned element */
+		for (int i = 0; i < currentNeighbors->length; i++)
+		{
+			if (currentNeighbors->items[i].element == pruned->element)
+			{
+				currentNeighbors->items[i] = hc2;
+
+				/* Track update */
+				if (updateIdx != NULL)
+					*updateIdx = i;
+
+				break;
 			}
 		}
 	}
@@ -905,13 +885,13 @@ UpdateConnections(HnswElement element, List *neighbors, int m, int lc, List **up
  * Algorithm 1 from paper
  */
 HnswElement
-HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List **updates, bool vacuuming)
+HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List ***updateNeighbors, bool vacuuming)
 {
 	List	   *ep = NIL;
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
-	List	  **ws = palloc(sizeof(List *) * (level + 1));
+	List	  **neighbors = palloc(sizeof(List *) * (level + 1));
 	Datum		q = PointerGetDatum(element->vec);
 	HnswElement dup;
 	BlockNumber *skipPage = vacuuming ? &element->neighborPage : NULL;
@@ -940,20 +920,25 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		ep = w;
 	}
 
-	if (level > entryLevel)
-		level = entryLevel;
+	while (level > entryLevel)
+	{
+		neighbors[level] = NIL;
+		level--;
+	}
 
 	/* 2nd phase */
 	for (int lc = level; lc >= 0; lc--)
 	{
+		int			lm = HnswGetLayerM(m, lc);
+
 		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
 
 		/* Remove entry point if it's being deleted */
 		if (removeEntryPoint)
 			w = list_delete_ptr(w, entryCandidate);
 
-		/* Save w for SelectNeighbors */
-		ws[lc] = w;
+		/* Always call on inserts since duplicate update can fail */
+		neighbors[lc] = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
 
 		ep = w;
 	}
@@ -961,7 +946,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	/* Look for duplicate */
 	if (level >= 0 && !vacuuming)
 	{
-		dup = HnswFindDuplicate(element, ws[0]);
+		dup = HnswFindDuplicate(element, neighbors[0]);
 		if (dup != NULL)
 			return dup;
 	}
@@ -970,13 +955,20 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	for (int lc = level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
-		List	   *newNeighbors = SelectNeighbors(ws[lc], lm, lc, procinfo, collation, NULL);
 
-		AddConnections(element, newNeighbors, lm, lc);
+		AddConnections(element, neighbors[lc], lm, lc);
 
-		if (!vacuuming)
-			UpdateConnections(element, newNeighbors, lm, lc, updates, index, procinfo, collation);
+		if (!vacuuming && updateNeighbors == NULL)
+		{
+			ListCell   *lc2;
+
+			foreach(lc2, neighbors[lc])
+				HnswUpdateConnection(element, lfirst(lc2), lm, lc, NULL, index, procinfo, collation);
+		}
 	}
+
+	if (updateNeighbors != NULL)
+		*updateNeighbors = neighbors;
 
 	return NULL;
 }

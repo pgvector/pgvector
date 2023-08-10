@@ -106,13 +106,6 @@ typedef struct HnswNeighborArray
 	HnswCandidate *items;
 }			HnswNeighborArray;
 
-typedef struct HnswUpdate
-{
-	HnswCandidate hc;
-	int			level;
-	int			index;
-}			HnswUpdate;
-
 typedef struct HnswPairingHeapNode
 {
 	pairingheap_node ph_node;
@@ -265,7 +258,7 @@ List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, Fmgr
 HnswElement HnswGetEntryPoint(Relation index);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);
-HnswElement HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List **updates, bool vacuuming);
+HnswElement HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List ***updateNeighbors, bool vacuuming);
 HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadvec);
 void		HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum);
 void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);
@@ -274,6 +267,8 @@ void		HnswInitNeighbors(HnswElement element, int m);
 bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel);
 void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec);
 void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
+void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
+void		HnswLoadNeighbors(HnswElement element, Relation index);
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);
