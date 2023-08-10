@@ -911,7 +911,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
-	List	  **newNeighbors = palloc(sizeof(List *) * (level + 1));
+	List	  **ws = palloc(sizeof(List *) * (level + 1));
 	Datum		q = PointerGetDatum(element->vec);
 	HnswElement dup;
 	BlockNumber *skipPage = vacuuming ? &element->neighborPage : NULL;
@@ -946,22 +946,22 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	/* 2nd phase */
 	for (int lc = level; lc >= 0; lc--)
 	{
-		int			lm = HnswGetLayerM(m, lc);
-
 		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
 
 		/* Remove entry point if it's being deleted */
 		if (removeEntryPoint)
 			w = list_delete_ptr(w, entryCandidate);
 
-		newNeighbors[lc] = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
+		/* Save w for SelectNeighbors */
+		ws[lc] = w;
+
 		ep = w;
 	}
 
 	/* Look for duplicate */
 	if (level >= 0 && !vacuuming)
 	{
-		dup = HnswFindDuplicate(element, newNeighbors[0]);
+		dup = HnswFindDuplicate(element, ws[0]);
 		if (dup != NULL)
 			return dup;
 	}
@@ -970,11 +970,12 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	for (int lc = level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
+		List	   *newNeighbors = SelectNeighbors(ws[lc], lm, lc, procinfo, collation, NULL);
 
-		AddConnections(element, newNeighbors[lc], lm, lc);
+		AddConnections(element, newNeighbors, lm, lc);
 
 		if (!vacuuming)
-			UpdateConnections(element, newNeighbors[lc], lm, lc, updates, index, procinfo, collation);
+			UpdateConnections(element, newNeighbors, lm, lc, updates, index, procinfo, collation);
 	}
 
 	return NULL;
