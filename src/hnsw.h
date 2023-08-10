@@ -254,7 +254,7 @@ Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		HnswInit(void);
-List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno);
+List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, HnswElement skipElement);
 HnswElement HnswGetEntryPoint(Relation index);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);

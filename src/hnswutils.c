@@ -522,7 +522,7 @@ AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, BlockNumber *skipPage, OffsetNumber *skipOffno)
+HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, HnswElement skipElement)
 {
 	ListCell   *lc2;
 
@@ -603,7 +603,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 					continue;
 
 				/* Skip self for vacuuming update */
-				if (skipPage != NULL && e->element->neighborPage == *skipPage && e->element->neighborOffno == *skipOffno)
+				if (skipElement != NULL && e->element->neighborPage == skipElement->neighborPage && e->element->neighborOffno == skipElement->neighborOffno)
 					continue;
 
 				/* Make robust to issues */
@@ -892,8 +892,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	int			level = element->level;
 	int			entryLevel;
 	Datum		q = PointerGetDatum(element->vec);
-	BlockNumber *skipPage = existing ? &element->neighborPage : NULL;
-	OffsetNumber *skipOffno = existing ? &element->neighborOffno : NULL;
+	HnswElement skipElement = existing ? element : NULL;
 	bool		removeEntryPoint;
 	HnswCandidate *entryCandidate;
 
@@ -914,7 +913,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, true, skipPage, skipOffno);
+		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, true, skipElement);
 		ep = w;
 	}
 
@@ -927,7 +926,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		int			lm = HnswGetLayerM(m, lc);
 		List	   *neighbors;
 
-		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
+		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipElement);
 
 		/* Remove entry point if it's being deleted */
 		if (removeEntryPoint)
