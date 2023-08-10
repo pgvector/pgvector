@@ -288,7 +288,17 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	memcpy(element->vec, DatumGetVector(value), VECTOR_SIZE(buildstate->dimensions));
 
 	/* Insert element in graph */
-	*dup = HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, NULL, false);
+	*dup = HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+
+	/* Update neighbors */
+	for (int lc = element->level; lc >= 0; lc--)
+	{
+		int			lm = HnswGetLayerM(m, lc);
+		HnswNeighborArray *neighbors = &element->neighbors[lc];
+
+		for (int i = 0; i < neighbors->length; i++)
+			HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
+	}
 
 	/* Update entry point if needed */
 	if (*dup == NULL && (entryPoint == NULL || element->level > entryPoint->level))

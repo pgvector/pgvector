@@ -223,7 +223,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	element->heaptids = NIL;
 
 	/* Add element to graph, skipping itself */
-	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, NULL, true);
+	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, true);
 
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */

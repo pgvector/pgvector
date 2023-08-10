@@ -744,13 +744,13 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswC
  * Find duplicate element
  */
 static HnswElement
-HnswFindDuplicate(HnswElement e, List *neighbors)
+HnswFindDuplicate(HnswElement e)
 {
-	ListCell   *lc;
+	HnswNeighborArray *neighbors = &e->neighbors[0];
 
-	foreach(lc, neighbors)
+	for (int i = 0; i < neighbors->length; i++)
 	{
-		HnswCandidate *neighbor = lfirst(lc);
+		HnswCandidate *neighbor = &neighbors->items[i];
 
 		/* Exit early since ordered by distance */
 		if (vector_cmp_internal(e->vec, neighbor->element->vec) != 0)
@@ -885,13 +885,12 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
  * Algorithm 1 from paper
  */
 HnswElement
-HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List ***updateNeighbors, bool vacuuming)
+HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool vacuuming)
 {
 	List	   *ep = NIL;
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
-	List	  **neighbors = palloc(sizeof(List *) * (level + 1));
 	Datum		q = PointerGetDatum(element->vec);
 	HnswElement dup;
 	BlockNumber *skipPage = vacuuming ? &element->neighborPage : NULL;
@@ -920,16 +919,14 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		ep = w;
 	}
 
-	while (level > entryLevel)
-	{
-		neighbors[level] = NIL;
-		level--;
-	}
+	if (level > entryLevel)
+		level = entryLevel;
 
 	/* 2nd phase */
 	for (int lc = level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
+		List	   *neighbors;
 
 		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipPage, skipOffno);
 
@@ -937,30 +934,18 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		if (removeEntryPoint)
 			w = list_delete_ptr(w, entryCandidate);
 
-		neighbors[lc] = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
+		neighbors = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
 
-		AddConnections(element, neighbors[lc], lm, lc);
-
-		/* Update connections */
-		if (!vacuuming && updateNeighbors == NULL)
-		{
-			ListCell   *lc2;
-
-			foreach(lc2, neighbors[lc])
-				HnswUpdateConnection(element, lfirst(lc2), lm, lc, NULL, index, procinfo, collation);
-		}
+		AddConnections(element, neighbors, lm, lc);
 
 		ep = w;
 	}
-
-	if (updateNeighbors != NULL)
-		*updateNeighbors = neighbors;
 
 	/* Look for duplicates */
 	/* This must come last, since duplicate updates can fail */
 	if (level >= 0 && !vacuuming)
 	{
-		dup = HnswFindDuplicate(element, neighbors[0]);
+		dup = HnswFindDuplicate(element);
 		if (dup != NULL)
 			return dup;
 	}

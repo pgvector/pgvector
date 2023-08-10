@@ -258,7 +258,7 @@ List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, Fmgr
 HnswElement HnswGetEntryPoint(Relation index);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);
-HnswElement HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, List ***updateNeighbors, bool vacuuming);
+HnswElement HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool vacuuming);
 HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadvec);
 void		HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum);
 void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);

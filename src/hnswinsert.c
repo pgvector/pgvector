@@ -273,17 +273,16 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
  * Update neighbors
  */
 static void
-UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, List **neighbors)
+UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
-		List	   *levelNeighbors = neighbors[lc];
-		ListCell   *lc2;
+		HnswNeighborArray *neighbors = &e->neighbors[lc];
 
-		foreach(lc2, levelNeighbors)
+		for (int i = 0; i < neighbors->length; i++)
 		{
-			HnswCandidate *hc = lfirst(lc2);
+			HnswCandidate *hc = &neighbors->items[i];
 			Buffer		buf;
 			Page		page;
 			GenericXLogState *state;
@@ -393,7 +392,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
  * Write changes to disk
  */
 static void
-WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, List **neighbors, HnswElement dup, HnswElement entryPoint)
+WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, HnswElement dup, HnswElement entryPoint)
 {
 	/* Try to add to existing page */
 	if (dup != NULL)
@@ -404,7 +403,7 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 
 	/* If fails, take this path */
 	WriteNewElementPages(index, element, m);
-	UpdateNeighborPages(index, procinfo, collation, element, m, neighbors);
+	UpdateNeighborPages(index, procinfo, collation, element, m);
 
 	/* Update metapage if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -426,7 +425,6 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	double		ml = HnswGetMl(m);
 	FmgrInfo   *procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	Oid			collation = index->rd_indcollation[0];
-	List	  **neighbors;
 	HnswElement dup;
 
 	/* Detoast once for all calls */
@@ -448,10 +446,10 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	entryPoint = HnswGetEntryPoint(index);
 
 	/* Insert element in graph */
-	dup = HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, &neighbors, false);
+	dup = HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, false);
 
 	/* Write to disk */
-	WriteElement(index, procinfo, collation, element, m, neighbors, dup, entryPoint);
+	WriteElement(index, procinfo, collation, element, m, dup, entryPoint);
 
 	return true;
 }
