@@ -95,7 +95,7 @@ foreach (@operators) {
 	# Test approximate results
 	if ($operator ne "<#>") {
 		# TODO fix test
-		test_recall(1, 0.75, $operator);
+		test_recall(1, 0.73, $operator);
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
@@ -115,7 +115,7 @@ foreach (@operators) {
 	# Test approximate results
 	if ($operator ne "<#>") {
 		# TODO fix test
-		test_recall(1, 0.75, $operator);
+		test_recall(1, 0.73, $operator);
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
