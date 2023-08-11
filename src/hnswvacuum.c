@@ -413,7 +413,13 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Skip deleted tuples */
 			if (etup->deleted)
+			{
+				/* Set to first free page */
+				if (!BlockNumberIsValid(insertPage))
+					insertPage = blkno;
+
 				continue;
+			}
 
 			/* Skip live tuples */
 			if (ItemPointerIsValid(&etup->heaptids[0]))
