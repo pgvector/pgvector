@@ -154,6 +154,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 
 		/* First, try the fastest path */
 		/* Space for both tuples on the current page */
+		/* This can split existing tuples in rare cases */
 		if (PageGetFreeSpace(page) >= combinedSize)
 		{
 			nbuf = buf;
