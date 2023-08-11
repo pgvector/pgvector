@@ -492,6 +492,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 		UnlockReleaseBuffer(buf);
 	}
 
+	/* Update insert page last, after everything has been marked as deleted */
 	HnswUpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
 }
 
