@@ -34,7 +34,7 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *firstFreePage)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
@@ -49,14 +49,15 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 
 		if (etup->deleted)
 		{
+			BlockNumber elementPage = BufferGetBlockNumber(buf);
 			BlockNumber neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
 			ItemId		itemid;
 
-			if (!BlockNumberIsValid(*firstFreePage))
-				*firstFreePage = neighborPage;
+			if (!BlockNumberIsValid(*newInsertPage))
+				*newInsertPage = elementPage;
 
-			if (neighborPage == BufferGetBlockNumber(buf))
+			if (neighborPage == elementPage)
 			{
 				*nbuf = buf;
 				*npage = page;
@@ -110,7 +111,7 @@ HnswInsertAppendPage(Relation index, Buffer *nbuf, Page *npage, GenericXLogState
  * Add to element and neighbor pages
  */
 static void
-WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPage, BlockNumber *newInsertPage)
+WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPage, BlockNumber *updatedInsertPage)
 {
 	Buffer		buf;
 	Page		page;
@@ -119,6 +120,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	Size		ntupSize;
 	Size		combinedSize;
 	Size		maxSize;
+	Size		minCombinedSize;
 	HnswElementTuple etup;
 	BlockNumber originalInsertPage = insertPage;
 	int			dimensions = e->vec->dim;
@@ -127,13 +129,14 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	Page		npage;
 	OffsetNumber freeOffno = InvalidOffsetNumber;
 	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
-	BlockNumber firstFreePage = InvalidBlockNumber;
+	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData));
+	minCombinedSize = etupSize + HNSW_NEIGHBOR_TUPLE_SIZE(0, m) + sizeof(ItemIdData);
 
 	/* Prepare element tuple */
 	etup = palloc0(etupSize);
@@ -152,6 +155,10 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
+		/* Check for size for element at level 0 */
+		if (!BlockNumberIsValid(newInsertPage) && PageGetFreeSpace(page) >= minCombinedSize)
+			newInsertPage = insertPage;
+
 		/* First, try the fastest path */
 		/* Space for both tuples on the current page */
 		/* This can split existing tuples in rare cases */
@@ -163,7 +170,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		}
 
 		/* Next, try space from a deleted element */
-		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &firstFreePage))
+		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage))
 		{
 			if (nbuf != buf)
 				npage = GenericXLogRegisterBuffer(state, nbuf, 0);
@@ -223,7 +230,8 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	e->blkno = BufferGetBlockNumber(buf);
 	e->neighborPage = BufferGetBlockNumber(nbuf);
 
-	insertPage = e->neighborPage;
+	if (!BlockNumberIsValid(newInsertPage))
+		newInsertPage = e->neighborPage;
 
 	if (OffsetNumberIsValid(freeOffno))
 	{
@@ -269,8 +277,8 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		UnlockReleaseBuffer(nbuf);
 
 	/* Update the insert page */
-	if (insertPage != originalInsertPage && (!OffsetNumberIsValid(freeOffno) || firstFreePage == insertPage))
-		*newInsertPage = insertPage;
+	if (BlockNumberIsValid(newInsertPage) && newInsertPage != originalInsertPage)
+		*updatedInsertPage = newInsertPage;
 }
 
 /*

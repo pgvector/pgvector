@@ -416,7 +416,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			{
 				/* Set to first free page */
 				if (!BlockNumberIsValid(insertPage))
-					insertPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+					insertPage = blkno;
 
 				continue;
 			}
@@ -479,7 +479,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Set to first free page */
 			if (!BlockNumberIsValid(insertPage))
-				insertPage = neighborPage;
+				insertPage = blkno;
 
 			/* Prepare new xlog */
 			state = GenericXLogStart(index);
