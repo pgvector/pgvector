@@ -118,6 +118,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	Size		etupSize;
 	Size		ntupSize;
 	Size		combinedSize;
+	Size		maxSize;
 	HnswElementTuple etup;
 	BlockNumber originalInsertPage = insertPage;
 	int			dimensions = e->vec->dim;
@@ -132,6 +133,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
+	maxSize = BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData));
 
 	/* Prepare element tuple */
 	etup = palloc0(etupSize);
@@ -141,7 +143,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	ntup = palloc0(ntupSize);
 	HnswSetNeighborTuple(ntup, e, m);
 
-	/* Find a page to insert the item */
+	/* Find a page (or two if needed) to insert the tuples */
 	for (;;)
 	{
 		buf = ReadBuffer(index, insertPage);
@@ -150,7 +152,8 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
-		/* Space for both */
+		/* First, try the fastest path */
+		/* Space for both tuples on the current page */
 		if (PageGetFreeSpace(page) >= combinedSize)
 		{
 			nbuf = buf;
@@ -158,19 +161,20 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 			break;
 		}
 
-		/* Space for element but not neighbors and last page */
-		if (PageGetFreeSpace(page) >= etupSize && !BlockNumberIsValid(HnswPageGetOpaque(page)->nextblkno))
-		{
-			HnswInsertAppendPage(index, &nbuf, &npage, state, page);
-			break;
-		}
-
-		/* Space from deleted item */
+		/* Next, try space from a deleted element */
 		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &firstFreePage))
 		{
 			if (nbuf != buf)
 				npage = GenericXLogRegisterBuffer(state, nbuf, 0);
 
+			break;
+		}
+
+		/* Finally, try space for element only if last page */
+		/* Skip if element and neighbor can fit on the same page */
+		if (combinedSize > maxSize && PageGetFreeSpace(page) >= etupSize && !BlockNumberIsValid(HnswPageGetOpaque(page)->nextblkno))
+		{
+			HnswInsertAppendPage(index, &nbuf, &npage, state, page);
 			break;
 		}
 
