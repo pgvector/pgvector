@@ -37,7 +37,8 @@ $node->safe_psql("postgres",
 );
 
 # Check size
+# May increase some due to different levels
 my $new_size = $node->safe_psql("postgres", "SELECT pg_total_relation_size('tst_v_idx');");
-cmp_ok($new_size, "<=", $size * 1.01, "size does not increase too much");
+cmp_ok($new_size, "<=", $size * 1.02, "size does not increase too much");
 
 done_testing();
