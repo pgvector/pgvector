@@ -171,7 +171,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		}
 
 		/* Finally, try space for element only if last page */
-		/* Skip if element and neighbor can fit on the same page */
+		/* Skip if both tuples can fit on the same page */
 		if (combinedSize > maxSize && PageGetFreeSpace(page) >= etupSize && !BlockNumberIsValid(HnswPageGetOpaque(page)->nextblkno))
 		{
 			HnswInsertAppendPage(index, &nbuf, &npage, state, page);
