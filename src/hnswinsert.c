@@ -155,8 +155,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
-		/* Update insert page independently of current element */
-		/* Check for size for element at level 0 */
+		/* Keep track of first page where element at level 0 can fit */
 		if (!BlockNumberIsValid(newInsertPage) && PageGetFreeSpace(page) >= minCombinedSize)
 			newInsertPage = insertPage;
 
