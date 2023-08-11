@@ -29,7 +29,7 @@
 #define HNSW_HEAD_BLKNO		1	/* first element page */
 
 #define HNSW_DEFAULT_M	16
-#define HNSW_MIN_M	4
+#define HNSW_MIN_M	2
 #define HNSW_MAX_M		100
 #define HNSW_DEFAULT_EF_CONSTRUCTION	40
 #define HNSW_MIN_EF_CONSTRUCTION	10
