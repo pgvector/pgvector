@@ -423,6 +423,9 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	if (buildstate->dimensions > HNSW_MAX_DIM)
 		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", HNSW_MAX_DIM);
 
+	if (buildstate->efConstruction < 2 * buildstate->m)
+		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");
+
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;
 
