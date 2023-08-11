@@ -122,7 +122,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	Size		maxSize;
 	Size		minCombinedSize;
 	HnswElementTuple etup;
-	BlockNumber originalInsertPage = insertPage;
+	BlockNumber currentPage = insertPage;
 	int			dimensions = e->vec->dim;
 	HnswNeighborTuple ntup;
 	Buffer		nbuf;
@@ -149,7 +149,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	/* Find a page (or two if needed) to insert the tuples */
 	for (;;)
 	{
-		buf = ReadBuffer(index, insertPage);
+		buf = ReadBuffer(index, currentPage);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
 		state = GenericXLogStart(index);
@@ -157,7 +157,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 
 		/* Keep track of first page where element at level 0 can fit */
 		if (!BlockNumberIsValid(newInsertPage) && PageGetFreeSpace(page) >= minCombinedSize)
-			newInsertPage = insertPage;
+			newInsertPage = currentPage;
 
 		/* First, try the fastest path */
 		/* Space for both tuples on the current page */
@@ -186,9 +186,9 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 			break;
 		}
 
-		insertPage = HnswPageGetOpaque(page)->nextblkno;
+		currentPage = HnswPageGetOpaque(page)->nextblkno;
 
-		if (BlockNumberIsValid(insertPage))
+		if (BlockNumberIsValid(currentPage))
 		{
 			/* Move to next page */
 			GenericXLogAbort(state);
@@ -277,7 +277,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		UnlockReleaseBuffer(nbuf);
 
 	/* Update the insert page */
-	if (BlockNumberIsValid(newInsertPage) && newInsertPage != originalInsertPage)
+	if (BlockNumberIsValid(newInsertPage) && newInsertPage != insertPage)
 		*updatedInsertPage = newInsertPage;
 }
 
