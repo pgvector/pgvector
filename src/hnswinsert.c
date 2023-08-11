@@ -110,7 +110,7 @@ HnswInsertAppendPage(Relation index, Buffer *nbuf, Page *npage, GenericXLogState
  * Add to element and neighbor pages
  */
 static void
-WriteNewElementPages(Relation index, HnswElement e, int m)
+WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPage, BlockNumber *newInsertPage)
 {
 	Buffer		buf;
 	Page		page;
@@ -119,7 +119,6 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 	Size		ntupSize;
 	Size		combinedSize;
 	HnswElementTuple etup;
-	BlockNumber insertPage = GetInsertPage(index);
 	BlockNumber originalInsertPage = insertPage;
 	int			dimensions = e->vec->dim;
 	HnswNeighborTuple ntup;
@@ -266,7 +265,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m)
 
 	/* Update the insert page */
 	if (insertPage != originalInsertPage && (!OffsetNumberIsValid(freeOffno) || firstFreePage == insertPage))
-		HnswUpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
+		*newInsertPage = insertPage;
 }
 
 /*
@@ -351,6 +350,50 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 }
 
 /*
+ * Add the entry point
+ */
+static bool
+HnswAddEntryPoint(Relation index, HnswElement element, int m, HnswElement * entryPoint)
+{
+	Buffer		buf;
+	Page		page;
+	GenericXLogState *state;
+	HnswMetaPage metap;
+	BlockNumber newInsertPage = InvalidBlockNumber;
+
+	/* Lock the metapage to prevent concurrent inserts */
+	buf = ReadBuffer(index, HNSW_METAPAGE_BLKNO);
+	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+	page = BufferGetPage(buf);
+	metap = HnswPageGetMeta(page);
+
+	/* Check for new entry point after lock is acquired */
+	if (BlockNumberIsValid(metap->entryBlkno))
+	{
+		*entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
+
+		UnlockReleaseBuffer(buf);
+
+		return false;
+	}
+
+	/* Write element and neighbor tuples */
+	WriteNewElementPages(index, element, m, metap->insertPage, &newInsertPage);
+
+	/* Start WAL */
+	state = GenericXLogStart(index);
+	page = GenericXLogRegisterBuffer(state, buf, 0);
+
+	/* Update the metapage info */
+	HnswUpdateMetaPageInfo(page, true, element, newInsertPage);
+
+	/* Commit and unlock */
+	HnswCommitBuffer(buf, state);
+
+	return true;
+}
+
+/*
  * Add a heap TID to an existing element
  */
 static bool
@@ -406,6 +449,8 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 static void
 WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement dup, HnswElement entryPoint)
 {
+	BlockNumber newInsertPage = InvalidBlockNumber;
+
 	/* Try to add to existing page */
 	if (dup != NULL)
 	{
@@ -413,25 +458,19 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 			return;
 	}
 
-	/* If fails, take this path */
-	WriteNewElementPages(index, element, m);
+	/* Write element and neighbor tuples */
+	WriteNewElementPages(index, element, m, GetInsertPage(index), &newInsertPage);
+
+	/* Update insert page if needed */
+	if (BlockNumberIsValid(newInsertPage))
+		HnswUpdateMetaPage(index, false, NULL, newInsertPage, MAIN_FORKNUM);
+
+	/* Update neighbors */
 	UpdateNeighborPages(index, procinfo, collation, element, m);
 
 	/* Update metapage if needed */
-	if (entryPoint == NULL || element->level > entryPoint->level)
-	{
-		/* TODO Lock metapage for entire block */
-		HnswElement newEntryPoint = HnswGetEntryPoint(index);
-
-		if (entryPoint == NULL && newEntryPoint != NULL)
-		{
-			/* Try again with new entry point */
-			HnswInsertElement(element, newEntryPoint, index, procinfo, collation, m, efConstruction, true);
-			UpdateNeighborPages(index, procinfo, collation, element, m);
-		}
-		else
-			HnswUpdateMetaPage(index, true, element, InvalidBlockNumber, MAIN_FORKNUM);
-	}
+	if (element->level > entryPoint->level)
+		HnswUpdateMetaPage(index, true, element, InvalidBlockNumber, MAIN_FORKNUM);
 }
 
 /*
@@ -468,6 +507,13 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 
 	/* Get entry point */
 	entryPoint = HnswGetEntryPoint(index);
+
+	/* Special case for no entry point */
+	if (entryPoint == NULL)
+	{
+		if (HnswAddEntryPoint(index, element, m, &entryPoint))
+			return true;
+	}
 
 	/* Insert element in graph */
 	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, false);

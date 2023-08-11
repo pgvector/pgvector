@@ -197,8 +197,8 @@ HnswAddHeapTid(HnswElement element, ItemPointer heaptid)
 /*
  * Allocate an element from block and offset numbers
  */
-static HnswElement
-InitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
+HnswElement
+HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 {
 	HnswElement element = palloc(sizeof(HnswElementData));
 
@@ -226,7 +226,7 @@ HnswGetEntryPoint(Relation index)
 	metap = HnswPageGetMeta(page);
 
 	if (BlockNumberIsValid(metap->entryBlkno))
-		entryPoint = InitElementFromBlock(metap->entryBlkno, metap->entryOffno);
+		entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
 
 	UnlockReleaseBuffer(buf);
 
@@ -234,22 +234,12 @@ HnswGetEntryPoint(Relation index)
 }
 
 /*
- * Update the metapage
+ * Update the metapage info
  */
 void
-HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum)
+HnswUpdateMetaPageInfo(Page page, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage)
 {
-	Buffer		buf;
-	Page		page;
-	GenericXLogState *state;
-	HnswMetaPage metap;
-
-	buf = ReadBufferExtended(index, forkNum, HNSW_METAPAGE_BLKNO, RBM_NORMAL, NULL);
-	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-	state = GenericXLogStart(index);
-	page = GenericXLogRegisterBuffer(state, buf, 0);
-
-	metap = HnswPageGetMeta(page);
+	HnswMetaPage metap = HnswPageGetMeta(page);
 
 	if (updateEntry)
 	{
@@ -269,6 +259,24 @@ HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, Blo
 
 	if (BlockNumberIsValid(insertPage))
 		metap->insertPage = insertPage;
+}
+
+/*
+ * Update the metapage
+ */
+void
+HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum)
+{
+	Buffer		buf;
+	Page		page;
+	GenericXLogState *state;
+
+	buf = ReadBufferExtended(index, forkNum, HNSW_METAPAGE_BLKNO, RBM_NORMAL, NULL);
+	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+	state = GenericXLogStart(index);
+	page = GenericXLogRegisterBuffer(state, buf, 0);
+
+	HnswUpdateMetaPageInfo(page, updateEntry, entryPoint, insertPage);
 
 	HnswCommitBuffer(buf, state);
 }
@@ -356,7 +364,7 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
 		if (!ItemPointerIsValid(indextid))
 			continue;
 
-		e = InitElementFromBlock(ItemPointerGetBlockNumber(indextid), ItemPointerGetOffsetNumber(indextid));
+		e = HnswInitElementFromBlock(ItemPointerGetBlockNumber(indextid), ItemPointerGetOffsetNumber(indextid));
 
 		/* Calculate level based on offset */
 		level = element->level - i / m;
@@ -896,19 +904,15 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	bool		removeEntryPoint;
 	HnswCandidate *entryCandidate;
 
+	/* No neighbors if no entry point */
+	if (entryPoint == NULL)
+		return;
+
 	/* Get entry point and level */
-	if (entryPoint != NULL)
-	{
-		entryCandidate = HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true);
-		ep = lappend(ep, entryCandidate);
-		entryLevel = entryPoint->level;
-		removeEntryPoint = existing && list_length(entryPoint->heaptids) == 0;
-	}
-	else
-	{
-		entryLevel = -1;
-		removeEntryPoint = false;
-	}
+	entryCandidate = HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true);
+	ep = lappend(ep, entryCandidate);
+	entryLevel = entryPoint->level;
+	removeEntryPoint = existing && list_length(entryPoint->heaptids) == 0;
 
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
