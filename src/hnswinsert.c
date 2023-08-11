@@ -128,7 +128,6 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	OffsetNumber freeOffno = InvalidOffsetNumber;
 	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
 	BlockNumber firstFreePage = InvalidBlockNumber;
-	bool		lastPage;
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
@@ -153,14 +152,9 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
-		lastPage = !BlockNumberIsValid(HnswPageGetOpaque(page)->nextblkno);
-
-		/*
-		 * First, try the fastest path: space for both tuples on the current
-		 * page. Only check on last page to avoid splitting existing tuples in
-		 * rare cases (even though this is technically fine).
-		 */
-		if (lastPage && PageGetFreeSpace(page) >= combinedSize)
+		/* First, try the fastest path */
+		/* Space for both tuples on the current page */
+		if (PageGetFreeSpace(page) >= combinedSize)
 		{
 			nbuf = buf;
 			npage = page;
@@ -178,7 +172,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 
 		/* Finally, try space for element only if last page */
 		/* Skip if both tuples can fit on the same page */
-		if (lastPage && combinedSize > maxSize && PageGetFreeSpace(page) >= etupSize)
+		if (combinedSize > maxSize && PageGetFreeSpace(page) >= etupSize && !BlockNumberIsValid(HnswPageGetOpaque(page)->nextblkno))
 		{
 			HnswInsertAppendPage(index, &nbuf, &npage, state, page);
 			break;
