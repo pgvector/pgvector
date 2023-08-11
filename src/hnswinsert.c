@@ -512,7 +512,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	/* Get entry point */
 	entryPoint = HnswGetEntryPoint(index);
 
-	/* Special case for no entry point */
+	/* Prevent concurrent inserts when no entry point */
 	if (entryPoint == NULL)
 	{
 		if (HnswAddEntryPoint(index, element, m, &entryPoint))
