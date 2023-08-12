@@ -256,8 +256,12 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	HnswElement entryPoint;
 	MemoryContext oldCtx = MemoryContextSwitchTo(vacuumstate->tmpCtx);
 
+	/*
+	 * TODO Look for newer highest point. Outdated point works, but can remove
+	 * connections at higher levels in the graph, which is not ideal.
+	 */
+
 	/* Repair graph for highest non-entry point */
-	/* This may not be the highest with new inserts, but should be fine */
 	if (BlockNumberIsValid(highestPoint->blkno))
 	{
 		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
