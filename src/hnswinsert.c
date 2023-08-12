@@ -307,11 +307,14 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 			int			startIdx;
 			OffsetNumber offno = hc->element->neighborOffno;
 
-			/* Get latest neighbors */
+			/* Get latest neighbors since they may have changed */
+			/* Do not lock yet since selecting neighbors can take time */
 			HnswLoadNeighbors(hc->element, index);
 
+			/* Select neighbors */
 			HnswUpdateConnection(e, hc, lm, lc, &idx, index, procinfo, collation);
 
+			/* New element was not selected as a neighbor */
 			if (idx == -1)
 				continue;
 
