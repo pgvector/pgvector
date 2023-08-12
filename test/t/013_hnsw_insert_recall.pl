@@ -104,14 +104,8 @@ foreach (@operators)
 		push(@expected, $res);
 	}
 
-	if ($operator eq "<#>")
-	{
-		test_recall(0.80, $operator);
-	}
-	else
-	{
-		test_recall(0.99, $operator);
-	}
+	my $min = $operator eq "<#>" ? 0.80 : 0.99;
+	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 	$node->safe_psql("postgres", "TRUNCATE tst;");
