@@ -20,7 +20,7 @@ sub test_centers
 {
 	my ($lists, $min) = @_;
 
-	my ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING ivfflat (v) WITH (lists = $lists);");
+	my ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops) WITH (lists = $lists);");
 	is($ret, 0, $stderr);
 }
 

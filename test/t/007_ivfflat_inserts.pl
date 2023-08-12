@@ -19,7 +19,7 @@ $node->safe_psql("postgres", "CREATE TABLE tst (v vector($dim));");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT ARRAY[$array_sql] FROM generate_series(1, 10000) i;"
 );
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
+$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops);");
 
 $node->pgbench(
 	"--no-vacuum --client=5 --transactions=100",

@@ -79,7 +79,7 @@ $node_primary->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));
 $node_primary->safe_psql("postgres",
 	"INSERT INTO tst SELECT i % 10, ARRAY[$array_sql] FROM generate_series(1, 100000) i;"
 );
-$node_primary->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
+$node_primary->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops);");
 
 # Test that queries give same result
 test_index_replay('initial');

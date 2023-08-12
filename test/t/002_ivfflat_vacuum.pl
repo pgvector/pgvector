@@ -25,7 +25,7 @@ $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i % 10, ARRAY[$array_sql] FROM generate_series(1, 100000) i;"
 );
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v);");
+$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops);");
 
 # Get size
 my $size = $node->safe_psql("postgres", "SELECT pg_total_relation_size('tst_v_idx');");
