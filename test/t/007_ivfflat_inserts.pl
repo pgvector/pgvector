@@ -28,7 +28,7 @@ $node->pgbench(
 	[qr{^$}],
 	"concurrent INSERTs",
 	{
-		"007_inserts" => "INSERT INTO tst SELECT ARRAY[$array_sql] FROM generate_series(1, 10) i;"
+		"007_ivfflat_inserts" => "INSERT INTO tst SELECT ARRAY[$array_sql] FROM generate_series(1, 10) i;"
 	}
 );
 
