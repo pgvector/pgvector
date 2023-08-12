@@ -53,11 +53,13 @@ my $array_sql = join(",", ('random()') x $dim);
 # Initialize primary node
 $node_primary = get_new_node('primary');
 $node_primary->init(allows_streaming => 1);
-if ($dim > 32) {
+if ($dim > 32)
+{
 	# TODO use wal_keep_segments for Postgres < 13
 	$node_primary->append_conf('postgresql.conf', qq(wal_keep_size = 1GB));
 }
-if ($dim > 1500) {
+if ($dim > 1500)
+{
 	$node_primary->append_conf('postgresql.conf', qq(maintenance_work_mem = 128MB));
 }
 $node_primary->start;

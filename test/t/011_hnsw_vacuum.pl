@@ -7,7 +7,8 @@ use Test::More;
 my $dim = 3;
 
 my @r = ();
-for (1 .. $dim) {
+for (1 .. $dim)
+{
 	my $v = int(rand(1000)) + 1;
 	push(@r, "i % $v");
 }

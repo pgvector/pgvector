@@ -21,7 +21,8 @@ sub test_recall
 	));
 	like($explain, qr/Index Scan/);
 
-	for my $i (0 .. $#queries) {
+	for my $i (0 .. $#queries)
+	{
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SELECT i FROM tst ORDER BY v $operator '$queries[$i]' LIMIT $limit;
@@ -31,8 +32,10 @@ sub test_recall
 
 		my @expected_ids = split("\n", $expected[$i]);
 
-		foreach (@expected_ids) {
-			if (exists($actual_set{$_})) {
+		foreach (@expected_ids)
+		{
+			if (exists($actual_set{$_}))
+			{
 				$correct++;
 			}
 			$total++;
@@ -101,9 +104,12 @@ foreach (@operators)
 		push(@expected, $res);
 	}
 
-	if ($operator eq "<#>") {
+	if ($operator eq "<#>")
+	{
 		test_recall(0.80, $operator);
-	} else {
+	}
+	else
+	{
 		test_recall(0.99, $operator);
 	}
 
