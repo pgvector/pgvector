@@ -26,7 +26,8 @@ sub test_index_replay
 	  or die "Timed out while waiting for replica 1 to catch up";
 
 	my @r = ();
-	for (1 .. $dim) {
+	for (1 .. $dim)
+	{
 		push(@r, rand());
 	}
 	my $sql = join(",", @r);
@@ -67,8 +68,7 @@ $node_primary->backup($backup_name);
 
 # Create streaming replica linking to primary
 $node_replica = get_new_node('replica');
-$node_replica->init_from_backup($node_primary, $backup_name,
-	has_streaming => 1);
+$node_replica->init_from_backup($node_primary, $backup_name, has_streaming => 1);
 $node_replica->start;
 
 # Create ivfflat index on primary

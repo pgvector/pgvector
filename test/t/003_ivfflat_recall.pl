@@ -57,7 +57,8 @@ $node->safe_psql("postgres",
 );
 
 # Generate queries
-for (1..20) {
+for (1 .. 20)
+{
 	my $r1 = rand();
 	my $r2 = rand();
 	my $r3 = rand();
@@ -67,7 +68,8 @@ for (1..20) {
 # Check each index type
 my @operators = ("<->", "<#>", "<=>");
 
-foreach (@operators) {
+foreach (@operators)
+{
 	my $operator = $_;
 
 	# Get exact results
@@ -93,7 +95,8 @@ foreach (@operators) {
 	));
 
 	# Test approximate results
-	if ($operator ne "<#>") {
+	if ($operator ne "<#>")
+	{
 		# TODO fix test
 		test_recall(1, 0.73, $operator);
 		test_recall(10, 0.95, $operator);
@@ -113,7 +116,8 @@ foreach (@operators) {
 	like($stderr, qr/using \d+ parallel workers/);
 
 	# Test approximate results
-	if ($operator ne "<#>") {
+	if ($operator ne "<#>")
+	{
 		# TODO fix test
 		test_recall(1, 0.73, $operator);
 		test_recall(10, 0.95, $operator);

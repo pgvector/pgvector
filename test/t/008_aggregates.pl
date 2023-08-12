@@ -30,7 +30,8 @@ sub test_aggregate
 
 	# Test matches real for avg
 	# Cannot test sum since sum(real) varies between calls
-	if ($agg eq 'avg') {
+	if ($agg eq 'avg')
+	{
 		my $r1 = $node->safe_psql("postgres", "SELECT $agg(r1)::float4 FROM tst;");
 		my $r2 = $node->safe_psql("postgres", "SELECT $agg(r2)::float4 FROM tst;");
 		my $r3 = $node->safe_psql("postgres", "SELECT $agg(r3)::float4 FROM tst;");

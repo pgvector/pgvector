@@ -18,7 +18,8 @@ $node->safe_psql("postgres",
 
 # Check each index type
 my @operators = ("<->", "<#>", "<=>");
-foreach (@operators) {
+foreach (@operators)
+{
 	my $operator = $_;
 
 	# Add index
@@ -33,7 +34,8 @@ foreach (@operators) {
 	$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v $opclass);");
 
 	# Test 100% recall
-	for (1..20) {
+	for (1 .. 20)
+	{
 		my $i = int(rand() * 100000);
 		my $query = $node->safe_psql("postgres", "SELECT v FROM tst WHERE i = $i;");
 		my $res = $node->safe_psql("postgres", qq(

@@ -55,7 +55,8 @@ $node->safe_psql("postgres",
 );
 
 # Generate queries
-for (1..20) {
+for (1 .. 20)
+{
 	my $r1 = rand();
 	my $r2 = rand();
 	my $r3 = rand();
@@ -65,12 +66,14 @@ for (1..20) {
 # Check each index type
 my @operators = ("<->", "<#>", "<=>");
 
-foreach (@operators) {
+foreach (@operators)
+{
 	my $operator = $_;
 
 	# Get exact results
 	@expected = ();
-	foreach (@queries) {
+	foreach (@queries)
+	{
 		my $res = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v $operator '$_' LIMIT $limit;");
 		push(@expected, $res);
 	}

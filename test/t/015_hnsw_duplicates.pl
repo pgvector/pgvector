@@ -15,7 +15,8 @@ $node->safe_psql("postgres", "CREATE TABLE tst (v vector(3));");
 
 sub insert_vectors
 {
-	for my $i (1 .. 20) {
+	for my $i (1 .. 20)
+	{
 		$node->safe_psql("postgres", "INSERT INTO tst VALUES ('[1,1,1]');");
 	}
 }

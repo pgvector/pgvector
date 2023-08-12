@@ -52,11 +52,13 @@ my $array_sql = join(",", ('random()') x $dim);
 # Initialize primary node
 $node_primary = get_new_node('primary');
 $node_primary->init(allows_streaming => 1);
-if ($dim > 32) {
+if ($dim > 32)
+{
 	# TODO use wal_keep_segments for Postgres < 13
 	$node_primary->append_conf('postgresql.conf', qq(wal_keep_size = 1GB));
 }
-if ($dim > 1500) {
+if ($dim > 1500)
+{
 	$node_primary->append_conf('postgresql.conf', qq(maintenance_work_mem = 128MB));
 }
 $node_primary->start;
@@ -67,8 +69,7 @@ $node_primary->backup($backup_name);
 
 # Create streaming replica linking to primary
 $node_replica = get_new_node('replica');
-$node_replica->init_from_backup($node_primary, $backup_name,
-	has_streaming => 1);
+$node_replica->init_from_backup($node_primary, $backup_name, has_streaming => 1);
 $node_replica->start;
 
 # Create hnsw index on primary
