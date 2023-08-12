@@ -230,6 +230,8 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	e->blkno = BufferGetBlockNumber(buf);
 	e->neighborPage = BufferGetBlockNumber(nbuf);
 
+	/* Added tuple to new page if newInsertPage is not set */
+	/* So can set to neighbor page instead of element page */
 	if (!BlockNumberIsValid(newInsertPage))
 		newInsertPage = e->neighborPage;
 
