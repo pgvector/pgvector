@@ -32,6 +32,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswElement entryPoint = HnswGetEntryPoint(vacuumstate->index);
+	IndexBulkDeleteResult *stats = vacuumstate->stats;
 
 	/* Store separately since highestPoint.level is uint8 */
 	int			highestLevel = -1;
@@ -77,11 +78,15 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 						break;
 
 					if (vacuumstate->callback(&etup->heaptids[i], vacuumstate->callback_state))
+					{
 						itemUpdated = true;
+						stats->tuples_removed++;
+					}
 					else
 					{
 						/* Move to front of list */
 						etup->heaptids[idx++] = etup->heaptids[i];
+						stats->num_index_tuples++;
 					}
 				}
 
@@ -377,7 +382,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
-	IndexBulkDeleteResult *stats = vacuumstate->stats;
 
 	while (BlockNumberIsValid(blkno))
 	{
@@ -431,13 +435,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Skip live tuples */
 			if (ItemPointerIsValid(&etup->heaptids[0]))
-			{
-				stats->num_index_tuples++;
 				continue;
-			}
-
-			/* Update stats */
-			stats->tuples_removed++;
 
 			/* Calculate sizes */
 			etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
