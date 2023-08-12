@@ -49,7 +49,7 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector(3));");
+$node->safe_psql("postgres", "CREATE TABLE tst (i serial, v vector(3));");
 
 # Generate queries
 for (1..20) {
@@ -76,8 +76,16 @@ foreach (@operators) {
 	}
 	$node->safe_psql("postgres", "CREATE INDEX idx ON tst USING hnsw (v $opclass);");
 
-	$node->safe_psql("postgres",
-		"INSERT INTO tst SELECT i, ARRAY[random(), random(), random()] FROM generate_series(1, 10000) i;"
+	# Use concurrent inserts
+	$node->pgbench(
+		"--no-vacuum --client=10 --transactions=1000",
+		0,
+		[qr{actually processed}],
+		[qr{^$}],
+		"concurrent INSERTs",
+		{
+			"013_hnsw_insert_recall_$opclass" => "INSERT INTO tst (v) VALUES (ARRAY[random(), random(), random()]);"
+		}
 	);
 
 	# Get exact results
