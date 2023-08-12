@@ -42,7 +42,7 @@ $node->safe_psql("postgres", "TRUNCATE tst;");
 insert_vectors();
 test_duplicates();
 
-# Test fallback path
+# Test fallback path for inserts
 $node->pgbench(
 	"--no-vacuum --client=5 --transactions=100",
 	0,
