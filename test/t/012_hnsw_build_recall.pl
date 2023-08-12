@@ -68,10 +68,12 @@ for (1 .. 20)
 
 # Check each index type
 my @operators = ("<->", "<#>", "<=>");
+my @opclasses = ("vector_l2_ops", "vector_ip_ops", "vector_cosine_ops");
 
-foreach (@operators)
+for my $i (0 .. $#operators)
 {
-	my $operator = $_;
+	my $operator = $operators[$i];
+	my $opclass = $opclasses[$i];
 
 	# Get exact results
 	@expected = ();
@@ -82,14 +84,6 @@ foreach (@operators)
 	}
 
 	# Add index
-	my $opclass;
-	if ($operator eq "<->") {
-		$opclass = "vector_l2_ops";
-	} elsif ($operator eq "<#>") {
-		$opclass = "vector_ip_ops";
-	} else {
-		$opclass = "vector_cosine_ops";
-	}
 	$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v $opclass);");
 
 	my $min = $operator eq "<#>" ? 0.80 : 0.99;
