@@ -257,8 +257,12 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	MemoryContext oldCtx = MemoryContextSwitchTo(vacuumstate->tmpCtx);
 
 	/*
-	 * TODO Look for newer highest point. Outdated point works, but can remove
-	 * connections at higher levels in the graph, which is not ideal.
+	 * TODO Handle missing highest point properly. Cannot make entry point
+	 * empty since may be outdated.
+	 *
+	 * TODO Look for newer highest point. Outdated point works if exists, but
+	 * can remove connections at higher levels in the graph, which is not
+	 * ideal.
 	 */
 
 	/* Repair graph for highest non-entry point */
