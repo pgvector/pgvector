@@ -16,7 +16,7 @@ $node->safe_psql("postgres", "CREATE TABLE tst (v vector(3));");
 sub insert_vectors
 {
 	for my $i (1 .. 20) {
-		$node->safe_psql("postgres", "INSERT INTO tst VALUES ('[1,1,1]')");
+		$node->safe_psql("postgres", "INSERT INTO tst VALUES ('[1,1,1]');");
 	}
 }
 
@@ -41,5 +41,17 @@ $node->safe_psql("postgres", "TRUNCATE tst;");
 # Test duplicates with inserts
 insert_vectors();
 test_duplicates();
+
+# Test fallback path
+$node->pgbench(
+	"--no-vacuum --client=5 --transactions=100",
+	0,
+	[qr{actually processed}],
+	[qr{^$}],
+	"concurrent INSERTs",
+	{
+		"015_hnsw_duplicates" => "INSERT INTO tst VALUES ('[1,1,1]');"
+	}
+);
 
 done_testing();
