@@ -61,10 +61,10 @@ $node->safe_psql("postgres",
 );
 
 # Add index
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops);");
+$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops) WITH (m = 4);");
 
 # Delete data
-$node->safe_psql("postgres", "DELETE FROM tst WHERE i > 5000;");
+$node->safe_psql("postgres", "DELETE FROM tst WHERE i > 2500;");
 
 # Generate queries
 for (1 .. 20)
@@ -86,11 +86,12 @@ foreach (@queries)
 	push(@expected, $res);
 }
 
-test_recall(0.40, $limit, "before vacuum");
-test_recall(0.99, 60, "before vacuum");
+test_recall(0.20, $limit, "before vacuum");
+test_recall(0.95, 100, "before vacuum");
 
+# TODO test concurrent inserts with vacuum
 $node->safe_psql("postgres", "VACUUM tst;");
 
-test_recall(0.99, $limit, "after vacuum");
+test_recall(0.95, $limit, "after vacuum");
 
 done_testing();
