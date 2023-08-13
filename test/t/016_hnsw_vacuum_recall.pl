@@ -61,7 +61,7 @@ $node->safe_psql("postgres",
 );
 
 # Add index
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops) WITH (m = 4);");
+$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops) WITH (m = 4, ef_construction = 8);");
 
 # Delete data
 $node->safe_psql("postgres", "DELETE FROM tst WHERE i > 2500;");
