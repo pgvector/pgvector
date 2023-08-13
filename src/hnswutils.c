@@ -606,10 +606,6 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 				if (e->element->deleted)
 					continue;
 
-				/* Skip for inserts if deleting */
-				if (inserting && list_length(e->element->heaptids) == 0)
-					continue;
-
 				/* Skip self for vacuuming update */
 				if (skipElement != NULL && e->element->neighborPage == skipElement->neighborPage && e->element->neighborOffno == skipElement->neighborOffno)
 					continue;
@@ -628,6 +624,8 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 
 					pairingheap_add(C, &(CreatePairingHeapNode(ec)->ph_node));
 					pairingheap_add(W, &(CreatePairingHeapNode(ec)->ph_node));
+
+					/* TODO Possibly don't count elements being deleted in wlen */
 					wlen++;
 
 					/* No need to decrement wlen */
@@ -890,6 +888,26 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 }
 
 /*
+ * Remove elements being deleted
+ */
+static List *
+RemoveElementsBeingDeleted(List *w)
+{
+	ListCell   *lc2;
+	List	   *w2;
+
+	foreach(lc2, w)
+	{
+		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
+
+		if (list_length(hc->element->heaptids) != 0)
+			w2 = lappend(w2, hc);
+	}
+
+	return w2;
+}
+
+/*
  * Algorithm 1 from paper
  */
 void
@@ -901,7 +919,6 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	int			entryLevel;
 	Datum		q = PointerGetDatum(element->vec);
 	HnswElement skipElement = existing ? element : NULL;
-	bool		removeEntryPoint;
 	HnswCandidate *entryCandidate;
 
 	/* No neighbors if no entry point */
@@ -912,7 +929,6 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	entryCandidate = HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true);
 	ep = lappend(ep, entryCandidate);
 	entryLevel = entryPoint->level;
-	removeEntryPoint = existing && list_length(entryPoint->heaptids) == 0;
 
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
@@ -932,9 +948,10 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 
 		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipElement);
 
-		/* Remove entry point if it's being deleted */
-		if (removeEntryPoint)
-			w = list_delete_ptr(w, entryCandidate);
+		/* Elements being deleted can help with search */
+		/* but should be removed before selecting neighbors */
+		if (index != NULL)
+			w = RemoveElementsBeingDeleted(w);
 
 		neighbors = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
 

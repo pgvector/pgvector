@@ -174,6 +174,11 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 		}
 	}
 
+	/* Also update if layer 0 is not full */
+	/* This could indicate too many candidates being deleted during insert */
+	if (!needsUpdated)
+		needsUpdated = !ItemPointerIsValid(&ntup->indextids[ntup->count - 1]);
+
 	UnlockReleaseBuffer(buf);
 
 	return needsUpdated;
