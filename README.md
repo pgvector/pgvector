@@ -2,7 +2,7 @@
 
 Open-source vector similarity search for Postgres
 
-Store all of your application data in one place. Supports:
+Store your vectors with the rest of your data. Supports:
 
 - exact and approximate nearest neighbor search
 - L2 distance, inner product, and cosine distance
