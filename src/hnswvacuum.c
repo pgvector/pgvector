@@ -10,8 +10,8 @@
 /*
  * Check if deleted list contains an index tid
  */
-static bool
-DeletedContains(HTAB *deleted, ItemPointer indextid)
+bool
+HnswDeletedContains(HTAB *deleted, ItemPointer indextid)
 {
 	bool		found;
 
@@ -167,7 +167,7 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 			continue;
 
 		/* Check if in deleted list */
-		if (DeletedContains(vacuumstate->deleted, indextid))
+		if (HnswDeletedContains(vacuumstate->deleted, indextid))
 		{
 			needsUpdated = true;
 			break;
@@ -255,7 +255,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	UnlockReleaseBuffer(buf);
 
 	/* Update neighbors */
-	UpdateNeighborPages(index, procinfo, collation, element, m);
+	UpdateNeighborPages(index, procinfo, collation, element, m, vacuumstate->deleted);
 }
 
 /*
@@ -293,7 +293,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		ItemPointerSet(&epData, entryPoint->blkno, entryPoint->offno);
 
-		if (DeletedContains(vacuumstate->deleted, &epData))
+		if (HnswDeletedContains(vacuumstate->deleted, &epData))
 			HnswUpdateMetaPage(index, true, highestPoint, InvalidBlockNumber, MAIN_FORKNUM);
 		else
 		{
