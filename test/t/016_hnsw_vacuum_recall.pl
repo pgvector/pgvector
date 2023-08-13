@@ -17,6 +17,7 @@ sub test_recall
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
+		SET hnsw.ef_search = $ef_search;
 		EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v <-> '$queries[0]' LIMIT $limit;
 	));
 	like($explain, qr/Index Scan/);
