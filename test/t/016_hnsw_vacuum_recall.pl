@@ -11,7 +11,7 @@ my $limit = 20;
 
 sub test_recall
 {
-	my ($min) = @_;
+	my ($min, $ef_search, $test_name) = @_;
 	my $correct = 0;
 	my $total = 0;
 
@@ -25,7 +25,7 @@ sub test_recall
 	{
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
-			SET hnsw.ef_search = $limit;
+			SET hnsw.ef_search = $ef_search;
 			SELECT i FROM tst ORDER BY v <-> '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
@@ -43,7 +43,7 @@ sub test_recall
 		}
 	}
 
-	cmp_ok($correct / $total, ">=", $min);
+	cmp_ok($correct / $total, ">=", $min, $test_name);
 }
 
 # Initialize node
@@ -63,7 +63,7 @@ $node->safe_psql("postgres",
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops);");
 
 # Delete data
-$node->safe_psql("postgres", "DELETE FROM tst WHERE i % 2 = 0;");
+$node->safe_psql("postgres", "DELETE FROM tst WHERE i > 5000;");
 
 # Generate queries
 for (1 .. 20)
@@ -85,10 +85,11 @@ foreach (@queries)
 	push(@expected, $res);
 }
 
-test_recall(0.45);
+test_recall(0.40, $limit, "before vacuum");
+test_recall(0.99, 60, "before vacuum");
 
 $node->safe_psql("postgres", "VACUUM tst;");
 
-test_recall(0.99);
+test_recall(0.99, $limit, "after vacuum");
 
 done_testing();
