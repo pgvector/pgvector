@@ -253,6 +253,9 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	MarkBufferDirty(buf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
+
+	/* Update neighbors */
+	UpdateNeighborPages(index, procinfo, collation, element, m);
 }
 
 /*

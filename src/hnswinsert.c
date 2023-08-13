@@ -286,7 +286,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 /*
  * Update neighbors
  */
-static void
+void
 UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
 {
 	for (int lc = e->level; lc >= 0; lc--)
