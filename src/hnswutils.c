@@ -894,7 +894,7 @@ static List *
 RemoveElementsBeingDeleted(List *w)
 {
 	ListCell   *lc2;
-	List	   *w2;
+	List	   *w2 = NIL;
 
 	foreach(lc2, w)
 	{
