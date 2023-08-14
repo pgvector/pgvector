@@ -311,6 +311,13 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 			/* Do not lock yet since selecting neighbors can take time */
 			HnswLoadNeighbors(hc->element, index);
 
+			/*
+			 * Could improve performance for vacuuming by checking neighbors
+			 * against list of elements being deleted. It's important to
+			 * exclude already deleted elements for this since they can be
+			 * replaced at any time.
+			 */
+
 			/* Select neighbors */
 			HnswUpdateConnection(e, hc, lm, lc, &idx, index, procinfo, collation);
 
