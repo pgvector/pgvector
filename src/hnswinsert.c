@@ -284,32 +284,10 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 }
 
 /*
- * Get index of deleted neighbor
- */
-static int
-GetDeletedIndex(HnswElement element, HTAB *deleted, int lc)
-{
-	HnswNeighborArray *neighbors = &element->neighbors[lc];
-
-	for (int i = 0; i < neighbors->length; i++)
-	{
-		HnswCandidate *hc = &neighbors->items[i];
-		ItemPointerData ipData;
-
-		ItemPointerSet(&ipData, hc->element->blkno, hc->element->offno);
-
-		if (HnswDeletedContains(deleted, &ipData))
-			return i;
-	}
-
-	return -1;
-}
-
-/*
  * Update neighbors
  */
 void
-UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, HTAB *deleted)
+UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -333,13 +311,8 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 			/* Do not lock yet since selecting neighbors can take time */
 			HnswLoadNeighbors(hc->element, index);
 
-			/* Find deleted index without loading elements if possible */
-			if (deleted != NULL)
-				idx = GetDeletedIndex(hc->element, deleted, lc);
-
 			/* Select neighbors */
-			if (idx == -1)
-				HnswUpdateConnection(e, hc, lm, lc, &idx, index, procinfo, collation);
+			HnswUpdateConnection(e, hc, lm, lc, &idx, index, procinfo, collation);
 
 			/* New element was not selected as a neighbor */
 			if (idx == -1)
@@ -511,7 +484,7 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 		HnswUpdateMetaPage(index, false, NULL, newInsertPage, MAIN_FORKNUM);
 
 	/* Update neighbors */
-	UpdateNeighborPages(index, procinfo, collation, element, m, NULL);
+	UpdateNeighborPages(index, procinfo, collation, element, m);
 
 	/* Update metapage if needed */
 	if (element->level > entryPoint->level)
