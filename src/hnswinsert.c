@@ -313,9 +313,9 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 
 			/*
 			 * Could improve performance for vacuuming by checking neighbors
-			 * against list of elements being deleted. It's important to
-			 * exclude already deleted elements for this since they can be
-			 * replaced at any time.
+			 * against list of elements being deleted to find index. It's
+			 * important to exclude already deleted elements for this since
+			 * they can be replaced at any time.
 			 */
 
 			/* Select neighbors */
