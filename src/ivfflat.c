@@ -182,19 +182,12 @@ ivfflatvalidate(Oid opclassoid)
 	return true;
 }
 
-/*
- * Define index handler
- *
- * See https://www.postgresql.org/docs/current/index-api.html
- */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflathandler);
-Datum
-ivfflathandler(PG_FUNCTION_ARGS)
+IndexAmRoutine* CreateIvfAmRoutine(bool flat_only)
 {
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
 
 	amroutine->amstrategies = 0;
-	amroutine->amsupport = 4;
+	amroutine->amsupport = flat_only ? 4 : 5;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amoptsprocnum = 0;
 #endif
@@ -225,7 +218,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amvacuumcleanup = ivfflatvacuumcleanup;
 	amroutine->amcanreturn = NULL;	/* tuple not included in heapsort */
 	amroutine->amcostestimate = ivfflatcostestimate;
-	amroutine->amoptions = ivfflatoptions;
+	amroutine->amoptions = flat_only ? ivfflatoptions : ivfoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
 #if PG_VERSION_NUM >= 120000
 	amroutine->ambuildphasename = ivfflatbuildphasename;
@@ -247,5 +240,25 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->aminitparallelscan = NULL;
 	amroutine->amparallelrescan = NULL;
 
-	PG_RETURN_POINTER(amroutine);
+	return amroutine;
+}
+
+/*
+ * Define index handler
+ *
+ * See https://www.postgresql.org/docs/current/index-api.html
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflathandler);
+Datum
+ivfflathandler(PG_FUNCTION_ARGS)
+{
+	PG_RETURN_POINTER(CreateIvfAmRoutine(/*flat_only=*/true));
+}
+
+// Define index handler for ivf.
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfhandler);
+Datum
+ivfhandler(PG_FUNCTION_ARGS)
+{
+	PG_RETURN_POINTER(CreateIvfAmRoutine(/*flat_only=*/false));
 }

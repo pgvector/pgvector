@@ -11,6 +11,7 @@
 #include "utils/sampling.h"
 #include "utils/tuplesort.h"
 #include "vector.h"
+#include "common/ivf_options.h"
 
 #if PG_VERSION_NUM >= 150000
 #include "common/pg_prng.h"
@@ -31,8 +32,9 @@
 #define IVFFLAT_NORM_PROC 2
 #define IVFFLAT_KMEANS_DISTANCE_PROC 3
 #define IVFFLAT_KMEANS_NORM_PROC 4
+#define IVF_QUANTIZED_DISTANCE_PROC 5
 
-#define IVFFLAT_VERSION	1
+#define IVFFLAT_VERSION	2
 #define IVFFLAT_MAGIC_NUMBER 0x14FF1A7
 #define IVFFLAT_PAGE_ID	0xFF84
 
@@ -48,8 +50,6 @@
 #define PROGRESS_IVFFLAT_PHASE_KMEANS	2
 #define PROGRESS_IVFFLAT_PHASE_ASSIGN	3
 #define PROGRESS_IVFFLAT_PHASE_LOAD		4
-
-#define IVFFLAT_LIST_SIZE(_dim)	(offsetof(IvfflatListData, center) + VECTOR_SIZE(_dim))
 
 #define IvfflatPageGetOpaque(page)	((IvfflatPageOpaque) PageGetSpecialPointer(page))
 #define IvfflatPageGetMeta(page)	((IvfflatMetaPageData *) PageGetContents(page))
@@ -180,6 +180,11 @@ typedef struct IvfflatBuildState
 	ListInfo   *listInfo;
 	Vector	   *normvec;
 
+	/* Scalar quantization */
+	Vector*		multipliers;
+	bytea*		quantized_storage;
+	IvfQuantizerType quantizer;
+
 #ifdef IVFFLAT_KMEANS_DEBUG
 	double		inertia;
 	double	   *listSums;
@@ -222,15 +227,6 @@ typedef struct IvfflatPageOpaqueData
 
 typedef IvfflatPageOpaqueData * IvfflatPageOpaque;
 
-typedef struct IvfflatListData
-{
-	BlockNumber startPage;
-	BlockNumber insertPage;
-	Vector		center;
-}			IvfflatListData;
-
-typedef IvfflatListData * IvfflatList;
-
 typedef struct IvfflatScanList
 {
 	pairingheap_node ph_node;
@@ -253,7 +249,12 @@ typedef struct IvfflatScanOpaqueData
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
+	FmgrInfo   *quantized_distance_procinfo;
 	Oid			collation;
+
+	/* Scalar quantization */
+	Vector*		inv_multipliers;
+	IvfQuantizerType quantizer;
 
 	/* Lists */
 	pairingheap *listQueue;
@@ -284,6 +285,8 @@ void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXL
 void		IvfflatInit(void);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
+uint32_t	IvfflatGetVersion(Relation index, ForkNumber fork_num);
+
 /* Index access methods */
 IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);
 void		ivfflatbuildempty(Relation index);
@@ -299,5 +302,7 @@ IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);
 void		ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		ivfflatgettuple(IndexScanDesc scan, ScanDirection dir);
 void		ivfflatendscan(IndexScanDesc scan);
+
+IndexAmRoutine* CreateIvfAmRoutine(bool flat_only);
 
 #endif

@@ -3,6 +3,7 @@
 #include "commands/vacuum.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "common/ivf_list.h"
 
 /*
  * Bulk delete tuples from the index
@@ -14,6 +15,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	Relation	index = info->index;
 	BlockNumber blkno = IVFFLAT_HEAD_BLKNO;
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
+	uint32_t version = IvfflatGetVersion(index, MAIN_FORKNUM);
 
 	if (stats == NULL)
 		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
@@ -37,9 +39,9 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		/* Iterate over lists */
 		for (coffno = FirstOffsetNumber; coffno <= cmaxoffno; coffno = OffsetNumberNext(coffno))
 		{
-			IvfflatList list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, coffno));
+			Item list = PageGetItem(cpage, PageGetItemId(cpage, coffno));
 
-			startPages[coffno - FirstOffsetNumber] = list->startPage;
+			startPages[coffno - FirstOffsetNumber] = IVF_LIST_GET_START_PAGE(list, version);
 		}
 
 		listInfo.blkno = blkno;

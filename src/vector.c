@@ -14,6 +14,7 @@
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
 #include "vector.h"
+#include "common/ivf_options.h"
 
 #if PG_VERSION_NUM >= 120000
 #include "common/shortest_dec.h"
@@ -40,6 +41,7 @@ _PG_init(void)
 {
 	HnswInit();
 	IvfflatInit();
+	IvfInit();
 }
 
 /*

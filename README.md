@@ -165,34 +165,47 @@ Three keys to achieving good recall are:
 2. Choose an appropriate number of lists - a good place to start is `rows / 1000` for up to 1M rows and `sqrt(rows)` for over 1M rows
 3. When querying, specify an appropriate number of [probes](#query-options) (higher is better for recall, lower is better for speed) - a good place to start is `sqrt(lists)`
 
-Add an index for each distance function you want to use.
+The IVF index supports both `flat` and `8-bit scalar quantized` storage. The `8-bit quantized` vectors map each vector from `float` space to `int8` space, resulting in up to ~2X faster scoring and ~4X lower storage cost with nearly no recall loss.
+
+Add an index for each distance function you want to use. Specify `ivfflat` to use the `flat` storage, or `ivf` with `quantizer = 'SQ8'` option to use the `8-bit quantized` IVF index.
 
 L2 distance
 
 ```sql
+CREATE INDEX ON items USING ivf (embedding vector_l2_ops) WITH (lists = 100, quantizer = 'SQ8');
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
 ```
 
 Inner product
 
 ```sql
+CREATE INDEX ON items USING ivf (embedding vector_ip_ops) WITH (lists = 100, quantizer='SQ8');
 CREATE INDEX ON items USING ivfflat (embedding vector_ip_ops) WITH (lists = 100);
 ```
 
 Cosine distance
 
 ```sql
+CREATE INDEX ON items USING ivf (embedding vector_cosine_ops) WITH (lists = 100, quantizer='SQ8');
 CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
 
-Vectors with up to 2,000 dimensions can be indexed.
+Vectors with up to 8,000 dimensions can be indexed using `IVF` when `8-bit scalar quantization` is enabled, up to 2,000 dimensions can be indexed using `ivfflat` without quantization.
 
 ### Query Options
 
 Specify the number of probes (1 by default)
 
+#### ivfflat
+
 ```sql
 SET ivfflat.probes = 10;
+```
+
+#### ivf
+
+```sql
+SET ivf.probes = 10;
 ```
 
 A higher value provides better recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search (at which point the planner won’t use the index)
@@ -201,7 +214,7 @@ Use `SET LOCAL` inside a transaction to set it for a single query
 
 ```sql
 BEGIN;
-SET LOCAL ivfflat.probes = 10;
+SET LOCAL ivf[flat].probes = 10;
 SELECT ...
 COMMIT;
 ```
@@ -240,6 +253,9 @@ CREATE INDEX ON items (category_id);
 Or a [partial index](https://www.postgresql.org/docs/current/indexes-partial.html) on the vector column for approximate search
 
 ```sql
+CREATE INDEX ON items USING ivf (embedding vector_l2_ops) WITH (lists = 100, quantizer='SQ8')
+    WHERE (category_id = 123);
+
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100)
     WHERE (category_id = 123);
 ```
@@ -286,6 +302,8 @@ SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
 To speed up queries with an index, increase the number of inverted lists (at the expense of recall).
 
 ```sql
+CREATE INDEX ON items USING ivf (embedding vector_l2_ops) WITH (lists = 1000, quantizer='SQ8');
+
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
 ```
 
@@ -324,7 +342,7 @@ A non-partitioned table has a limit of 32 TB by default in Postgres. A partition
 
 Yes, pgvector uses the write-ahead log (WAL), which allows for replication and point-in-time recovery.
 
-#### What if I want to index vectors with more than 2,000 dimensions?
+#### What if I want to index vectors with more than 8,000 dimensions?
 
 You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Dimensionality_reduction) at the moment.
 

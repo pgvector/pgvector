@@ -1,6 +1,7 @@
 #include "postgres.h"
 
 #include <float.h>
+#include <math.h>
 
 #include "access/parallel.h"
 #include "access/xact.h"
@@ -40,6 +41,9 @@
 #define UpdateProgress(index, val) ((void)val)
 #endif
 
+#define MaxSupportedDimension(type) \
+	((type) == kIvfsq8 ? IVFSQ_MAX_DIM : IVFFLAT_MAX_DIM)
+
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
 #include "utils/wait_event.h"
@@ -53,6 +57,12 @@
 #include "optimizer/planner.h"
 #include "pgstat.h"
 #endif
+
+#include "common/metadata.h"
+#include "common/ivf_list.h"
+#include "common/ivf_options.h"
+#include "fixed_point/scalar_quantizer.h"
+#include "fixed_point/ivf_sq.h"
 
 #define PARALLEL_KEY_IVFFLAT_SHARED		UINT64CONST(0xA000000000000001)
 #define PARALLEL_KEY_TUPLESORT			UINT64CONST(0xA000000000000002)
@@ -194,6 +204,14 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 		}
 	}
 
+	/* Update the multiplier for quantization */
+	if (buildstate->multipliers != NULL) {
+		Vector* vector = DatumGetVector(value);
+		for (int i = 0; i < vector->dim; i++) {
+			buildstate->multipliers->x[i] = fmax(buildstate->multipliers->x[i], fabs(vector->x[i]));
+		}
+	}
+
 #ifdef IVFFLAT_KMEANS_DEBUG
 	buildstate->inertia += minDistance;
 	buildstate->listSums[closestCenter] += minDistance;
@@ -254,15 +272,20 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
  * Get index tuple from sort state
  */
 static inline void
-GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot, IndexTuple *itup, int *list)
+GetNextTuple(IvfflatBuildState *buildstate, TupleDesc tupdesc, TupleTableSlot *slot, IndexTuple *itup, int *list)
 {
 	Datum		value;
 	bool		isnull;
 
-	if (tuplesort_gettupleslot(sortstate, true, false, slot, NULL))
+	if (tuplesort_gettupleslot(buildstate->sortstate, true, false, slot, NULL))
 	{
 		*list = DatumGetInt32(slot_getattr(slot, 1, &isnull));
 		value = slot_getattr(slot, 3, &isnull);
+		if (!isnull && buildstate->multipliers != NULL) {
+			value = ScalarQuantizeVector(DatumGetVector(value),
+										 buildstate->multipliers,
+										 buildstate->quantized_storage);
+		}
 
 		/* Form the index tuple */
 		*itup = index_form_tuple(tupdesc, &value, &isnull);
@@ -270,6 +293,27 @@ GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot,
 	}
 	else
 		*list = -1;
+}
+
+/*
+ * Scale the multipliers and write it to the meta page
+ */
+static void
+UpdateAndWriteMultipliers(Relation index, Vector* multipliers, ForkNumber forkNum)
+{
+	Assert(multipliers != NULL);
+	/* Scale the multipliers and write it to the meta page */
+	for (int i = 0; i < multipliers->dim; ++i)
+	{
+		if (unlikely(multipliers->x[i] == 0.0f))
+			// This corner-case only triggers for dimensions
+			// that lack values other than 0.0, so the
+			// choice of multiplier can be arbitrary.
+			multipliers->x[i] = 1.0f;
+		else
+			multipliers->x[i] = SCHAR_MAX / multipliers->x[i];
+	}
+	UpdateMetaPageWithMultipliers(index, multipliers, forkNum);
 }
 
 /*
@@ -288,12 +332,25 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->tupdesc);
 #endif
 	TupleDesc	tupdesc = RelationGetDescr(index);
+	if (buildstate->quantizer != kIvfflat) {
+#if PG_VERSION_NUM >= 120000
+		tupdesc = CreateTemplateTupleDesc(/*natts=*/1);
+#else
+		tupdesc = CreateTemplateTupleDesc(/*natts=*/1, false);
+#endif
+		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "quantized_vector", BYTEAOID, -1, 0);
+		tupdesc->attrs[0].attstorage = TYPSTORAGE_PLAIN;
+	}
 
 	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 
 	UpdateProgress(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->indtuples);
 
-	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
+	if (buildstate->multipliers != NULL)
+		/* Needs to be called before `GetNextTuple` which uses `multipliers` to quantize vectors */
+		UpdateAndWriteMultipliers(index, buildstate->multipliers, forkNum);
+
+	GetNextTuple(buildstate, tupdesc, slot, &itup, &list);
 
 	for (int i = 0; i < buildstate->centers->length; i++)
 	{
@@ -329,7 +386,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++inserted);
 
-			GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
+			GetNextTuple(buildstate, tupdesc, slot, &itup, &list);
 		}
 
 		insertPage = BufferGetBlockNumber(buf);
@@ -353,13 +410,35 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->lists = IvfflatGetLists(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+	buildstate->quantizer = IvfGetQuantizer(index);
+	if (buildstate->quantizer == kIvfflat)
+	{
+		buildstate->lists = IvfflatGetLists(index);
+		buildstate->multipliers = NULL;
+		buildstate->quantized_storage = NULL;
+	}
+	else if (buildstate->quantizer == kIvfsq8)
+	{
+		buildstate->lists = IvfGetLists(index);
+		buildstate->multipliers = InitVector(buildstate->dimensions);
+		for (int i = 0; i < buildstate->dimensions; ++i) {
+			buildstate->multipliers->x[i] = 0.0f;
+		}
+		buildstate->quantized_storage =
+				(bytea *)palloc0(buildstate->dimensions + VARHDRSZ);
+		SET_VARSIZE(buildstate->quantized_storage,
+					buildstate->dimensions + VARHDRSZ);
+	}
+	else {
+		elog(ERROR, "Unsupported quantizer: %d", buildstate->quantizer);
+	}
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
-	if (buildstate->dimensions > IVFFLAT_MAX_DIM)
-		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", IVFFLAT_MAX_DIM);
+	if (buildstate->dimensions > MaxSupportedDimension(buildstate->quantizer))
+		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", MaxSupportedDimension(buildstate->quantizer));
 
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;
@@ -424,6 +503,17 @@ FreeBuildState(IvfflatBuildState * buildstate)
 	pfree(buildstate->listCounts);
 #endif
 
+	if (buildstate->multipliers != NULL)
+	{
+		pfree(buildstate->multipliers);
+		buildstate->multipliers = NULL;
+	}
+	if (buildstate->quantized_storage != NULL)
+	{
+		pfree(buildstate->quantized_storage);
+		buildstate->quantized_storage = NULL;
+	}
+
 	MemoryContextDelete(buildstate->tmpCtx);
 }
 
@@ -480,9 +570,11 @@ CreateMetaPage(Relation index, int dimensions, int lists, ForkNumber forkNum)
 	Page		page;
 	GenericXLogState *state;
 	IvfflatMetaPage metap;
+	IvfQuantizerType quantizer;
 
 	buf = IvfflatNewBuffer(index, forkNum);
 	IvfflatInitRegisterPage(index, &buf, &page, &state);
+	quantizer = IvfGetQuantizer(index);
 
 	/* Set metapage data */
 	metap = IvfflatPageGetMeta(page);
@@ -490,8 +582,22 @@ CreateMetaPage(Relation index, int dimensions, int lists, ForkNumber forkNum)
 	metap->version = IVFFLAT_VERSION;
 	metap->dimensions = dimensions;
 	metap->lists = lists;
-	((PageHeader) page)->pd_lower =
-		((char *) metap + sizeof(IvfflatMetaPageData)) - (char *) page;
+	if (quantizer == kIvfflat)
+	{
+		((PageHeader) page)->pd_lower =
+			((char *) metap + sizeof(IvfflatMetaPageData)) - (char *) page;
+	}
+	else if (quantizer == kIvfsq8)
+	{
+		ItemPointerSet(&((IvfsqMetaPage)metap)->multipliers_loc, InvalidBlockNumber,
+					   InvalidOffsetNumber);
+		((PageHeader) page)->pd_lower =
+			((char *) metap + sizeof(IvfsqMetaPageData)) - (char *) page;
+	}
+	else
+	{
+		elog(ERROR, "Unsupported quantizer: %d", quantizer);
+	}
 
 	IvfflatCommitBuffer(buf, state);
 }
@@ -508,10 +614,8 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	GenericXLogState *state;
 	OffsetNumber offno;
 	Size		itemsz;
-	IvfflatList list;
-
-	itemsz = MAXALIGN(IVFFLAT_LIST_SIZE(dimensions));
-	list = palloc(itemsz);
+	IvfListV2	list;
+	const bool	externalize_center_storage = dimensions > IVFFLAT_MAX_DIM;
 
 	buf = IvfflatNewBuffer(index, forkNum);
 	IvfflatInitRegisterPage(index, &buf, &page, &state);
@@ -519,9 +623,8 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	for (int i = 0; i < lists; i++)
 	{
 		/* Load list */
-		list->startPage = InvalidBlockNumber;
-		list->insertPage = InvalidBlockNumber;
-		memcpy(&list->center, VectorArrayGet(centers, i), VECTOR_SIZE(dimensions));
+		list = CreateIvfListV2(index, (Metadata*)VectorArrayGet(centers, i),
+								externalize_center_storage, forkNum, &itemsz);
 
 		/* Ensure free space */
 		if (PageGetFreeSpace(page) < itemsz)
@@ -535,11 +638,11 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 		/* Save location info */
 		(*listInfo)[i].blkno = BufferGetBlockNumber(buf);
 		(*listInfo)[i].offno = offno;
+
+		pfree(list);
 	}
 
 	IvfflatCommitBuffer(buf, state);
-
-	pfree(list);
 }
 
 /*
