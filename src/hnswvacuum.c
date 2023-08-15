@@ -294,7 +294,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		ItemPointerSet(&epData, entryPoint->blkno, entryPoint->offno);
 
 		if (DeletedContains(vacuumstate->deleted, &epData))
-			HnswUpdateMetaPage(index, true, highestPoint, InvalidBlockNumber, MAIN_FORKNUM);
+			HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, highestPoint, InvalidBlockNumber, MAIN_FORKNUM);
 		else
 		{
 			/* Highest point will be used to repair */
@@ -507,7 +507,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	}
 
 	/* Update insert page last, after everything has been marked as deleted */
-	HnswUpdateMetaPage(index, false, NULL, insertPage, MAIN_FORKNUM);
+	HnswUpdateMetaPage(index, 0, NULL, insertPage, MAIN_FORKNUM);
 }
 
 /*

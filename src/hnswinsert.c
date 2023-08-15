@@ -410,7 +410,7 @@ HnswAddEntryPoint(Relation index, HnswElement element, int m, HnswElement * entr
 	page = GenericXLogRegisterBuffer(state, buf, 0);
 
 	/* Update the metapage info */
-	HnswUpdateMetaPageInfo(page, true, element, newInsertPage);
+	HnswUpdateMetaPageInfo(page, HNSW_UPDATE_ENTRY_ALWAYS, element, newInsertPage);
 
 	/* Commit and unlock */
 	HnswCommitBuffer(buf, state);
@@ -488,14 +488,14 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 
 	/* Update insert page if needed */
 	if (BlockNumberIsValid(newInsertPage))
-		HnswUpdateMetaPage(index, false, NULL, newInsertPage, MAIN_FORKNUM);
+		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM);
 
 	/* Update neighbors */
 	UpdateNeighborPages(index, procinfo, collation, element, m);
 
 	/* Update metapage if needed */
 	if (element->level > entryPoint->level)
-		HnswUpdateMetaPage(index, true, element, InvalidBlockNumber, MAIN_FORKNUM);
+		HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_GREATER, element, InvalidBlockNumber, MAIN_FORKNUM);
 }
 
 /*

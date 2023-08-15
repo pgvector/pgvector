@@ -237,7 +237,7 @@ HnswGetEntryPoint(Relation index)
  * Update the metapage info
  */
 void
-HnswUpdateMetaPageInfo(Page page, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage)
+HnswUpdateMetaPageInfo(Page page, int updateEntry, HnswElement entryPoint, BlockNumber insertPage)
 {
 	HnswMetaPage metap = HnswPageGetMeta(page);
 
@@ -249,7 +249,7 @@ HnswUpdateMetaPageInfo(Page page, bool updateEntry, HnswElement entryPoint, Bloc
 			metap->entryOffno = InvalidOffsetNumber;
 			metap->entryLevel = -1;
 		}
-		else
+		else if (entryPoint->level > metap->entryLevel || updateEntry == HNSW_UPDATE_ENTRY_ALWAYS)
 		{
 			metap->entryBlkno = entryPoint->blkno;
 			metap->entryOffno = entryPoint->offno;
@@ -265,7 +265,7 @@ HnswUpdateMetaPageInfo(Page page, bool updateEntry, HnswElement entryPoint, Bloc
  * Update the metapage
  */
 void
-HnswUpdateMetaPage(Relation index, bool updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum)
+HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum)
 {
 	Buffer		buf;
 	Page		page;
