@@ -60,6 +60,7 @@ CreateMetaPage(HnswBuildState * buildstate)
 	metap->efConstruction = buildstate->efConstruction;
 	metap->entryBlkno = InvalidBlockNumber;
 	metap->entryOffno = InvalidOffsetNumber;
+	metap->entryLevel = -1;
 	metap->insertPage = InvalidBlockNumber;
 	((PageHeader) page)->pd_lower =
 		((char *) metap + sizeof(HnswMetaPageData)) - (char *) page;
