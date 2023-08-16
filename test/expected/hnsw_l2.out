@@ -27,4 +27,10 @@ SELECT COUNT(*) FROM t;
      5
 (1 row)
 
+TRUNCATE t;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+ val 
+-----
+(0 rows)
+
 DROP TABLE t;

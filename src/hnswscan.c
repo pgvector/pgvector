@@ -9,7 +9,7 @@
 /*
  * Algorithm 5 from paper
  */
-static void
+static List *
 GetScanItems(IndexScanDesc scan, Datum q)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
@@ -21,7 +21,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	HnswElement entryPoint = HnswGetEntryPoint(index);
 
 	if (entryPoint == NULL)
-		return;
+		return NIL;
 
 	ep = lappend(ep, HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
 
@@ -31,7 +31,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 		ep = w;
 	}
 
-	so->w = HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL);
+	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL);
 }
 
 /*
@@ -144,7 +144,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
 		}
 
-		GetScanItems(scan, value);
+		so->w = GetScanItems(scan, value);
 		so->first = false;
 	}
 
