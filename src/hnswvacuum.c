@@ -114,7 +114,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				(void) hash_search(vacuumstate->deleted, &ip, HASH_ENTER, NULL);
 			}
-			else if (etup->level > highestLevel && !(blkno == entryPoint->blkno && offno == entryPoint->offno))
+			else if (etup->level > highestLevel && !(entryPoint != NULL && blkno == entryPoint->blkno && offno == entryPoint->offno))
 			{
 				/* Keep track of highest non-entry point */
 				highestPoint->blkno = blkno;
