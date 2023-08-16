@@ -211,7 +211,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	entryPoint = HnswGetEntryPoint(index);
 
 	/* Special case for entry point */
-	if (element->blkno == entryPoint->blkno && element->offno == entryPoint->offno)
+	if (entryPoint != NULL && element->blkno == entryPoint->blkno && element->offno == entryPoint->offno)
 	{
 		if (BlockNumberIsValid(vacuumstate->highestPoint.blkno))
 		{
