@@ -294,10 +294,13 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		ItemPointerSet(&epData, entryPoint->blkno, entryPoint->offno);
 
 		if (DeletedContains(vacuumstate->deleted, &epData))
+		{
+			/* Replace the entry point with the highest point */
 			HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, highestPoint, InvalidBlockNumber, MAIN_FORKNUM);
+		}
 		else
 		{
-			/* Highest point will be used to repair */
+			/* Repair the entry point with the highest point */
 			HnswLoadElement(entryPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
 			RepairGraphElement(vacuumstate, entryPoint);
 		}
