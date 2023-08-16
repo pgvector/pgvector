@@ -10,4 +10,7 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 SELECT * FROM t ORDER BY val <-> (SELECT NULL::vector);
 SELECT COUNT(*) FROM t;
 
+TRUNCATE t;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
 DROP TABLE t;
