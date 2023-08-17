@@ -293,6 +293,9 @@ ConnectionExists(HnswElement e, HnswNeighborTuple ntup, int startIdx, int lm)
 	{
 		ItemPointer indextid = &ntup->indextids[startIdx + i];
 
+		if (!ItemPointerIsValid(indextid))
+			break;
+
 		if (ItemPointerGetBlockNumber(indextid) == e->blkno && ItemPointerGetOffsetNumber(indextid) == e->offno)
 			return true;
 	}
