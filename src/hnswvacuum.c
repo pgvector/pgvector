@@ -255,7 +255,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	UnlockReleaseBuffer(buf);
 
 	/* Update neighbors */
-	UpdateNeighborPages(index, procinfo, collation, element, m);
+	UpdateNeighborPages(index, procinfo, collation, element, m, true);
 }
 
 /*

@@ -284,10 +284,27 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 }
 
 /*
+ * Check if connection already exists
+ */
+static bool
+ConnectionExists(HnswElement e, HnswNeighborTuple ntup, int startIdx, int lm)
+{
+	for (int i = 0; i < lm; i++)
+	{
+		ItemPointer indextid = &ntup->indextids[startIdx + i];
+
+		if (ItemPointerGetBlockNumber(indextid) == e->blkno && ItemPointerGetOffsetNumber(indextid) == e->offno)
+			return true;
+	}
+
+	return false;
+}
+
+/*
  * Update neighbors
  */
 void
-UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
+UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -339,7 +356,10 @@ UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswEleme
 			/* Calculate index for update */
 			startIdx = (hc->element->level - lc) * m;
 
-			if (idx == -2)
+			/* Check for existing connection */
+			if (checkExisting && ConnectionExists(e, ntup, startIdx, lm))
+				idx = -1;
+			else if (idx == -2)
 			{
 				/* Find free offset if still exists */
 				/* TODO Retry updating connections if not */
@@ -496,7 +516,7 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM);
 
 	/* Update neighbors */
-	UpdateNeighborPages(index, procinfo, collation, element, m);
+	UpdateNeighborPages(index, procinfo, collation, element, m, false);
 
 	/* Update metapage if needed */
 	if (element->level > entryPoint->level)
