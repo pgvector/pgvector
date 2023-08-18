@@ -307,7 +307,7 @@ ConnectionExists(HnswElement e, HnswNeighborTuple ntup, int startIdx, int lm)
  * Update neighbors
  */
 void
-UpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting)
+HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -519,7 +519,7 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM);
 
 	/* Update neighbors */
-	UpdateNeighborPages(index, procinfo, collation, element, m, false);
+	HnswUpdateNeighborPages(index, procinfo, collation, element, m, false);
 
 	/* Update metapage if needed */
 	if (element->level > entryPoint->level)
