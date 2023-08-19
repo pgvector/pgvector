@@ -278,8 +278,11 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	 * ideal.
 	 */
 
+	if (!BlockNumberIsValid(highestPoint->blkno))
+		highestPoint = NULL;
+
 	/* Repair graph for highest non-entry point */
-	if (BlockNumberIsValid(highestPoint->blkno))
+	if (highestPoint != NULL)
 	{
 		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
 		RepairGraphElement(vacuumstate, highestPoint);
