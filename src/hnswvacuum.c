@@ -368,13 +368,24 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		foreach(lc2, elements)
 		{
 			HnswElement element = (HnswElement) lfirst(lc2);
+			HnswElement entryPoint;
 
 			/* Check if any neighbors point to deleted values */
 			if (!NeedsUpdated(vacuumstate, element))
 				continue;
 
 			/* Refresh entry point for each element */
-			RepairGraphElement(vacuumstate, element, HnswGetEntryPoint(index));
+			entryPoint = HnswGetEntryPoint(index);
+
+			/* Repair connections */
+			RepairGraphElement(vacuumstate, element, entryPoint);
+
+			/*
+			 * Update metapage if needed. Should only happen if entry point
+			 * was replaced and highest point was outdated.
+			 */
+			if (entryPoint == NULL || element->level > entryPoint->level)
+				HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_GREATER, element, InvalidBlockNumber, MAIN_FORKNUM);
 		}
 
 		/* Reset memory context */
