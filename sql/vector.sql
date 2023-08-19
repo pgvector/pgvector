@@ -99,6 +99,12 @@ CREATE FUNCTION vector_avg(double precision[]) RETURNS vector
 CREATE FUNCTION vector_combine(double precision[], double precision[]) RETURNS double precision[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION inner_product_int8_float_batched(internal, internal, internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION squared_l2_distance_int8_float_batched(internal, internal, internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- aggregates
 
 CREATE AGGREGATE avg(vector) (
@@ -236,6 +242,13 @@ CREATE ACCESS METHOD ivfflat TYPE INDEX HANDLER ivfflathandler;
 
 COMMENT ON ACCESS METHOD ivfflat IS 'ivfflat index access method';
 
+CREATE FUNCTION ivfhandler(internal) RETURNS index_am_handler
+       AS 'MODULE_PATHNAME' LANGUAGE C;
+
+CREATE ACCESS METHOD ivf TYPE INDEX HANDLER ivfhandler;
+
+COMMENT ON ACCESS METHOD ivf IS 'ivf index access method';
+
 CREATE FUNCTION hnswhandler(internal) RETURNS index_am_handler
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
@@ -290,3 +303,27 @@ CREATE OPERATOR CLASS vector_cosine_ops
 	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector),
 	FUNCTION 2 vector_norm(vector);
+
+CREATE OPERATOR CLASS vector_l2_ops
+	DEFAULT FOR TYPE vector USING ivf AS
+	OPERATOR 1 <-> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 vector_l2_squared_distance(vector, vector),
+	FUNCTION 3 l2_distance(vector, vector),
+	FUNCTION 5 squared_l2_distance_int8_float_batched(internal, internal, internal);
+
+CREATE OPERATOR CLASS vector_ip_ops
+	FOR TYPE vector USING ivf AS
+	OPERATOR 1 <#> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 vector_negative_inner_product(vector, vector),
+	FUNCTION 3 vector_spherical_distance(vector, vector),
+	FUNCTION 4 vector_norm(vector),
+	FUNCTION 5 inner_product_int8_float_batched(internal, internal, internal);
+
+CREATE OPERATOR CLASS vector_cosine_ops
+	FOR TYPE vector USING ivf AS
+	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 vector_negative_inner_product(vector, vector),
+	FUNCTION 2 vector_norm(vector),
+	FUNCTION 3 vector_spherical_distance(vector, vector),
+	FUNCTION 4 vector_norm(vector),
+	FUNCTION 5 inner_product_int8_float_batched(internal, internal, internal);

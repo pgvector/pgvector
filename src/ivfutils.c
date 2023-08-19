@@ -3,6 +3,7 @@
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
 #include "vector.h"
+#include "common/ivf_list.h"
 
 /*
  * Allocate a vector array
@@ -183,29 +184,30 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	IvfflatList list;
+	Item		list;
 	bool		changed = false;
+	uint32_t	version = IvfflatGetVersion(index, MAIN_FORKNUM);
 
 	buf = ReadBufferExtended(index, forkNum, listInfo.blkno, RBM_NORMAL, NULL);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	state = GenericXLogStart(index);
 	page = GenericXLogRegisterBuffer(state, buf, 0);
-	list = (IvfflatList) PageGetItem(page, PageGetItemId(page, listInfo.offno));
+	list = PageGetItem(page, PageGetItemId(page, listInfo.offno));
 
-	if (BlockNumberIsValid(insertPage) && insertPage != list->insertPage)
+	if (BlockNumberIsValid(insertPage) && insertPage != IVF_LIST_GET_INSERT_PAGE(list, version))
 	{
 		/* Skip update if insert page is lower than original insert page  */
 		/* This is needed to prevent insert from overwriting vacuum */
 		if (!BlockNumberIsValid(originalInsertPage) || insertPage >= originalInsertPage)
 		{
-			list->insertPage = insertPage;
+			IVF_LIST_SET_INSERT_PAGE(list, version, insertPage);
 			changed = true;
 		}
 	}
 
-	if (BlockNumberIsValid(startPage) && startPage != list->startPage)
+	if (BlockNumberIsValid(startPage) && startPage != IVF_LIST_GET_START_PAGE(list, version))
 	{
-		list->startPage = startPage;
+		IVF_LIST_SET_START_PAGE(list, version, startPage);
 		changed = true;
 	}
 
@@ -217,4 +219,22 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 		GenericXLogAbort(state);
 		UnlockReleaseBuffer(buf);
 	}
+}
+
+uint32_t
+IvfflatGetVersion(Relation index, ForkNumber fork_num)
+{
+	Buffer buf;
+	Page page;
+	uint32_t version;
+
+	buf = ReadBufferExtended(index, fork_num, IVFFLAT_METAPAGE_BLKNO, RBM_NORMAL,
+							 /*strategy=*/NULL);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+
+	page = BufferGetPage(buf);
+	version = IvfflatPageGetMeta(page)->version;
+
+	UnlockReleaseBuffer(buf);
+	return version;
 }

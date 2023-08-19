@@ -6,6 +6,10 @@
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
+#include "common/ivf_list.h"
+#include "common/ivf_options.h"
+#include "fixed_point/ivf_sq.h"
+#include "fixed_point/scalar_quantizer.h"
 
 /*
  * Find the list that minimizes the distance function
@@ -15,7 +19,9 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 {
 	Buffer		cbuf;
 	Page		cpage;
-	IvfflatList list;
+	Item		list;
+	Metadata	*list_metadata;
+	Metadata	*flattened;
 	double		distance;
 	double		minDistance = DBL_MAX;
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
@@ -23,6 +29,7 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 	Oid			collation;
 	OffsetNumber offno;
 	OffsetNumber maxoffno;
+	uint32_t	version = IvfflatGetVersion(rel, MAIN_FORKNUM);
 
 	/* Avoid compiler warning */
 	listInfo->blkno = nextblkno;
@@ -41,12 +48,22 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
-			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, values[0], PointerGetDatum(&list->center)));
+			list = PageGetItem(cpage, PageGetItemId(cpage, offno));
+			list_metadata = IVF_LIST_GET_METADATA(list, version);
+			flattened = FlattenMetadata(rel, list_metadata, MAIN_FORKNUM);
+			if (flattened == NULL) {
+				UnlockReleaseBuffer(cbuf);
+				elog(ERROR, "failed to get metadata from \"%s\"", RelationGetRelationName(rel));
+			}
+			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, values[0], PointerGetDatum((Vector*)flattened)));
+			if (flattened != list_metadata) {
+				/* This is an external metadata for which we allocated temporary storage that needs to be freed. */
+				pfree(flattened);
+			}
 
 			if (distance < minDistance || !BlockNumberIsValid(*insertPage))
 			{
-				*insertPage = list->insertPage;
+				*insertPage = IVF_LIST_GET_INSERT_PAGE(list, version);
 				listInfo->blkno = nextblkno;
 				listInfo->offno = offno;
 				minDistance = distance;
@@ -57,6 +74,45 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 
 		UnlockReleaseBuffer(cbuf);
 	}
+}
+
+/*
+ * Form an index tuple from a raw vector in its scalar 8-bit quantized form.
+ */
+static IndexTuple
+IndexFormSQQuantizedTuple(Relation index, Vector *raw_vector, bool* is_null)
+{
+	TupleDesc	tupdesc;
+	Vector*		multipliers = NULL;
+	Datum		value;
+	bytea*		quantized_storage = NULL;
+	IndexTuple	itup;
+
+#if PG_VERSION_NUM >= 120000
+	tupdesc = CreateTemplateTupleDesc(/*natts=*/1);
+#else
+	tupdesc = CreateTemplateTupleDesc(/*natts=*/1, false);
+#endif
+	TupleDescInitEntry(tupdesc, (AttrNumber) 1, "quantized_vector", BYTEAOID, -1, 0);
+	tupdesc->attrs[0].attstorage = TYPSTORAGE_PLAIN;
+
+	if (is_null[0])
+		return index_form_tuple(tupdesc, &value, is_null);
+
+	// Compute the quantized vector.
+	multipliers = IvfsqGetMultipliers(index, MAIN_FORKNUM);
+	if (multipliers == NULL)
+		elog(ERROR, "cannot get multipliers from index.");
+
+	quantized_storage = (bytea *) palloc0(multipliers->dim + VARHDRSZ);
+	SET_VARSIZE(quantized_storage, multipliers->dim + VARHDRSZ);
+	value = ScalarQuantizeVector(raw_vector, multipliers, quantized_storage);
+	pfree(multipliers);
+
+	itup = index_form_tuple(tupdesc, &value, is_null);
+	pfree(quantized_storage);
+
+	return itup;
 }
 
 /*
@@ -75,6 +131,7 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 	BlockNumber insertPage = InvalidBlockNumber;
 	ListInfo	listInfo;
 	BlockNumber originalInsertPage;
+	IvfQuantizerType quantizer;
 
 	/* Detoast once for all calls */
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
@@ -93,7 +150,19 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 	originalInsertPage = insertPage;
 
 	/* Form tuple */
-	itup = index_form_tuple(RelationGetDescr(rel), &value, isnull);
+	quantizer = IvfGetQuantizer(rel);
+	if (quantizer == kIvfsq8)
+	{
+		itup = IndexFormSQQuantizedTuple(rel, DatumGetVector(value), isnull);
+	}
+	else if (quantizer == kIvfflat)
+	{
+		itup = index_form_tuple(RelationGetDescr(rel), &value, isnull);
+	}
+	else
+	{
+		elog(ERROR, "Unsupported quantizer: %d", quantizer);
+	}
 	itup->t_tid = *heap_tid;
 
 	/* Get tuple size */

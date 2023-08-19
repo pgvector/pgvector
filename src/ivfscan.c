@@ -9,6 +9,8 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
+#include "common/ivf_list.h"
+#include "fixed_point/ivf_sq.h"
 
 /*
  * Compare list distances
@@ -33,7 +35,9 @@ GetScanLists(IndexScanDesc scan, Datum value)
 {
 	Buffer		cbuf;
 	Page		cpage;
-	IvfflatList list;
+	Item		list;
+	Metadata	*list_metadata;
+	Metadata	*flattened = NULL;
 	OffsetNumber offno;
 	OffsetNumber maxoffno;
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
@@ -42,6 +46,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 	double		distance;
 	IvfflatScanList *scanlist;
 	double		maxDistance = DBL_MAX;
+	uint32_t	version = IvfflatGetVersion(scan->indexRelation, MAIN_FORKNUM);
 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
@@ -54,15 +59,26 @@ GetScanLists(IndexScanDesc scan, Datum value)
 
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
+			list = PageGetItem(cpage, PageGetItemId(cpage, offno));
+			list_metadata = IVF_LIST_GET_METADATA(list, version);
+			flattened = FlattenMetadata(scan->indexRelation, list_metadata, MAIN_FORKNUM);
+			if (flattened == NULL) {
+				UnlockReleaseBuffer(cbuf);
+				elog(ERROR, "failed to get metadata from \"%s\"", RelationGetRelationName(scan->indexRelation));
+			}
 
 			/* Use procinfo from the index instead of scan key for performance */
-			distance = DatumGetFloat8(FunctionCall2Coll(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
+			distance = DatumGetFloat8(FunctionCall2Coll(so->procinfo, so->collation, PointerGetDatum((Vector*)flattened), value));
+			if (flattened != list_metadata) {
+				// This is an external metadata for which we allocated temporary
+				// storage that needs to be freed.
+				pfree(flattened);
+			}
 
 			if (listCount < so->probes)
 			{
 				scanlist = &so->lists[listCount];
-				scanlist->startPage = list->startPage;
+				scanlist->startPage = IVF_LIST_GET_START_PAGE(list, version);
 				scanlist->distance = distance;
 				listCount++;
 
@@ -79,7 +95,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 				scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
 
 				/* Reuse */
-				scanlist->startPage = list->startPage;
+				scanlist->startPage = IVF_LIST_GET_START_PAGE(list, version);
 				scanlist->distance = distance;
 				pairingheap_add(so->listQueue, &scanlist->ph_node);
 
@@ -111,6 +127,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	bool		isnull;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 	double		tuples = 0;
+	Vector*		distances = NULL;
+	Vector* 	query = DatumGetVector(value);
 
 #if PG_VERSION_NUM >= 120000
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
@@ -137,6 +155,10 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
 			maxoffno = PageGetMaxOffsetNumber(page);
+			if (so->quantizer == kIvfsq8)
+				// Compute the distance in batch for all quantized vectors in the page.
+				distances = DatumGetVector(FunctionCall3Coll(so->quantized_distance_procinfo, so->collation,
+								PointerGetDatum(query), PointerGetDatum(so->inv_multipliers), PointerGetDatum(page)));
 
 			for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 			{
@@ -150,7 +172,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				 * performance
 				 */
 				ExecClearTuple(slot);
-				slot->tts_values[0] = FunctionCall2Coll(so->procinfo, so->collation, datum, value);
+				slot->tts_values[0] = (so->quantizer == kIvfsq8) ?
+											Float8GetDatum(distances->x[offno - FirstOffsetNumber]) :
+											FunctionCall2Coll(so->procinfo, so->collation, datum, value);
 				slot->tts_isnull[0] = false;
 				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
 				slot->tts_isnull[1] = false;
@@ -161,6 +185,11 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				tuplesort_puttupleslot(so->sortstate, slot);
 
 				tuples++;
+			}
+			if (distances != NULL)
+			{
+				pfree(distances);
+				distances = NULL;
 			}
 
 			searchPage = IvfflatPageGetOpaque(page)->nextblkno;
@@ -216,10 +245,11 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	Oid			sortOperators[] = {Float8LessOperator};
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
-	int			probes = ivfflat_probes;
+	IvfQuantizerType quantizer = IvfGetQuantizer(index);
+	int			probes = quantizer == kIvfflat ? ivfflat_probes : ivf_probes;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
-	lists = IvfflatGetLists(scan->indexRelation);
+	lists = IvfGetLists(scan->indexRelation);
 
 	if (probes > lists)
 		probes = lists;
@@ -227,12 +257,24 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
 	so->buf = InvalidBuffer;
 	so->first = true;
+	so->quantizer = quantizer;
 	so->probes = probes;
 
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
+	so->quantized_distance_procinfo = (so->quantizer == kIvfflat ?
+											NULL : index_getprocinfo(index, 1, IVF_QUANTIZED_DISTANCE_PROC));
 	so->normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	so->collation = index->rd_indcollation[0];
+	so->inv_multipliers = NULL;
+	if (so->quantizer == kIvfsq8)
+	{
+		so->inv_multipliers = IvfsqGetMultipliers(index, MAIN_FORKNUM);
+		if (so->inv_multipliers == NULL)
+			elog(ERROR, "cannot get inversed multipliers from index.");
+		for (int i = 0; i < so->inv_multipliers->dim; ++i)
+			so->inv_multipliers->x[i] = 1.0f / so->inv_multipliers->x[i];
+	}
 
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
@@ -376,6 +418,10 @@ ivfflatendscan(IndexScanDesc scan)
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);
 
+	if (so->inv_multipliers != NULL) {
+		pfree(so->inv_multipliers);
+		so->inv_multipliers = NULL;
+	}
 	pfree(so);
 	scan->opaque = NULL;
 }
