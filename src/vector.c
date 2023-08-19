@@ -15,6 +15,10 @@
 #include "utils/numeric.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
+
 #if PG_VERSION_NUM >= 120000
 #include "common/shortest_dec.h"
 #include "utils/float.h"
@@ -35,6 +39,7 @@ PG_MODULE_MAGIC;
 /*
  * Initialize index options and variables
  */
+PGDLLEXPORT void _PG_init(void);
 void
 _PG_init(void)
 {
@@ -98,6 +103,23 @@ CheckElement(float value)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("infinite value not allowed in vector")));
+}
+
+/*
+ * Allocate and initialize a new vector
+ */
+Vector *
+InitVector(int dim)
+{
+	Vector	   *result;
+	int			size;
+
+	size = VECTOR_SIZE(dim);
+	result = (Vector *) palloc0(size);
+	SET_VARSIZE(result, size);
+	result->dim = dim;
+
+	return result;
 }
 
 /*
