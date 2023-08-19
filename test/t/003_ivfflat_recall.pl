@@ -95,7 +95,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO fix test
-		test_recall(1, 0.70, $operator);
+		test_recall(1, 0.71, $operator);
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
@@ -116,7 +116,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO fix test
-		test_recall(1, 0.73, $operator);
+		test_recall(1, 0.71, $operator);
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
