@@ -2,6 +2,7 @@ EXTENSION = vector
 EXTVERSION = 0.4.4
 
 OBJS = src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\vector.obj
+HEADERS = src\vector.h
 
 REGRESS = btree cast copy functions input ivfflat_cosine ivfflat_ip ivfflat_l2 ivfflat_options ivfflat_unlogged
 REGRESS_OPTS = --inputdir=test --load-extension=vector
@@ -54,6 +55,8 @@ install:
 	copy $(SHLIB) "$(PKGLIBDIR)"
 	copy $(EXTENSION).control "$(SHAREDIR)\extension"
 	copy sql\$(EXTENSION)--*.sql "$(SHAREDIR)\extension"
+	mkdir "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
+	copy $(HEADERS) "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
 installcheck:
 	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
@@ -62,6 +65,7 @@ uninstall:
 	del /f "$(PKGLIBDIR)\$(SHLIB)"
 	del /f "$(SHAREDIR)\extension\$(EXTENSION).control"
 	del /f "$(SHAREDIR)\extension\$(EXTENSION)--*.sql"
+	del /f /s /q "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
 clean:
 	del /f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp
