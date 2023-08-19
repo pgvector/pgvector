@@ -926,21 +926,19 @@ RemoveElementsBeingDeleted(List *w)
 void
 HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing)
 {
-	List	   *ep = NIL;
+	List	   *ep;
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
 	Datum		q = PointerGetDatum(element->vec);
 	HnswElement skipElement = existing ? element : NULL;
-	HnswCandidate *entryCandidate;
 
 	/* No neighbors if no entry point */
 	if (entryPoint == NULL)
 		return;
 
 	/* Get entry point and level */
-	entryCandidate = HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true);
-	ep = lappend(ep, entryCandidate);
+	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true));
 	entryLevel = entryPoint->level;
 
 	/* 1st phase: greedy search to insert level */

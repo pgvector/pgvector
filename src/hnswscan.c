@@ -16,14 +16,14 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	Relation	index = scan->indexRelation;
 	FmgrInfo   *procinfo = so->procinfo;
 	Oid			collation = so->collation;
-	List	   *ep = NIL;
+	List	   *ep;
 	List	   *w;
 	HnswElement entryPoint = HnswGetEntryPoint(index);
 
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = lappend(ep, HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
