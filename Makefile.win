@@ -65,7 +65,8 @@ uninstall:
 	del /f "$(PKGLIBDIR)\$(SHLIB)"
 	del /f "$(SHAREDIR)\extension\$(EXTENSION).control"
 	del /f "$(SHAREDIR)\extension\$(EXTENSION)--*.sql"
-	del /f /s /q "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
+	del /f "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)\*.h"
+	rmdir "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
 clean:
 	del /f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp
