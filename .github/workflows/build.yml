@@ -78,6 +78,7 @@ jobs:
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
   i386:
+    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
     runs-on: ubuntu-latest
     container:
       image: debian:11
