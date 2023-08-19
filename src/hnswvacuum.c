@@ -188,7 +188,7 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
  * Repair graph for a single element
  */
 static void
-RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
+RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswElement entryPoint)
 {
 	Relation	index = vacuumstate->index;
 	Buffer		buf;
@@ -198,35 +198,13 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element)
 	int			efConstruction = vacuumstate->efConstruction;
 	FmgrInfo   *procinfo = vacuumstate->procinfo;
 	Oid			collation = vacuumstate->collation;
-	HnswElement entryPoint;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
 	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
 
-	/* Check if any neighbors point to deleted values */
-	if (!NeedsUpdated(vacuumstate, element))
-		return;
-
-	/* Refresh entry point for each element */
-	entryPoint = HnswGetEntryPoint(index);
-
-	/* Special case for entry point */
+	/* Skip if element is entry point */
 	if (entryPoint != NULL && element->blkno == entryPoint->blkno && element->offno == entryPoint->offno)
-	{
-		if (BlockNumberIsValid(vacuumstate->highestPoint.blkno))
-		{
-			/* Already updated */
-			if (vacuumstate->highestPoint.blkno == element->blkno && vacuumstate->highestPoint.offno == element->offno)
-				return;
-
-			entryPoint = &vacuumstate->highestPoint;
-
-			/* Reset neighbors from previous update */
-			entryPoint->neighbors = NULL;
-		}
-		else
-			entryPoint = NULL;
-	}
+		return;
 
 	/* Init fields */
 	HnswInitNeighbors(element, m);
@@ -285,7 +263,9 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	if (highestPoint != NULL)
 	{
 		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
-		RepairGraphElement(vacuumstate, highestPoint);
+
+		if (NeedsUpdated(vacuumstate, highestPoint))
+			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index));
 	}
 
 	/* See if entry point needs updated */
@@ -305,7 +285,15 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		{
 			/* Repair the entry point with the highest point */
 			HnswLoadElement(entryPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
-			RepairGraphElement(vacuumstate, entryPoint);
+
+			if (NeedsUpdated(vacuumstate, entryPoint))
+			{
+				/* Reset neighbors from previous update */
+				if (highestPoint != NULL)
+					highestPoint->neighbors = NULL;
+
+				RepairGraphElement(vacuumstate, entryPoint, highestPoint);
+			}
 		}
 	}
 
@@ -378,7 +366,16 @@ RepairGraph(HnswVacuumState * vacuumstate)
 
 		/* Update neighbor pages */
 		foreach(lc2, elements)
-			RepairGraphElement(vacuumstate, (HnswElement) lfirst(lc2));
+		{
+			HnswElement element = (HnswElement) lfirst(lc2);
+
+			/* Check if any neighbors point to deleted values */
+			if (!NeedsUpdated(vacuumstate, element))
+				continue;
+
+			/* Refresh entry point for each element */
+			RepairGraphElement(vacuumstate, element, HnswGetEntryPoint(index));
+		}
 
 		/* Reset memory context */
 		MemoryContextSwitchTo(oldCtx);
