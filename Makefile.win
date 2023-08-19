@@ -61,7 +61,7 @@ installcheck:
 uninstall:
 	del /f "$(PKGLIBDIR)\$(SHLIB)"
 	del /f "$(SHAREDIR)\extension\$(EXTENSION).control"
-	del /f "$(SHAREDIR)\extension\vector--*.sql"
+	del /f "$(SHAREDIR)\extension\$(EXTENSION)--*.sql"
 
 clean:
 	del /f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp
