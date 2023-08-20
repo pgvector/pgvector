@@ -348,14 +348,8 @@ RepairGraph(HnswVacuumState * vacuumstate)
 				continue;
 
 			/* Create an element */
-			element = palloc(sizeof(HnswElementData));
-			element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
-			element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
-			element->level = etup->level;
-			element->blkno = blkno;
-			element->offno = offno;
-			element->vec = palloc(VECTOR_SIZE(etup->vec.dim));
-			memcpy(element->vec, &etup->vec, VECTOR_SIZE(etup->vec.dim));
+			element = HnswInitElementFromBlock(blkno, offno);
+			HnswLoadElementFromTuple(element, etup, false, true);
 
 			elements = lappend(elements, element);
 		}

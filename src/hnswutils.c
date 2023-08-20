@@ -396,6 +396,37 @@ HnswLoadNeighbors(HnswElement element, Relation index)
 }
 
 /*
+ * Load an element from a tuple
+ */
+void
+HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec)
+{
+	element->level = etup->level;
+	element->deleted = etup->deleted;
+	element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+	element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
+	element->heaptids = NIL;
+
+	if (loadHeaptids)
+	{
+		for (int i = 0; i < HNSW_HEAPTIDS; i++)
+		{
+			/* Can stop at first invalid */
+			if (!ItemPointerIsValid(&etup->heaptids[i]))
+				break;
+
+			HnswAddHeapTid(element, &etup->heaptids[i]);
+		}
+	}
+
+	if (loadVec)
+	{
+		element->vec = palloc(VECTOR_SIZE(etup->vec.dim));
+		memcpy(element->vec, &etup->vec, VECTOR_SIZE(etup->vec.dim));
+	}
+}
+
+/*
  * Load an element and optionally get its distance from q
  */
 void
@@ -415,25 +446,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 	Assert(HnswIsElementTuple(etup));
 
 	/* Load element */
-	element->heaptids = NIL;
-	for (int i = 0; i < HNSW_HEAPTIDS; i++)
-	{
-		/* Can stop at first invalid */
-		if (!ItemPointerIsValid(&etup->heaptids[i]))
-			break;
-
-		HnswAddHeapTid(element, &etup->heaptids[i]);
-	}
-	element->level = etup->level;
-	element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
-	element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
-	element->deleted = etup->deleted;
-
-	if (loadVec)
-	{
-		element->vec = palloc(VECTOR_SIZE(etup->vec.dim));
-		memcpy(element->vec, &etup->vec, VECTOR_SIZE(etup->vec.dim));
-	}
+	HnswLoadElementFromTuple(element, etup, true, loadVec);
 
 	/* Calculate distance */
 	if (distance != NULL)
