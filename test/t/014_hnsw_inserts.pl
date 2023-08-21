@@ -50,7 +50,7 @@ for my $i (1 .. 20)
 }
 
 $node->pgbench(
-	"--no-vacuum --client=5 --transactions=20",
+	"--no-vacuum --client=20 --transactions=5",
 	0,
 	[qr{actually processed}],
 	[qr{^$}],
