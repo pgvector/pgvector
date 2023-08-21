@@ -266,8 +266,10 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		/* Get a shared lock */
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
+		/* Load element */
 		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
 
+		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
 			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index));
 
