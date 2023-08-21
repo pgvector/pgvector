@@ -476,10 +476,12 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			ntup = (HnswNeighborTuple) PageGetItem(npage, PageGetItemId(npage, neighborOffno));
 
 			/* Overwrite element */
+			etup->version++;
 			etup->deleted = 1;
 			MemSet(&etup->vec.x, 0, etup->vec.dim * sizeof(float));
 
 			/* Overwrite neighbors */
+			ntup->version = etup->version;
 			for (int i = 0; i < ntup->count; i++)
 				ItemPointerSetInvalid(&ntup->indextids[i]);
 

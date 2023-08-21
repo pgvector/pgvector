@@ -160,6 +160,7 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
 	element->heaptids = NIL;
 	HnswAddHeapTid(element, heaptid);
 
+	element->version = 1;
 	element->level = level;
 	element->deleted = 0;
 
@@ -288,6 +289,7 @@ void
 HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 {
 	etup->type = HNSW_ELEMENT_TUPLE_TYPE;
+	etup->version = element->version;
 	etup->level = element->level;
 	etup->deleted = 0;
 	for (int i = 0; i < HNSW_HEAPTIDS; i++)
@@ -309,6 +311,7 @@ HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m)
 	int			idx = 0;
 
 	ntup->type = HNSW_NEIGHBOR_TUPLE_TYPE;
+	ntup->version = e->version;
 
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -348,7 +351,7 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
 	HnswInitNeighbors(element, m);
 
 	/* Ensure expected neighbors */
-	if (ntup->count != neighborCount)
+	if (ntup->version != element->version || ntup->count != neighborCount)
 		return;
 
 	for (int i = 0; i < neighborCount; i++)
@@ -401,6 +404,7 @@ HnswLoadNeighbors(HnswElement element, Relation index)
 void
 HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec)
 {
+	element->version = etup->version;
 	element->level = etup->level;
 	element->deleted = etup->deleted;
 	element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);

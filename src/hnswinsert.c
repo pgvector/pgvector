@@ -359,8 +359,11 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
 			/* Calculate index for update */
 			startIdx = (hc->element->level - lc) * m;
 
-			/* Check for existing connection */
-			if (checkExisting && ConnectionExists(e, ntup, startIdx, lm))
+			/* TODO Skip when deleting */
+			/* TODO Resolve issue with connections from element neighbor tuple */
+			if (ntup->version != hc->element->version)
+				idx = -1;
+			else if (checkExisting && ConnectionExists(e, ntup, startIdx, lm))
 				idx = -1;
 			else if (idx == -2)
 			{
@@ -474,7 +477,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 	}
 
 	/* Either being deleted or we lost our chance to another backend */
-	if (i == 0 || i == HNSW_HEAPTIDS)
+	if (i == 0 || i == HNSW_HEAPTIDS || etup->version != dup->version)
 	{
 		GenericXLogAbort(state);
 		UnlockReleaseBuffer(buf);
