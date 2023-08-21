@@ -85,7 +85,6 @@ typedef struct HnswNeighborArray HnswNeighborArray;
 typedef struct HnswElementData
 {
 	List	   *heaptids;
-	uint8		version;
 	uint8		level;
 	uint8		deleted;
 	HnswNeighborArray *neighbors;
@@ -186,9 +185,9 @@ typedef HnswPageOpaqueData * HnswPageOpaque;
 typedef struct HnswElementTupleData
 {
 	uint8		type;
-	uint8		version;
 	uint8		level;
 	uint8		deleted;
+	uint8		unused;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
 	uint16		unused2;
@@ -200,7 +199,7 @@ typedef HnswElementTupleData * HnswElementTuple;
 typedef struct HnswNeighborTupleData
 {
 	uint8		type;
-	uint8		version;
+	uint8		unused;
 	uint16		count;
 	ItemPointerData indextids[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborTupleData;
