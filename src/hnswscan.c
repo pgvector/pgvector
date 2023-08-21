@@ -4,6 +4,7 @@
 #include "hnsw.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
+#include "storage/lmgr.h"
 #include "utils/memutils.h"
 
 /*
@@ -144,7 +145,9 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
 		}
 
+		LockPage(scan->indexRelation, HNSW_HEAD_BLKNO, ShareLock);
 		so->w = GetScanItems(scan, value);
+		UnlockPage(scan->indexRelation, HNSW_HEAD_BLKNO, ShareLock);
 		so->first = false;
 	}
 

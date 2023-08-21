@@ -625,9 +625,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 				else
 					HnswLoadElement(e->element, &eDistance, &q, index, procinfo, collation, inserting);
 
-				/* Skip if fully deleted */
-				if (e->element->deleted)
-					continue;
+				Assert(!e->element->deleted);
 
 				/* Skip self for vacuuming update */
 				if (skipElement != NULL && e->element->neighborPage == skipElement->neighborPage && e->element->neighborOffno == skipElement->neighborOffno)

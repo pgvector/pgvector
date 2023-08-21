@@ -404,6 +404,10 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
 
+	/* Wait for selects to complete */
+	LockPage(index, HNSW_HEAD_BLKNO, ExclusiveLock);
+	UnlockPage(index, HNSW_HEAD_BLKNO, ExclusiveLock);
+
 	while (BlockNumberIsValid(blkno))
 	{
 		Buffer		buf;
