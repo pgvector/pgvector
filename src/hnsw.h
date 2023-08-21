@@ -28,6 +28,10 @@
 #define HNSW_METAPAGE_BLKNO	0
 #define HNSW_HEAD_BLKNO		1	/* first element page */
 
+/* Must correspond to page numbers since page lock is used */
+#define HNSW_UPDATE_LOCK 	0
+#define HNSW_SCAN_LOCK		1
+
 #define HNSW_DEFAULT_M	16
 #define HNSW_MIN_M	2
 #define HNSW_MAX_M		100

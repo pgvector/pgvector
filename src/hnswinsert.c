@@ -519,7 +519,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	 * Get a shared lock for the duration of the insert. Use a page lock so it
 	 * does not interfere with buffer lock (or reads when vacuuming).
 	 */
-	LockPage(index, HNSW_METAPAGE_BLKNO, lockmode);
+	LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 	/* Get entry point */
 	entryPoint = HnswGetEntryPoint(index);
@@ -528,11 +528,11 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	if (entryPoint == NULL || element->level > entryPoint->level)
 	{
 		/* Release shared lock */
-		UnlockPage(index, HNSW_METAPAGE_BLKNO, lockmode);
+		UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 		/* Get exclusive lock */
 		lockmode = ExclusiveLock;
-		LockPage(index, HNSW_METAPAGE_BLKNO, lockmode);
+		LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 		/* Get latest entry point after lock is acquired */
 		entryPoint = HnswGetEntryPoint(index);
@@ -548,7 +548,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	WriteElement(index, procinfo, collation, element, m, efConstruction, dup, entryPoint);
 
 	/* Release shared lock */
-	UnlockPage(index, HNSW_METAPAGE_BLKNO, lockmode);
+	UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 	return true;
 }

@@ -145,9 +145,17 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
 		}
 
-		LockPage(scan->indexRelation, HNSW_HEAD_BLKNO, ShareLock);
+		/*
+		 * Get a shared lock. This allows vacuum to ensure no in-flight scans
+		 * before marking tuples as deleted.
+		 */
+		LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
 		so->w = GetScanItems(scan, value);
-		UnlockPage(scan->indexRelation, HNSW_HEAD_BLKNO, ShareLock);
+
+		/* Release shared lock */
+		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
 		so->first = false;
 	}
 

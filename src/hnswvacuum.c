@@ -316,8 +316,8 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	RepairGraphEntryPoint(vacuumstate);
 
 	/* Wait for inserts to complete */
-	LockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
-	UnlockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
+	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
 	while (BlockNumberIsValid(blkno))
 	{
@@ -405,8 +405,8 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 
 	/* Wait for selects to complete */
-	LockPage(index, HNSW_HEAD_BLKNO, ExclusiveLock);
-	UnlockPage(index, HNSW_HEAD_BLKNO, ExclusiveLock);
+	LockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
+	UnlockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
 
 	while (BlockNumberIsValid(blkno))
 	{
