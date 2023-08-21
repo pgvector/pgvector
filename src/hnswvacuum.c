@@ -5,6 +5,7 @@
 #include "commands/vacuum.h"
 #include "hnsw.h"
 #include "storage/bufmgr.h"
+#include "storage/lmgr.h"
 #include "utils/memutils.h"
 
 /*
@@ -255,6 +256,10 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	 * can remove connections at higher levels in the graph, which is not
 	 * ideal.
 	 */
+
+	/* Wait for inserts to complete */
+	LockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
+	UnlockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
 
 	if (!BlockNumberIsValid(highestPoint->blkno))
 		highestPoint = NULL;

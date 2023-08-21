@@ -561,6 +561,12 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	element = HnswInitElement(heap_tid, m, ml, HnswGetMaxLevel(m));
 	element->vec = DatumGetVector(value);
 
+	/*
+	 * Get a shared lock for the duration of the insert. Use a page lock so it
+	 * does not interfere with buffer lock (or reads when vacuuming).
+	 */
+	LockPage(index, HNSW_METAPAGE_BLKNO, ShareLock);
+
 	/* Get entry point */
 	entryPoint = HnswGetEntryPoint(index);
 
@@ -568,7 +574,10 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	if (entryPoint == NULL)
 	{
 		if (HnswAddEntryPoint(index, element, m, &entryPoint))
+		{
+			UnlockPage(index, HNSW_METAPAGE_BLKNO, ShareLock);
 			return true;
+		}
 	}
 
 	/* Insert element in graph */
@@ -579,6 +588,9 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 
 	/* Write to disk */
 	WriteElement(index, procinfo, collation, element, m, efConstruction, dup, entryPoint);
+
+	/* Release shared lock */
+	UnlockPage(index, HNSW_METAPAGE_BLKNO, ShareLock);
 
 	return true;
 }
