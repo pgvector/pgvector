@@ -516,8 +516,9 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	element->vec = DatumGetVector(value);
 
 	/*
-	 * Get a shared lock for the duration of the insert. Use a page lock so it
-	 * does not interfere with buffer lock (or reads when vacuuming).
+	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts
+	 * before repairing graph. Use a page lock so it does not interfere with
+	 * buffer lock (or reads when vacuuming).
 	 */
 	LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
