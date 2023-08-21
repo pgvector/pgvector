@@ -263,11 +263,18 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	/* Repair graph for highest non-entry point */
 	if (highestPoint != NULL)
 	{
+		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
+
 		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
 
 		if (NeedsUpdated(vacuumstate, highestPoint))
 			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index));
+
+		UnlockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 	}
+
+	/* Wait for inserts to complete */
+	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
 	/* See if entry point needs updated */
 	entryPoint = HnswGetEntryPoint(index);
@@ -298,6 +305,9 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		}
 	}
 
+	/* Release lock */
+	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
 	MemoryContextReset(vacuumstate->tmpCtx);
@@ -314,10 +324,6 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 
 	RepairGraphEntryPoint(vacuumstate);
-
-	/* Wait for inserts to complete */
-	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
-	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
 	while (BlockNumberIsValid(blkno))
 	{

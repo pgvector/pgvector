@@ -548,7 +548,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	/* Write to disk */
 	WriteElement(index, procinfo, collation, element, m, efConstruction, dup, entryPoint);
 
-	/* Release shared lock */
+	/* Release lock */
 	UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 	return true;
