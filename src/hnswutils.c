@@ -236,7 +236,7 @@ HnswGetEntryPoint(Relation index)
 /*
  * Update the metapage info
  */
-void
+static void
 HnswUpdateMetaPageInfo(Page page, int updateEntry, HnswElement entryPoint, BlockNumber insertPage)
 {
 	HnswMetaPage metap = HnswPageGetMeta(page);
