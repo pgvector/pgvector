@@ -374,13 +374,31 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		{
 			HnswElement element = (HnswElement) lfirst(lc2);
 			HnswElement entryPoint;
+			LOCKMODE	lockmode = ShareLock;
 
 			/* Check if any neighbors point to deleted values */
 			if (!NeedsUpdated(vacuumstate, element))
 				continue;
 
+			/* Get a shared lock */
+			LockPage(index, HNSW_UPDATE_LOCK, lockmode);
+
 			/* Refresh entry point for each element */
 			entryPoint = HnswGetEntryPoint(index);
+
+			/* Prevent concurrent inserts when likely updating entry point */
+			if (entryPoint == NULL || element->level > entryPoint->level)
+			{
+				/* Release shared lock */
+				UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
+
+				/* Get exclusive lock */
+				lockmode = ExclusiveLock;
+				LockPage(index, HNSW_UPDATE_LOCK, lockmode);
+
+				/* Get latest entry point after lock is acquired */
+				entryPoint = HnswGetEntryPoint(index);
+			}
 
 			/* Repair connections */
 			RepairGraphElement(vacuumstate, element, entryPoint);
@@ -391,6 +409,9 @@ RepairGraph(HnswVacuumState * vacuumstate)
 			 */
 			if (entryPoint == NULL || element->level > entryPoint->level)
 				HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_GREATER, element, InvalidBlockNumber, MAIN_FORKNUM);
+
+			/* Release lock */
+			UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
 		}
 
 		/* Reset memory context */
