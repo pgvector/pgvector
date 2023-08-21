@@ -257,10 +257,6 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	 * ideal.
 	 */
 
-	/* Wait for inserts to complete */
-	LockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
-	UnlockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
-
 	if (!BlockNumberIsValid(highestPoint->blkno))
 		highestPoint = NULL;
 
@@ -318,6 +314,10 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 
 	RepairGraphEntryPoint(vacuumstate);
+
+	/* Wait for inserts to complete */
+	LockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
+	UnlockPage(index, HNSW_METAPAGE_BLKNO, ExclusiveLock);
 
 	while (BlockNumberIsValid(blkno))
 	{
