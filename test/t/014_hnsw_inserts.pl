@@ -49,6 +49,24 @@ for my $i (1 .. 20)
 	$node->safe_psql("postgres", "TRUNCATE tst;");
 }
 
-is(idx_scan(), 20);
+$node->pgbench(
+	"--no-vacuum --client=5 --transactions=20",
+	0,
+	[qr{actually processed}],
+	[qr{^$}],
+	"concurrent INSERTs",
+	{
+		"014_hnsw_inserts" => "INSERT INTO tst SELECT ARRAY[$array_sql] FROM generate_series(1, 10) i;"
+	}
+);
+
+my $count = $node->safe_psql("postgres", qq(
+	SET enable_seqscan = off;
+	SET hnsw.ef_search = 1000;
+	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1)) t;
+));
+is($count, 1000);
+
+is(idx_scan(), 21);
 
 done_testing();
