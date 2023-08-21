@@ -330,6 +330,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
+	/* Repair entry point first */
 	RepairGraphEntryPoint(vacuumstate);
 
 	while (BlockNumberIsValid(blkno))
