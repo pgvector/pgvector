@@ -9,7 +9,7 @@
 #include "utils/memutils.h"
 
 /*
- * Check if deleted list contains an index tid
+ * Check if deleted list contains an index TID
  */
 static bool
 DeletedContains(HTAB *deleted, ItemPointer indextid)
