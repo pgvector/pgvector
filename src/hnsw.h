@@ -81,7 +81,7 @@
 /* Optimal ML from paper */
 #define HnswGetMl(m) (1 / log(m))
 
-/* Ensure fits in uint8 */
+/* Ensure fits on page and in uint8 */
 #define HnswGetMaxLevel(m) Min(((BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - offsetof(HnswNeighborTupleData, indextids) - sizeof(ItemIdData)) / (sizeof(ItemPointerData)) / m) - 2, 255)
 
 /* Variables */
