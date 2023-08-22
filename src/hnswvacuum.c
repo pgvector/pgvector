@@ -252,16 +252,8 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		highestPoint = NULL;
 
 	/*
-	 * Repair graph for highest non-entry point. May be outdated due to
-	 * inserts that happen during RemoveHeapTids.
-	 *
-	 * Outdated point can remove connections at higher levels in the graph
-	 * until they are repaired. Could set the insert page to the last page at
-	 * the start of RemoveHeapTids to reduce this possibility, but likely
-	 * better to keep reusing space.
-	 *
-	 * If highest point is empty and entry point is deleted, the entry point
-	 * can be empty for a short period until a live element is repaired.
+	 * Repair graph for highest non-entry point. Highest point may be outdated
+	 * due to inserts that happen during and after RemoveHeapTids.
 	 */
 	if (highestPoint != NULL)
 	{
@@ -293,12 +285,20 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		if (DeletedContains(vacuumstate->deleted, &epData))
 		{
-			/* Replace the entry point with the highest point */
+			/*
+			 * Replace the entry point with the highest point. If highest
+			 * point is outdated and empty, the entry point will be empty
+			 * until an element is repaired.
+			 */
 			HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, highestPoint, InvalidBlockNumber, MAIN_FORKNUM);
 		}
 		else
 		{
-			/* Repair the entry point with the highest point */
+			/*
+			 * Repair the entry point with the highest point. If highest point
+			 * is outdated, this can remove connections at higher levels in
+			 * the graph until they are repaired, but this should be fine.
+			 */
 			HnswLoadElement(entryPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
 
 			if (NeedsUpdated(vacuumstate, entryPoint))
