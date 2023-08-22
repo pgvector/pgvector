@@ -75,7 +75,10 @@
 #define HnswIsElementTuple(tup) ((tup)->type == HNSW_ELEMENT_TUPLE_TYPE)
 #define HnswIsNeighborTuple(tup) ((tup)->type == HNSW_NEIGHBOR_TUPLE_TYPE)
 
+/* 2 * M connections for ground layer */
 #define HnswGetLayerM(m, layer) (layer == 0 ? m * 2 : m)
+
+/* Optimal ML from paper */
 #define HnswGetMl(m) (1 / log(m))
 
 /* Ensure fits in uint8 */

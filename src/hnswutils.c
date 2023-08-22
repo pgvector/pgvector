@@ -7,7 +7,7 @@
 #include "vector.h"
 
 /*
- * Get the number of connection in the index
+ * Get the max number of connections in an upper layer for each element in the index
  */
 int
 HnswGetM(Relation index)
