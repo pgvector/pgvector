@@ -66,6 +66,7 @@ my $count = $node->safe_psql("postgres", qq(
 	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1)) t;
 ));
 # Elements may lose all incoming connections with the HNSW algorithm
+# Vacuuming can fix this if one of the elements neighbors is deleted
 cmp_ok($count, ">=", 997);
 
 is(idx_scan(), 21);
