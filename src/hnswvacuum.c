@@ -248,19 +248,21 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	HnswElement entryPoint;
 	MemoryContext oldCtx = MemoryContextSwitchTo(vacuumstate->tmpCtx);
 
-	/*
-	 * TODO Handle missing highest point properly. Cannot make entry point
-	 * empty since may be outdated.
-	 *
-	 * TODO Look for newer highest point. Outdated point works if exists, but
-	 * can remove connections at higher levels in the graph, which is not
-	 * ideal.
-	 */
-
 	if (!BlockNumberIsValid(highestPoint->blkno))
 		highestPoint = NULL;
 
-	/* Repair graph for highest non-entry point */
+	/*
+	 * Repair graph for highest non-entry point. May be outdated due to
+	 * inserts that happen during RemoveHeapTids.
+	 *
+	 * Outdated point can remove connections at higher levels in the graph
+	 * until they are repaired. Could set the insert page to the last page at
+	 * the start of RemoveHeapTids to reduce this possibility, but likely
+	 * better to keep reusing space.
+	 *
+	 * If highest point is empty and entry point is deleted, the entry point
+	 * can be empty for a short period until a live element is repaired.
+	 */
 	if (highestPoint != NULL)
 	{
 		/* Get a shared lock */
@@ -280,7 +282,9 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	/* Prevent concurrent inserts when possibly updating entry point */
 	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
+	/* Get latest entry point */
 	entryPoint = HnswGetEntryPoint(index);
+
 	if (entryPoint != NULL)
 	{
 		ItemPointerData epData;
