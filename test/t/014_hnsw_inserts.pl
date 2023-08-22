@@ -65,7 +65,8 @@ my $count = $node->safe_psql("postgres", qq(
 	SET hnsw.ef_search = 1000;
 	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1)) t;
 ));
-is($count, 1000);
+# Elements may lose all incoming connections with the HNSW algorithm
+cmp_ok($count, ">=", 997);
 
 is(idx_scan(), 21);
 
