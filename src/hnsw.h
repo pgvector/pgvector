@@ -22,7 +22,7 @@
 
 #define HNSW_VERSION	1
 #define HNSW_MAGIC_NUMBER 0xA953A953
-#define HNSW_PAGE_ID	0xFF85
+#define HNSW_PAGE_ID	0xFF90
 
 /* Preserved page numbers */
 #define HNSW_METAPAGE_BLKNO	0
