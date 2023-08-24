@@ -24,7 +24,7 @@ IvfflatInit(void)
 {
 	ivfflat_relopt_kind = add_reloption_kind();
 	add_int_reloption(ivfflat_relopt_kind, "lists", "Number of inverted lists",
-					  IVFFLAT_DEFAULT_LISTS, 1, IVFFLAT_MAX_LISTS
+					  IVFFLAT_DEFAULT_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS
 #if PG_VERSION_NUM >= 130000
 					  ,AccessExclusiveLock
 #endif
@@ -32,7 +32,7 @@ IvfflatInit(void)
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
-							1, 1, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 }
 
 /*

@@ -42,7 +42,9 @@
 
 /* IVFFlat parameters */
 #define IVFFLAT_DEFAULT_LISTS	100
+#define IVFFLAT_MIN_LISTS		1
 #define IVFFLAT_MAX_LISTS		32768
+#define IVFFLAT_DEFAULT_PROBES	1
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
