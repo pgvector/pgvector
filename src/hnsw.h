@@ -32,6 +32,7 @@
 #define HNSW_UPDATE_LOCK 	0
 #define HNSW_SCAN_LOCK		1
 
+/* HNSW parameters */
 #define HNSW_DEFAULT_M	16
 #define HNSW_MIN_M	2
 #define HNSW_MAX_M		100
@@ -42,6 +43,7 @@
 #define HNSW_MIN_EF_SEARCH		1
 #define HNSW_MAX_EF_SEARCH		1000
 
+/* Tuple types */
 #define HNSW_ELEMENT_TUPLE_TYPE  1
 #define HNSW_NEIGHBOR_TUPLE_TYPE 2
 

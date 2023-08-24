@@ -40,6 +40,7 @@
 #define IVFFLAT_METAPAGE_BLKNO	0
 #define IVFFLAT_HEAD_BLKNO		1	/* first list page */
 
+/* IVFFlat parameters */
 #define IVFFLAT_DEFAULT_LISTS	100
 #define IVFFLAT_MAX_LISTS		32768
 
