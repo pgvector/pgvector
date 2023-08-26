@@ -854,7 +854,6 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 	{
 		/* Shrink connections */
 		HnswCandidate *pruned = NULL;
-		List	   *c = NIL;
 
 		/* Load elements on insert */
 		if (index != NULL)
@@ -881,6 +880,8 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 
 		if (pruned == NULL)
 		{
+			List	   *c = NIL;
+
 			/* Add and sort candidates */
 			for (int i = 0; i < currentNeighbors->length; i++)
 				c = lappend(c, &currentNeighbors->items[i]);
