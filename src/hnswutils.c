@@ -624,7 +624,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 				Assert(!e->element->deleted);
 
 				/* Skip self for vacuuming update */
-				if (skipElement != NULL && e->element->neighborPage == skipElement->neighborPage && e->element->neighborOffno == skipElement->neighborOffno)
+				if (skipElement != NULL && e->element->blkno == skipElement->blkno && e->element->offno == skipElement->offno)
 					continue;
 
 				/* Make robust to issues */
