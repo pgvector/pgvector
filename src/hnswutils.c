@@ -733,7 +733,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswC
 	List	   *w = list_copy(c);
 	pairingheap *wd;
 
-	if (list_length(w) < m)
+	if (list_length(w) <= m)
 		return w;
 
 	wd = pairingheap_allocate(CompareNearestCandidates, NULL);
