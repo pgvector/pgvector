@@ -612,6 +612,67 @@ FreeVacuumState(HnswVacuumState * vacuumstate)
 }
 
 /*
+ * Print graph
+ */
+#ifdef HNSW_DEBUG
+static void
+PrintGraph(HnswVacuumState * vacuumstate)
+{
+	BlockNumber blkno = HNSW_HEAD_BLKNO;
+	Relation	index = vacuumstate->index;
+
+	while (BlockNumberIsValid(blkno))
+	{
+		Buffer		buf;
+		Page		page;
+		OffsetNumber offno;
+		OffsetNumber maxoffno;
+
+		buf = ReadBuffer(index, blkno);
+		LockBuffer(buf, BUFFER_LOCK_SHARE);
+		page = BufferGetPage(buf);
+		maxoffno = PageGetMaxOffsetNumber(page);
+
+		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+		{
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			HnswElement element;
+
+			/* Skip neighbor tuples */
+			if (!HnswIsElementTuple(etup))
+				continue;
+
+			/* Skip deleted tuples */
+			if (etup->deleted)
+				continue;
+
+			element = HnswInitElementFromBlock(blkno, offno);
+			HnswLoadElementFromTuple(element, etup, false, true);
+			HnswLoadNeighbors(element, index);
+
+			elog(INFO, "element (%d,%d)", element->blkno, element->offno);
+
+			for (int lc = element->level; lc >= 0; lc--)
+			{
+				HnswNeighborArray *neighbors = &element->neighbors[lc];
+
+				for (int i = 0; i < neighbors->length; i++)
+				{
+					HnswElement e = neighbors->items[i].element;
+
+					elog(INFO, "%d: (%d,%d)", lc, e->blkno, e->offno);
+				}
+			}
+		}
+
+		blkno = HnswPageGetOpaque(page)->nextblkno;
+
+		UnlockReleaseBuffer(buf);
+	}
+}
+#endif
+
+/*
  * Bulk delete tuples from the index
  */
 IndexBulkDeleteResult *
@@ -630,6 +691,10 @@ hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 	/* Pass 3: Mark as deleted */
 	MarkDeleted(&vacuumstate);
+
+#ifdef HNSW_DEBUG
+	PrintGraph(&vacuumstate);
+#endif
 
 	FreeVacuumState(&vacuumstate);
 
