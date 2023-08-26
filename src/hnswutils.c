@@ -623,10 +623,6 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 
 				Assert(!e->element->deleted);
 
-				/* Skip self for vacuuming update */
-				if (skipElement != NULL && e->element->blkno == skipElement->blkno && e->element->offno == skipElement->offno)
-					continue;
-
 				/* Make robust to issues */
 				if (e->element->level < lc)
 					continue;
@@ -913,10 +909,10 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 }
 
 /*
- * Remove elements being deleted
+ * Remove elements being deleted or skipped
  */
 static List *
-RemoveElementsBeingDeleted(List *w)
+RemoveElements(List *w, HnswElement skipElement)
 {
 	ListCell   *lc2;
 	List	   *w2 = NIL;
@@ -924,6 +920,10 @@ RemoveElementsBeingDeleted(List *w)
 	foreach(lc2, w)
 	{
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
+
+		/* Skip self for vacuuming update */
+		if (skipElement != NULL && hc->element->blkno == skipElement->blkno && hc->element->offno == skipElement->offno)
+			continue;
 
 		if (list_length(hc->element->heaptids) != 0)
 			w2 = lappend(w2, hc);
@@ -963,20 +963,27 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	if (level > entryLevel)
 		level = entryLevel;
 
+	/* Add one for existing element */
+	if (existing)
+		efConstruction++;
+
 	/* 2nd phase */
 	for (int lc = level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
 		List	   *neighbors;
+		List	   *lw;
 
 		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipElement);
 
-		/* Elements being deleted can help with search */
+		/* Elements being deleted or skipped can help with search */
 		/* but should be removed before selecting neighbors */
 		if (index != NULL)
-			w = RemoveElementsBeingDeleted(w);
+			lw = RemoveElements(w, skipElement);
+		else
+			lw = w;
 
-		neighbors = SelectNeighbors(w, lm, lc, procinfo, collation, NULL);
+		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, NULL);
 
 		AddConnections(element, neighbors, lm, lc);
 
