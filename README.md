@@ -162,7 +162,7 @@ You can add an index to use approximate nearest neighbor search, which trades so
 Supported index types are:
 
 - [IVFFlat](#ivfflat)
-- [HNSW](#hnsw) (*added in 0.5.0*)
+- [HNSW](#hnsw) - *added in 0.5.0*
 
 ## IVFFlat
 
