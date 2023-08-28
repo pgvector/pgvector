@@ -166,7 +166,7 @@ Supported index types are:
 
 ## IVFFlat
 
-An IVFFlat index divides vectors into lists, and then searches a subset of those lists. It has faster build times and uses less memory than HNSW, but has lower query performance (in terms of speed-recall tradeoff).
+An IVFFlat index divides vectors into lists, and then searches a subset of those lists that are closest to the query vector. It has faster build times and uses less memory than HNSW, but has lower query performance (in terms of speed-recall tradeoff).
 
 Three keys to achieving good recall are:
 
