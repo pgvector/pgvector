@@ -159,6 +159,15 @@ By default, pgvector performs exact nearest neighbor search, which provides perf
 
 You can add an index to use approximate nearest neighbor search, which trades some recall for performance. Unlike typical indexes, you will see different results for queries after adding an approximate index.
 
+Supported index types are:
+
+- [IVFFlat](#ivfflat)
+- [HNSW](#hnsw) (*added in 0.5.0*)
+
+## IVFFlat
+
+An IVFFlat index divides vectors into lists, and then searches a subset of those lists. It has faster build times and uses less memory than HNSW, but has lower query performance.
+
 Three keys to achieving good recall are:
 
 1. Create the index *after* the table has some data
@@ -206,7 +215,63 @@ SELECT ...
 COMMIT;
 ```
 
-### Indexing Progress
+## HNSW
+
+An HNSW index creates a multilayer graph. It has slower build times and uses more memory than IVFFlat, but has better query performance. There’s no training step like IVFFlat, so the index can be created without any data in the table.
+
+Add an index for each distance function you want to use.
+
+L2 distance
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
+```
+
+Inner product
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_ip_ops);
+```
+
+Cosine distance
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
+```
+
+Vectors with up to 2,000 dimensions can be indexed.
+
+### Index Options
+
+Specify HNSW parameters
+
+- `m` - the max number of connections per layer (16 by default)
+- `ef_construction` - the size of the dynamic candidate list for constructing the graph (64 by default)
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
+```
+
+### Query Options
+
+Specify the size of the dynamic candidate list for search (40 by default)
+
+```sql
+SET hnsw.ef_search = 100;
+```
+
+A higher value provides better recall at the cost of speed.
+
+Use `SET LOCAL` inside a transaction to set it for a single query
+
+```sql
+BEGIN;
+SET LOCAL hnsw.ef_search = 100;
+SELECT ...
+COMMIT;
+```
+
+## Indexing Progress
 
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
 
@@ -217,8 +282,8 @@ SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
 The phases are:
 
 1. `initializing`
-2. `performing k-means`
-3. `sorting tuples`
+2. `performing k-means` (IVFFlat only)
+3. `assigning tuples` (IVFFlat only)
 4. `loading tuples`
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
@@ -283,7 +348,7 @@ SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
 
 ### Approximate Search
 
-To speed up queries with an index, increase the number of inverted lists (at the expense of recall).
+To speed up queries with an IVFFlat index, increase the number of inverted lists (at the expense of recall).
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
@@ -359,7 +424,7 @@ or choose to store vectors inline:
 ALTER TABLE items ALTER COLUMN embedding SET STORAGE PLAIN;
 ```
 
-#### Why are there less results for a query after adding an index?
+#### Why are there less results for a query after adding an IVFFlat index?
 
 The index was likely created with too little data for the number of lists. Drop the index until the table has more data.
 
@@ -375,32 +440,32 @@ Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a singl
 
 ### Vector Operators
 
-Operator | Description
---- | ---
-\+ | element-wise addition
-\- | element-wise subtraction
-\* | element-wise multiplication [unreleased]
-<-> | Euclidean distance
-<#> | negative inner product
-<=> | cosine distance
+Operator | Description | Added
+--- | --- | ---
+\+ | element-wise addition |
+\- | element-wise subtraction |
+\* | element-wise multiplication | 0.5.0
+<-> | Euclidean distance |
+<#> | negative inner product |
+<=> | cosine distance |
 
 ### Vector Functions
 
-Function | Description
---- | ---
-cosine_distance(vector, vector) → double precision | cosine distance
-inner_product(vector, vector) → double precision | inner product
-l2_distance(vector, vector) → double precision | Euclidean distance
-l1_distance(vector, vector) → double precision | taxicab distance [unreleased]
-vector_dims(vector) → integer | number of dimensions
-vector_norm(vector) → double precision | Euclidean norm
+Function | Description | Added
+--- | --- | ---
+cosine_distance(vector, vector) → double precision | cosine distance |
+inner_product(vector, vector) → double precision | inner product |
+l2_distance(vector, vector) → double precision | Euclidean distance |
+l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
+vector_dims(vector) → integer | number of dimensions |
+vector_norm(vector) → double precision | Euclidean norm |
 
 ### Aggregate Functions
 
-Function | Description
---- | ---
-avg(vector) → vector | arithmetic mean
-sum(vector) → vector | sum [unreleased]
+Function | Description | Added
+--- | --- | ---
+avg(vector) → vector | average |
+sum(vector) → vector | sum | 0.5.0
 
 ## Installation Notes
 
@@ -467,7 +532,6 @@ You can also build the image manually:
 ```sh
 git clone --branch v0.4.4 https://github.com/pgvector/pgvector.git
 cd pgvector
-git cherry-pick 237a6df
 docker build --build-arg PG_MAJOR=15 -t myuser/pgvector .
 ```
 
