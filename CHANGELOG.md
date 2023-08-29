@@ -1,7 +1,7 @@
 ## 0.5.0 (2023-08-28)
 
 - Added HNSW index type
-- Added support for parallel index builds
+- Added support for parallel index builds for IVFFlat
 - Added `l1_distance` function
 - Added element-wise multiplication for vectors
 - Added `sum` aggregate
