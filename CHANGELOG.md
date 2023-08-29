@@ -7,7 +7,7 @@
 - Added `sum` aggregate
 - Improved performance of distance functions
 - Fixed out of range results for cosine distance
-- Fixed results for NULL and NaN distances
+- Fixed results for NULL and NaN distances for IVFFlat
 
 ## 0.4.4 (2023-06-12)
 
