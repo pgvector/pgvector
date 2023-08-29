@@ -185,6 +185,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		scan->xs_ctup.t_self = *tid;
 #endif
 
+		/* Unpin buffer */
 		if (BufferIsValid(so->buf))
 			ReleaseBuffer(so->buf);
 
