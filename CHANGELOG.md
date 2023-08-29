@@ -1,4 +1,4 @@
-## 0.5.0 (unreleased)
+## 0.5.0 (2023-08-28)
 
 - Added HNSW index type
 - Added support for parallel index builds
