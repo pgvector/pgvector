@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "access/parallel.h"
+#include "access/xact.h"
 #include "catalog/index.h"
 #include "hnsw.h"
 #include "miscadmin.h"
