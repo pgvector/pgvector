@@ -544,16 +544,14 @@ vector_to_float4(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the L2 distance between vectors
+ * Internal helper for L2 distances
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(l2_distance);
-Datum
-l2_distance(PG_FUNCTION_ARGS)
+static inline
+float
+l2_squared_distance_internal(Vector *a, Vector *b)
 {
-	Vector	   *a = PG_GETARG_VECTOR_P(0);
-	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float		distance = 0.0;
-	float		diff;
+	float 		diff;
 
 	CheckDims(a, b);
 
@@ -564,7 +562,20 @@ l2_distance(PG_FUNCTION_ARGS)
 		distance += diff * diff;
 	}
 
-	PG_RETURN_FLOAT8(sqrt((double) distance));
+	return(distance);
+}
+
+/*
+ * Get the L2 distance between vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(l2_distance);
+Datum
+l2_distance(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+
+	PG_RETURN_FLOAT8(sqrt((double) l2_squared_distance_internal(a,b)));
 }
 
 /*
@@ -577,19 +588,26 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
+
+	PG_RETURN_FLOAT8((double) l2_squared_distance_internal(a,b));
+}
+
+/*
+ * Internal helper for inner products
+ */
+static inline
+float
+inner_product_internal(Vector *a, Vector *b)
+{
 	float		distance = 0.0;
-	float		diff;
 
 	CheckDims(a, b);
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-	{
-		diff = a->x[i] - b->x[i];
-		distance += diff * diff;
-	}
+		distance += a->x[i] * b->x[i];
 
-	PG_RETURN_FLOAT8((double) distance);
+	return(distance);
 }
 
 /*
@@ -601,15 +619,8 @@ inner_product(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float		distance = 0.0;
 
-	CheckDims(a, b);
-
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += a->x[i] * b->x[i];
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) inner_product_internal(a,b));
 }
 
 /*
@@ -621,15 +632,8 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float		distance = 0.0;
 
-	CheckDims(a, b);
-
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += a->x[i] * b->x[i];
-
-	PG_RETURN_FLOAT8((double) distance * -1);
+	PG_RETURN_FLOAT8((double) inner_product_internal(a,b) * -1);
 }
 
 /*
@@ -685,16 +689,9 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float		dp = 0.0;
 	double		distance;
 
-	CheckDims(a, b);
-
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		dp += a->x[i] * b->x[i];
-
-	distance = (double) dp;
+	distance = (double) inner_product_internal(a,b);
 
 	/* Prevent NaN with acos with loss of precision */
 	if (distance > 1)
