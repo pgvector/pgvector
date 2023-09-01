@@ -552,8 +552,6 @@ l2_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	float		distance = 0.0;
 	float		diff;
 
@@ -562,7 +560,7 @@ l2_distance(PG_FUNCTION_ARGS)
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
-		diff = ax[i] - bx[i];
+		diff = a->x[i] - b->x[i];
 		distance += diff * diff;
 	}
 
@@ -579,8 +577,6 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	float		distance = 0.0;
 	float		diff;
 
@@ -589,7 +585,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
-		diff = ax[i] - bx[i];
+		diff = a->x[i] - b->x[i];
 		distance += diff * diff;
 	}
 
@@ -605,15 +601,13 @@ inner_product(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	float		distance = 0.0;
 
 	CheckDims(a, b);
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		distance += ax[i] * bx[i];
+		distance += a->x[i] * b->x[i];
 
 	PG_RETURN_FLOAT8((double) distance);
 }
@@ -627,15 +621,13 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	float		distance = 0.0;
 
 	CheckDims(a, b);
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		distance += ax[i] * bx[i];
+		distance += a->x[i] * b->x[i];
 
 	PG_RETURN_FLOAT8((double) distance * -1);
 }
@@ -649,8 +641,6 @@ cosine_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	float		distance = 0.0;
 	float		norma = 0.0;
 	float		normb = 0.0;
@@ -661,9 +651,9 @@ cosine_distance(PG_FUNCTION_ARGS)
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
-		distance += ax[i] * bx[i];
-		norma += ax[i] * ax[i];
-		normb += bx[i] * bx[i];
+		distance += a->x[i] * b->x[i];
+		norma += a->x[i] * a->x[i];
+		normb += b->x[i] * b->x[i];
 	}
 
 	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
@@ -724,15 +714,13 @@ l1_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	float		distance = 0.0;
 
 	CheckDims(a, b);
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		distance += fabsf(ax[i] - bx[i]);
+		distance += fabsf(a->x[i] - b->x[i]);
 
 	PG_RETURN_FLOAT8((double) distance);
 }
@@ -757,12 +745,11 @@ Datum
 vector_norm(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
-	float	   *ax = a->x;
 	double		norm = 0.0;
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		norm += (double) ax[i] * (double) ax[i];
+		norm += (double) a->x[i] * (double) a->x[i];
 
 	PG_RETURN_FLOAT8(sqrt(norm));
 }
@@ -776,24 +763,20 @@ vector_add(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	Vector	   *result;
-	float	   *rx;
 
 	CheckDims(a, b);
 
 	result = InitVector(a->dim);
-	rx = result->x;
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-		rx[i] = ax[i] + bx[i];
+		result->x[i] = a->x[i] + b->x[i];
 
 	/* Check for overflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
-		if (isinf(rx[i]))
+		if (isinf(result->x[i]))
 			float_overflow_error();
 	}
 
@@ -809,24 +792,20 @@ vector_sub(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	Vector	   *result;
-	float	   *rx;
 
 	CheckDims(a, b);
 
 	result = InitVector(a->dim);
-	rx = result->x;
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-		rx[i] = ax[i] - bx[i];
+		result->x[i] = a->x[i] - b->x[i];
 
 	/* Check for overflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
-		if (isinf(rx[i]))
+		if (isinf(result->x[i]))
 			float_overflow_error();
 	}
 
@@ -842,27 +821,23 @@ vector_mul(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
 	Vector	   *result;
-	float	   *rx;
 
 	CheckDims(a, b);
 
 	result = InitVector(a->dim);
-	rx = result->x;
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-		rx[i] = ax[i] * bx[i];
+		result->x[i] = a->x[i] * b->x[i];
 
 	/* Check for overflow and underflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
-		if (isinf(rx[i]))
+		if (isinf(result->x[i]))
 			float_overflow_error();
 
-		if (rx[i] == 0 && !(ax[i] == 0 || bx[i] == 0))
+		if (result->x[i] == 0 && !(a->x[i] == 0 || b->x[i] == 0))
 			float_underflow_error();
 	}
 
