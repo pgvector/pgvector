@@ -19,8 +19,6 @@ sub test_index_replay
 
 	# Wait for replica to catch up
 	my $applname = $node_replica->name;
-
-	my $server_version_num = $node_primary->safe_psql("postgres", "SHOW server_version_num");
 	my $caughtup_query = "SELECT pg_current_wal_lsn() <= replay_lsn FROM pg_stat_replication WHERE application_name = '$applname';";
 	$node_primary->poll_query_until('postgres', $caughtup_query)
 	  or die "Timed out while waiting for replica 1 to catch up";
