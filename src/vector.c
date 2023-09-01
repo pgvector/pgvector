@@ -767,11 +767,11 @@ vector_add(PG_FUNCTION_ARGS)
 	result = InitVector(a->dim);
 
 	/* Auto-vectorized */
-	for (int i = 0, imax = a->dim; i < imax; i++)
+	for (int i = 0; i < a->dim; i++)
 		result->x[i] = a->x[i] + b->x[i];
 
 	/* Check for overflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
+	for (int i = 0; i < a->dim; i++)
 	{
 		if (isinf(result->x[i]))
 			float_overflow_error();
@@ -796,11 +796,11 @@ vector_sub(PG_FUNCTION_ARGS)
 	result = InitVector(a->dim);
 
 	/* Auto-vectorized */
-	for (int i = 0, imax = a->dim; i < imax; i++)
+	for (int i = 0; i < a->dim; i++)
 		result->x[i] = a->x[i] - b->x[i];
 
 	/* Check for overflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
+	for (int i = 0; i < a->dim; i++)
 	{
 		if (isinf(result->x[i]))
 			float_overflow_error();
@@ -825,11 +825,11 @@ vector_mul(PG_FUNCTION_ARGS)
 	result = InitVector(a->dim);
 
 	/* Auto-vectorized */
-	for (int i = 0, imax = a->dim; i < imax; i++)
+	for (int i = 0; i < a->dim; i++)
 		result->x[i] = a->x[i] * b->x[i];
 
 	/* Check for overflow and underflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
+	for (int i = 0; i < a->dim; i++)
 	{
 		if (isinf(result->x[i]))
 			float_overflow_error();
