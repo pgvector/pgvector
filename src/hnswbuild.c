@@ -469,6 +469,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Hnsw build temporary context",
 											   ALLOCSET_DEFAULT_SIZES);
+
+	buildstate->hnswleader = NULL;
 }
 
 /*
