@@ -4,6 +4,7 @@
 #include "postgres.h"
 
 #include "access/generic_xlog.h"
+#include "access/parallel.h"
 #include "access/reloptions.h"
 #include "nodes/execnodes.h"
 #include "port.h"				/* for random() */
@@ -132,6 +133,49 @@ typedef struct HnswOptions
 	int			efConstruction; /* size of dynamic candidate list */
 }			HnswOptions;
 
+typedef struct HnswSpool
+{
+	Relation	heap;
+	Relation	index;
+}			HnswSpool;
+
+typedef struct HnswShared
+{
+	/* Immutable state */
+	Oid			heaprelid;
+	Oid			indexrelid;
+	bool		isconcurrent;
+	int			scantuplesortstates;
+
+	/* Worker progress */
+	ConditionVariable workersdonecv;
+
+	/* Mutex for mutable state */
+	slock_t		mutex;
+
+	/* Mutable state */
+	int			nparticipantsdone;
+	double		reltuples;
+	double		indtuples;
+
+#if PG_VERSION_NUM < 120000
+	ParallelHeapScanDescData heapdesc;	/* must come last */
+#endif
+}			HnswShared;
+
+#if PG_VERSION_NUM >= 120000
+#define ParallelTableScanFromHnswShared(shared) \
+	(ParallelTableScanDesc) ((char *) (shared) + BUFFERALIGN(sizeof(HnswShared)))
+#endif
+
+typedef struct HnswLeader
+{
+	ParallelContext *pcxt;
+	int			nparticipanttuplesorts;
+	HnswShared *hnswshared;
+	Snapshot	snapshot;
+}			HnswLeader;
+
 typedef struct HnswBuildState
 {
 	/* Info */
@@ -165,6 +209,9 @@ typedef struct HnswBuildState
 
 	/* Memory */
 	MemoryContext tmpCtx;
+
+	/* Parallel builds */
+	HnswLeader *hnswleader;
 }			HnswBuildState;
 
 typedef struct HnswMetaPageData
@@ -285,6 +332,7 @@ void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation i
 void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
 void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 void		HnswLoadNeighbors(HnswElement element, Relation index);
+PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);
