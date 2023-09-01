@@ -162,7 +162,7 @@ You can add an index to use approximate nearest neighbor search, which trades so
 Supported index types are:
 
 - [IVFFlat](#ivfflat)
-- [HNSW](#hnsw) - *added in 0.5.0*
+- [HNSW](#hnsw) - added in 0.5.0
 
 ## IVFFlat
 
@@ -282,8 +282,8 @@ SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
 The phases are:
 
 1. `initializing`
-2. `performing k-means` (IVFFlat only)
-3. `assigning tuples` (IVFFlat only)
+2. `performing k-means` - IVFFlat only
+3. `assigning tuples` - IVFFlat only
 4. `loading tuples`
 
 Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
