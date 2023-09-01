@@ -10,8 +10,8 @@
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
-#include "utils/memutils.h"
 #include "tcop/tcopprot.h"
+#include "utils/memutils.h"
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_progress.h"
