@@ -115,7 +115,7 @@ for my $i (0 .. $#operators)
 	# Test approximate results
 	if ($operator ne "<#>")
 	{
-		# TODO fix test
+		# TODO Fix test (uniform random vectors all have similar inner product)
 		test_recall(1, 0.71, $operator);
 		test_recall(10, 0.95, $operator);
 	}
