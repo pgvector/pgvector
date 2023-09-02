@@ -170,7 +170,7 @@ SELECT angular_distance('[1,1]', '[1,1]');
                 0
 (1 row)
 
-SELECT angular_distance('[1,0]', '[0,1]');
+SELECT angular_distance('[1,0]', '[0,2]');
  angular_distance 
 ------------------
               0.5

@@ -39,7 +39,7 @@ SELECT l1_distance('[3e38]', '[-3e38]');
 SELECT angular_distance('[1,2]', '[2,4]');
 SELECT angular_distance('[1,2]', '[0,0]');
 SELECT angular_distance('[1,1]', '[1,1]');
-SELECT angular_distance('[1,0]', '[0,1]');
+SELECT angular_distance('[1,0]', '[0,2]');
 SELECT angular_distance('[1,1]', '[-1,-1]');
 SELECT angular_distance('[1,2]', '[3]');
 SELECT angular_distance('[1,1]', '[1.1,1.1]');
