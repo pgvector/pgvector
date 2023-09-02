@@ -165,7 +165,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		ItemPointer tid;
 		BlockNumber indexblkno;
 
-		/* Move to next element if no valid heap tids */
+		/* Move to next element if no valid heap TIDs */
 		if (list_length(hc->element->heaptids) == 0)
 		{
 			so->w = list_delete_last(so->w);
