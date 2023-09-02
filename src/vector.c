@@ -685,6 +685,49 @@ cosine_distance(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get the angular distance between two vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(angular_distance);
+Datum
+angular_distance(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	float	   *ax = a->x;
+	float	   *bx = b->x;
+	float		distance = 0.0;
+	float		norma = 0.0;
+	float		normb = 0.0;
+	double		similarity;
+
+	CheckDims(a, b);
+
+	/* Auto-vectorized */
+	for (int i = 0; i < a->dim; i++)
+	{
+		distance += ax[i] * bx[i];
+		norma += ax[i] * ax[i];
+		normb += bx[i] * bx[i];
+	}
+
+	similarity = (double) distance / sqrt((double) norma * (double) normb);
+
+#ifdef _MSC_VER
+	/* /fp:fast may not propagate NaN */
+	if (isnan(similarity))
+		PG_RETURN_FLOAT8(NAN);
+#endif
+
+	/* Prevent NaN with acos with loss of precision */
+	if (similarity > 1)
+		similarity = 1;
+	else if (similarity < -1)
+		similarity = -1;
+
+	PG_RETURN_FLOAT8(acos(similarity) / M_PI);
+}
+
+/*
  * Get the distance for spherical k-means
  * Currently uses angular distance since needs to satisfy triangle inequality
  * Assumes inputs are unit vectors (skips norm)

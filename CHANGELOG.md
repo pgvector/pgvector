@@ -1,3 +1,7 @@
+## 0.5.1 (unreleased)
+
+- Added `angular_distance` function
+
 ## 0.5.0 (2023-08-28)
 
 - Added HNSW index type

@@ -152,6 +152,50 @@ SELECT l1_distance('[3e38]', '[-3e38]');
     Infinity
 (1 row)
 
+SELECT angular_distance('[1,2]', '[2,4]');
+ angular_distance 
+------------------
+                0
+(1 row)
+
+SELECT angular_distance('[1,2]', '[0,0]');
+ angular_distance 
+------------------
+              NaN
+(1 row)
+
+SELECT angular_distance('[1,1]', '[1,1]');
+ angular_distance 
+------------------
+                0
+(1 row)
+
+SELECT angular_distance('[1,1]', '[-1,-1]');
+ angular_distance 
+------------------
+                1
+(1 row)
+
+SELECT angular_distance('[1,2]', '[3]');
+ERROR:  different vector dimensions 2 and 1
+SELECT angular_distance('[1,1]', '[1.1,1.1]');
+ angular_distance 
+------------------
+                0
+(1 row)
+
+SELECT angular_distance('[1,1]', '[-1.1,-1.1]');
+ angular_distance 
+------------------
+                1
+(1 row)
+
+SELECT angular_distance('[3e38]', '[3e38]');
+ angular_distance 
+------------------
+              NaN
+(1 row)
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
     avg    
 -----------

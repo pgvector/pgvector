@@ -87,6 +87,9 @@ CREATE FUNCTION vector_l2_squared_distance(vector, vector) RETURNS float8
 CREATE FUNCTION vector_negative_inner_product(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION angular_distance(vector, vector) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION vector_spherical_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
