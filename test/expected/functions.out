@@ -106,6 +106,12 @@ SELECT cosine_distance('[1,1]', '[1,1]');
                0
 (1 row)
 
+SELECT cosine_distance('[1,0]', '[0,1]');
+ cosine_distance 
+-----------------
+               1
+(1 row)
+
 SELECT cosine_distance('[1,1]', '[-1,-1]');
  cosine_distance 
 -----------------
