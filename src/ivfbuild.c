@@ -355,7 +355,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
 	/* Require column to have dimensions to be indexed */
-	if (buildstate->dimensions < 0)
+	if (buildstate->dimensions <= 0)
 		elog(ERROR, "column does not have dimensions");
 
 	if (buildstate->dimensions > IVFFLAT_MAX_DIM)
