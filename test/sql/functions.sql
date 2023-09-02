@@ -25,7 +25,7 @@ SELECT inner_product('[3e38]', '[3e38]');
 SELECT cosine_distance('[1,2]', '[2,4]');
 SELECT cosine_distance('[1,2]', '[0,0]');
 SELECT cosine_distance('[1,1]', '[1,1]');
-SELECT cosine_distance('[1,0]', '[0,1]');
+SELECT cosine_distance('[1,0]', '[0,2]');
 SELECT cosine_distance('[1,1]', '[-1,-1]');
 SELECT cosine_distance('[1,2]', '[3]');
 SELECT cosine_distance('[1,1]', '[1.1,1.1]');
