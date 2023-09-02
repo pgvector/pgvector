@@ -695,6 +695,8 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	float	   *ax = a->x;
+	float	   *bx = b->x;
 	float		dp = 0.0;
 	double		distance;
 
@@ -702,7 +704,7 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		dp += a->x[i] * b->x[i];
+		dp += ax[i] * bx[i];
 
 	distance = (double) dp;
 
