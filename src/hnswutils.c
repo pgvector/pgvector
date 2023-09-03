@@ -550,7 +550,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
-	int			wlen = 0;
+	int64		wlen = 0;
 	HASHCTL		hash_ctl;
 	HTAB	   *v;
 
