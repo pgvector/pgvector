@@ -197,7 +197,7 @@ IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
 	page = BufferGetPage(buf);
 	metap = IvfflatPageGetMeta(page);
 
-	*lists = metap->dimensions;
+	*lists = metap->lists;
 	*dimensions = metap->dimensions;
 
 	UnlockReleaseBuffer(buf);
