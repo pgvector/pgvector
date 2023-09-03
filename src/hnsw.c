@@ -156,6 +156,15 @@ hnswvalidate(Oid opclassoid)
 }
 
 /*
+ * Checks if index-only scan is supported
+ */
+static bool
+hnswcanreturn(Relation indexRelation, int attno)
+{
+	return attno == 1 && HnswOptionalProcInfo(indexRelation, HNSW_NORM_PROC) == NULL;
+}
+
+/*
  * Define index handler
  *
  * See https://www.postgresql.org/docs/current/index-api.html
@@ -196,7 +205,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->aminsert = hnswinsert;
 	amroutine->ambulkdelete = hnswbulkdelete;
 	amroutine->amvacuumcleanup = hnswvacuumcleanup;
-	amroutine->amcanreturn = NULL;
+	amroutine->amcanreturn = hnswcanreturn;
 	amroutine->amcostestimate = hnswcostestimate;
 	amroutine->amoptions = hnswoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */

@@ -543,7 +543,7 @@ AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, HnswElement skipElement)
+HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, HnswElement skipElement)
 {
 	ListCell   *lc2;
 
@@ -619,7 +619,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 				if (index == NULL)
 					eDistance = GetCandidateDistance(e, q, procinfo, collation);
 				else
-					HnswLoadElement(e->element, &eDistance, &q, index, procinfo, collation, inserting);
+					HnswLoadElement(e->element, &eDistance, &q, index, procinfo, collation, loadVec);
 
 				Assert(!e->element->deleted);
 

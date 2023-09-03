@@ -17,6 +17,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	Relation	index = scan->indexRelation;
 	FmgrInfo   *procinfo = so->procinfo;
 	Oid			collation = so->collation;
+	bool		loadVec = scan->xs_want_itup;
 	List	   *ep;
 	List	   *w;
 	HnswElement entryPoint = HnswGetEntryPoint(index);
@@ -24,15 +25,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, loadVec));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, false, NULL);
+		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, loadVec, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL);
+	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, loadVec, NULL);
 }
 
 /*
@@ -82,6 +83,8 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so->collation = index->rd_indcollation[0];
 
 	scan->opaque = so;
+
+	scan->xs_itupdesc = RelationGetDescr(index);
 
 	return scan;
 }
@@ -176,6 +179,15 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		indexblkno = hc->element->blkno;
 
 		hc->element->heaptids = list_delete_last(hc->element->heaptids);
+
+		if (scan->xs_want_itup)
+		{
+			Datum		value = PointerGetDatum(hc->element->vec);
+			bool		isnull = false;
+
+			scan->xs_itup = index_form_tuple(scan->xs_itupdesc, &value, &isnull);
+			scan->xs_itup->t_tid = *tid;
+		}
 
 		MemoryContextSwitchTo(oldCtx);
 
