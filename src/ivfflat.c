@@ -183,6 +183,15 @@ ivfflatvalidate(Oid opclassoid)
 }
 
 /*
+ * Checks if index-only scan is supported
+ */
+static bool
+ivfflatcanreturn(Relation index, int attno)
+{
+	return attno == 1 && IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC) == NULL;
+}
+
+/*
  * Define index handler
  *
  * See https://www.postgresql.org/docs/current/index-api.html
@@ -223,7 +232,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->aminsert = ivfflatinsert;
 	amroutine->ambulkdelete = ivfflatbulkdelete;
 	amroutine->amvacuumcleanup = ivfflatvacuumcleanup;
-	amroutine->amcanreturn = NULL;	/* tuple not included in heapsort */
+	amroutine->amcanreturn = ivfflatcanreturn;
 	amroutine->amcostestimate = ivfflatcostestimate;
 	amroutine->amoptions = ivfflatoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */

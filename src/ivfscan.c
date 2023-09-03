@@ -141,6 +141,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				IndexTuple	itup;
 				Datum		datum;
 				bool		isnull;
+				ItemPointerData indextid;
 				ItemId		itemid = PageGetItemId(page, offno);
 
 				/* Skip dead tuples */
@@ -149,6 +150,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 				itup = (IndexTuple) PageGetItem(page, itemid);
 				datum = index_getattr(itup, 1, tupdesc, &isnull);
+				ItemPointerSet(&indextid, searchPage, offno);
 
 				/*
 				 * Add virtual tuple
@@ -161,7 +163,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				slot->tts_isnull[0] = false;
 				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
 				slot->tts_isnull[1] = false;
-				slot->tts_values[2] = Int32GetDatum((int) searchPage);
+				slot->tts_values[2] = PointerGetDatum(&indextid);
 				slot->tts_isnull[2] = false;
 				ExecStoreVirtualTuple(slot);
 
@@ -280,7 +282,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 #endif
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indexblkno", INT4OID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indextid", TIDOID, -1, 0);
 
 	/* Prep sort */
 	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
@@ -294,6 +296,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
 
 	scan->opaque = so;
+
+	scan->xs_itupdesc = RelationGetDescr(index);
 
 	return scan;
 }
@@ -380,7 +384,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
 	{
 		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
-		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
+		ItemPointer indextid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 3, &so->isnull));
 
 #if PG_VERSION_NUM >= 120000
 		scan->xs_heaptid = *heaptid;
@@ -401,7 +405,20 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		 *
 		 * https://www.postgresql.org/docs/current/index-locking.html
 		 */
-		so->buf = ReadBuffer(scan->indexRelation, indexblkno);
+		so->buf = ReadBuffer(scan->indexRelation, ItemPointerGetBlockNumber(indextid));
+
+		if (scan->xs_want_itup)
+		{
+			Page		page;
+
+			LockBuffer(so->buf, BUFFER_LOCK_SHARE);
+			page = BufferGetPage(so->buf);
+
+			/* TODO Copy tuple to IvfflatScanOpaque */
+			scan->xs_itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, ItemPointerGetOffsetNumber(indextid)));
+
+			LockBuffer(so->buf, BUFFER_LOCK_UNLOCK);
+		}
 
 		scan->xs_recheckorderby = false;
 		return true;
