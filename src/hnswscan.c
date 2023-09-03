@@ -78,6 +78,7 @@ RemoveHeapTid(IndexScanDesc scan)
 	if (!BufferIsValid(buf) || !OffsetNumberIsValid(so->offno) || !ItemPointerIsValid(&so->heaptid))
 		return;
 
+	/* Use WAL rather than hint */
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	state = GenericXLogStart(index);
 	page = GenericXLogRegisterBuffer(state, buf, 0);
