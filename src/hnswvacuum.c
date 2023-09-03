@@ -265,12 +265,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
-		{
-			/* Get m and entry point */
-			HnswGetMetaPageInfo(index, &vacuumstate->m, &entryPoint);
-
-			RepairGraphElement(vacuumstate, highestPoint, entryPoint);
-		}
+			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index));
 
 		/* Release lock */
 		UnlockPage(index, HNSW_UPDATE_LOCK, ShareLock);
@@ -279,8 +274,8 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	/* Prevent concurrent inserts when possibly updating entry point */
 	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
-	/* Get m and latest entry point */
-	HnswGetMetaPageInfo(index, &vacuumstate->m, &entryPoint);
+	/* Get latest entry point */
+	entryPoint = HnswGetEntryPoint(index);
 
 	if (entryPoint != NULL)
 	{
@@ -587,7 +582,6 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->stats = stats;
 	vacuumstate->callback = callback;
 	vacuumstate->callback_state = callback_state;
-	vacuumstate->m = 0;			/* Get m from metapage later */
 	vacuumstate->efConstruction = HnswGetEfConstruction(index);
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
 	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
@@ -596,6 +590,9 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
 												ALLOCSET_DEFAULT_SIZES);
+
+	/* Get m from metapage */
+	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
 
 	/* Create hash table */
 	hash_ctl.keysize = sizeof(ItemPointerData);

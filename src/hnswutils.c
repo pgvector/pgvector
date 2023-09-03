@@ -227,10 +227,13 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 	if (m != NULL)
 		*m = metap->m;
 
-	if (BlockNumberIsValid(metap->entryBlkno))
-		*entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
-	else
-		*entryPoint = NULL;
+	if (entryPoint != NULL)
+	{
+		if (BlockNumberIsValid(metap->entryBlkno))
+			*entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
+		else
+			*entryPoint = NULL;
+	}
 
 	UnlockReleaseBuffer(buf);
 }
