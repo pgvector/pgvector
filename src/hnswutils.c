@@ -551,6 +551,8 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
 	int			wlen = 0;
+	uint64		dead = 0;
+	uint64		maxAdditional = skipElement == NULL ? ef : PG_UINT64_MAX;
 	HASHCTL		hash_ctl;
 	HTAB	   *v;
 
@@ -579,13 +581,14 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
 
-		/*
-		 * Do not count elements being deleted towards ef when vacuuming. It
-		 * would be ideal to do this for inserts as well, but this could
-		 * affect insert performance.
-		 */
-		if (skipElement == NULL || list_length(hc->element->heaptids) != 0)
-			wlen++;
+		/* Do not count certain number of dead elements towards ef */
+		if (list_length(hc->element->heaptids) == 0)
+		{
+			if ((++dead) <= maxAdditional)
+				continue;
+		}
+
+		wlen++;
 	}
 
 	while (!pairingheap_is_empty(C))
@@ -638,19 +641,18 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 					pairingheap_add(C, &(CreatePairingHeapNode(ec)->ph_node));
 					pairingheap_add(W, &(CreatePairingHeapNode(ec)->ph_node));
 
-					/*
-					 * Do not count elements being deleted towards ef when
-					 * vacuuming. It would be ideal to do this for inserts as
-					 * well, but this could affect insert performance.
-					 */
-					if (skipElement == NULL || list_length(e->element->heaptids) != 0)
+					/* Do not count certain number of dead elements towards ef */
+					if (list_length(e->element->heaptids) == 0)
 					{
-						wlen++;
-
-						/* No need to decrement wlen */
-						if (wlen > ef)
-							pairingheap_remove_first(W);
+						if ((++dead) <= maxAdditional)
+							continue;
 					}
+
+					wlen++;
+
+					/* No need to decrement wlen */
+					if (wlen > ef)
+						pairingheap_remove_first(W);
 				}
 			}
 		}

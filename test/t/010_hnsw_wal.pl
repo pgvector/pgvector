@@ -38,8 +38,9 @@ sub test_index_replay
 	);
 
 	# Run test queries and compare their result
-	my $primary_result = $node_primary->safe_psql("postgres", $queries);
+	# Query replica first since index scan on primary can generate WAL removing tuples
 	my $replica_result = $node_replica->safe_psql("postgres", $queries);
+	my $primary_result = $node_primary->safe_psql("postgres", $queries);
 
 	is($primary_result, $replica_result, "$test_name: query result matches");
 	return;

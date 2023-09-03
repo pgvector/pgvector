@@ -219,6 +219,9 @@ typedef struct HnswScanOpaqueData
 {
 	bool		first;
 	Buffer		buf;
+	ItemPointerData heaptid;
+	OffsetNumber offno;
+	int			removedCount;
 	List	   *w;
 	MemoryContext tmpCtx;
 
