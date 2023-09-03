@@ -74,6 +74,7 @@ RemoveHeapTid(IndexScanDesc scan)
 	Size		etupSize;
 	int			idx = -1;
 
+	/* Safety check */
 	if (!BufferIsValid(buf) || !OffsetNumberIsValid(so->offno) || !ItemPointerIsValid(&so->heaptid))
 		return;
 
@@ -121,6 +122,7 @@ RemoveHeapTid(IndexScanDesc scan)
 		GenericXLogFinish(state);
 	}
 
+	/* Unlock buffer */
 	LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 }
 
