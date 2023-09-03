@@ -31,36 +31,36 @@ CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 static void
 GetScanLists(IndexScanDesc scan, Datum value)
 {
-	Buffer		cbuf;
-	Page		cpage;
-	IvfflatList list;
-	OffsetNumber offno;
-	OffsetNumber maxoffno;
+	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
 	int			listCount = 0;
-	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
-	double		distance;
-	IvfflatScanList *scanlist;
 	double		maxDistance = DBL_MAX;
 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
 	{
+		Buffer		cbuf;
+		Page		cpage;
+		OffsetNumber maxoffno;
+
 		cbuf = ReadBuffer(scan->indexRelation, nextblkno);
 		LockBuffer(cbuf, BUFFER_LOCK_SHARE);
 		cpage = BufferGetPage(cbuf);
 
 		maxoffno = PageGetMaxOffsetNumber(cpage);
 
-		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+		for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
+			IvfflatList list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
+			double		distance;
 
 			/* Use procinfo from the index instead of scan key for performance */
 			distance = DatumGetFloat8(FunctionCall2Coll(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
 
 			if (listCount < so->probes)
 			{
+				IvfflatScanList *scanlist;
+
 				scanlist = &so->lists[listCount];
 				scanlist->startPage = list->startPage;
 				scanlist->distance = distance;
@@ -75,6 +75,8 @@ GetScanLists(IndexScanDesc scan, Datum value)
 			}
 			else if (distance < maxDistance)
 			{
+				IvfflatScanList *scanlist;
+
 				/* Remove */
 				scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
 
@@ -101,14 +103,6 @@ static void
 GetScanItems(IndexScanDesc scan, Datum value)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
-	Buffer		buf;
-	Page		page;
-	IndexTuple	itup;
-	BlockNumber searchPage;
-	OffsetNumber offno;
-	OffsetNumber maxoffno;
-	Datum		datum;
-	bool		isnull;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 	double		tuples = 0;
 
@@ -128,18 +122,26 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	/* Search closest probes lists */
 	while (!pairingheap_is_empty(so->listQueue))
 	{
-		searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
+		BlockNumber searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
 		{
+			Buffer		buf;
+			Page		page;
+			OffsetNumber maxoffno;
+
 			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
 			maxoffno = PageGetMaxOffsetNumber(page);
 
-			for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+			for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 			{
+				IndexTuple	itup;
+				Datum		datum;
+				bool		isnull;
+
 				itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
 				datum = index_getattr(itup, 1, tupdesc, &isnull);
 
