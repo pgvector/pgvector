@@ -196,7 +196,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->aminsert = hnswinsert;
 	amroutine->ambulkdelete = hnswbulkdelete;
 	amroutine->amvacuumcleanup = hnswvacuumcleanup;
-	amroutine->amcanreturn = NULL;	/* tuple not included in heapsort */
+	amroutine->amcanreturn = NULL;
 	amroutine->amcostestimate = hnswcostestimate;
 	amroutine->amoptions = hnswoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
