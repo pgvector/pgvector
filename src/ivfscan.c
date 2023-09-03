@@ -141,8 +141,13 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				IndexTuple	itup;
 				Datum		datum;
 				bool		isnull;
+				ItemId		itemid = PageGetItemId(page, offno);
 
-				itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
+				/* Skip dead tuples */
+				if (scan->ignore_killed_tuples && ItemIdIsDead(itemid))
+					continue;
+
+				itup = (IndexTuple) PageGetItem(page, itemid);
 				datum = index_getattr(itup, 1, tupdesc, &isnull);
 
 				/*
@@ -183,6 +188,55 @@ GetScanItems(IndexScanDesc scan, Datum value)
 }
 
 /*
+ * Mark prior tuple as dead
+ */
+static void
+MarkPriorTupleDead(IndexScanDesc scan)
+{
+	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+	Buffer		buf = so->buf;
+	Page		page;
+	OffsetNumber maxoffno;
+
+	/* Safety check */
+	if (!BufferIsValid(so->buf) || !ItemPointerIsValid(&so->heaptid))
+		return;
+
+	/* Only a shared locked is needed for ItemIdMarkDead */
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+	maxoffno = PageGetMaxOffsetNumber(page);
+
+	for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+	{
+		ItemId		itemid = PageGetItemId(page, offno);
+		IndexTuple	itup = (IndexTuple) PageGetItem(page, itemid);
+
+		/*
+		 * Find tuple. Since buffer has been pinned, tuple cannot have been
+		 * vacuumed (and heap TID reused).
+		 */
+		if (ItemPointerEquals(&itup->t_tid, &so->heaptid))
+		{
+			/*
+			 * Make sure tuple has not already been marked dead to avoid extra
+			 * WAL if wal_log_hints or data checksums enabled
+			 */
+			if (!ItemIdIsDead(itemid))
+			{
+				ItemIdMarkDead(itemid);
+				MarkBufferDirtyHint(buf, true);
+			}
+
+			break;
+		}
+	}
+
+	/* Unlock buffer */
+	LockBuffer(buf, BUFFER_LOCK_UNLOCK);
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -209,6 +263,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
 	so->buf = InvalidBuffer;
 	so->first = true;
+	ItemPointerSetInvalid(&so->heaptid);
 	so->probes = probes;
 	so->dimensions = dimensions;
 
@@ -257,6 +312,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 #endif
 
 	so->first = true;
+	ItemPointerSetInvalid(&so->heaptid);
 	pairingheap_reset(so->listQueue);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -314,6 +370,12 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (value != scan->orderByData->sk_argument)
 			pfree(DatumGetPointer(value));
 	}
+	else
+	{
+		/* Mark prior tuple as dead */
+		if (scan->kill_prior_tuple)
+			MarkPriorTupleDead(scan);
+	}
 
 	if (tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
 	{
@@ -325,6 +387,9 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 #else
 		scan->xs_ctup.t_self = *tid;
 #endif
+
+		/* Keep track of info needed to mark tuple as dead */
+		so->heaptid = *tid;
 
 		/* Unpin buffer */
 		if (BufferIsValid(so->buf))

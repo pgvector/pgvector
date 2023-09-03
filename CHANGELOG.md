@@ -1,3 +1,7 @@
+## 0.5.1 (unreleased)
+
+- Improved performance of index scans for IVFFlat after updates and deletes
+
 ## 0.5.0 (2023-08-28)
 
 - Added HNSW index type
