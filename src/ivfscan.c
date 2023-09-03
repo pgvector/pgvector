@@ -183,26 +183,24 @@ GetScanItems(IndexScanDesc scan, Datum value)
 }
 
 /*
- * Get dimensions from metapage
+ * Get the metapage info
  */
-static int
-GetDimensions(Relation index)
+static void
+IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
 {
 	Buffer		buf;
 	Page		page;
 	IvfflatMetaPage metap;
-	int			dimensions;
 
 	buf = ReadBuffer(index, IVFFLAT_METAPAGE_BLKNO);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 	metap = IvfflatPageGetMeta(page);
 
-	dimensions = metap->dimensions;
+	*lists = metap->dimensions;
+	*dimensions = metap->dimensions;
 
 	UnlockReleaseBuffer(buf);
-
-	return dimensions;
 }
 
 /*
@@ -214,6 +212,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	IndexScanDesc scan;
 	IvfflatScanOpaque so;
 	int			lists;
+	int			dimensions;
 	AttrNumber	attNums[] = {1};
 	Oid			sortOperators[] = {Float8LessOperator};
 	Oid			sortCollations[] = {InvalidOid};
@@ -221,7 +220,9 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	int			probes = ivfflat_probes;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
-	lists = IvfflatGetLists(scan->indexRelation);
+
+	/* Get lists and dimensions from metapage */
+	IvfflatGetMetaPageInfo(index, &lists, &dimensions);
 
 	if (probes > lists)
 		probes = lists;
@@ -230,6 +231,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->buf = InvalidBuffer;
 	so->first = true;
 	so->probes = probes;
+	so->dimensions = dimensions;
 
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
@@ -311,7 +313,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 			elog(ERROR, "cannot scan ivfflat index without order");
 
 		if (scan->orderByData->sk_flags & SK_ISNULL)
-			value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
+			value = PointerGetDatum(InitVector(so->dimensions));
 		else
 		{
 			value = scan->orderByData->sk_argument;
