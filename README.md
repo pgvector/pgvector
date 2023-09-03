@@ -595,13 +595,13 @@ pgvector is available on [these providers](https://github.com/pgvector/pgvector/
 
 ## Upgrading
 
-Install the latest version and run:
+Install the latest version. Then in each database you want to upgrade, run:
 
 ```sql
 ALTER EXTENSION vector UPDATE;
 ```
 
-You can check the version with:
+You can check the version in the current database with:
 
 ```sql
 SELECT extversion FROM pg_extension WHERE extname = 'vector';
