@@ -22,7 +22,7 @@ $node->safe_psql("postgres",
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops);");
 
 # Delete data
-$node->safe_psql("postgres", "DELETE FROM tst WHERE i % 10 != 1;");
+$node->safe_psql("postgres", "DELETE FROM tst WHERE i % 100 != 0;");
 
 my $exp = $node->safe_psql("postgres", qq(
 	SET enable_indexscan = off;
