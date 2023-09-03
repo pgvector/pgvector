@@ -265,7 +265,12 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
-			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index));
+		{
+			/* Get m and entry point */
+			HnswGetMetaPageInfo(index, &vacuumstate->m, &entryPoint);
+
+			RepairGraphElement(vacuumstate, highestPoint, entryPoint);
+		}
 
 		/* Release lock */
 		UnlockPage(index, HNSW_UPDATE_LOCK, ShareLock);
