@@ -71,7 +71,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	int			lists;
 	double		ratio;
 	double		spc_seq_page_cost;
-	Relation	indexRel;
+	Relation	index;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
 #endif
@@ -89,9 +89,9 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	MemSet(&costs, 0, sizeof(costs));
 
-	indexRel = index_open(path->indexinfo->indexoid, NoLock);
-	IvfflatGetMetaPageInfo(indexRel, &lists, NULL);
-	index_close(indexRel, NoLock);
+	index = index_open(path->indexinfo->indexoid, NoLock);
+	IvfflatGetMetaPageInfo(index, &lists, NULL);
+	index_close(index, NoLock);
 
 	/* Get the ratio of lists that we need to visit */
 	ratio = ((double) ivfflat_probes) / lists;
