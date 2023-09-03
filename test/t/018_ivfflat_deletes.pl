@@ -26,7 +26,7 @@ $node->safe_psql("postgres", "DELETE FROM tst WHERE i % 10 != 1;");
 
 my $exp = $node->safe_psql("postgres", qq(
 	SET enable_indexscan = off;
-	SELECT i FROM tst ORDER BY v <-> (SELECT v FROM tst WHERE i = 1);
+	SELECT i FROM tst ORDER BY v <-> '[0,0,0]';
 ));
 
 # Run twice to make sure correct tuples marked as dead
@@ -35,7 +35,7 @@ for (1 .. 2)
 	my $res = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
 		SET ivfflat.probes = 100;
-		SELECT i FROM tst ORDER BY v <-> (SELECT v FROM tst WHERE i = 1);
+		SELECT i FROM tst ORDER BY v <-> '[0,0,0]';
 	));
 	is($res, $exp);
 }
