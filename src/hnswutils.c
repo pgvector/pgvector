@@ -645,10 +645,11 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 					 */
 					if (skipElement == NULL || list_length(e->element->heaptids) != 0)
 					{
-						if (wlen >= ef)
+						wlen++;
+
+						/* No need to decrement wlen */
+						if (wlen > ef)
 							pairingheap_remove_first(W);
-						else
-							wlen++;
 					}
 				}
 			}
