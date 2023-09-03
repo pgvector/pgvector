@@ -181,7 +181,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	while (list_length(so->w) > 0)
 	{
 		HnswCandidate *hc = llast(so->w);
-		ItemPointer tid;
+		ItemPointer heaptid;
 		BlockNumber indexblkno;
 
 		/* Move to next element if no valid heap TIDs */
@@ -191,7 +191,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			continue;
 		}
 
-		tid = llast(hc->element->heaptids);
+		heaptid = llast(hc->element->heaptids);
 		indexblkno = hc->element->blkno;
 
 		hc->element->heaptids = list_delete_last(hc->element->heaptids);
@@ -199,9 +199,9 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		MemoryContextSwitchTo(oldCtx);
 
 #if PG_VERSION_NUM >= 120000
-		scan->xs_heaptid = *tid;
+		scan->xs_heaptid = *heaptid;
 #else
-		scan->xs_ctup.t_self = *tid;
+		scan->xs_ctup.t_self = *heaptid;
 #endif
 
 		/* Unpin buffer */

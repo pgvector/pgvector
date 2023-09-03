@@ -279,7 +279,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->tupdesc = CreateTemplateTupleDesc(3, false);
 #endif
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indexblkno", INT4OID, -1, 0);
 
 	/* Prep sort */
@@ -379,17 +379,17 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 	if (tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
 	{
-		ItemPointer tid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
+		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
 		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
 
 #if PG_VERSION_NUM >= 120000
-		scan->xs_heaptid = *tid;
+		scan->xs_heaptid = *heaptid;
 #else
-		scan->xs_ctup.t_self = *tid;
+		scan->xs_ctup.t_self = *heaptid;
 #endif
 
 		/* Keep track of info needed to mark tuple as dead */
-		so->heaptid = *tid;
+		so->heaptid = *heaptid;
 
 		/* Unpin buffer */
 		if (BufferIsValid(so->buf))
