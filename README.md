@@ -601,6 +601,12 @@ Install the latest version and run:
 ALTER EXTENSION vector UPDATE;
 ```
 
+You can check the version with:
+
+```sql
+SELECT extversion FROM pg_extension WHERE extname = 'vector';
+```
+
 ## Upgrade Notes
 
 ### 0.4.0
