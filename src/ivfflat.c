@@ -90,7 +90,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	MemSet(&costs, 0, sizeof(costs));
 
 	indexRel = index_open(path->indexinfo->indexoid, NoLock);
-	lists = IvfflatGetLists(indexRel);
+	IvfflatGetMetaPageInfo(indexRel, &lists, NULL);
 	index_close(indexRel, NoLock);
 
 	/* Get the ratio of lists that we need to visit */

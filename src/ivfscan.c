@@ -183,27 +183,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 }
 
 /*
- * Get the metapage info
- */
-static void
-IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
-{
-	Buffer		buf;
-	Page		page;
-	IvfflatMetaPage metap;
-
-	buf = ReadBuffer(index, IVFFLAT_METAPAGE_BLKNO);
-	LockBuffer(buf, BUFFER_LOCK_SHARE);
-	page = BufferGetPage(buf);
-	metap = IvfflatPageGetMeta(page);
-
-	*lists = metap->lists;
-	*dimensions = metap->dimensions;
-
-	UnlockReleaseBuffer(buf);
-}
-
-/*
  * Prepare for an index scan
  */
 IndexScanDesc

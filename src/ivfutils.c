@@ -173,6 +173,29 @@ IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **st
 }
 
 /*
+ * Get the metapage info
+ */
+void
+IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
+{
+	Buffer		buf;
+	Page		page;
+	IvfflatMetaPage metap;
+
+	buf = ReadBuffer(index, IVFFLAT_METAPAGE_BLKNO);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+	metap = IvfflatPageGetMeta(page);
+
+	*lists = metap->lists;
+
+	if (dimensions != NULL)
+		*dimensions = metap->dimensions;
+
+	UnlockReleaseBuffer(buf);
+}
+
+/*
  * Update the start or insert page of a list
  */
 void
