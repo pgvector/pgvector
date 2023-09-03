@@ -63,6 +63,33 @@ GetDimensions(Relation index)
 }
 
 /*
+ * Get scan value
+ */
+static Datum
+GetScanValue(IndexScanDesc scan)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	Datum		value;
+
+	if (scan->orderByData->sk_flags & SK_ISNULL)
+		value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
+	else
+	{
+		value = scan->orderByData->sk_argument;
+
+		/* Value should not be compressed or toasted */
+		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
+		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
+
+		/* Fine if normalization fails */
+		if (so->normprocinfo != NULL)
+			HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
+	}
+
+	return value;
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -134,20 +161,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan hnsw index without order");
 
-		if (scan->orderByData->sk_flags & SK_ISNULL)
-			value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
-		else
-		{
-			value = scan->orderByData->sk_argument;
-
-			/* Value should not be compressed or toasted */
-			Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
-			Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
-
-			/* Fine if normalization fails */
-			if (so->normprocinfo != NULL)
-				HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
-		}
+		/* Get scan value */
+		value = GetScanValue(scan);
 
 		/*
 		 * Get a shared lock. This allows vacuum to ensure no in-flight scans
