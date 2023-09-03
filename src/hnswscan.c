@@ -19,7 +19,11 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	Oid			collation = so->collation;
 	List	   *ep;
 	List	   *w;
-	HnswElement entryPoint = HnswGetEntryPoint(index);
+	int			m;
+	HnswElement entryPoint;
+
+	/* Get m and entry point */
+	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
 	if (entryPoint == NULL)
 		return NIL;
@@ -28,11 +32,11 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, false, NULL);
+		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, false, NULL);
+	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
 }
 
 /*

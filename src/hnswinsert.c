@@ -329,7 +329,7 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
 
 			/* Get latest neighbors since they may have changed */
 			/* Do not lock yet since selecting neighbors can take time */
-			HnswLoadNeighbors(hc->element, index);
+			HnswLoadNeighbors(hc->element, index, m);
 
 			/*
 			 * Could improve performance for vacuuming by checking neighbors
@@ -492,9 +492,8 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	FmgrInfo   *normprocinfo;
 	HnswElement entryPoint;
 	HnswElement element;
-	int			m = HnswGetM(index);
+	int			m;
 	int			efConstruction = HnswGetEfConstruction(index);
-	double		ml = HnswGetMl(m);
 	FmgrInfo   *procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	Oid			collation = index->rd_indcollation[0];
 	HnswElement dup;
@@ -511,10 +510,6 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 			return false;
 	}
 
-	/* Create an element */
-	element = HnswInitElement(heap_tid, m, ml, HnswGetMaxLevel(m));
-	element->vec = DatumGetVector(value);
-
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts
 	 * before repairing graph. Use a page lock so it does not interfere with
@@ -522,8 +517,12 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	 */
 	LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
-	/* Get entry point */
-	entryPoint = HnswGetEntryPoint(index);
+	/* Get m and entry point */
+	HnswGetMetaPageInfo(index, &m, &entryPoint);
+
+	/* Create an element */
+	element = HnswInitElement(heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m));
+	element->vec = DatumGetVector(value);
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)

@@ -274,8 +274,8 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	/* Prevent concurrent inserts when possibly updating entry point */
 	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
-	/* Get latest entry point */
-	entryPoint = HnswGetEntryPoint(index);
+	/* Get m and latest entry point */
+	HnswGetMetaPageInfo(index, &vacuumstate->m, &entryPoint);
 
 	if (entryPoint != NULL)
 	{
@@ -582,7 +582,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->stats = stats;
 	vacuumstate->callback = callback;
 	vacuumstate->callback_state = callback_state;
-	vacuumstate->m = HnswGetM(index);
+	vacuumstate->m = 0;			/* Get m from metapage later */
 	vacuumstate->efConstruction = HnswGetEfConstruction(index);
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
 	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);

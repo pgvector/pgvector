@@ -266,8 +266,9 @@ Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		HnswInit(void);
-List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, HnswElement skipElement);
+List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
 HnswElement HnswGetEntryPoint(Relation index);
+void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
@@ -284,7 +285,7 @@ void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool 
 void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec);
 void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
 void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
-void		HnswLoadNeighbors(HnswElement element, Relation index);
+void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);

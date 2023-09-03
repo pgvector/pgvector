@@ -210,25 +210,40 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 }
 
 /*
- * Get the entry point
+ * Get the metapage info
  */
-HnswElement
-HnswGetEntryPoint(Relation index)
+void
+HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 {
 	Buffer		buf;
 	Page		page;
 	HnswMetaPage metap;
-	HnswElement entryPoint = NULL;
 
 	buf = ReadBuffer(index, HNSW_METAPAGE_BLKNO);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 	metap = HnswPageGetMeta(page);
 
+	if (m != NULL)
+		*m = metap->m;
+
 	if (BlockNumberIsValid(metap->entryBlkno))
-		entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
+		*entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
+	else
+		*entryPoint = NULL;
 
 	UnlockReleaseBuffer(buf);
+}
+
+/*
+ * Get the entry point
+ */
+HnswElement
+HnswGetEntryPoint(Relation index)
+{
+	HnswElement entryPoint;
+
+	HnswGetMetaPageInfo(index, NULL, &entryPoint);
 
 	return entryPoint;
 }
@@ -337,10 +352,9 @@ HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m)
  * Load neighbors from page
  */
 static void
-LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
+LoadNeighborsFromPage(HnswElement element, Relation index, Page page, int m)
 {
 	HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, element->neighborOffno));
-	int			m = HnswGetM(index);
 	int			neighborCount = (element->level + 2) * m;
 
 	Assert(HnswIsNeighborTuple(ntup));
@@ -381,7 +395,7 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page)
  * Load neighbors
  */
 void
-HnswLoadNeighbors(HnswElement element, Relation index)
+HnswLoadNeighbors(HnswElement element, Relation index, int m)
 {
 	Buffer		buf;
 	Page		page;
@@ -390,7 +404,7 @@ HnswLoadNeighbors(HnswElement element, Relation index)
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 
-	LoadNeighborsFromPage(element, index, page);
+	LoadNeighborsFromPage(element, index, page, m);
 
 	UnlockReleaseBuffer(buf);
 }
@@ -543,7 +557,7 @@ AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, bool inserting, HnswElement skipElement)
+HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement)
 {
 	ListCell   *lc2;
 
@@ -598,7 +612,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 			break;
 
 		if (c->element->neighbors == NULL)
-			HnswLoadNeighbors(c->element, index);
+			HnswLoadNeighbors(c->element, index, m);
 
 		/* Get the neighborhood at layer lc */
 		neighborhood = &c->element->neighbors[lc];
@@ -956,7 +970,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, true, skipElement);
+		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, true, skipElement);
 		ep = w;
 	}
 
@@ -974,7 +988,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		List	   *neighbors;
 		List	   *lw;
 
-		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, true, skipElement);
+		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement);
 
 		/* Elements being deleted or skipped can help with search */
 		/* but should be removed before selecting neighbors */
