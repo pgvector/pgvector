@@ -436,6 +436,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		 */
 		so->buf = ReadBuffer(scan->indexRelation, ItemPointerGetBlockNumber(indextid));
 
+		/* Set tuple for index-only scan */
 		if (scan->xs_want_itup)
 			SetIndexTuple(scan, indextid);
 
