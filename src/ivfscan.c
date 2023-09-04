@@ -266,6 +266,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->buf = InvalidBuffer;
 	so->first = true;
 	ItemPointerSetInvalid(&so->heaptid);
+	so->itup = NULL;
 	so->probes = probes;
 	so->dimensions = dimensions;
 
@@ -410,12 +411,22 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->xs_want_itup)
 		{
 			Page		page;
+			OffsetNumber offno;
+			IndexTuple	itup;
+			Size		itupSize;
 
 			LockBuffer(so->buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(so->buf);
+			offno = ItemPointerGetOffsetNumber(indextid);
+			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
+			itupSize = IndexTupleSize(itup);
 
-			/* TODO Copy tuple to IvfflatScanOpaque */
-			scan->xs_itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, ItemPointerGetOffsetNumber(indextid)));
+			if (so->itup == NULL)
+				so->itup = palloc(BLCKSZ);
+
+			memcpy(so->itup, itup, itupSize);
+
+			scan->xs_itup = so->itup;
 
 			LockBuffer(so->buf, BUFFER_LOCK_UNLOCK);
 		}
@@ -438,6 +449,9 @@ ivfflatendscan(IndexScanDesc scan)
 	/* Release pin */
 	if (BufferIsValid(so->buf))
 		ReleaseBuffer(so->buf);
+
+	if (so->itup != NULL)
+		pfree(so->itup);
 
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);

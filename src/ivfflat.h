@@ -248,6 +248,7 @@ typedef struct IvfflatScanOpaqueData
 	bool		first;
 	Buffer		buf;
 	ItemPointerData heaptid;
+	IndexTuple	itup;
 
 	/* Sorting */
 	Tuplesortstate *sortstate;
