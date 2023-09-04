@@ -239,6 +239,34 @@ MarkPriorTupleDead(IndexScanDesc scan)
 }
 
 /*
+ * Set tuple for index-only scan
+ */
+static void
+SetIndexTuple(IndexScanDesc scan, ItemPointer indextid)
+{
+	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+	Buffer		buf = so->buf;
+	Page		page;
+	OffsetNumber offno = ItemPointerGetOffsetNumber(indextid);
+	IndexTuple	itup;
+	Size		itupSize;
+
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+	itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
+	itupSize = IndexTupleSize(itup);
+
+	if (so->itup == NULL)
+		so->itup = palloc(BLCKSZ);
+
+	memcpy(so->itup, itup, itupSize);
+
+	scan->xs_itup = so->itup;
+
+	LockBuffer(buf, BUFFER_LOCK_UNLOCK);
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -409,27 +437,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->buf = ReadBuffer(scan->indexRelation, ItemPointerGetBlockNumber(indextid));
 
 		if (scan->xs_want_itup)
-		{
-			Page		page;
-			OffsetNumber offno;
-			IndexTuple	itup;
-			Size		itupSize;
-
-			LockBuffer(so->buf, BUFFER_LOCK_SHARE);
-			page = BufferGetPage(so->buf);
-			offno = ItemPointerGetOffsetNumber(indextid);
-			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
-			itupSize = IndexTupleSize(itup);
-
-			if (so->itup == NULL)
-				so->itup = palloc(BLCKSZ);
-
-			memcpy(so->itup, itup, itupSize);
-
-			scan->xs_itup = so->itup;
-
-			LockBuffer(so->buf, BUFFER_LOCK_UNLOCK);
-		}
+			SetIndexTuple(scan, indextid);
 
 		scan->xs_recheckorderby = false;
 		return true;
