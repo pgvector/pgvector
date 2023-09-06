@@ -117,7 +117,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	ListCell   *lc;
 
 	/* Calculate sizes */
-	maxSize = BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData));
+	maxSize = BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - sizeof(ItemIdData);
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
 
 	/* Allocate once */
