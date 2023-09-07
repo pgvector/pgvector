@@ -218,7 +218,6 @@ typedef HnswNeighborTupleData * HnswNeighborTuple;
 typedef struct HnswScanOpaqueData
 {
 	bool		first;
-	Buffer		buf;
 	List	   *w;
 	MemoryContext tmpCtx;
 
