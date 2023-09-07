@@ -114,6 +114,12 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 
 	scan->opaque = so;
 
+	/*
+	 * Get a shared lock. This allows vacuum to ensure no in-flight scans
+	 * before marking tuples as deleted.
+	 */
+	LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
 	return scan;
 }
 
@@ -164,16 +170,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		/* Get scan value */
 		value = GetScanValue(scan);
 
-		/*
-		 * Get a shared lock. This allows vacuum to ensure no in-flight scans
-		 * before marking tuples as deleted.
-		 */
-		LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
-
 		so->w = GetScanItems(scan, value);
-
-		/* Release shared lock */
-		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 		so->first = false;
 	}
@@ -235,6 +232,9 @@ hnswendscan(IndexScanDesc scan)
 	/* Release pin */
 	if (BufferIsValid(so->buf))
 		ReleaseBuffer(so->buf);
+
+	/* Release shared lock */
+	UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 	MemoryContextDelete(so->tmpCtx);
 
