@@ -330,7 +330,10 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 
-	/* Wait for inserts to complete */
+	/*
+	 * Wait for inserts to complete. Inserts before this point may have
+	 * neighbors about to be deleted. Inserts after this point will not.
+	 */
 	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
@@ -443,7 +446,11 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
 
-	/* Wait for selects to complete */
+	/*
+	 * Wait for index scans to complete. Scans before this point may contain
+	 * tuples about to be deleted. Scans after this point will not, since the
+	 * graph has been repaired.
+	 */
 	LockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
 	UnlockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
 
