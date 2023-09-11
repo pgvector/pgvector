@@ -194,15 +194,16 @@ static void
 MarkPriorTupleDead(IndexScanDesc scan)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
-	Buffer		buf = so->buf;
+	Buffer		buf = InvalidBuffer;
 	Page		page;
 	OffsetNumber maxoffno;
 
 	/* Safety check */
-	if (!BufferIsValid(so->buf) || !ItemPointerIsValid(&so->heaptid))
+	if (!BlockNumberIsValid(so->indexblkno)|| !ItemPointerIsValid(&so->heaptid))
 		return;
 
 	/* Only a shared locked is needed for ItemIdMarkDead */
+	buf = ReadBuffer(scan->indexRelation, so->indexblkno);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 	maxoffno = PageGetMaxOffsetNumber(page);
@@ -233,7 +234,7 @@ MarkPriorTupleDead(IndexScanDesc scan)
 	}
 
 	/* Unlock buffer */
-	LockBuffer(buf, BUFFER_LOCK_UNLOCK);
+	UnlockReleaseBuffer(buf);
 }
 
 /*
@@ -261,7 +262,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 		probes = lists;
 
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
-	so->buf = InvalidBuffer;
+	so->indexblkno = InvalidBlockNumber;
 	so->first = true;
 	ItemPointerSetInvalid(&so->heaptid);
 	so->probes = probes;
@@ -324,6 +325,8 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 
 /*
  * Fetch the next tuple in the given scan
+ *
+ * It is only safe to use such scans with MVCC-compliant snapshots.
  */
 bool
 ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
@@ -390,18 +393,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		/* Keep track of info needed to mark tuple as dead */
 		so->heaptid = *heaptid;
-
-		/* Unpin buffer */
-		if (BufferIsValid(so->buf))
-			ReleaseBuffer(so->buf);
-
-		/*
-		 * An index scan must maintain a pin on the index page holding the
-		 * item last returned by amgettuple
-		 *
-		 * https://www.postgresql.org/docs/current/index-locking.html
-		 */
-		so->buf = ReadBuffer(scan->indexRelation, indexblkno);
+		so->indexblkno = indexblkno;
 
 		scan->xs_recheckorderby = false;
 		return true;
@@ -418,9 +410,6 @@ ivfflatendscan(IndexScanDesc scan)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
-	/* Release pin */
-	if (BufferIsValid(so->buf))
-		ReleaseBuffer(so->buf);
 
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);

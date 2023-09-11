@@ -246,7 +246,7 @@ typedef struct IvfflatScanOpaqueData
 	int			probes;
 	int			dimensions;
 	bool		first;
-	Buffer		buf;
+	BlockNumber indexblkno;
 	ItemPointerData heaptid;
 
 	/* Sorting */
