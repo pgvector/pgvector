@@ -101,7 +101,6 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
-	so->buf = InvalidBuffer;
 	so->first = true;
 	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 									   "Hnsw scan temporary context",
@@ -179,7 +178,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	{
 		HnswCandidate *hc = llast(so->w);
 		ItemPointer heaptid;
-		BlockNumber indexblkno;
 
 		/* Move to next element if no valid heap TIDs */
 		if (list_length(hc->element->heaptids) == 0)
@@ -189,7 +187,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		}
 
 		heaptid = llast(hc->element->heaptids);
-		indexblkno = hc->element->blkno;
 
 		hc->element->heaptids = list_delete_last(hc->element->heaptids);
 
@@ -201,17 +198,14 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		scan->xs_ctup.t_self = *heaptid;
 #endif
 
-		/* Unpin buffer */
-		if (BufferIsValid(so->buf))
-			ReleaseBuffer(so->buf);
-
 		/*
-		 * An index scan must maintain a pin on the index page holding the
-		 * item last returned by amgettuple
+		 * Typically, an index scan must maintain a pin on the index page
+		 * holding the item last returned by amgettuple. However, this is not
+		 * needed with the current vacuum strategy, which ensures scans do not
+		 * visit tuples in danger of being marked as deleted.
 		 *
 		 * https://www.postgresql.org/docs/current/index-locking.html
 		 */
-		so->buf = ReadBuffer(scan->indexRelation, indexblkno);
 
 		scan->xs_recheckorderby = false;
 		return true;
@@ -228,10 +222,6 @@ void
 hnswendscan(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
-
-	/* Release pin */
-	if (BufferIsValid(so->buf))
-		ReleaseBuffer(so->buf);
 
 	/* Release shared lock */
 	UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
