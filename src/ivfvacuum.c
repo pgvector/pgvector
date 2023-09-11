@@ -3,6 +3,7 @@
 #include "commands/vacuum.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "storage/lmgr.h"
 
 /*
  * Bulk delete tuples from the index
@@ -65,14 +66,10 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 				vacuum_delay_point();
 
-				buf = ReadBufferExtended(index, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
+				/* Ensure no in-flight index scans for non-MVCC snapshots */
+				LockPage(index, IVFFLAT_SCAN_LOCK, ExclusiveLock);
 
-				/*
-				 * ambulkdelete cannot delete entries from pages that are
-				 * pinned by other backends
-				 *
-				 * https://www.postgresql.org/docs/current/index-locking.html
-				 */
+				buf = ReadBufferExtended(index, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
 				LockBufferForCleanup(buf);
 
 				state = GenericXLogStart(index);
@@ -114,6 +111,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 					GenericXLogAbort(state);
 
 				UnlockReleaseBuffer(buf);
+
+				UnlockPage(index, IVFFLAT_SCAN_LOCK, ExclusiveLock);
 			}
 
 			/*

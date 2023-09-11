@@ -40,6 +40,9 @@
 #define IVFFLAT_METAPAGE_BLKNO	0
 #define IVFFLAT_HEAD_BLKNO		1	/* first list page */
 
+/* Must correspond to page numbers since page lock is used */
+#define IVFFLAT_SCAN_LOCK		0
+
 /* IVFFlat parameters */
 #define IVFFLAT_DEFAULT_LISTS	100
 #define IVFFLAT_MIN_LISTS		1
@@ -246,6 +249,7 @@ typedef struct IvfflatScanOpaqueData
 	int			probes;
 	int			dimensions;
 	bool		first;
+	bool		hasLock;
 	Buffer		buf;
 	ItemPointerData heaptid;
 

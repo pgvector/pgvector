@@ -9,6 +9,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
+#include "storage/lmgr.h"
 
 /*
  * Compare list distances
@@ -263,6 +264,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
 	so->buf = InvalidBuffer;
 	so->first = true;
+	so->hasLock = false;
 	ItemPointerSetInvalid(&so->heaptid);
 	so->probes = probes;
 	so->dimensions = dimensions;
@@ -347,6 +349,13 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan ivfflat index without order");
 
+		/* Get a shared lock for non-MVCC snapshots */
+		if (!so->hasLock && !IsMVCCSnapshot(scan->xs_snapshot))
+		{
+			so->hasLock = true;
+			LockPage(scan->indexRelation, IVFFLAT_SCAN_LOCK, ShareLock);
+		}
+
 		if (scan->orderByData->sk_flags & SK_ISNULL)
 			value = PointerGetDatum(InitVector(so->dimensions));
 		else
@@ -421,6 +430,10 @@ ivfflatendscan(IndexScanDesc scan)
 	/* Release pin */
 	if (BufferIsValid(so->buf))
 		ReleaseBuffer(so->buf);
+
+	/* Release lock */
+	if (so->hasLock)
+		UnlockPage(scan->indexRelation, IVFFLAT_SCAN_LOCK, ShareLock);
 
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);
