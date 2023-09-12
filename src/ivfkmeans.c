@@ -442,7 +442,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		/* Step 7 */
 		for (j = 0; j < numCenters; j++)
-			memcpy(VectorArrayGet(centers, j), VectorArrayGet(newCenters, j), VECTOR_SIZE(dimensions));
+			VectorArraySet(centers, j, VectorArrayGet(newCenters, j));
 
 		if (changes == 0 && iteration != 0)
 			break;
