@@ -207,8 +207,8 @@ MarkPriorTupleDead(IndexScanDesc scan)
 			XLogRecPtrIsInvalid(so->pagelsn))
 		return;
 
-	/* Only a shared locked is needed for ItemIdMarkDead */
 	buf = ReadBuffer(scan->indexRelation, so->indexblkno);
+	/* Only a shared locked is needed for ItemIdMarkDead */
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 	maxoffno = PageGetMaxOffsetNumber(page);
@@ -367,6 +367,10 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		/* Safety check */
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan ivfflat index without order");
+
+		/* Safety check */
+		if (!IsMVCCSnapshot(scan->xs_snapshot))
+			elog(ERROR, "non-MVCC snapshots are not supported with ivfflat");
 
 		if (scan->orderByData->sk_flags & SK_ISNULL)
 			value = PointerGetDatum(InitVector(so->dimensions));
