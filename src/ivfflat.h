@@ -248,6 +248,7 @@ typedef struct IvfflatScanOpaqueData
 	bool		first;
 	BlockNumber indexblkno;
 	ItemPointerData heaptid;
+	XLogRecPtr	pagelsn;
 
 	/* Sorting */
 	Tuplesortstate *sortstate;

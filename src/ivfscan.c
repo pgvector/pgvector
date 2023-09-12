@@ -130,11 +130,13 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			Buffer		buf;
 			Page		page;
 			OffsetNumber maxoffno;
+			XLogRecPtr	pagelsn;
 
 			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
 			maxoffno = PageGetMaxOffsetNumber(page);
+			pagelsn = BufferGetLSNAtomic(buf);
 
 			for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 			{
@@ -163,6 +165,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				slot->tts_isnull[1] = false;
 				slot->tts_values[2] = Int32GetDatum((int) searchPage);
 				slot->tts_isnull[2] = false;
+				slot->tts_values[3] = UInt64GetDatum(pagelsn);
+				slot->tts_isnull[3] = false;
 				ExecStoreVirtualTuple(slot);
 
 				tuplesort_puttupleslot(so->sortstate, slot);
@@ -199,7 +203,8 @@ MarkPriorTupleDead(IndexScanDesc scan)
 	OffsetNumber maxoffno;
 
 	/* Safety check */
-	if (!BlockNumberIsValid(so->indexblkno)|| !ItemPointerIsValid(&so->heaptid))
+	if (!BlockNumberIsValid(so->indexblkno)|| !ItemPointerIsValid(&so->heaptid) ||
+			XLogRecPtrIsInvalid(so->pagelsn))
 		return;
 
 	/* Only a shared locked is needed for ItemIdMarkDead */
@@ -207,6 +212,17 @@ MarkPriorTupleDead(IndexScanDesc scan)
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 	maxoffno = PageGetMaxOffsetNumber(page);
+
+	/*
+	 * If page LSN differs it means that the page was modified since the last
+	 * read. The tuple might have been vacuumed and recycled so LP_DEAD hints
+	 * applying is not safe.
+	 */
+	if (BufferGetLSNAtomic(buf) != so->pagelsn)
+	{
+		UnlockReleaseBuffer(buf);
+		return;
+	}
 
 	for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 	{
@@ -263,6 +279,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
 	so->indexblkno = InvalidBlockNumber;
+	so->pagelsn = InvalidXLogRecPtr;
 	so->first = true;
 	ItemPointerSetInvalid(&so->heaptid);
 	so->probes = probes;
@@ -275,13 +292,14 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
-	so->tupdesc = CreateTemplateTupleDesc(3);
+	so->tupdesc = CreateTemplateTupleDesc(4);
 #else
-	so->tupdesc = CreateTemplateTupleDesc(3, false);
+	so->tupdesc = CreateTemplateTupleDesc(4, false);
 #endif
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indexblkno", INT4OID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 4, "pagelsn", INT8OID, -1, 0);
 
 	/* Prep sort */
 	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
@@ -384,6 +402,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	{
 		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
 		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
+		XLogRecPtr pagelsn = (XLogRecPtr) DatumGetUInt64(slot_getattr(so->slot, 4, &so->isnull));
 
 #if PG_VERSION_NUM >= 120000
 		scan->xs_heaptid = *heaptid;
@@ -394,6 +413,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		/* Keep track of info needed to mark tuple as dead */
 		so->heaptid = *heaptid;
 		so->indexblkno = indexblkno;
+		so->pagelsn = pagelsn;
 
 		scan->xs_recheckorderby = false;
 		return true;
