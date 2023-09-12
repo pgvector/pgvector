@@ -112,7 +112,6 @@ CompareVectors(const void *a, const void *b)
 static void
 QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 {
-	Vector	   *vec;
 	int			dimensions = centers->dim;
 	Oid			collation = index->rd_indcollation[0];
 	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
@@ -123,7 +122,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 		qsort(samples->items, samples->length, VECTOR_SIZE(samples->dim), CompareVectors);
 		for (int i = 0; i < samples->length; i++)
 		{
-			vec = VectorArrayGet(samples, i);
+			Vector	   *vec = VectorArrayGet(samples, i);
 
 			if (i == 0 || CompareVectors(vec, VectorArrayGet(samples, i - 1)) != 0)
 			{
@@ -136,7 +135,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 	/* Fill remaining with random data */
 	while (centers->length < centers->maxlen)
 	{
-		vec = VectorArrayGet(centers, centers->length);
+		Vector	   *vec = VectorArrayGet(centers, centers->length);
 
 		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
 		vec->dim = dimensions;
