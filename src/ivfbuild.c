@@ -506,7 +506,6 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	OffsetNumber offno;
 	Size		itemsz;
 	IvfflatList list;
 
@@ -518,6 +517,8 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 
 	for (int i = 0; i < lists; i++)
 	{
+		OffsetNumber offno;
+
 		/* Load list */
 		list->startPage = InvalidBlockNumber;
 		list->insertPage = InvalidBlockNumber;
