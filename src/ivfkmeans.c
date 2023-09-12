@@ -17,10 +17,6 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	FmgrInfo   *procinfo;
 	Oid			collation;
 	int64		j;
-	double		distance;
-	double		sum;
-	double		choice;
-	Vector	   *vec;
 	float	   *weight = palloc(samples->length * sizeof(float));
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
@@ -37,13 +33,17 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 
 	for (int i = 0; i < numCenters; i++)
 	{
+		double		sum;
+		double		choice;
+
 		CHECK_FOR_INTERRUPTS();
 
 		sum = 0.0;
 
 		for (j = 0; j < numSamples; j++)
 		{
-			vec = VectorArrayGet(samples, j);
+			Vector	   *vec = VectorArrayGet(samples, j);
+			double		distance;
 
 			/* Only need to compute distance for new center */
 			/* TODO Use triangle inequality to reduce distance calculations */
