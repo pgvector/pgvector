@@ -181,8 +181,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *halfcdist;
 	float	   *newcdist;
 	int			closestCenter;
-	double		dxcx;
-	double		dxc;
 
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
@@ -318,6 +316,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 			for (k = 0; k < numCenters; k++)
 			{
+				float		dxcx;
+
 				/* Step 3: For all remaining points x and centers c */
 				if (k == closestCenters[j])
 					continue;
@@ -347,7 +347,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 				/* Step 3b */
 				if (dxcx > lowerBound[j * numCenters + k] || dxcx > halfcdist[closestCenters[j] * numCenters + k])
 				{
-					dxc = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, k))));
+					float		dxc = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, k))));
 
 					/* d(x,c) calculated */
 					lowerBound[j * numCenters + k] = dxc;
@@ -361,7 +361,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 						changes++;
 					}
-
 				}
 			}
 		}
