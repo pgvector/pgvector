@@ -123,7 +123,6 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	Size		minCombinedSize;
 	HnswElementTuple etup;
 	BlockNumber currentPage = insertPage;
-	int			dimensions = e->vec->dim;
 	HnswNeighborTuple ntup;
 	Buffer		nbuf;
 	Page		npage;
@@ -132,7 +131,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(e->value);
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData));
@@ -411,7 +410,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(dup->vec->dim);
+	Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(dup->value);
 	HnswElementTuple etup;
 	int			i;
 
@@ -522,7 +521,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 
 	/* Create an element */
 	element = HnswInitElement(heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m));
-	element->vec = DatumGetVector(value);
+	element->value = value;
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)

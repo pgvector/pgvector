@@ -8,6 +8,7 @@
 #include "lib/pairingheap.h"
 #include "nodes/pg_list.h"
 #include "storage/bufmgr.h"
+#include "utils/datum.h"
 #include "utils/memutils.h"
 
 #if PG_VERSION_NUM >= 140000
@@ -106,8 +107,6 @@ CreateElementPages(HnswBuildState * buildstate)
 {
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
-	int			dimensions = buildstate->dimensions;
-	Size		etupSize;
 	Size		maxSize;
 	HnswElementTuple etup;
 	HnswNeighborTuple ntup;
@@ -119,10 +118,9 @@ CreateElementPages(HnswBuildState * buildstate)
 
 	/* Calculate sizes */
 	maxSize = BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData));
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
 
 	/* Allocate once */
-	etup = palloc0(etupSize);
+	etup = palloc0(maxSize);
 	ntup = palloc0(maxSize);
 
 	/* Prepare first page */
@@ -134,12 +132,14 @@ CreateElementPages(HnswBuildState * buildstate)
 	foreach(lc, buildstate->elements)
 	{
 		HnswElement element = lfirst(lc);
+		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
 
 		HnswSetElementTuple(etup, element);
 
 		/* Calculate sizes */
+		etupSize = HNSW_ELEMENT_TUPLE_SIZE(element->value);
 		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
 		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 
@@ -276,17 +276,14 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	int			m = buildstate->m;
 
 	/* Detoast once for all calls */
-	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	element->value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
-		if (!HnswNormValue(buildstate->normprocinfo, collation, &value, buildstate->normvec))
+		if (!HnswNormValue(buildstate->normprocinfo, collation, &element->value, buildstate->normvec))
 			return false;
 	}
-
-	/* Copy value to element so accessible outside of memory context */
-	memcpy(element->vec, DatumGetVector(value), VECTOR_SIZE(buildstate->dimensions));
 
 	/* Insert element in graph */
 	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
@@ -363,7 +360,6 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 	/* Allocate necessary memory outside of memory context */
 	element = HnswInitElement(tid, buildstate->m, buildstate->ml, buildstate->maxLevel);
-	element->vec = palloc(VECTOR_SIZE(buildstate->dimensions));
 
 	/* Use memory context since detoast can allocate */
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
@@ -371,9 +367,8 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	/* Insert tuple */
 	inserted = InsertTuple(index, values, element, buildstate, &dup);
 
-	/* Reset memory context */
+	/* Switch memory context */
 	MemoryContextSwitchTo(oldCtx);
-	MemoryContextReset(buildstate->tmpCtx);
 
 	/* Add outside memory context */
 	if (dup != NULL)
@@ -381,9 +376,15 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 	/* Add to buildstate or free */
 	if (inserted)
+	{
+		element->value = datumTransfer(element->value, false, -1);
 		buildstate->elements = lappend(buildstate->elements, element);
+	}
 	else
 		HnswFreeElement(element);
+
+	/* Reset memory context */
+	MemoryContextReset(buildstate->tmpCtx);
 }
 
 /*

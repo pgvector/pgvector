@@ -57,7 +57,7 @@
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
 #define PROGRESS_HNSW_PHASE_LOAD		2
 
-#define HNSW_ELEMENT_TUPLE_SIZE(_dim)	MAXALIGN(offsetof(HnswElementTupleData, vec) + VECTOR_SIZE(_dim))
+#define HNSW_ELEMENT_TUPLE_SIZE(_datum)	MAXALIGN(offsetof(HnswElementTupleData, value) + VARSIZE_ANY(_datum))
 #define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, indextids) + ((level) + 2) * (m) * sizeof(ItemPointerData))
 
 #define HnswPageGetOpaque(page)	((HnswPageOpaque) PageGetSpecialPointer(page))
@@ -96,12 +96,13 @@ typedef struct HnswElementData
 	List	   *heaptids;
 	uint8		level;
 	uint8		deleted;
+	bool		loaded;
 	HnswNeighborArray *neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
-	Vector	   *vec;
+	Datum		value;
 }			HnswElementData;
 
 typedef HnswElementData * HnswElement;
@@ -200,7 +201,7 @@ typedef struct HnswElementTupleData
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
 	uint16		unused2;
-	Vector		vec;
+	char		value[FLEXIBLE_ARRAY_MEMBER];
 }			HnswElementTupleData;
 
 typedef HnswElementTupleData * HnswElementTuple;
