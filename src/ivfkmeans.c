@@ -180,7 +180,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *s;
 	float	   *halfcdist;
 	float	   *newcdist;
-	int			closestCenter;
 
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
@@ -239,8 +238,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	for (j = 0; j < numSamples; j++)
 	{
 		float		minDistance = FLT_MAX;
-
-		closestCenter = 0;
+		int			closestCenter = 0;
 
 		/* Find closest center */
 		for (k = 0; k < numCenters; k++)
@@ -377,6 +375,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		for (j = 0; j < numSamples; j++)
 		{
+			int			closestCenter;
+
 			vec = VectorArrayGet(samples, j);
 			closestCenter = closestCenters[j];
 
