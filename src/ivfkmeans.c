@@ -464,9 +464,6 @@ static void
 CheckCenters(Relation index, VectorArray centers)
 {
 	FmgrInfo   *normprocinfo;
-	Oid			collation;
-	Vector	   *vec;
-	double		norm;
 
 	if (centers->length != centers->maxlen)
 		elog(ERROR, "Not enough centers. Please report a bug.");
@@ -474,7 +471,7 @@ CheckCenters(Relation index, VectorArray centers)
 	/* Ensure no NaN or infinite values */
 	for (int i = 0; i < centers->length; i++)
 	{
-		vec = VectorArrayGet(centers, i);
+		Vector	   *vec = VectorArrayGet(centers, i);
 
 		for (int j = 0; j < vec->dim; j++)
 		{
@@ -500,11 +497,12 @@ CheckCenters(Relation index, VectorArray centers)
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		collation = index->rd_indcollation[0];
+		Oid			collation = index->rd_indcollation[0];
 
 		for (int i = 0; i < centers->length; i++)
 		{
-			norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(VectorArrayGet(centers, i))));
+			double		norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(VectorArrayGet(centers, i))));
+
 			if (norm == 0)
 				elog(ERROR, "Zero norm detected. Please report a bug.");
 		}
