@@ -181,8 +181,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *halfcdist;
 	float	   *newcdist;
 	int			closestCenter;
-	bool		rj;
-	bool		rjreset;
 	double		dxcx;
 	double		dxc;
 
@@ -267,6 +265,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	for (int iteration = 0; iteration < 500; iteration++)
 	{
 		int			changes = 0;
+		bool		rjreset;
 
 		/* Can take a while, so ensure we can interrupt */
 		CHECK_FOR_INTERRUPTS();
@@ -309,6 +308,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		for (j = 0; j < numSamples; j++)
 		{
+			bool		rj;
+
 			/* Step 2: Identify all points x such that u(x) <= s(c(x)) */
 			if (upperBound[j] <= s[closestCenters[j]])
 				continue;
