@@ -144,6 +144,17 @@ HnswInitNeighbors(HnswElement element, int m)
 }
 
 /*
+ * Free neighbors
+ */
+static void
+HnswFreeNeighbors(HnswElement element)
+{
+	for (int lc = 0; lc <= element->level; lc++)
+		pfree(element->neighbors[lc].items);
+	pfree(element->neighbors);
+}
+
+/*
  * Allocate an element
  */
 HnswElement
@@ -175,9 +186,7 @@ void
 HnswFreeElement(HnswElement element)
 {
 	list_free_deep(element->heaptids);
-	for (int lc = 0; lc <= element->level; lc++)
-		pfree(element->neighbors[lc].items);
-	pfree(element->neighbors);
+	HnswFreeNeighbors(element);
 	pfree(element->vec);
 	pfree(element);
 }
