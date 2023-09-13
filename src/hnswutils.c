@@ -188,6 +188,8 @@ HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
 	list_free_deep(element->heaptids);
+	if (element->loaded)
+		pfree(DatumGetPointer(element->value));
 	pfree(element);
 }
 

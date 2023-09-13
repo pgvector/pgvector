@@ -378,6 +378,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (inserted)
 	{
 		element->value = datumTransfer(element->value, false, -1);
+		element->loaded = true;
 		buildstate->elements = lappend(buildstate->elements, element);
 	}
 	else
