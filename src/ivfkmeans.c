@@ -29,7 +29,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	centers->length++;
 
 	for (j = 0; j < numSamples; j++)
-		weight[j] = DBL_MAX;
+		weight[j] = FLT_MAX;
 
 	for (int i = 0; i < numCenters; i++)
 	{
@@ -181,7 +181,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *halfcdist;
 	float	   *newcdist;
 	int			closestCenter;
-	double		distance;
 	bool		rj;
 	bool		rjreset;
 	double		dxcx;
@@ -243,7 +242,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	/* Assign each x to its closest initial center c(x) = argmin d(x,c) */
 	for (j = 0; j < numSamples; j++)
 	{
-		double		minDistance = DBL_MAX;
+		float		minDistance = FLT_MAX;
 
 		closestCenter = 0;
 
@@ -251,7 +250,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		for (k = 0; k < numCenters; k++)
 		{
 			/* TODO Use Lemma 1 in k-means++ initialization */
-			distance = lowerBound[j * numCenters + k];
+			float		distance = lowerBound[j * numCenters + k];
 
 			if (distance < minDistance)
 			{
@@ -279,7 +278,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 			for (k = j + 1; k < numCenters; k++)
 			{
-				distance = 0.5 * DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, k))));
+				float		distance = 0.5 * DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, k))));
+
 				halfcdist[j * numCenters + k] = distance;
 				halfcdist[k * numCenters + j] = distance;
 			}
@@ -288,10 +288,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		/* For all centers c, compute s(c) */
 		for (j = 0; j < numCenters; j++)
 		{
-			double		minDistance = DBL_MAX;
+			float		minDistance = FLT_MAX;
 
 			for (k = 0; k < numCenters; k++)
 			{
+				float		distance;
+
 				if (j == k)
 					continue;
 
@@ -423,7 +425,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		{
 			for (k = 0; k < numCenters; k++)
 			{
-				distance = lowerBound[j * numCenters + k] - newcdist[k];
+				float		distance = lowerBound[j * numCenters + k] - newcdist[k];
 
 				if (distance < 0)
 					distance = 0;
