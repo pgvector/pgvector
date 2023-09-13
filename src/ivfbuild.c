@@ -506,11 +506,11 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	Size		itemsz;
+	Size		listSize;
 	IvfflatList list;
 
-	itemsz = MAXALIGN(IVFFLAT_LIST_SIZE(dimensions));
-	list = palloc(itemsz);
+	listSize = MAXALIGN(IVFFLAT_LIST_SIZE(dimensions));
+	list = palloc(listSize);
 
 	buf = IvfflatNewBuffer(index, forkNum);
 	IvfflatInitRegisterPage(index, &buf, &page, &state);
@@ -525,11 +525,11 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 		memcpy(&list->center, VectorArrayGet(centers, i), VECTOR_SIZE(dimensions));
 
 		/* Ensure free space */
-		if (PageGetFreeSpace(page) < itemsz)
+		if (PageGetFreeSpace(page) < listSize)
 			IvfflatAppendPage(index, &buf, &page, &state, forkNum);
 
 		/* Add the item */
-		offno = PageAddItem(page, (Item) list, itemsz, InvalidOffsetNumber, false, false);
+		offno = PageAddItem(page, (Item) list, listSize, InvalidOffsetNumber, false, false);
 		if (offno == InvalidOffsetNumber)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
