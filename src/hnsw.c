@@ -35,6 +35,12 @@ HnswInit(void)
 					  ,AccessExclusiveLock
 #endif
 		);
+	add_int_reloption(hnsw_relopt_kind, "dimensions", "Number of dimensions",
+					  HNSW_DEFAULT_DIMENSIONS, HNSW_MIN_DIMENSIONS, HNSW_MAX_DIMENSIONS
+#if PG_VERSION_NUM >= 130000
+					  ,AccessExclusiveLock
+#endif
+		);
 
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
@@ -125,6 +131,7 @@ hnswoptions(Datum reloptions, bool validate)
 	static const relopt_parse_elt tab[] = {
 		{"m", RELOPT_TYPE_INT, offsetof(HnswOptions, m)},
 		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, efConstruction)},
+		{"dimensions", RELOPT_TYPE_INT, offsetof(HnswOptions, dimensions)},
 	};
 
 #if PG_VERSION_NUM >= 130000

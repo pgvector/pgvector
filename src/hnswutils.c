@@ -36,6 +36,20 @@ HnswGetEfConstruction(Relation index)
 }
 
 /*
+ * Get the number of dimensions in the index
+ */
+int
+HnswGetDimensions(Relation index)
+{
+	HnswOptions *opts = (HnswOptions *) index->rd_options;
+
+	if (opts)
+		return opts->dimensions;
+
+	return HNSW_DEFAULT_DIMENSIONS;
+}
+
+/*
  * Get proc
  */
 FmgrInfo *

@@ -42,6 +42,9 @@
 #define HNSW_DEFAULT_EF_SEARCH	40
 #define HNSW_MIN_EF_SEARCH		1
 #define HNSW_MAX_EF_SEARCH		1000
+#define HNSW_DEFAULT_DIMENSIONS	-1
+#define HNSW_MIN_DIMENSIONS		1
+#define HNSW_MAX_DIMENSIONS		HNSW_MAX_DIM
 
 /* Tuple types */
 #define HNSW_ELEMENT_TUPLE_TYPE  1
@@ -131,6 +134,7 @@ typedef struct HnswOptions
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			m;				/* number of connections */
 	int			efConstruction; /* size of dynamic candidate list */
+	int			dimensions;
 }			HnswOptions;
 
 typedef struct HnswBuildState
@@ -259,6 +263,7 @@ typedef struct HnswVacuumState
 /* Methods */
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
+int			HnswGetDimensions(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
 bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
 void		HnswCommitBuffer(Buffer buf, GenericXLogState *state);

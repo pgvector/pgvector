@@ -400,6 +400,7 @@ HnswGetMaxInMemoryElements(int m, double ml, int dimensions)
 	elementSize += sizeof(HnswNeighborArray) * (avgLevel + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (avgLevel + 2));
 	elementSize += sizeof(ItemPointerData);
+	/* TODO Handle non-vector types */
 	elementSize += VECTOR_SIZE(dimensions);
 	return (maintenance_work_mem * 1024L) / elementSize;
 }
@@ -417,7 +418,10 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
-	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+	buildstate->dimensions = HnswGetDimensions(index);
+
+	if (buildstate->dimensions < 0)
+		buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)

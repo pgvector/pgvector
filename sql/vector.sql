@@ -34,6 +34,9 @@ CREATE TYPE vector (
 CREATE FUNCTION l2_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION float4_l2_distance(float4[], float4[]) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION inner_product(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -82,6 +85,9 @@ CREATE FUNCTION vector_cmp(vector, vector) RETURNS int4
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION vector_l2_squared_distance(vector, vector) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION float4_l2_squared_distance(float4[], float4[]) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION vector_negative_inner_product(vector, vector) RETURNS float8
@@ -161,6 +167,11 @@ CREATE CAST (numeric[] AS vector)
 
 CREATE OPERATOR <-> (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = l2_distance,
+	COMMUTATOR = '<->'
+);
+
+CREATE OPERATOR <-> (
+	LEFTARG = float4[], RIGHTARG = float4[], PROCEDURE = float4_l2_distance,
 	COMMUTATOR = '<->'
 );
 
@@ -279,6 +290,11 @@ CREATE OPERATOR CLASS vector_l2_ops
 	FOR TYPE vector USING hnsw AS
 	OPERATOR 1 <-> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_l2_squared_distance(vector, vector);
+
+CREATE OPERATOR CLASS float4_l2_ops
+	FOR TYPE float4[] USING hnsw AS
+	OPERATOR 1 <-> (float4[], float4[]) FOR ORDER BY float_ops,
+	FUNCTION 1 float4_l2_squared_distance(float4[], float4[]);
 
 CREATE OPERATOR CLASS vector_ip_ops
 	FOR TYPE vector USING hnsw AS
