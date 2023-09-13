@@ -167,7 +167,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	Oid			collation;
 	Vector	   *vec;
 	Vector	   *newCenter;
-	int			iteration;
 	int64		j;
 	int64		k;
 	int			dimensions = centers->dim;
@@ -181,8 +180,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *s;
 	float	   *halfcdist;
 	float	   *newcdist;
-	int			changes;
-	double		minDistance;
 	int			closestCenter;
 	double		distance;
 	bool		rj;
@@ -246,7 +243,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	/* Assign each x to its closest initial center c(x) = argmin d(x,c) */
 	for (j = 0; j < numSamples; j++)
 	{
-		minDistance = DBL_MAX;
+		double		minDistance = DBL_MAX;
+
 		closestCenter = 0;
 
 		/* Find closest center */
@@ -267,12 +265,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	}
 
 	/* Give 500 iterations to converge */
-	for (iteration = 0; iteration < 500; iteration++)
+	for (int iteration = 0; iteration < 500; iteration++)
 	{
+		int			changes = 0;
+
 		/* Can take a while, so ensure we can interrupt */
 		CHECK_FOR_INTERRUPTS();
-
-		changes = 0;
 
 		/* Step 1: For all centers, compute distance */
 		for (j = 0; j < numCenters; j++)
@@ -290,7 +288,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		/* For all centers c, compute s(c) */
 		for (j = 0; j < numCenters; j++)
 		{
-			minDistance = DBL_MAX;
+			double		minDistance = DBL_MAX;
 
 			for (k = 0; k < numCenters; k++)
 			{
