@@ -13,16 +13,10 @@
 static void
 FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * listInfo)
 {
-	Buffer		cbuf;
-	Page		cpage;
-	IvfflatList list;
-	double		distance;
 	double		minDistance = DBL_MAX;
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
 	FmgrInfo   *procinfo;
 	Oid			collation;
-	OffsetNumber offno;
-	OffsetNumber maxoffno;
 
 	/* Avoid compiler warning */
 	listInfo->blkno = nextblkno;
@@ -34,13 +28,20 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
 	{
+		Buffer		cbuf;
+		Page		cpage;
+		OffsetNumber maxoffno;
+
 		cbuf = ReadBuffer(rel, nextblkno);
 		LockBuffer(cbuf, BUFFER_LOCK_SHARE);
 		cpage = BufferGetPage(cbuf);
 		maxoffno = PageGetMaxOffsetNumber(cpage);
 
-		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+		for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
+			IvfflatList list;
+			double		distance;
+
 			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
 			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, values[0], PointerGetDatum(&list->center)));
 
