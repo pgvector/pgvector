@@ -506,11 +506,9 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	Size		listSize;
 	IvfflatList list;
 
-	listSize = MAXALIGN(IVFFLAT_LIST_SIZE(dimensions));
-	list = palloc(listSize);
+	list = palloc0(BLCKSZ);
 
 	buf = IvfflatNewBuffer(index, forkNum);
 	IvfflatInitRegisterPage(index, &buf, &page, &state);
@@ -518,11 +516,13 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	for (int i = 0; i < lists; i++)
 	{
 		OffsetNumber offno;
+		Datum		center = PointerGetDatum(VectorArrayGet(centers, i));
+		Size		listSize = MAXALIGN(IVFFLAT_LIST_SIZE(center));
 
 		/* Load list */
 		list->startPage = InvalidBlockNumber;
 		list->insertPage = InvalidBlockNumber;
-		memcpy(&list->center, VectorArrayGet(centers, i), VECTOR_SIZE(dimensions));
+		memcpy(&list->center, DatumGetPointer(center), VARSIZE_ANY(center));
 
 		/* Ensure free space */
 		if (PageGetFreeSpace(page) < listSize)
