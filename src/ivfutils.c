@@ -57,12 +57,12 @@ IvfflatGetLists(Relation index)
  * Get proc
  */
 FmgrInfo *
-IvfflatOptionalProcInfo(Relation rel, uint16 procnum)
+IvfflatOptionalProcInfo(Relation index, uint16 procnum)
 {
-	if (!OidIsValid(index_getprocid(rel, 1, procnum)))
+	if (!OidIsValid(index_getprocid(index, 1, procnum)))
 		return NULL;
 
-	return index_getprocinfo(rel, 1, procnum);
+	return index_getprocinfo(index, 1, procnum);
 }
 
 /*

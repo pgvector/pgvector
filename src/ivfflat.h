@@ -277,7 +277,7 @@ VectorArray VectorArrayInit(int maxlen, int dimensions);
 void		VectorArrayFree(VectorArray arr);
 void		PrintVectorArray(char *msg, VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
-FmgrInfo   *IvfflatOptionalProcInfo(Relation rel, uint16 procnum);
+FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
 int			IvfflatGetLists(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);

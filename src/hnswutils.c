@@ -38,12 +38,12 @@ HnswGetEfConstruction(Relation index)
  * Get proc
  */
 FmgrInfo *
-HnswOptionalProcInfo(Relation rel, uint16 procnum)
+HnswOptionalProcInfo(Relation index, uint16 procnum)
 {
-	if (!OidIsValid(index_getprocid(rel, 1, procnum)))
+	if (!OidIsValid(index_getprocid(index, 1, procnum)))
 		return NULL;
 
-	return index_getprocinfo(rel, 1, procnum);
+	return index_getprocinfo(index, 1, procnum);
 }
 
 /*

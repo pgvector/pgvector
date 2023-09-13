@@ -258,7 +258,7 @@ typedef struct HnswVacuumState
 /* Methods */
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
-FmgrInfo   *HnswOptionalProcInfo(Relation rel, uint16 procnum);
+FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
 bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
 void		HnswCommitBuffer(Buffer buf, GenericXLogState *state);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
