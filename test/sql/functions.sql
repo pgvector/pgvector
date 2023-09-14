@@ -13,10 +13,10 @@ SELECT vector_norm('[3,4]');
 SELECT vector_norm('[0,1]');
 SELECT vector_norm('[3e37,4e37]')::real;
 
-SELECT l2_distance('[0,0]', '[3,4]');
-SELECT l2_distance('[0,0]', '[0,1]');
-SELECT l2_distance('[1,2]', '[3]');
-SELECT l2_distance('[3e38]', '[-3e38]');
+SELECT l2_distance('[0,0]'::vector, '[3,4]');
+SELECT l2_distance('[0,0]'::vector, '[0,1]');
+SELECT l2_distance('[1,2]'::vector, '[3]');
+SELECT l2_distance('[3e38]'::vector, '[-3e38]');
 
 SELECT inner_product('[1,2]', '[3,4]');
 SELECT inner_product('[1,2]', '[3]');
