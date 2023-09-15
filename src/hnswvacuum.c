@@ -128,10 +128,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 		blkno = HnswPageGetOpaque(page)->nextblkno;
 
 		if (updated)
-		{
-			MarkBufferDirty(buf);
 			GenericXLogFinish(state);
-		}
 		else
 			GenericXLogAbort(state);
 
@@ -229,7 +226,6 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	/* Commit */
-	MarkBufferDirty(buf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 
@@ -547,9 +543,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 			/* Commit */
-			MarkBufferDirty(buf);
-			if (nbuf != buf)
-				MarkBufferDirty(nbuf);
 			GenericXLogFinish(state);
 			if (nbuf != buf)
 				UnlockReleaseBuffer(nbuf);

@@ -202,8 +202,6 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 			HnswInsertAppendPage(index, &newbuf, &newpage, state, page);
 
 			/* Commit */
-			MarkBufferDirty(newbuf);
-			MarkBufferDirty(buf);
 			GenericXLogFinish(state);
 
 			/* Unlock previous buffer */
@@ -270,9 +268,6 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	}
 
 	/* Commit */
-	MarkBufferDirty(buf);
-	if (nbuf != buf)
-		MarkBufferDirty(nbuf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 	if (nbuf != buf)
@@ -391,7 +386,6 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
 					elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 				/* Commit */
-				MarkBufferDirty(buf);
 				GenericXLogFinish(state);
 			}
 			else
@@ -445,7 +439,6 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	/* Commit */
-	MarkBufferDirty(buf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 

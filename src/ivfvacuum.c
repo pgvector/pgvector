@@ -107,7 +107,6 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 				{
 					/* Delete tuples */
 					PageIndexMultiDelete(page, deletable, ndeletable);
-					MarkBufferDirty(buf);
 					GenericXLogFinish(state);
 				}
 				else

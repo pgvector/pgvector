@@ -81,7 +81,6 @@ HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **
 	HnswPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(newbuf);
 
 	/* Commit */
-	MarkBufferDirty(*buf);
 	GenericXLogFinish(*state);
 	UnlockReleaseBuffer(*buf);
 
@@ -179,7 +178,6 @@ CreateElementPages(HnswBuildState * buildstate)
 	insertPage = BufferGetBlockNumber(buf);
 
 	/* Commit */
-	MarkBufferDirty(buf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 
@@ -227,7 +225,6 @@ CreateNeighborPages(HnswBuildState * buildstate)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 		/* Commit */
-		MarkBufferDirty(buf);
 		GenericXLogFinish(state);
 		UnlockReleaseBuffer(buf);
 	}
