@@ -142,8 +142,6 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
 
 			/* Commit */
-			MarkBufferDirty(newbuf);
-			MarkBufferDirty(buf);
 			GenericXLogFinish(state);
 
 			/* Unlock previous buffer */

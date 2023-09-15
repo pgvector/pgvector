@@ -136,7 +136,6 @@ IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogStat
 void
 IvfflatCommitBuffer(Buffer buf, GenericXLogState *state)
 {
-	MarkBufferDirty(buf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 }
@@ -160,8 +159,6 @@ IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **st
 	IvfflatInitPage(newbuf, newpage);
 
 	/* Commit */
-	MarkBufferDirty(*buf);
-	MarkBufferDirty(newbuf);
 	GenericXLogFinish(*state);
 
 	/* Unlock */

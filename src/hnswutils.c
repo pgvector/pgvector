@@ -117,7 +117,6 @@ HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState *
 void
 HnswCommitBuffer(Buffer buf, GenericXLogState *state)
 {
-	MarkBufferDirty(buf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 }
