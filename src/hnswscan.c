@@ -102,7 +102,7 @@ FilterResults(List* items, ItemPointer results, size_t n_results)
 			ItemPointer heaptid = (ItemPointer) lfirst(c2);
 			if (bsearch(heaptid, results, n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare))
 			{
-				(void)list_delete_cell(hc->element->heaptids, c2);
+				hc->element->heaptids = list_delete_cell(hc->element->heaptids, c2);
 			}
 		}
 	}
