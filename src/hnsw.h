@@ -221,6 +221,11 @@ typedef struct HnswScanOpaqueData
 	List	   *w;
 	MemoryContext tmpCtx;
 
+	int			ef_search;
+	bool		has_more_results;
+	ItemPointer	results;
+	size_t		n_results;
+
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;

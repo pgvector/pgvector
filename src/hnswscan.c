@@ -36,7 +36,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 		ep = w;
 	}
 
-	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(q, ep, so->ef_search, 0, index, procinfo, collation, m, false, NULL);
 }
 
 /*
@@ -89,6 +89,66 @@ GetScanValue(IndexScanDesc scan)
 	return value;
 }
 
+
+static void
+FilterResults(List* items, ItemPointer results, size_t n_results)
+{
+	ListCell *c1, *c2;
+	foreach (c1, items)
+	{
+		HnswCandidate *hc = (HnswCandidate *) lfirst(c1);
+		foreach (c2, hc->element->heaptids)
+		{
+			ItemPointer heaptid = (ItemPointer) lfirst(c2);
+			if (bsearch(heaptid, results, n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare))
+			{
+				(void)list_delete_cell(hc->element->heaptids, c2);
+			}
+		}
+	}
+}
+
+static size_t
+CountResults(List* items)
+{
+	ListCell *c1;
+	size_t count = 0;
+	foreach (c1, items)
+	{
+		HnswCandidate *hc = (HnswCandidate *) lfirst(c1);
+		count += list_length(hc->element->heaptids);
+	}
+	return count;
+}
+
+
+static void
+ExtractResults(List* items, ItemPointer results)
+{
+	ListCell *c1, *c2;
+	foreach (c1, items)
+	{
+		HnswCandidate *hc = (HnswCandidate *) lfirst(c1);
+		foreach (c2, hc->element->heaptids)
+		{
+			ItemPointer heaptid = (ItemPointer) lfirst(c2);
+			*results++ = *heaptid;
+		}
+	}
+}
+
+static void
+FreeItems(List* items)
+{
+	ListCell *c1;
+	foreach (c1, items)
+	{
+		HnswCandidate *hc = (HnswCandidate *) lfirst(c1);
+		list_free(hc->element->heaptids);
+	}
+	list_free(items);
+}
+
 /*
  * Prepare for an index scan
  */
@@ -110,6 +170,11 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	so->collation = index->rd_indcollation[0];
+
+	so->results = NULL;
+	so->n_results = 0;
+	so->ef_search = hnsw_ef_search;
+	so->has_more_results = false;
 
 	scan->opaque = so;
 
@@ -146,6 +211,7 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 bool
 hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 {
+	Datum		value;
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
 
@@ -157,8 +223,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 	if (so->first)
 	{
-		Datum		value;
-
 		/* Count index scan for stats */
 		pgstat_count_index_scan(scan->indexRelation);
 
@@ -166,12 +230,28 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan hnsw index without order");
 
+		so->first = false;
+
+	  SearchMore:
 		/* Get scan value */
 		value = GetScanValue(scan);
 
 		so->w = GetScanItems(scan, value);
-
-		so->first = false;
+		so->has_more_results = list_length(so->w) >= so->ef_search;
+		if (so->results)
+		{
+			/* Sort for binary search */
+			pg_qsort(so->results, so->n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare);
+			FilterResults(so->w, so->results, so->n_results);
+			pfree(so->results);
+			so->results = NULL;
+		}
+		if (so->has_more_results)
+		{
+			so->n_results = CountResults(so->w);
+			so->results = palloc(so->n_results * sizeof(ItemPointerData));
+			ExtractResults(so->w, so->results);
+		}
 	}
 
 	while (list_length(so->w) > 0)
@@ -211,6 +291,13 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		return true;
 	}
 
+	/* Try to search more condidates */
+	if (so->has_more_results)
+	{
+		so->ef_search *= 2;
+		FreeItems(so->w);
+		goto SearchMore;
+	}
 	MemoryContextSwitchTo(oldCtx);
 	return false;
 }
