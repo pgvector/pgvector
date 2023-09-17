@@ -102,7 +102,7 @@ FilterResults(List* items, ItemPointer results, size_t n_results)
 			ItemPointer heaptid = (ItemPointer) lfirst(c2);
 			if (bsearch(heaptid, results, n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare))
 			{
-				hc->element->heaptids = list_delete_cell(hc->element->heaptids, c2);
+				hc->element->heaptids = foreach_delete_current(hc->element->heaptids, c2);
 			}
 		}
 	}
@@ -214,8 +214,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	Datum		value;
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
-	ItemPointer prev_results = NULL;
-	size_t prev_n_results;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -240,20 +238,20 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		so->w = GetScanItems(scan, value);
 		so->has_more_results = list_length(so->w) >= so->ef_search;
-		prev_results = so->results;
-		prev_n_results = so->n_results;
-		if (so->has_more_results)
-		{
-			so->n_results = CountResults(so->w);
-			so->results = palloc(so->n_results * sizeof(ItemPointerData));
-			ExtractResults(so->w, so->results);
-		}
-		if (prev_results)
+		if (so->results)
 		{
 			/* Sort for binary search */
-			pg_qsort(prev_results, prev_n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare);
-			FilterResults(so->w, prev_results, prev_n_results);
-			pfree(prev_results);
+			pg_qsort(so->results, so->n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare);
+			FilterResults(so->w, so->results, so->n_results);
+		}
+		if (so->has_more_results)
+		{
+			size_t more_results = CountResults(so->w);
+			so->results = so->results
+				? repalloc(so->results, (so->n_results + more_results) * sizeof(ItemPointerData))
+				: palloc(more_results * sizeof(ItemPointerData));
+			ExtractResults(so->w, so->results + so->n_results);
+			so->n_results += more_results;
 		}
 	}
 
