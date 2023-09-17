@@ -214,6 +214,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	Datum		value;
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
+	ItemPointer prev_results = NULL;
+	size_t prev_n_results;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -238,19 +240,20 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		so->w = GetScanItems(scan, value);
 		so->has_more_results = list_length(so->w) >= so->ef_search;
-		if (so->results)
-		{
-			/* Sort for binary search */
-			pg_qsort(so->results, so->n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare);
-			FilterResults(so->w, so->results, so->n_results);
-			pfree(so->results);
-			so->results = NULL;
-		}
+		prev_results = so->results;
+		prev_n_results = so->n_results;
 		if (so->has_more_results)
 		{
 			so->n_results = CountResults(so->w);
 			so->results = palloc(so->n_results * sizeof(ItemPointerData));
 			ExtractResults(so->w, so->results);
+		}
+		if (prev_results)
+		{
+			/* Sort for binary search */
+			pg_qsort(prev_results, prev_n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare);
+			FilterResults(so->w, prev_results, prev_n_results);
+			pfree(prev_results);
 		}
 	}
 
