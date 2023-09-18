@@ -97,18 +97,26 @@ FilterResults(List* items, ItemPointer results, size_t n_results)
 	foreach (c1, items)
 	{
 		HnswCandidate *hc = (HnswCandidate *) lfirst(c1);
+#if PG_VERSION_NUM >= 130000
 		foreach (c2, hc->element->heaptids)
 		{
 			ItemPointer heaptid = (ItemPointer) lfirst(c2);
 			if (bsearch(heaptid, results, n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare))
 			{
-#if PG_VERSION_NUM >= 130000
 				hc->element->heaptids = foreach_delete_current(hc->element->heaptids, c2);
-#else
-				hc->element->heaptids = list_delete_cell(hc->element->heaptids, c2);
-#endif
 			}
 		}
+#else
+		ListCell* prev = NULL;
+		foreach (c2, hc->element->heaptids)
+		{
+			ItemPointer heaptid = (ItemPointer) lfirst(c2);
+			if (bsearch(heaptid, results, n_results, sizeof(ItemPointerData), (int (*)(const void *, const void *))ItemPointerCompare))
+				hc->element->heaptids = list_delete_cell(hc->element->heaptids, c2, prev);
+			else
+				prev = c2;
+		}
+#endif
 	}
 }
 
