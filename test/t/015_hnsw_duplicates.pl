@@ -28,7 +28,7 @@ sub test_duplicates
 		SET hnsw.ef_search = 1;
 		SELECT COUNT(*) FROM (SELECT * FROM tst ORDER BY v <-> '[1,1,1]') t;
 	));
-	is($res, 10);
+	is($res, 20);
 }
 
 # Test duplicates with build
