@@ -305,7 +305,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	}
 
 	/* Try to search more condidates */
-	if (so->has_more_results)
+	if (so->has_more_results && (hnsw_max_ef_search == 0 || so->ef_search < hnsw_max_ef_search))
 	{
 		so->ef_search *= 2;
 		FreeItems(so->w);

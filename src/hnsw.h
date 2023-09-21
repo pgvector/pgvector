@@ -88,6 +88,7 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
+extern int	hnsw_max_ef_search;
 
 typedef struct HnswNeighborArray HnswNeighborArray;
 
