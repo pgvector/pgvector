@@ -571,10 +571,14 @@ AddCandidate(IndexScanDesc scan, int lc, HnswCandidate *hc)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	LayerScanDesc* layer = &so->layers[lc];
-	AddToVisited(layer->v, hc, scan->indexRelation, NULL);
-	pairingheap_add(layer->C, &(CreatePairingHeapNode(hc)->ph_node));
-	pairingheap_add(layer->W, &(CreatePairingHeapNode(hc)->ph_node));
-	layer->n += 1;
+	bool		visited;
+	AddToVisited(layer->v, hc, scan->indexRelation, &visited);
+	if (!visited)
+	{
+		pairingheap_add(layer->C, &(CreatePairingHeapNode(hc)->ph_node));
+		pairingheap_add(layer->W, &(CreatePairingHeapNode(hc)->ph_node));
+		layer->n += 1;
+	}
 }
 
 void
@@ -585,6 +589,7 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 	Relation	index = scan->indexRelation;
 	int         i;
 	HASHCTL		hash_ctl;
+	HnswCandidate *hc;
 
 	/* Create hash table */
 	hash_ctl.hcxt = CurrentMemoryContext;
@@ -601,6 +606,12 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &so->m, &entryPoint);
+	if (entryPoint == NULL)
+	{
+		so->n_layers = 0;
+		return;
+	}
+	hc = HnswEntryCandidate(entryPoint, q, index, so->procinfo, so->collation, false);
 	so->n_layers = entryPoint->level + 1;
 	so->hc = NULL;
 	so->q = q;
@@ -612,11 +623,7 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 		so->layers[i].v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 		so->layers[i].n = 0;
 	}
-	if (entryPoint != NULL)
-	{
-		HnswCandidate *hc = HnswEntryCandidate(entryPoint, q, index, so->procinfo, so->collation, false);
-		AddCandidate(scan, so->n_layers-1, hc);
-	}
+	AddCandidate(scan, so->n_layers-1, hc);
 }
 
 
@@ -631,10 +638,6 @@ MoreCandidates(IndexScanDesc scan, int lc)
 	{
 		HnswNeighborArray *neighborhood;
 		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_remove_first(layer->C))->inner;
-		HnswCandidate *f = ((HnswPairingHeapNode *) pairingheap_first(layer->W))->inner;
-
-		if (c->distance > f->distance)
-			continue;
 
 		if (c->element->neighbors == NULL)
 			HnswLoadNeighbors(c->element, index, so->m);
@@ -647,13 +650,13 @@ MoreCandidates(IndexScanDesc scan, int lc)
 			HnswCandidate *e = &neighborhood->items[i];
 			bool		visited;
 
+
 			AddToVisited(layer->v, e, index, &visited);
 
 			if (!visited)
 			{
 				float		eDistance;
-
-				f = ((HnswPairingHeapNode *) pairingheap_first(layer->W))->inner;
+				HnswCandidate *ec;
 
 				if (index == NULL)
 					eDistance = GetCandidateDistance(e, so->q, so->procinfo, so->collation);
@@ -666,18 +669,15 @@ MoreCandidates(IndexScanDesc scan, int lc)
 				if (e->element->level < lc)
 					continue;
 
-				if (eDistance < f->distance)
-				{
-					/* Copy e */
-					HnswCandidate *ec = palloc(sizeof(HnswCandidate));
+				/* Copy e */
+				ec = palloc(sizeof(HnswCandidate));
 
-					ec->element = e->element;
-					ec->distance = eDistance;
+				ec->element = e->element;
+				ec->distance = eDistance;
 
-					pairingheap_add(layer->C, &(CreatePairingHeapNode(ec)->ph_node));
-					pairingheap_add(layer->W, &(CreatePairingHeapNode(ec)->ph_node));
-					layer->n += 1;
-				}
+				pairingheap_add(layer->C, &(CreatePairingHeapNode(ec)->ph_node));
+				pairingheap_add(layer->W, &(CreatePairingHeapNode(ec)->ph_node));
+				layer->n += 1;
 			}
 		}
 		return true;
@@ -717,11 +717,19 @@ HnswGetNext(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	LayerScanDesc* leaf = &so->layers[0];
+
+	if (so->n_layers == 0)
+		return NULL;
+
 	while (leaf->n < hnsw_ef_search)
 	{
 		if (!MoreCandidates(scan, 0))
 		{
-			HnswCandidate* hc = GetCandidate(scan, 1);
+			HnswCandidate* hc;
+			if (so->n_layers == 1)
+				break;
+
+			hc = GetCandidate(scan, 1);
 			if (hc == NULL)
 				break;
 

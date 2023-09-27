@@ -164,6 +164,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		/* Move to next element if no valid heap TIDs */
 		if (list_length(hc->element->heaptids) == 0)
 		{
+			so->hc = NULL;
 			continue;
 		}
 
