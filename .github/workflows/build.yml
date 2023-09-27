@@ -28,7 +28,7 @@ jobs:
           dev-files: true
       - run: make
         env:
-          PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare -fanalyzer
+          PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
       - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
@@ -39,6 +39,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install libipc-run-perl
       - run: make prove_installcheck
+      - if: ${{ matrix.os == 'ubuntu-22.04' }}
+        run: make clean && make
+        env:
+          PG_CFLAGS: -Werror -fanalyzer
   mac:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref_name, 'windows') }}
