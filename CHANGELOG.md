@@ -1,7 +1,6 @@
 ## 0.5.1 (unreleased)
 
 - Improved performance of index scans for IVFFlat after updates and deletes
-- Fixed locking for index scans for HNSW
 
 ## 0.5.0 (2023-08-28)
 
