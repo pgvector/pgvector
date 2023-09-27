@@ -619,7 +619,7 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 	for (i = 0; i < so->n_layers; i++)
 	{
 		so->layers[i].C = pairingheap_allocate(CompareNearestCandidates, NULL);
-		so->layers[i].W = pairingheap_allocate(CompareFurthestCandidates, NULL);
+		so->layers[i].W = pairingheap_allocate(CompareNearestCandidates, NULL);
 		so->layers[i].v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 		so->layers[i].n = 0;
 	}
