@@ -604,17 +604,19 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 		hash_ctl.entrysize = sizeof(ItemPointerData);
 	}
 
+	so->hc = NULL;
+	so->q = q;
+
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &so->m, &entryPoint);
 	if (entryPoint == NULL)
 	{
 		so->n_layers = 0;
+		so->layers = NULL;
 		return;
 	}
 	hc = HnswEntryCandidate(entryPoint, q, index, so->procinfo, so->collation, false);
 	so->n_layers = entryPoint->level + 1;
-	so->hc = NULL;
-	so->q = q;
 	so->layers = (LayerScanDesc*)palloc(sizeof(LayerScanDesc) * so->n_layers);
 	for (i = 0; i < so->n_layers; i++)
 	{
@@ -677,7 +679,7 @@ MoreCandidates(IndexScanDesc scan, int lc)
 
 				pairingheap_add(layer->C, &(CreatePairingHeapNode(ec)->ph_node));
 				pairingheap_add(layer->W, &(CreatePairingHeapNode(ec)->ph_node));
-				layer->n += 1;
+				layer->n += lc != 0 || list_length(ec->element->heaptids) != 0;
 			}
 		}
 		return true;
@@ -717,6 +719,7 @@ HnswGetNext(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	LayerScanDesc* leaf = &so->layers[0];
+	HnswCandidate* hc;
 
 	if (so->n_layers == 0)
 		return NULL;
@@ -725,7 +728,6 @@ HnswGetNext(IndexScanDesc scan)
 	{
 		if (!MoreCandidates(scan, 0))
 		{
-			HnswCandidate* hc;
 			if (so->n_layers == 1)
 				break;
 
@@ -739,9 +741,10 @@ HnswGetNext(IndexScanDesc scan)
 	if (pairingheap_is_empty(leaf->W))
 		return NULL;
 
-	Assert(leaf->n > 0);
-	leaf->n -= 1;
-	return ((HnswPairingHeapNode *) pairingheap_remove_first(leaf->W))->inner;
+	hc = ((HnswPairingHeapNode *) pairingheap_remove_first(leaf->W))->inner;
+	leaf->n -= list_length(hc->element->heaptids) != 0;
+	Assert(leaf->n >= 0);
+	return hc;
 }
 
 
