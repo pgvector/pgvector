@@ -692,7 +692,7 @@ GetCandidate(IndexScanDesc scan, int lc)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	LayerScanDesc* layer = &so->layers[lc];
-	while (pairingheap_is_empty(layer->W))
+	while (true)
 	{
 		if (!MoreCandidates(scan, lc))
 		{
@@ -705,13 +705,19 @@ GetCandidate(IndexScanDesc scan, int lc)
 					continue;
 				}
 			}
-			return NULL;
+			break;
 		}
 	}
-	Assert(layer->n > 0);
-	layer->n -= 1;
-	return ((HnswPairingHeapNode *) pairingheap_remove_first(layer->W))->inner;
-
+	if (pairingheap_is_empty(layer->W))
+	{
+		return NULL;
+	}
+	else
+	{
+		Assert(layer->n > 0);
+		layer->n -= 1;
+		return ((HnswPairingHeapNode *) pairingheap_remove_first(layer->W))->inner;
+	}
 }
 
 HnswCandidate*
