@@ -577,7 +577,7 @@ AddCandidate(IndexScanDesc scan, int lc, HnswCandidate *hc)
 	{
 		pairingheap_add(layer->C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(layer->W, &(CreatePairingHeapNode(hc)->ph_node));
-		layer->n += 1;
+		layer->n += lc != 0 || list_length(ec->element->heaptids) != 0;
 	}
 }
 
