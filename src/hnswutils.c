@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "access/relscan.h"
 #include "hnsw.h"
 #include "storage/bufmgr.h"
 #include "vector.h"
@@ -563,6 +564,178 @@ AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
 		hash_search(v, &indextid, HASH_ENTER, found);
 	}
 }
+
+
+static void
+AddCandidate(IndexScanDesc scan, int lc, HnswCandidate *hc)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	LayerScanDesc* layer = &so->layers[lc];
+	AddToVisited(layer->v, hc, scan->indexRelation, NULL);
+	pairingheap_add(layer->C, &(CreatePairingHeapNode(hc)->ph_node));
+	pairingheap_add(layer->W, &(CreatePairingHeapNode(hc)->ph_node));
+	layer->n += 1;
+}
+
+void
+HnswInitScan(IndexScanDesc scan, Datum q)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	HnswElement entryPoint;
+	Relation	index = scan->indexRelation;
+	int         i;
+	HASHCTL		hash_ctl;
+
+	/* Create hash table */
+	hash_ctl.hcxt = CurrentMemoryContext;
+	if (index == NULL)
+	{
+		hash_ctl.keysize = sizeof(HnswElement *);
+		hash_ctl.entrysize = sizeof(HnswElement *);
+	}
+	else
+	{
+		hash_ctl.keysize = sizeof(ItemPointerData);
+		hash_ctl.entrysize = sizeof(ItemPointerData);
+	}
+
+	/* Get m and entry point */
+	HnswGetMetaPageInfo(index, &so->m, &entryPoint);
+	so->n_layers = entryPoint->level + 1;
+	so->hc = NULL;
+	so->q = q;
+	so->layers = (LayerScanDesc*)palloc(sizeof(LayerScanDesc) * so->n_layers);
+	for (i = 0; i < so->n_layers; i++)
+	{
+		so->layers[i].C = pairingheap_allocate(CompareNearestCandidates, NULL);
+		so->layers[i].W = pairingheap_allocate(CompareFurthestCandidates, NULL);
+		so->layers[i].v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
+		so->layers[i].n = 0;
+	}
+	if (entryPoint != NULL)
+	{
+		HnswCandidate *hc = HnswEntryCandidate(entryPoint, q, index, so->procinfo, so->collation, false);
+		AddCandidate(scan, so->n_layers-1, hc);
+	}
+}
+
+
+static bool
+MoreCandidates(IndexScanDesc scan, int lc)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	Relation	index = scan->indexRelation;
+	LayerScanDesc* layer = &so->layers[lc];
+
+	while (!pairingheap_is_empty(layer->C))
+	{
+		HnswNeighborArray *neighborhood;
+		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_remove_first(layer->C))->inner;
+		HnswCandidate *f = ((HnswPairingHeapNode *) pairingheap_first(layer->W))->inner;
+
+		if (c->distance > f->distance)
+			continue;
+
+		if (c->element->neighbors == NULL)
+			HnswLoadNeighbors(c->element, index, so->m);
+
+		/* Get the neighborhood at layer lc */
+		neighborhood = &c->element->neighbors[lc];
+
+		for (int i = 0; i < neighborhood->length; i++)
+		{
+			HnswCandidate *e = &neighborhood->items[i];
+			bool		visited;
+
+			AddToVisited(layer->v, e, index, &visited);
+
+			if (!visited)
+			{
+				float		eDistance;
+
+				f = ((HnswPairingHeapNode *) pairingheap_first(layer->W))->inner;
+
+				if (index == NULL)
+					eDistance = GetCandidateDistance(e, so->q, so->procinfo, so->collation);
+				else
+					HnswLoadElement(e->element, &eDistance, &so->q, index, so->procinfo, so->collation, false);
+
+				Assert(!e->element->deleted);
+
+				/* Make robust to issues */
+				if (e->element->level < lc)
+					continue;
+
+				if (eDistance < f->distance)
+				{
+					/* Copy e */
+					HnswCandidate *ec = palloc(sizeof(HnswCandidate));
+
+					ec->element = e->element;
+					ec->distance = eDistance;
+
+					pairingheap_add(layer->C, &(CreatePairingHeapNode(ec)->ph_node));
+					pairingheap_add(layer->W, &(CreatePairingHeapNode(ec)->ph_node));
+					layer->n += 1;
+				}
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
+static HnswCandidate*
+GetCandidate(IndexScanDesc scan, int lc)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	LayerScanDesc* layer = &so->layers[lc];
+	while (pairingheap_is_empty(layer->W))
+	{
+		if (!MoreCandidates(scan, lc))
+		{
+			if (lc+1 != so->n_layers)
+			{
+				HnswCandidate* hc = GetCandidate(scan, lc+1);
+				if (hc != NULL)
+				{
+					AddCandidate(scan, lc, hc);
+					continue;
+				}
+			}
+			return NULL;
+		}
+	}
+	Assert(layer->n > 0);
+	layer->n -= 1;
+	return ((HnswPairingHeapNode *) pairingheap_remove_first(layer->W))->inner;
+
+}
+
+HnswCandidate*
+HnswGetNext(IndexScanDesc scan)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	LayerScanDesc* leaf = &so->layers[0];
+	while (leaf->n < hnsw_ef_search)
+	{
+		if (!MoreCandidates(scan, 0))
+		{
+			HnswCandidate* hc = GetCandidate(scan, 1);
+			if (hc == NULL)
+				break;
+
+			AddCandidate(scan, 0, hc);
+		}
+	}
+	if (pairingheap_is_empty(leaf->W))
+		return NULL;
+
+	Assert(leaf->n > 0);
+	leaf->n -= 1;
+	return ((HnswPairingHeapNode *) pairingheap_remove_first(leaf->W))->inner;
+}
+
 
 /*
  * Algorithm 2 from paper

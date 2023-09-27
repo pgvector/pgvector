@@ -8,38 +8,6 @@
 #include "utils/memutils.h"
 
 /*
- * Algorithm 5 from paper
- */
-static List *
-GetScanItems(IndexScanDesc scan, Datum q)
-{
-	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
-	Relation	index = scan->indexRelation;
-	FmgrInfo   *procinfo = so->procinfo;
-	Oid			collation = so->collation;
-	List	   *ep;
-	List	   *w;
-	int			m;
-	HnswElement entryPoint;
-
-	/* Get m and entry point */
-	HnswGetMetaPageInfo(index, &m, &entryPoint);
-
-	if (entryPoint == NULL)
-		return NIL;
-
-	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
-
-	for (int lc = entryPoint->level; lc >= 1; lc--)
-	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
-		ep = w;
-	}
-
-	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
-}
-
-/*
  * Get dimensions from metapage
  */
 static int
@@ -142,6 +110,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
+	HnswCandidate *hc;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -169,7 +138,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		 */
 		LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
-		so->w = GetScanItems(scan, value);
+		HnswInitScan(scan, value);
 
 		/* Release shared lock */
 		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
@@ -177,15 +146,24 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->first = false;
 	}
 
-	while (list_length(so->w) > 0)
+	while (true)
 	{
-		HnswCandidate *hc = llast(so->w);
 		ItemPointer heaptid;
+
+		hc = so->hc;
+		if (hc == NULL)
+		{
+			LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+			hc = HnswGetNext(scan);
+			UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+			if (hc == NULL)
+				break;
+			so->hc = hc;
+		}
 
 		/* Move to next element if no valid heap TIDs */
 		if (list_length(hc->element->heaptids) == 0)
 		{
-			so->w = list_delete_last(so->w);
 			continue;
 		}
 

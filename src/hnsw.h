@@ -215,13 +215,26 @@ typedef struct HnswNeighborTupleData
 
 typedef HnswNeighborTupleData * HnswNeighborTuple;
 
+typedef struct
+{
+	pairingheap *C;
+	pairingheap *W;
+	HTAB*        v;
+	int          n;
+} LayerScanDesc;
+
 typedef struct HnswScanOpaqueData
 {
 	bool		first;
-	List	   *w;
 	MemoryContext tmpCtx;
 
-	/* Support functions */
+	LayerScanDesc* layers;
+	int			n_layers;
+	int         m;
+	Datum       q;
+	HnswCandidate *hc;
+
+    /* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
@@ -285,6 +298,8 @@ void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation i
 void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
 void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
+HnswCandidate* HnswGetNext(IndexScanDesc scan);
+void		HnswInitScan(IndexScanDesc scan, Datum q);
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);
