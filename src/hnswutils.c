@@ -654,7 +654,7 @@ MoreCandidates(IndexScanDesc scan, int lc, int ef)
 	{
 		HnswNeighborArray *neighborhood;
 		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_first(layer->C))->inner;
-		if (layer->n >= ef && c->distance > ((HnswPairingHeapNode*) pairingheap_nth(layer->W, ef))->inner->distance)
+		if (layer->n >= ef && c->distance > ((HnswPairingHeapNode*) pairingheap_nth(layer->W, ef - 1))->inner->distance)
 			return true;
 
 		pairingheap_remove_first(layer->C);
