@@ -690,7 +690,6 @@ MoreCandidates(IndexScanDesc scan, int lc, int ef)
 				layer->n += lc != 0 || list_length(ec->element->heaptids) != 0;
 			}
 		}
-		return true;
 	}
 	return false;
 }
