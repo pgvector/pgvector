@@ -222,7 +222,6 @@ typedef struct
 	pairingheap *W;
 	HTAB*        v;
 	int          n;
-	float        distance;
 } LayerScanDesc;
 
 typedef struct HnswScanOpaqueData

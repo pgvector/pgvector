@@ -625,7 +625,6 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 		so->layers[i].W = pairingheap_allocate(CompareNearestCandidates, NULL);
 		so->layers[i].v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 		so->layers[i].n = 0;
-		so->layers[i].distance = FLT_MAX;
 	}
 	AddCandidate(scan, so->n_layers-1, hc);
 }
@@ -642,8 +641,8 @@ MoreCandidates(IndexScanDesc scan, int lc, int ef)
 	{
 		HnswNeighborArray *neighborhood;
 		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_first(layer->C))->inner;
-
-		if (c->distance > layer->distance && layer->n >= ef)
+		float min_distance = pairingheap_is_empty(layer->W) ? FLT_MAX : ((HnswPairingHeapNode *) pairingheap_first(layer->W))->inner->distance;
+		if (c->distance > min_distance && layer->n >= ef)
 			return true;
 
 		pairingheap_remove_first(layer->C);
@@ -735,7 +734,8 @@ GetCandidate(IndexScanDesc scan, int lc, int ef)
 HnswCandidate*
 HnswGetNext(IndexScanDesc scan)
 {
-	return GetCandidate(scan, 0, hnsw_ef_search);
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	return so->n_layers == 0 ? NULL : GetCandidate(scan, 0, hnsw_ef_search);
 }
 
 
