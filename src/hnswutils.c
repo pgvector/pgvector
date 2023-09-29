@@ -1,6 +1,5 @@
 #include "postgres.h"
 
-#include <float.h>
 #include <math.h>
 
 #include "access/relscan.h"
@@ -626,7 +625,7 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 		so->layers[i].W = pairingheap_allocate(CompareNearestCandidates, NULL);
 		so->layers[i].v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 		so->layers[i].n = 0;
-		so->layers[i].max_distance = FLT_MAX;
+		so->layers[i].max_distance = 0;
 	}
 	AddCandidate(scan, so->n_layers-1, hc);
 }
@@ -729,7 +728,7 @@ GetCandidate(IndexScanDesc scan, int lc, int ef)
 		HnswCandidate* hc = ((HnswPairingHeapNode *) pairingheap_remove_first(layer->W))->inner;
 		layer->n -= lc != 0 || list_length(hc->element->heaptids) != 0;
 		if (pairingheap_is_empty(layer->W))
-			layer->max_distance = FLT_MAX;
+			layer->max_distance = 0;
 		return hc;
 	}
 }
