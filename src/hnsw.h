@@ -88,6 +88,7 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
+extern bool hnsw_enable_iterator;
 
 typedef struct HnswNeighborArray HnswNeighborArray;
 
@@ -221,11 +222,13 @@ typedef struct
 	pairingheap *W;
 	HTAB*        v;
 	int          n;
+	float        distance;
 } LayerScanDesc;
 
 typedef struct HnswScanOpaqueData
 {
 	bool		first;
+	List	   *w;
 	MemoryContext tmpCtx;
 
 	LayerScanDesc* layers;

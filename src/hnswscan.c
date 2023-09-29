@@ -7,6 +7,35 @@
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
 
+static List *
+GetScanItems(IndexScanDesc scan, Datum q)
+{
+       HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+       Relation        index = scan->indexRelation;
+       FmgrInfo   *procinfo = so->procinfo;
+       Oid                     collation = so->collation;
+       List       *ep;
+       List       *w;
+       int                     m;
+       HnswElement entryPoint;
+
+       /* Get m and entry point */
+       HnswGetMetaPageInfo(index, &m, &entryPoint);
+
+       if (entryPoint == NULL)
+               return NIL;
+
+       ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
+
+       for (int lc = entryPoint->level; lc >= 1; lc--)
+       {
+               w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+               ep = w;
+       }
+
+       return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+}
+
 /*
  * Get dimensions from metapage
  */
@@ -132,28 +161,40 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		/* Get scan value */
 		value = GetScanValue(scan);
 
-		HnswInitScan(scan, value);
+		if (hnsw_enable_iterator)
+			HnswInitScan(scan, value);
+		else
+			so->w = GetScanItems(scan, value);
 
 		so->first = false;
 	}
 
-	while (true)
+	while (hnsw_enable_iterator || list_length(so->w) > 0)
 	{
 		ItemPointer heaptid;
 
-		hc = so->hc;
-		if (hc == NULL)
+		if (hnsw_enable_iterator)
 		{
-			hc = HnswGetNext(scan);
+			hc = so->hc;
 			if (hc == NULL)
-				break;
-			so->hc = hc;
+			{
+				hc = HnswGetNext(scan);
+				if (hc == NULL)
+					break;
+				so->hc = hc;
+			}
 		}
-
+		else
+		{
+			hc = llast(so->w);
+		}
 		/* Move to next element if no valid heap TIDs */
 		if (list_length(hc->element->heaptids) == 0)
 		{
-			so->hc = NULL;
+			if (hnsw_enable_iterator)
+				so->hc = NULL;
+			else
+				so->w = list_delete_last(so->w);
 			continue;
 		}
 

@@ -1,5 +1,6 @@
 #include "postgres.h"
 
+#include <float.h>
 #include <math.h>
 
 #include "access/relscan.h"
@@ -624,13 +625,14 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 		so->layers[i].W = pairingheap_allocate(CompareNearestCandidates, NULL);
 		so->layers[i].v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 		so->layers[i].n = 0;
+		so->layers[i].distance = FLT_MAX;
 	}
 	AddCandidate(scan, so->n_layers-1, hc);
 }
 
 
 static bool
-MoreCandidates(IndexScanDesc scan, int lc)
+MoreCandidates(IndexScanDesc scan, int lc, int ef)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
@@ -639,7 +641,12 @@ MoreCandidates(IndexScanDesc scan, int lc)
 	while (!pairingheap_is_empty(layer->C))
 	{
 		HnswNeighborArray *neighborhood;
-		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_remove_first(layer->C))->inner;
+		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_first(layer->C))->inner;
+
+		if (c->distance > layer->distance && layer->n >= ef)
+			return true;
+
+		pairingheap_remove_first(layer->C);
 
 		if (c->element->neighbors == NULL)
 			HnswLoadNeighbors(c->element, index, so->m);
@@ -688,23 +695,28 @@ MoreCandidates(IndexScanDesc scan, int lc)
 }
 
 static HnswCandidate*
-GetCandidate(IndexScanDesc scan, int lc)
+GetCandidate(IndexScanDesc scan, int lc, int ef)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	LayerScanDesc* layer = &so->layers[lc];
 	while (true)
 	{
-		if (!MoreCandidates(scan, lc))
+		if (!MoreCandidates(scan, lc, ef))
 		{
 			if (lc+1 != so->n_layers)
 			{
-				HnswCandidate* hc = GetCandidate(scan, lc+1);
+				HnswCandidate* hc = GetCandidate(scan, lc+1, 1);
 				if (hc != NULL)
 				{
 					AddCandidate(scan, lc, hc);
 					continue;
 				}
 			}
+			break;
+		}
+		else if (layer->n >= ef)
+		{
+			/* Collect enough results to return the best */
 			break;
 		}
 	}
@@ -714,43 +726,16 @@ GetCandidate(IndexScanDesc scan, int lc)
 	}
 	else
 	{
-		Assert(layer->n > 0);
-		layer->n -= 1;
-		return ((HnswPairingHeapNode *) pairingheap_remove_first(layer->W))->inner;
+		HnswCandidate* hc = ((HnswPairingHeapNode *) pairingheap_remove_first(layer->W))->inner;
+		layer->n -= lc != 0 || list_length(hc->element->heaptids) != 0;
+		return hc;
 	}
 }
 
 HnswCandidate*
 HnswGetNext(IndexScanDesc scan)
 {
-	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
-	LayerScanDesc* leaf = &so->layers[0];
-	HnswCandidate* hc;
-
-	if (so->n_layers == 0)
-		return NULL;
-
-	while (leaf->n < hnsw_ef_search)
-	{
-		if (!MoreCandidates(scan, 0))
-		{
-			if (so->n_layers == 1)
-				break;
-
-			hc = GetCandidate(scan, 1);
-			if (hc == NULL)
-				break;
-
-			AddCandidate(scan, 0, hc);
-		}
-	}
-	if (pairingheap_is_empty(leaf->W))
-		return NULL;
-
-	hc = ((HnswPairingHeapNode *) pairingheap_remove_first(leaf->W))->inner;
-	leaf->n -= list_length(hc->element->heaptids) != 0;
-	Assert(leaf->n >= 0);
-	return hc;
+	return GetCandidate(scan, 0, hnsw_ef_search);
 }
 
 
