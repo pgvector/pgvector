@@ -577,7 +577,6 @@ AddCandidate(IndexScanDesc scan, int lc, HnswCandidate *hc)
 	{
 		pairingheap_add(layer->C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(layer->W, &(CreatePairingHeapNode(hc)->ph_node));
-		layer->max_distance = Max(layer->max_distance, hc->distance);
 		layer->n += lc != 0 || list_length(hc->element->heaptids) != 0;
 	}
 }
@@ -625,11 +624,24 @@ HnswInitScan(IndexScanDesc scan, Datum q)
 		so->layers[i].W = pairingheap_allocate(CompareNearestCandidates, NULL);
 		so->layers[i].v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 		so->layers[i].n = 0;
-		so->layers[i].max_distance = 0;
 	}
 	AddCandidate(scan, so->n_layers-1, hc);
 }
 
+static pairingheap_node *
+pairingheap_nth(pairingheap *heap, int nth)
+{
+	if (nth > 0) {
+		pairingheap_node* first = pairingheap_remove_first(heap);
+		pairingheap_node* result = pairingheap_nth(heap, nth-1);
+		pairingheap_add(heap, first);
+		return result;
+	}
+	else
+	{
+		return pairingheap_first(heap);
+	}
+}
 
 static bool
 MoreCandidates(IndexScanDesc scan, int lc, int ef)
@@ -642,7 +654,7 @@ MoreCandidates(IndexScanDesc scan, int lc, int ef)
 	{
 		HnswNeighborArray *neighborhood;
 		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_first(layer->C))->inner;
-		if (c->distance > layer->max_distance && layer->n >= ef)
+		if (layer->n >= ef && c->distance > ((HnswPairingHeapNode*) pairingheap_nth(layer->W, ef))->inner->distance)
 			return true;
 
 		pairingheap_remove_first(layer->C);
@@ -685,7 +697,6 @@ MoreCandidates(IndexScanDesc scan, int lc, int ef)
 
 				pairingheap_add(layer->C, &(CreatePairingHeapNode(ec)->ph_node));
 				pairingheap_add(layer->W, &(CreatePairingHeapNode(ec)->ph_node));
-				layer->max_distance = Max(layer->max_distance, eDistance);
 				layer->n += lc != 0 || list_length(ec->element->heaptids) != 0;
 			}
 		}
@@ -727,8 +738,6 @@ GetCandidate(IndexScanDesc scan, int lc, int ef)
 	{
 		HnswCandidate* hc = ((HnswPairingHeapNode *) pairingheap_remove_first(layer->W))->inner;
 		layer->n -= lc != 0 || list_length(hc->element->heaptids) != 0;
-		if (pairingheap_is_empty(layer->W))
-			layer->max_distance = 0;
 		return hc;
 	}
 }
