@@ -186,7 +186,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 					if (hc == NULL)
 						break;
 				}
-				while (hnsw_strict_order && hc->distance > so->last_distance);
+				while (hnsw_strict_order && hc->distance < so->last_distance);
 				so->last_distance = hc->distance;
 				so->hc = hc;
 			}
