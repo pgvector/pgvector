@@ -167,7 +167,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		else
 			so->w = GetScanItems(scan, value);
 
-		so->last_distance = FLT_MAX;
+		so->last_distance = 0;
 		so->first = false;
 	}
 
@@ -187,6 +187,10 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 						break;
 				}
 				while (hnsw_strict_order && hc->distance < so->last_distance);
+
+				if (hc == NULL)
+					break;
+
 				so->last_distance = hc->distance;
 				so->hc = hc;
 			}
