@@ -89,6 +89,7 @@
 /* Variables */
 extern int	hnsw_ef_search;
 extern bool hnsw_enable_iterator;
+extern bool hnsw_strict_order;
 
 typedef struct HnswNeighborArray HnswNeighborArray;
 
@@ -234,6 +235,7 @@ typedef struct HnswScanOpaqueData
 	int			n_layers;
 	int         m;
 	Datum       q;
+	float       last_distance;
 	HnswCandidate *hc;
 
     /* Support functions */

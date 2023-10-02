@@ -1,3 +1,4 @@
+#include <float.h>
 #include "postgres.h"
 
 #include "access/relscan.h"
@@ -166,6 +167,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		else
 			so->w = GetScanItems(scan, value);
 
+		so->last_distance = FLT_MAX;
 		so->first = false;
 	}
 
@@ -178,9 +180,14 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			hc = so->hc;
 			if (hc == NULL)
 			{
-				hc = HnswGetNext(scan);
-				if (hc == NULL)
-					break;
+				do
+				{
+					hc = HnswGetNext(scan);
+					if (hc == NULL)
+						break;
+				}
+				while (hnsw_strict_order && hc->distance > so->last_distance);
+				so->last_distance = hc->distance;
 				so->hc = hc;
 			}
 		}

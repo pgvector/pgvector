@@ -15,6 +15,7 @@
 
 int			hnsw_ef_search;
 bool		hnsw_enable_iterator;
+bool		hnsw_strict_order;
 static relopt_kind hnsw_relopt_kind;
 
 /*
@@ -43,6 +44,9 @@ HnswInit(void)
 	DefineCustomBoolVariable("hnsw.enable_iterator", "Use iterator to support filtering",
 							 NULL, &hnsw_enable_iterator,
 							 true, PGC_USERSET, 0, NULL, NULL, NULL);
+	DefineCustomBoolVariable("hnsw.strict_order", "Provide string order of returned results in HNSW iterator",
+							 "Skip results with violates distance order", &hnsw_strict_order,
+							 false, PGC_USERSET, 0, NULL, NULL, NULL);
 }
 
 /*
