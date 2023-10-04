@@ -14,6 +14,13 @@
 #error "Requires PostgreSQL 11+"
 #endif
 
+/*
+ * If defined, you get a NOTICE message with # of distance calculations
+ * at the end of HNSW index build
+ */
+/* #define HNSW_DISTANCE_CALC_STATS */
+
+
 #define HNSW_MAX_DIM 2000
 
 /* Support functions */
@@ -301,5 +308,10 @@ IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
+
+#ifdef HNSW_DISTANCE_CALC_STATS
+void HnswResetDistanceCalcStats(void);
+void HnswPrintDistanceCalcStats(void);
+#endif
 
 #endif

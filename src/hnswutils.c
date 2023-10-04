@@ -692,6 +692,27 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 	return w;
 }
 
+#ifdef HNSW_DISTANCE_CALC_STATS
+static int distanceCacheHitA = 0;
+static int distanceCacheHitB = 0;
+static int distanceCacheMiss = 0;
+
+void
+HnswResetDistanceCalcStats(void)
+{
+	distanceCacheHitA = 0;
+	distanceCacheHitB = 0;
+	distanceCacheMiss = 0;
+}
+
+void
+HnswPrintDistanceCalcStats(void)
+{
+	elog(NOTICE, "HNSW Distance calc stats: %d/%d/%d (hit A, hit B, miss)",
+		 distanceCacheHitA, distanceCacheHitB, distanceCacheMiss);
+}
+#endif
+
 /*
  * Calculate the distance between elements
  */
@@ -706,7 +727,12 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 		for (int i = 0; i < a->neighbors[lc].length; i++)
 		{
 			if (a->neighbors[lc].items[i].element == b)
+			{
+#ifdef HNSW_DISTANCE_CALC_STATS
+				distanceCacheHitA++;
+#endif
 				return a->neighbors[lc].items[i].distance;
+			}
 		}
 	}
 
@@ -717,10 +743,18 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 		for (int i = 0; i < b->neighbors[lc].length; i++)
 		{
 			if (b->neighbors[lc].items[i].element == a)
+			{
+#ifdef HNSW_DISTANCE_CALC_STATS
+				distanceCacheHitB++;
+#endif
 				return b->neighbors[lc].items[i].distance;
+			}
 		}
 	}
 
+#ifdef HNSW_DISTANCE_CALC_STATS
+	distanceCacheMiss++;
+#endif
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(a->vec), PointerGetDatum(b->vec)));
 }
 

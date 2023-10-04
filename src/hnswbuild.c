@@ -481,6 +481,10 @@ static void
 BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 		   HnswBuildState * buildstate, ForkNumber forkNum)
 {
+#ifdef HNSW_DISTANCE_CALC_STATS
+	HnswResetDistanceCalcStats();
+#endif
+
 	InitBuildState(buildstate, heap, index, indexInfo, forkNum);
 
 	if (buildstate->heap != NULL)
@@ -490,6 +494,10 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 		FlushPages(buildstate);
 
 	FreeBuildState(buildstate);
+
+#ifdef HNSW_DISTANCE_CALC_STATS
+	HnswPrintDistanceCalcStats();
+#endif
 }
 
 /*
