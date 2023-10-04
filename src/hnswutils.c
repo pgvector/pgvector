@@ -6,6 +6,9 @@
 #include "storage/bufmgr.h"
 #include "vector.h"
 
+static List *
+SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswCandidate * *pruned);
+
 /*
  * Get the max number of connections in an upper layer for each element in the index
  */
@@ -520,6 +523,15 @@ CompareNearestCandidates(const pairingheap_node *a, const pairingheap_node *b, v
 	if (((const HnswPairingHeapNode *) a)->inner->distance > ((const HnswPairingHeapNode *) b)->inner->distance)
 		return -1;
 
+#ifdef USE_ASSERT_CHECKING
+	/* Make the results deterministic */
+	if ((uint64) ((const HnswPairingHeapNode *) a)->inner->element < (uint64) ((const HnswPairingHeapNode *) b)->inner->element)
+		return 1;
+
+	if ((uint64) ((const HnswPairingHeapNode *) a)->inner->element > (uint64) ((const HnswPairingHeapNode *) b)->inner->element)
+		return -1;
+#endif
+
 	return 0;
 }
 
@@ -534,6 +546,15 @@ CompareFurthestCandidates(const pairingheap_node *a, const pairingheap_node *b, 
 
 	if (((const HnswPairingHeapNode *) a)->inner->distance > ((const HnswPairingHeapNode *) b)->inner->distance)
 		return 1;
+
+#ifdef USE_ASSERT_CHECKING
+	/* Make the results deterministic */
+	if ((uint64) ((const HnswPairingHeapNode *) a)->inner->element < (uint64) ((const HnswPairingHeapNode *) b)->inner->element)
+		return -1;
+
+	if ((uint64) ((const HnswPairingHeapNode *) a)->inner->element > (uint64) ((const HnswPairingHeapNode *) b)->inner->element)
+		return 1;
+#endif
 
 	return 0;
 }
@@ -785,6 +806,7 @@ CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid c
 /*
  * Compare candidate distances
  */
+#ifdef USE_ASSERT_CHECKING
 static int
 #if PG_VERSION_NUM >= 130000
 CompareCandidateDistances(const ListCell *a, const ListCell *b)
@@ -801,73 +823,371 @@ CompareCandidateDistances(const void *a, const void *b)
 	if (hca->distance > hcb->distance)
 		return -1;
 
+#ifdef USE_ASSERT_CHECKING
+	/* Make the results deterministic */
+	if ((uint64) hca->element < (uint64) hcb->element)
+		return 1;
+
+	if ((uint64) hca->element > (uint64) hcb->element)
+		return -1;
+#endif
+
+	return 0;
+}
+#endif
+
+static int
+#if PG_VERSION_NUM >= 130000
+CompareCandidateDistancesReverse(const ListCell *a, const ListCell *b)
+#else
+CompareCandidateDistancesReverse(const void *a, const void *b)
+#endif
+{
+	HnswCandidate *hca = lfirst((ListCell *) a);
+	HnswCandidate *hcb = lfirst((ListCell *) b);
+
+	if (hca->distance > hcb->distance)
+		return 1;
+
+	if (hca->distance < hcb->distance)
+		return -1;
+
+#ifdef USE_ASSERT_CHECKING
+	/* Make the results deterministic */
+	if ((uint64) hca->element > (uint64) hcb->element)
+		return 1;
+
+	if ((uint64) hca->element < (uint64) hcb->element)
+		return -1;
+#endif
+
 	return 0;
 }
 
 /*
- * Algorithm 4 from paper, adapted for the special case that we are inserting one
- * new neigbor to an existing set of neighbors, with size 'm'. We add the new
- * neighbor, and prune one old one (or possibly the new one?).
+ * This implements Algorithm 4 from paper in an incremental fashion. Instead
+ * of recalculating the set R from scratch, we update the already-calculated
+ * set by adding 'newE' to it, and pruning what is now the worst candidate in
+ * the set. Returns the pruned candidate.
+ *
+ * This uses the terms 'solid' and 'non-solid' set.  The 'solid' set is the
+ * set 'R' in Algorithm 4 from the paper, before we add the "pruned" connections
+ * to it. The 'non-solid' set are the discarded candidates, 'W'
+ *
+ * On entry, 'c' is expected to contain 'm' elements, and it will have 'm'
+ * elements one exit. Note that we memorize which set each element belongs to
+ * by setting the 'neighborStatus' flag. So this modifes those flags in 'c' in
+ * place.
  */
 static HnswCandidate
-UpdateNeighbors(HnswNeighborArray *currentNeighbors, HnswCandidate *newE, int m, int lc, FmgrInfo *procinfo, Oid collation)
+UpdateNeighbors(HnswNeighborArray *c, HnswCandidate *newE, int m, int lc, FmgrInfo *procinfo, Oid collation)
 {
-	List	   *r = NIL;
-	List	   *w = NIL;
-	pairingheap *wd;
-	bool		sawNonSolid = false;
+	List	   *solid = NIL;
+	List	   *nonSolid = NIL;
+	List	   *unknown = NIL;
+	HnswCandidate pruned;
+	bool		newIsSolid;
+	int			i;
 
-	Assert(currentNeighbors->length == m);
+#ifdef USE_ASSERT_CHECKING
+	/*
+	 * This function is supposed to implement the same algorithm as
+	 * SelectNeighbors, but incrementally. Verify that you get the same
+	 * result.
+	 *
+	 * XXX: This depends on tie-breakers in the comparator functions to
+	 * make both of the algorithms stable
+	 */
+	HnswCandidate *prunedVerify = NULL;
+	{
+		List	   *cc = NIL;
 
-	/* Add and sort candidates */
-	for (int i = 0; i < currentNeighbors->length; i++)
-		w = lappend(w, &currentNeighbors->items[i]);
-	w = lappend(w, newE);
-	list_sort(w, CompareCandidateDistances);
+		/* Add and sort candidates */
+		for (int j = 0; j < c->length; j++)
+			cc = lappend(cc, &c->items[j]);
+		cc = lappend(cc, newE);
+		list_sort(cc, CompareCandidateDistances);
+
+		SelectNeighbors(cc, m, lc, procinfo, collation, &prunedVerify);
+	}
+#endif
+
+	Assert(c->length == m);
 
 	/*
-	 * Run the rest of Algorithm 4,
+	 * Split the existing neighbor set into 'solid' and 'others'
 	 *
-	 * This is like SelectNeighbors(), but we skip work in re-checking the distance
-	 * for neigbhbors that we already know to be in set 'W'.
+	 * (With a little more work, we could keep this split in the
+	 * neighbors-array, so we wouldn't need to do this on each call, but this
+	 * doesn't really show up in CPU profile so it doesn't matter much)
 	 */
-	wd = pairingheap_allocate(CompareNearestCandidates, NULL);
-
-	while (list_length(w) > 0 && list_length(r) < m)
+	for (i = 0; i < c->length; i++)
 	{
-		/* Assumes w is already ordered desc */
-		HnswCandidate *e = llast(w);
-		bool		closer;
+		HnswCandidate *e = &c->items[i];
 
-		w = list_delete_last(w);
-
-		if (e->neighborStatus == NS_SOLID && !sawNonSolid)
-			closer = true;
-		else
-			closer = CheckElementCloser(e, r, lc, procinfo, collation);
-
-		if (closer)
-		{
-			if (e->neighborStatus != NS_SOLID)
-				sawNonSolid = true;
-			r = lappend(r, e);
-			e->neighborStatus = NS_SOLID;
-		}
-		else {
-			pairingheap_add(wd, &(CreatePairingHeapNode(e)->ph_node));
-			e->neighborStatus = NS_NONSOLID;
+		switch (e->neighborStatus) {
+			case NS_UNKNOWN:
+				unknown = lappend(unknown, e);
+				break;
+			case NS_SOLID:
+				solid = lappend(solid, e);
+				break;
+			case NS_NONSOLID:
+				nonSolid = lappend(nonSolid, e);
+				break;
+			default:
+				Assert(false);
 		}
 	}
 
-	/* Keep pruned connections */
-	while (!pairingheap_is_empty(wd) && list_length(r) < m)
-		r = lappend(r, ((HnswPairingHeapNode *) pairingheap_remove_first(wd))->inner);
+	/*
+	 * If we had not previously classified the neighbors, build the set the
+	 * hard way.
+	 *
+	 * (It is expected that until 'm' is reached, all the neighbors are
+	 * unclassified, and after that they're call already-classified. So we do
+	 * not expect to see a mix. This works either way, but no point in trying
+	 * to optimize for the mixed case.)
+	 */
+	if (unknown != NIL)
+	{
+		/* recalculate the solid set from scratch. */
+		unknown = list_concat(unknown, solid);
+		unknown = list_concat(unknown, nonSolid);
+		unknown = lappend(unknown, newE);
 
-	/* Return pruned for update connections */
-	if (!pairingheap_is_empty(wd))
-		return *((HnswPairingHeapNode *) pairingheap_first(wd))->inner;
+		list_sort(unknown, CompareCandidateDistancesReverse);
+
+		solid = nonSolid = NIL;
+		for (i = 0; i < list_length(unknown); i++)
+		{
+			HnswCandidate *e = lfirst(&unknown->elements[i]);
+			bool		closer;
+
+			if (list_length(solid) == m)
+			{
+				pruned = *e;
+				goto done;
+			}
+
+			closer = CheckElementCloser(e, solid, lc, procinfo, collation);
+			if (closer)
+			{
+				e->neighborStatus = NS_SOLID;
+				solid = lappend(solid, e);
+			}
+			else
+			{
+				e->neighborStatus = NS_NONSOLID;
+				nonSolid = lappend(nonSolid, e);
+			}
+		}
+
+		/* kick out the farthest non-solid */
+		pruned = *(HnswCandidate *) linitial(nonSolid);
+		for (i = 1; i < list_length(nonSolid); i++) {
+			HnswCandidate *ns = lfirst(&nonSolid->elements[i]);
+			if (ns->distance > pruned.distance) {
+				pruned = *ns;
+			}
+		}
+		goto done;
+	}
+
+	/*
+	 * Update the set incrementally.
+	 *
+	 * First find the place among the 'solid' set, where the new element would
+	 * go.  We sort the list and perform a simple linear search.
+	 *
+	 * (We could use a binary search, or a top-N quickselect or use a heap to
+	 * find the right location. For reasonably small values of 'm', though,
+	 * this is fine.
+	 */
+	list_sort(solid, CompareCandidateDistancesReverse);
+	for (i = 0; i < list_length(solid); i++)
+	{
+		HnswCandidate *s = lfirst(&solid->elements[i]);
+
+		if (newE->distance < s->distance)
+		{
+			/* The new element goes here, if it's solid. */
+			break;
+		}
+	}
+
+	newIsSolid = true;
+	for (int j = 0; j < i; j++)
+	{
+		HnswCandidate *ss = lfirst(&solid->elements[j]);
+		float		distance = HnswGetDistance(newE->element, ss->element, lc, procinfo, collation);
+
+		if (distance <= newE->distance)
+		{
+			newIsSolid = false;
+			break;
+		}
+	}
+
+	if (newIsSolid)
+	{
+		/*
+		 * The new element belongs in the solid set, at position 'i'.
+		 *
+		 * Recalculate the rest of the solid set.
+		 */
+		List *newsolid = NIL;
+		List *newNonSolid = NIL;
+		List *solidRemoved = NIL;
+		List *solidAdded = NIL;
+		List *queue = NIL;
+		ListCell *cell;
+
+		newE->neighborStatus = NS_SOLID;
+
+		for (int j = 0; j < i; j++)
+			newsolid = lappend(newsolid, lfirst(&solid->elements[j]));
+		newsolid = lappend(newsolid, newE);
+
+		/*
+		 * Initialize work queue with the rest of the old solid items, and all
+		 * nonsolid items, in the order of distance from 'Q'. This is similar to
+		 * the working queue for the  candidates 'W' in Algorithm 4.
+		 */
+		for (; i < list_length(solid); i++)
+		{
+			HnswCandidate *s = lfirst(&solid->elements[i]);
+
+			queue = lappend(queue, s);
+		}
+		queue = list_concat(queue, nonSolid);
+		list_sort(queue, CompareCandidateDistancesReverse);
+
+		/*
+		 * Keep track of items that we add or remove from the solid set. They
+		 * affect what checks we need to do for the rest of the items in the
+		 * work queue.
+		 */
+		solidAdded = list_make1(newE);
+		solidRemoved = NIL;
+		foreach(cell, queue)
+		{
+			HnswCandidate *s = lfirst(cell);
+
+			if (s->neighborStatus == NS_SOLID)
+			{
+				/*
+				 * We know 's' is closer to Q than any of the old solid
+				 * items. But is it closer to any of the new ones?
+				 *
+				 * (If we removed some elements, that doesn't make a
+				 * difference: removing a preceding element just makes all the
+				 * reset of the elements "more solid".)
+				 */
+				bool closer;
+
+				closer = CheckElementCloser(s, solidAdded, lc, procinfo, collation);
+				if (closer)
+					newsolid = lappend(newsolid, s);
+				else
+				{
+					/*
+					 * This element is closer to one of the new elements. It's
+					 * no longer solid.
+					 */
+					s->neighborStatus = NS_NONSOLID;
+					solidRemoved = lappend(solidRemoved, s);
+					newNonSolid = lappend(newNonSolid, s);
+				}
+			}
+			else
+			{
+				Assert(s->neighborStatus == NS_NONSOLID);
+				if (solidRemoved == NIL)
+				{
+					/*
+					 * Still cannot be solid if it wasn't before, because we
+					 * have not removed anything from the set.
+					 */
+					newNonSolid = lappend(newNonSolid, s);
+				}
+				else
+				{
+					/*
+					 * We have removed something, so even if this was not
+					 * solid before, it can be now.
+					 */
+					bool closer;
+
+					closer = CheckElementCloser(s, newsolid, lc, procinfo, collation);
+					if (closer)
+					{
+						/* This is solid now */
+						s->neighborStatus = NS_SOLID;
+						newsolid = lappend(newsolid, s);
+						solidAdded = lappend(solidAdded, s);
+
+					} else {
+						/* still not solid */
+						newNonSolid = lappend(newNonSolid, s);
+					}
+				}
+			}
+		}
+		nonSolid = newNonSolid;
+
+		if (list_length(nonSolid) == 0)
+		{
+			/* All elements are solid now. Prune the oldest solid element */
+			pruned = *(HnswCandidate *) llast(newsolid);
+		}
+		else
+		{
+			/* Otherwise kick out the farthest non-solid element */
+			pruned = *(HnswCandidate *) linitial(nonSolid);
+			for (i = 1; i < list_length(nonSolid); i++) {
+				HnswCandidate *ns = lfirst(&nonSolid->elements[i]);
+				if (ns->distance > pruned.distance ||
+					(ns->distance == pruned.distance && ns->element > pruned.element))
+				{
+					pruned = *ns;
+				}
+			}
+		}
+	}
 	else
-		return *(HnswCandidate *) linitial(w);
+	{
+		/* The new element is not solid. No changes to the solid set then. */
+		ListCell *lc;
+
+		newE->neighborStatus = NS_NONSOLID;
+
+		/*
+		 * Prune the farthest non-solid element. It could be the element we're
+		 * adding.
+		 */
+		pruned = *newE;
+		foreach(lc, nonSolid)
+		{
+			HnswCandidate *ns = lfirst(lc);
+			if (ns->distance > pruned.distance ||
+				(ns->distance == pruned.distance && ns->element > pruned.element))
+			{
+				pruned = *ns;
+			}
+		}
+	}
+
+done:
+#ifdef USE_ASSERT_CHECKING
+	if (prunedVerify && pruned.element != prunedVerify->element)
+	{
+		elog(WARNING, "UpdateNeighbors chose different element to prune than SelectNeighbors");
+		return *prunedVerify;
+	}
+#endif
+
+	return pruned;
 }
 
 /*
