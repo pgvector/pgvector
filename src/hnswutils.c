@@ -769,11 +769,19 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 
 		w = list_delete_last(w);
 
-		if (!mustCalculate)
-			mustCalculate = e->element == e2->neighbors[lc].firstPruned || e == newCandidate;
-
 		if (mustCalculate)
 			closer = CheckElementCloser(e, r, lc, procinfo, collation);
+		else if (e->element == e2->neighbors[lc].firstPruned)
+		{
+			closer = false;
+			/* TODO Store multiple pruned and only calculate when exhausted */
+			mustCalculate = true;
+		}
+		else if (e == newCandidate)
+		{
+			closer = CheckElementCloser(e, r, lc, procinfo, collation);
+			mustCalculate = true;
+		}
 		else
 			closer = true;
 
