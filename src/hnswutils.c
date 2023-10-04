@@ -499,7 +499,10 @@ HnswEntryCandidate(HnswElement entryPoint, Datum q, Relation index, FmgrInfo *pr
 
 	hc->element = entryPoint;
 	if (index == NULL)
+	{
 		hc->distance = GetCandidateDistance(hc, q, procinfo, collation);
+		hc->neighborStatus = NS_UNKNOWN;
+	}
 	else
 		HnswLoadElement(hc->element, &hc->distance, &q, index, procinfo, collation, loadVec);
 	return hc;
@@ -659,6 +662,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 
 					ec->element = e->element;
 					ec->distance = eDistance;
+					ec->neighborStatus = NS_UNKNOWN;
 
 					pairingheap_add(C, &(CreatePairingHeapNode(ec)->ph_node));
 					pairingheap_add(W, &(CreatePairingHeapNode(ec)->ph_node));
@@ -779,6 +783,94 @@ CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid c
 }
 
 /*
+ * Compare candidate distances
+ */
+static int
+#if PG_VERSION_NUM >= 130000
+CompareCandidateDistances(const ListCell *a, const ListCell *b)
+#else
+CompareCandidateDistances(const void *a, const void *b)
+#endif
+{
+	HnswCandidate *hca = lfirst((ListCell *) a);
+	HnswCandidate *hcb = lfirst((ListCell *) b);
+
+	if (hca->distance < hcb->distance)
+		return 1;
+
+	if (hca->distance > hcb->distance)
+		return -1;
+
+	return 0;
+}
+
+/*
+ * Algorithm 4 from paper, adapted for the special case that we are inserting one
+ * new neigbor to an existing set of neighbors, with size 'm'. We add the new
+ * neighbor, and prune one old one (or possibly the new one?).
+ */
+static HnswCandidate
+UpdateNeighbors(HnswNeighborArray *currentNeighbors, HnswCandidate *newE, int m, int lc, FmgrInfo *procinfo, Oid collation)
+{
+	List	   *r = NIL;
+	List	   *w = NIL;
+	pairingheap *wd;
+	bool		sawNonSolid = false;
+
+	Assert(currentNeighbors->length == m);
+
+	/* Add and sort candidates */
+	for (int i = 0; i < currentNeighbors->length; i++)
+		w = lappend(w, &currentNeighbors->items[i]);
+	w = lappend(w, newE);
+	list_sort(w, CompareCandidateDistances);
+
+	/*
+	 * Run the rest of Algorithm 4,
+	 *
+	 * This is like SelectNeighbors(), but we skip work in re-checking the distance
+	 * for neigbhbors that we already know to be in set 'W'.
+	 */
+	wd = pairingheap_allocate(CompareNearestCandidates, NULL);
+
+	while (list_length(w) > 0 && list_length(r) < m)
+	{
+		/* Assumes w is already ordered desc */
+		HnswCandidate *e = llast(w);
+		bool		closer;
+
+		w = list_delete_last(w);
+
+		if (e->neighborStatus == NS_SOLID && !sawNonSolid)
+			closer = true;
+		else
+			closer = CheckElementCloser(e, r, lc, procinfo, collation);
+
+		if (closer)
+		{
+			if (e->neighborStatus != NS_SOLID)
+				sawNonSolid = true;
+			r = lappend(r, e);
+			e->neighborStatus = NS_SOLID;
+		}
+		else {
+			pairingheap_add(wd, &(CreatePairingHeapNode(e)->ph_node));
+			e->neighborStatus = NS_NONSOLID;
+		}
+	}
+
+	/* Keep pruned connections */
+	while (!pairingheap_is_empty(wd) && list_length(r) < m)
+		r = lappend(r, ((HnswPairingHeapNode *) pairingheap_remove_first(wd))->inner);
+
+	/* Return pruned for update connections */
+	if (!pairingheap_is_empty(wd))
+		return *((HnswPairingHeapNode *) pairingheap_first(wd))->inner;
+	else
+		return *(HnswCandidate *) linitial(w);
+}
+
+/*
  * Algorithm 4 from paper
  */
 static List *
@@ -863,28 +955,6 @@ AddConnections(HnswElement element, List *neighbors, int m, int lc)
 }
 
 /*
- * Compare candidate distances
- */
-static int
-#if PG_VERSION_NUM >= 130000
-CompareCandidateDistances(const ListCell *a, const ListCell *b)
-#else
-CompareCandidateDistances(const void *a, const void *b)
-#endif
-{
-	HnswCandidate *hca = lfirst((ListCell *) a);
-	HnswCandidate *hcb = lfirst((ListCell *) b);
-
-	if (hca->distance < hcb->distance)
-		return 1;
-
-	if (hca->distance > hcb->distance)
-		return -1;
-
-	return 0;
-}
-
-/*
  * Update connections
  */
 void
@@ -896,6 +966,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 
 	hc2.element = element;
 	hc2.distance = hc->distance;
+	hc2.neighborStatus = NS_UNKNOWN;
 
 	if (currentNeighbors->length < m)
 	{
@@ -908,7 +979,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 	else
 	{
 		/* Shrink connections */
-		HnswCandidate *pruned = NULL;
+		HnswElement pruned = NULL;
 
 		/* Load elements on insert */
 		if (index != NULL)
@@ -923,11 +994,12 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 					HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
 				else
 					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
+				hc3->neighborStatus = NS_UNKNOWN;
 
 				/* Prune element if being deleted */
 				if (list_length(hc3->element->heaptids) == 0)
 				{
-					pruned = &currentNeighbors->items[i];
+					pruned = currentNeighbors->items[i].element;
 					break;
 				}
 			}
@@ -935,25 +1007,13 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 
 		if (pruned == NULL)
 		{
-			List	   *c = NIL;
-
-			/* Add and sort candidates */
-			for (int i = 0; i < currentNeighbors->length; i++)
-				c = lappend(c, &currentNeighbors->items[i]);
-			c = lappend(c, &hc2);
-			list_sort(c, CompareCandidateDistances);
-
-			SelectNeighbors(c, m, lc, procinfo, collation, &pruned);
-
-			/* Should not happen */
-			if (pruned == NULL)
-				return;
+			pruned = UpdateNeighbors(currentNeighbors, &hc2, m, lc, procinfo, collation).element;
 		}
 
 		/* Find and replace the pruned element */
 		for (int i = 0; i < currentNeighbors->length; i++)
 		{
-			if (currentNeighbors->items[i].element == pruned->element)
+			if (currentNeighbors->items[i].element == pruned)
 			{
 				currentNeighbors->items[i] = hc2;
 

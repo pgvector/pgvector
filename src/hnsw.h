@@ -113,10 +113,16 @@ typedef struct HnswElementData
 
 typedef HnswElementData * HnswElement;
 
+/* values for HnswCandidate.neighborStatus */
+#define NS_UNKNOWN    0
+#define NS_SOLID      1
+#define NS_NONSOLID   2
+
 typedef struct HnswCandidate
 {
 	HnswElement element;
 	float		distance;
+	char		neighborStatus;
 }			HnswCandidate;
 
 typedef struct HnswNeighborArray
