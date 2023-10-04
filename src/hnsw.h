@@ -116,6 +116,7 @@ typedef struct HnswNeighborArray
 {
 	int			length;
 	HnswCandidate *items;
+	HnswElement firstPruned;
 }			HnswNeighborArray;
 
 typedef struct HnswPairingHeapNode
