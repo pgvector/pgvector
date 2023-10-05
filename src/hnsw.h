@@ -116,8 +116,8 @@ typedef struct HnswCandidate
 typedef struct HnswNeighborArray
 {
 	int			length;
-	HnswCandidate *items;
 	bool		closerSet;
+	HnswCandidate *items;
 }			HnswNeighborArray;
 
 typedef struct HnswPairingHeapNode
