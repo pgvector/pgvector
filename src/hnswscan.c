@@ -160,6 +160,11 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan hnsw index without order");
 
+		/* Requires MVCC-compliant snapshot as not able to maintain a pin */
+		/* https://www.postgresql.org/docs/current/index-locking.html */
+		if (!IsMVCCSnapshot(scan->xs_snapshot))
+			elog(ERROR, "non-MVCC snapshots are not supported with hnsw");
+
 		/* Get scan value */
 		value = GetScanValue(scan);
 
@@ -200,15 +205,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 #else
 		scan->xs_ctup.t_self = *heaptid;
 #endif
-
-		/*
-		 * Typically, an index scan must maintain a pin on the index page
-		 * holding the item last returned by amgettuple. However, this is not
-		 * needed with the current vacuum strategy, which ensures scans do not
-		 * visit tuples in danger of being marked as deleted.
-		 *
-		 * https://www.postgresql.org/docs/current/index-locking.html
-		 */
 
 		scan->xs_recheckorderby = false;
 		return true;
