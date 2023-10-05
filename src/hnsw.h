@@ -57,6 +57,8 @@
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
 #define PROGRESS_HNSW_PHASE_LOAD		2
 
+#define HNSW_MAX_SIZE (BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - sizeof(ItemIdData))
+
 #define HNSW_ELEMENT_TUPLE_SIZE(_dim)	MAXALIGN(offsetof(HnswElementTupleData, vec) + VECTOR_SIZE(_dim))
 #define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, indextids) + ((level) + 2) * (m) * sizeof(ItemPointerData))
 
