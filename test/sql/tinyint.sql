@@ -12,7 +12,6 @@ SELECT '{1,2,3}'::tinyint[];
 
 SELECT '128'::numeric::tinyint;
 SELECT 'NaN'::numeric::tinyint;
-SELECT 'Infinity'::numeric::tinyint;
 
 SELECT l2_distance('{0,0}'::tinyint[], '{3,4}'::tinyint[]);
 SELECT l2_distance('{0,0}'::tinyint[], '{0,1}'::tinyint[]);

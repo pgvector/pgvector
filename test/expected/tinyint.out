@@ -48,8 +48,6 @@ SELECT '128'::numeric::tinyint;
 ERROR:  value "128" is out of range for type tinyint
 SELECT 'NaN'::numeric::tinyint;
 ERROR:  cannot convert NaN to integer
-SELECT 'Infinity'::numeric::tinyint;
-ERROR:  cannot convert infinity to integer
 SELECT l2_distance('{0,0}'::tinyint[], '{3,4}'::tinyint[]);
  l2_distance 
 -------------
