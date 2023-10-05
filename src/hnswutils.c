@@ -770,16 +770,20 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 		w = list_delete_last(w);
 
 		/*
-		 * r and wd will be the same as previous calls until the new element,
-		 * so can skip distance calculations for as many elements as there is
-		 * state for
+		 * r and wd will be the same as previous calls until the new
+		 * candidate, so can skip distance calculations for as many candidates
+		 * as there is state for
 		 */
 		if (mustCalculate)
 			closer = CheckElementCloser(e, r, lc, procinfo, collation);
 		else if (e->element == e2->neighbors[lc].firstPruned)
 		{
 			closer = false;
-			/* TODO Store multiple pruned and only calculate when exhausted */
+
+			/*
+			 * Could store multiple pruned and only calculate when exhausted
+			 * (or store full state) at the expense of memory
+			 */
 			mustCalculate = true;
 		}
 		else if (e == newCandidate)
