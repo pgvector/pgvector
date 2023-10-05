@@ -1,5 +1,6 @@
 #include "postgres.h"
 
+#include <math.h>
 #include <stdint.h>
 
 #include "fmgr.h"
