@@ -112,11 +112,13 @@ typedef struct HnswCandidate
 {
 	HnswElement element;
 	float		distance;
+	bool		closer;
 }			HnswCandidate;
 
 typedef struct HnswNeighborArray
 {
 	int			length;
+	bool		closerSet;
 	HnswCandidate *items;
 }			HnswNeighborArray;
 

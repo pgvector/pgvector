@@ -139,6 +139,7 @@ HnswInitNeighbors(HnswElement element, int m)
 		a = &element->neighbors[lc];
 		a->length = 0;
 		a->items = palloc(sizeof(HnswCandidate) * lm);
+		a->closerSet = false;
 	}
 }
 
@@ -748,11 +749,13 @@ CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid c
  * Algorithm 4 from paper
  */
 static List *
-SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswCandidate * *pruned)
+SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned)
 {
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
 	pairingheap *wd;
+	bool		mustCalculate = !e2->neighbors[lc].closerSet;
+	bool		foundNew = false;
 
 	if (list_length(w) <= m)
 		return w;
@@ -763,17 +766,39 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswC
 	{
 		/* Assumes w is already ordered desc */
 		HnswCandidate *e = llast(w);
-		bool		closer;
 
 		w = list_delete_last(w);
 
-		closer = CheckElementCloser(e, r, lc, procinfo, collation);
+		/* Use previous state of r and wd to skip work when possible */
+		if (mustCalculate)
+			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
+		else if (foundNew)
+		{
+			/* If new or current candidate is not closer, no change in state */
+			if (newCandidate->closer && e->closer)
+			{
+				/* Only need to compare with new candidate */
+				float		distance = HnswGetDistance(e->element, newCandidate->element, lc, procinfo, collation);
 
-		if (closer)
+				e->closer = e->distance < distance;
+
+				if (!e->closer)
+					mustCalculate = true;
+			}
+		}
+		else if (e == newCandidate)
+		{
+			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
+			foundNew = true;
+		}
+
+		if (e->closer)
 			r = lappend(r, e);
 		else
 			pairingheap_add(wd, &(CreatePairingHeapNode(e)->ph_node));
 	}
+
+	e2->neighbors[lc].closerSet = true;
 
 	/* Keep pruned connections */
 	while (!pairingheap_is_empty(wd) && list_length(r) < m)
@@ -909,7 +934,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 			c = lappend(c, &hc2);
 			list_sort(c, CompareCandidateDistances);
 
-			SelectNeighbors(c, m, lc, procinfo, collation, &pruned);
+			SelectNeighbors(c, m, lc, procinfo, collation, hc->element, &hc2, &pruned);
 
 			/* Should not happen */
 			if (pruned == NULL)
@@ -1008,7 +1033,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		else
 			lw = w;
 
-		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, NULL);
+		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, element, NULL, NULL);
 
 		AddConnections(element, neighbors, lm, lc);
 
