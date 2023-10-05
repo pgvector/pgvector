@@ -769,6 +769,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 
 		w = list_delete_last(w);
 
+		/* r and wd will be the same as previous calls until new element */
 		if (mustCalculate)
 			closer = CheckElementCloser(e, r, lc, procinfo, collation);
 		else if (e->element == e2->neighbors[lc].firstPruned)
@@ -792,6 +793,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	}
 
 	/* Save first pruned */
+	/* OK to leave previous element if empty */
 	if (!pairingheap_is_empty(wd))
 		e2->neighbors[lc].firstPruned = ((HnswPairingHeapNode *) pairingheap_first(wd))->inner->element;
 
