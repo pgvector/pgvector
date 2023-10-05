@@ -122,7 +122,7 @@ CreateElementPages(HnswBuildState * buildstate)
 
 	/* Allocate once */
 	etup = palloc0(etupSize);
-	ntup = palloc0(maxSize);
+	ntup = palloc0(BLCKSZ);
 
 	/* Prepare first page */
 	buf = HnswNewBuffer(index, forkNum);
