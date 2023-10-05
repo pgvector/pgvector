@@ -804,7 +804,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 		{
 			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
 			if (e->closer)
-				added = lappend(added, newCandidate);
+				added = lappend(added, e);
 		}
 
 		if (e->closer)
