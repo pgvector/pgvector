@@ -110,12 +110,14 @@ typedef struct HnswCandidate
 {
 	HnswElement element;
 	float		distance;
+	bool		closer;
 }			HnswCandidate;
 
 typedef struct HnswNeighborArray
 {
 	int			length;
 	HnswCandidate *items;
+	bool		closerSet;
 }			HnswNeighborArray;
 
 typedef struct HnswPairingHeapNode
