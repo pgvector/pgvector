@@ -755,6 +755,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	List	   *w = list_copy(c);
 	pairingheap *wd;
 	bool		mustCalculate = !e2->neighbors[lc].closerSet;
+	bool		foundNew = false;
 
 	if (list_length(w) <= m)
 		return w;
@@ -768,16 +769,27 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 
 		w = list_delete_last(w);
 
-		/*
-		 * r and wd will be the same as previous calls until the new
-		 * candidate, so can skip distance calculations
-		 */
+		/* Use previous state of r and wd to skip work when possible */
 		if (mustCalculate)
 			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
+		else if (foundNew)
+		{
+			/* If new or current candidate is not closer, no change in state */
+			if (newCandidate->closer && e->closer)
+			{
+				/* Only need to compare with new candidate */
+				float		distance = HnswGetDistance(e->element, newCandidate->element, lc, procinfo, collation);
+
+				e->closer = e->distance < distance;
+
+				if (!e->closer)
+					mustCalculate = true;
+			}
+		}
 		else if (e == newCandidate)
 		{
 			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
-			mustCalculate = true;
+			foundNew = true;
 		}
 
 		if (e->closer)
