@@ -755,7 +755,8 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	List	   *w = list_copy(c);
 	pairingheap *wd;
 	bool		mustCalculate = !e2->neighbors[lc].closerSet;
-	bool		foundNew = false;
+	List	   *added = NIL;
+	bool		removedAny = false;
 
 	if (list_length(w) <= m)
 		return w;
@@ -772,24 +773,38 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 		/* Use previous state of r and wd to skip work when possible */
 		if (mustCalculate)
 			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
-		else if (foundNew)
+		else if (list_length(added) > 0)
 		{
-			/* If new or current candidate is not closer, no change in state */
-			if (newCandidate->closer && e->closer)
+			/*
+			 * If the current candidate was closer, we only need to compare it
+			 * with the other candidates that we have added.
+			 */
+			if (e->closer)
 			{
-				/* Only need to compare with new candidate */
-				float		distance = HnswGetDistance(e->element, newCandidate->element, lc, procinfo, collation);
-
-				e->closer = e->distance < distance;
+				e->closer = CheckElementCloser(e, added, lc, procinfo, collation);
 
 				if (!e->closer)
-					mustCalculate = true;
+					removedAny = true;
+			}
+			else
+			{
+				/*
+				 * If we have removed any candidates from closer, a candidate
+				 * that was not closer earlier might now be.
+				 */
+				if (removedAny)
+				{
+					e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
+					if (e->closer)
+						added = lappend(added, e);
+				}
 			}
 		}
 		else if (e == newCandidate)
 		{
 			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
-			foundNew = true;
+			if (e->closer)
+				added = lappend(added, newCandidate);
 		}
 
 		if (e->closer)
