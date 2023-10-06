@@ -777,7 +777,7 @@ CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid c
  * Algorithm 4 from paper
  */
 static List *
-SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool needsSorting)
+SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sort)
 {
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
@@ -792,7 +792,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	wd = pairingheap_allocate(CompareNearestCandidates, NULL);
 
 	/* Ensure order is deterministic for closer caching */
-	if (needsSorting)
+	if (sort)
 		list_sort(w, CompareCandidateDistances);
 
 	while (list_length(w) > 0 && list_length(r) < m)
@@ -845,7 +845,8 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 			pairingheap_add(wd, &(CreatePairingHeapNode(e)->ph_node));
 	}
 
-	e2->neighbors[lc].closerSet = true;
+	/* Only mark as set if sorted deterministically */
+	e2->neighbors[lc].closerSet = sort;
 
 	/* Keep pruned connections */
 	while (!pairingheap_is_empty(wd) && list_length(r) < m)
