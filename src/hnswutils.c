@@ -887,6 +887,12 @@ CompareCandidateDistances(const void *a, const void *b)
 	if (hca->distance > hcb->distance)
 		return -1;
 
+	if (hca->element < hcb->element)
+		return 1;
+
+	if (hca->element > hcb->element)
+		return -1;
+
 	return 0;
 }
 
@@ -1047,6 +1053,10 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 			lw = RemoveElements(w, skipElement);
 		else
 			lw = w;
+
+		/* Ensure order is deterministic for SelectNeighbors closer caching */
+		if (index == NULL)
+			list_sort(lw, CompareCandidateDistances);
 
 		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, element, NULL, NULL);
 
