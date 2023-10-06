@@ -1059,12 +1059,11 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 			lw = w;
 
 		/*
-		 * Candidates are sorted, but not deterministically. Set
+		 * Candidates are sorted, but not deterministically. Could set
 		 * sortCandidates to true for in-memory builds to enable closer
-		 * caching. Could alternatively skip caching here, but there does not
-		 * seem to be a difference in performance either way.
+		 * caching, but there does not seem to be a difference in performance.
 		 */
-		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, element, NULL, NULL, index == NULL);
+		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, element, NULL, NULL, false);
 
 		AddConnections(element, neighbors, lm, lc);
 
