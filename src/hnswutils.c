@@ -1058,6 +1058,8 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		else
 			lw = w;
 
+		/* Candidates are sorted, but set sortCandidates to true */
+		/* for in-memory builds to use closer caching */
 		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, element, NULL, NULL, index == NULL);
 
 		AddConnections(element, neighbors, lm, lc);
