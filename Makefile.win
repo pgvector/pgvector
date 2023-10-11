@@ -1,5 +1,5 @@
 EXTENSION = vector
-EXTVERSION = 0.5.0
+EXTVERSION = 0.5.1
 
 OBJS = src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\vector.obj
 HEADERS = src\vector.h

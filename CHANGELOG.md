@@ -1,4 +1,4 @@
-## 0.5.1 (unreleased)
+## 0.5.1 (2023-10-10)
 
 - Improved performance of HNSW index builds
 - Added check for MVCC-compliant snapshot for index scans

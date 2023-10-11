@@ -1,4 +1,4 @@
 comment = 'vector data type and ivfflat and hnsw access methods'
-default_version = '0.5.0'
+default_version = '0.5.1'
 module_pathname = '$libdir/vector'
 relocatable = true
