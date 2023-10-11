@@ -143,10 +143,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				bool		isnull;
 				ItemId		itemid = PageGetItemId(page, offno);
 
-				/* Skip dead tuples */
-				if (scan->ignore_killed_tuples && ItemIdIsDead(itemid))
-					continue;
-
 				itup = (IndexTuple) PageGetItem(page, itemid);
 				datum = index_getattr(itup, 1, tupdesc, &isnull);
 
@@ -161,8 +157,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				slot->tts_isnull[0] = false;
 				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
 				slot->tts_isnull[1] = false;
-				slot->tts_values[2] = Int32GetDatum((int) searchPage);
-				slot->tts_isnull[2] = false;
 				ExecStoreVirtualTuple(slot);
 
 				tuplesort_puttupleslot(so->sortstate, slot);
@@ -185,55 +179,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				 errhint("Recreate the index and possibly decrease lists.")));
 
 	tuplesort_performsort(so->sortstate);
-}
-
-/*
- * Mark prior tuple as dead
- */
-static void
-MarkPriorTupleDead(IndexScanDesc scan)
-{
-	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
-	Buffer		buf = so->buf;
-	Page		page;
-	OffsetNumber maxoffno;
-
-	/* Safety check */
-	if (!BufferIsValid(so->buf) || !ItemPointerIsValid(&so->heaptid))
-		return;
-
-	/* Only a shared locked is needed for ItemIdMarkDead */
-	LockBuffer(buf, BUFFER_LOCK_SHARE);
-	page = BufferGetPage(buf);
-	maxoffno = PageGetMaxOffsetNumber(page);
-
-	for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
-	{
-		ItemId		itemid = PageGetItemId(page, offno);
-		IndexTuple	itup = (IndexTuple) PageGetItem(page, itemid);
-
-		/*
-		 * Find tuple. Since buffer has been pinned, tuple cannot have been
-		 * vacuumed (and heap TID reused).
-		 */
-		if (ItemPointerEquals(&itup->t_tid, &so->heaptid))
-		{
-			/*
-			 * Make sure tuple has not already been marked dead to avoid extra
-			 * WAL if wal_log_hints or data checksums enabled
-			 */
-			if (!ItemIdIsDead(itemid))
-			{
-				ItemIdMarkDead(itemid);
-				MarkBufferDirtyHint(buf, true);
-			}
-
-			break;
-		}
-	}
-
-	/* Unlock buffer */
-	LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 }
 
 /*
@@ -261,9 +206,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 		probes = lists;
 
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
-	so->buf = InvalidBuffer;
 	so->first = true;
-	ItemPointerSetInvalid(&so->heaptid);
 	so->probes = probes;
 	so->dimensions = dimensions;
 
@@ -274,13 +217,12 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	/* Create tuple description for sorting */
 #if PG_VERSION_NUM >= 120000
-	so->tupdesc = CreateTemplateTupleDesc(3);
+	so->tupdesc = CreateTemplateTupleDesc(2);
 #else
-	so->tupdesc = CreateTemplateTupleDesc(3, false);
+	so->tupdesc = CreateTemplateTupleDesc(2, false);
 #endif
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 3, "indexblkno", INT4OID, -1, 0);
 
 	/* Prep sort */
 	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
@@ -312,7 +254,6 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 #endif
 
 	so->first = true;
-	ItemPointerSetInvalid(&so->heaptid);
 	pairingheap_reset(so->listQueue);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -347,6 +288,11 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (scan->orderByData == NULL)
 			elog(ERROR, "cannot scan ivfflat index without order");
 
+		/* Requires MVCC-compliant snapshot as not able to pin during sorting */
+		/* https://www.postgresql.org/docs/current/index-locking.html */
+		if (!IsMVCCSnapshot(scan->xs_snapshot))
+			elog(ERROR, "non-MVCC snapshots are not supported with ivfflat");
+
 		if (scan->orderByData->sk_flags & SK_ISNULL)
 			value = PointerGetDatum(InitVector(so->dimensions));
 		else
@@ -370,38 +316,16 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (value != scan->orderByData->sk_argument)
 			pfree(DatumGetPointer(value));
 	}
-	else
-	{
-		/* Mark prior tuple as dead */
-		if (scan->kill_prior_tuple)
-			MarkPriorTupleDead(scan);
-	}
 
 	if (tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
 	{
 		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
-		BlockNumber indexblkno = DatumGetInt32(slot_getattr(so->slot, 3, &so->isnull));
 
 #if PG_VERSION_NUM >= 120000
 		scan->xs_heaptid = *heaptid;
 #else
 		scan->xs_ctup.t_self = *heaptid;
 #endif
-
-		/* Keep track of info needed to mark tuple as dead */
-		so->heaptid = *heaptid;
-
-		/* Unpin buffer */
-		if (BufferIsValid(so->buf))
-			ReleaseBuffer(so->buf);
-
-		/*
-		 * An index scan must maintain a pin on the index page holding the
-		 * item last returned by amgettuple
-		 *
-		 * https://www.postgresql.org/docs/current/index-locking.html
-		 */
-		so->buf = ReadBuffer(scan->indexRelation, indexblkno);
 
 		scan->xs_recheckorderby = false;
 		return true;
@@ -417,10 +341,6 @@ void
 ivfflatendscan(IndexScanDesc scan)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
-
-	/* Release pin */
-	if (BufferIsValid(so->buf))
-		ReleaseBuffer(so->buf);
 
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);

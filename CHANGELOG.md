@@ -1,8 +1,7 @@
 ## 0.5.1 (unreleased)
 
 - Improved performance of HNSW index builds
-- Added check for MVCC-compliant snapshot for HNSW index scans
-- Improved performance of index scans for IVFFlat after updates and deletes
+- Added check for MVCC-compliant snapshot for index scans
 
 ## 0.5.0 (2023-08-28)
 
