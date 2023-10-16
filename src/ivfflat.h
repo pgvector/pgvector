@@ -80,6 +80,10 @@
 #define RandomInt() random()
 #endif
 
+#if PG_VERSION_NUM < 130000
+#define list_sort(list, cmp) list_qsort(list, cmp)
+#endif
+
 /* Variables */
 extern int	ivfflat_probes;
 
@@ -178,7 +182,8 @@ typedef struct IvfflatBuildState
 	Oid			collation;
 
 	/* Variables */
-	VectorArray samples;
+	List	   *samples;
+	int			targsamples;
 	VectorArray centers;
 	ListInfo   *listInfo;
 	Vector	   *normvec;
@@ -274,7 +279,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 VectorArray VectorArrayInit(int maxlen, int dimensions);
 void		VectorArrayFree(VectorArray arr);
 void		PrintVectorArray(char *msg, VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
+void		IvfflatKmeans(Relation index, List *samples, VectorArray centers);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
 int			IvfflatGetLists(Relation index);

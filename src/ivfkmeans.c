@@ -12,20 +12,20 @@
  * https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf
  */
 static void
-InitCenters(Relation index, VectorArray samples, VectorArray centers, float *lowerBound)
+InitCenters(Relation index, List *samples, VectorArray centers, float *lowerBound)
 {
 	FmgrInfo   *procinfo;
 	Oid			collation;
 	int64		j;
-	float	   *weight = palloc(samples->length * sizeof(float));
+	float	   *weight = palloc(list_length(samples) * sizeof(float));
 	int			numCenters = centers->maxlen;
-	int			numSamples = samples->length;
+	int			numSamples = list_length(samples);
 
 	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
 	collation = index->rd_indcollation[0];
 
 	/* Choose an initial center uniformly at random */
-	VectorArraySet(centers, 0, VectorArrayGet(samples, RandomInt() % samples->length));
+	VectorArraySet(centers, 0, list_nth(samples, RandomInt() % list_length(samples)));
 	centers->length++;
 
 	for (j = 0; j < numSamples; j++)
@@ -42,7 +42,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 
 		for (j = 0; j < numSamples; j++)
 		{
-			Vector	   *vec = VectorArrayGet(samples, j);
+			Vector	   *vec = list_nth(samples, j);
 			double		distance;
 
 			/* Only need to compute distance for new center */
@@ -74,7 +74,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 				break;
 		}
 
-		VectorArraySet(centers, i + 1, VectorArrayGet(samples, j));
+		VectorArraySet(centers, i + 1, list_nth(samples, j));
 		centers->length++;
 	}
 
@@ -107,24 +107,40 @@ CompareVectors(const void *a, const void *b)
 }
 
 /*
+ * Compare list vectors
+ */
+static int
+#if PG_VERSION_NUM >= 130000
+CompareListVectors(const ListCell *a, const ListCell *b)
+#else
+CompareListVectors(const void *a, const void *b)
+#endif
+{
+	Vector	   *va = lfirst((ListCell *) a);
+	Vector	   *vb = lfirst((ListCell *) b);
+
+	return CompareVectors(va, vb);
+}
+
+/*
  * Quick approach if we have little data
  */
 static void
-QuickCenters(Relation index, VectorArray samples, VectorArray centers)
+QuickCenters(Relation index, List *samples, VectorArray centers)
 {
 	int			dimensions = centers->dim;
 	Oid			collation = index->rd_indcollation[0];
 	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 
 	/* Copy existing vectors while avoiding duplicates */
-	if (samples->length > 0)
+	if (list_length(samples) > 0)
 	{
-		qsort(samples->items, samples->length, VECTOR_SIZE(samples->dim), CompareVectors);
-		for (int i = 0; i < samples->length; i++)
+		list_sort(samples, CompareListVectors);
+		for (int i = 0; i < list_length(samples); i++)
 		{
-			Vector	   *vec = VectorArrayGet(samples, i);
+			Vector	   *vec = list_nth(samples, i);
 
-			if (i == 0 || CompareVectors(vec, VectorArrayGet(samples, i - 1)) != 0)
+			if (i == 0 || CompareVectors(vec, list_nth(samples, i - 1)) != 0)
 			{
 				VectorArraySet(centers, centers->length, vec);
 				centers->length++;
@@ -160,7 +176,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
  * https://www.aaai.org/Papers/ICML/2003/ICML03-022.pdf
  */
 static void
-ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
+ElkanKmeans(Relation index, List *samples, VectorArray centers)
 {
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
@@ -171,7 +187,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	int64		k;
 	int			dimensions = centers->dim;
 	int			numCenters = centers->maxlen;
-	int			numSamples = samples->length;
+	int			numSamples = list_length(samples);
 	VectorArray newCenters;
 	int		   *centerCounts;
 	int		   *closestCenters;
@@ -182,7 +198,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *newcdist;
 
 	/* Calculate allocation sizes */
-	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
+	Size		samplesSize = 0;
 	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->dim);
 	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, dimensions);
 	Size		centerCountsSize = sizeof(int) * numCenters;
@@ -326,7 +342,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 				if (upperBound[j] <= halfcdist[closestCenters[j] * numCenters + k])
 					continue;
 
-				vec = VectorArrayGet(samples, j);
+				vec = list_nth(samples, j);
 
 				/* Step 3a */
 				if (rj)
@@ -377,7 +393,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		{
 			int			closestCenter;
 
-			vec = VectorArrayGet(samples, j);
+			vec = list_nth(samples, j);
 			closestCenter = closestCenters[j];
 
 			/* Increment sum and count of closest center */
@@ -514,9 +530,9 @@ CheckCenters(Relation index, VectorArray centers)
  * We use spherical k-means for inner product and cosine
  */
 void
-IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers)
+IvfflatKmeans(Relation index, List *samples, VectorArray centers)
 {
-	if (samples->length <= centers->maxlen)
+	if (list_length(samples) <= centers->maxlen)
 		QuickCenters(index, samples, centers);
 	else
 		ElkanKmeans(index, samples, centers);

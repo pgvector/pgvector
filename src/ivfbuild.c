@@ -11,6 +11,7 @@
 #include "miscadmin.h"
 #include "storage/bufmgr.h"
 #include "tcop/tcopprot.h"
+#include "utils/datum.h"
 #include "utils/memutils.h"
 
 #if PG_VERSION_NUM >= 140000
@@ -65,11 +66,18 @@
 static void
 AddSample(Datum *values, IvfflatBuildState * buildstate)
 {
-	VectorArray samples = buildstate->samples;
-	int			targsamples = samples->maxlen;
+	MemoryContext oldCtx;
+	Datum		value;
+	int			targsamples = buildstate->targsamples;
+
+	/* Use memory context since detoast can allocate */
+	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Detoast once for all calls */
-	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+	/* Restore memory context */
+	MemoryContextSwitchTo(oldCtx);
 
 	/*
 	 * Normalize with KMEANS_NORM_PROC since spherical distance function
@@ -81,18 +89,23 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 			return;
 	}
 
-	if (samples->length < targsamples)
-	{
-		VectorArraySet(samples, samples->length, DatumGetVector(value));
-		samples->length++;
-	}
+	/* Copy datum */
+	value = datumCopy(value, false, -1);
+
+	/* Reset memory context */
+	MemoryContextReset(buildstate->tmpCtx);
+
+	if (list_length(buildstate->samples) < targsamples)
+		buildstate->samples = lappend(buildstate->samples, DatumGetVector(value));
 	else
 	{
 		if (buildstate->rowstoskip < 0)
-			buildstate->rowstoskip = reservoir_get_next_S(&buildstate->rstate, samples->length, targsamples);
+			buildstate->rowstoskip = reservoir_get_next_S(&buildstate->rstate, list_length(buildstate->samples), targsamples);
 
 		if (buildstate->rowstoskip <= 0)
 		{
+			ListCell   *lc;
+
 #if PG_VERSION_NUM >= 150000
 			int			k = (int) (targsamples * sampler_random_fract(&buildstate->rstate.randstate));
 #else
@@ -100,7 +113,8 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 #endif
 
 			Assert(k >= 0 && k < targsamples);
-			VectorArraySet(samples, k, DatumGetVector(value));
+			lc = list_nth_cell(buildstate->samples, k);
+			lfirst(lc) = DatumGetVector(value);
 		}
 
 		buildstate->rowstoskip -= 1;
@@ -115,21 +129,13 @@ SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 			   bool *isnull, bool tupleIsAlive, void *state)
 {
 	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
-	MemoryContext oldCtx;
 
 	/* Skip nulls */
 	if (isnull[0])
 		return;
 
-	/* Use memory context since detoast can allocate */
-	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
-
 	/* Add sample */
-	AddSample(values, state);
-
-	/* Reset memory context */
-	MemoryContextSwitchTo(oldCtx);
-	MemoryContextReset(buildstate->tmpCtx);
+	AddSample(values, buildstate);
 }
 
 /*
@@ -138,7 +144,7 @@ SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 static void
 SampleRows(IvfflatBuildState * buildstate)
 {
-	int			targsamples = buildstate->samples->maxlen;
+	int			targsamples = buildstate->targsamples;
 	BlockNumber totalblocks = RelationGetNumberOfBlocks(buildstate->heap);
 
 	buildstate->rowstoskip = -1;
@@ -449,12 +455,13 @@ ComputeCenters(IvfflatBuildState * buildstate)
 
 	/* Sample rows */
 	/* TODO Ensure within maintenance_work_mem */
-	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions);
+	buildstate->samples = NIL;
+	buildstate->targsamples = numSamples;
 	if (buildstate->heap != NULL)
 	{
 		SampleRows(buildstate);
 
-		if (buildstate->samples->length < buildstate->lists)
+		if (list_length(buildstate->samples) < buildstate->lists)
 		{
 			ereport(NOTICE,
 					(errmsg("ivfflat index created with little data"),
@@ -467,7 +474,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));
 
 	/* Free samples before we allocate more memory */
-	VectorArrayFree(buildstate->samples);
+	list_free_deep(buildstate->samples);
 }
 
 /*
