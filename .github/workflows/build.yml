@@ -77,6 +77,8 @@ jobs:
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
+      - if: ${{ failure() }}
+        run: cat regression.diffs
   i386:
     runs-on: ubuntu-latest
     container:
