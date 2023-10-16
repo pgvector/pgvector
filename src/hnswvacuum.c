@@ -93,7 +93,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				if (itemUpdated)
 				{
-					Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
+					Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(PointerGetDatum(&etup->value));
 
 					/* Mark rest as invalid */
 					for (int i = idx; i < HNSW_HEAPTIDS; i++)
@@ -481,6 +481,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			HnswNeighborTuple ntup;
 			Size		etupSize;
 			Size		ntupSize;
+			Datum		value;
 			Buffer		nbuf;
 			Page		npage;
 			BlockNumber neighborPage;
@@ -504,8 +505,11 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			if (ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
 
+			/* Get datum */
+			value = PointerGetDatum(&etup->value);
+
 			/* Calculate sizes */
-			etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
+			etupSize = HNSW_ELEMENT_TUPLE_SIZE(value);
 			ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(etup->level, vacuumstate->m);
 
 			/* Get neighbor page */
@@ -528,7 +532,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Overwrite element */
 			etup->deleted = 1;
-			MemSet(&etup->vec.x, 0, etup->vec.dim * sizeof(float));
+			MemSet(&etup->value, 0, VARSIZE_ANY(value));
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < ntup->count; i++)
