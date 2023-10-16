@@ -47,14 +47,12 @@ HnswOptionalProcInfo(Relation rel, uint16 procnum)
 }
 
 /*
- * Divide by the norm
- *
- * Returns false if value should not be indexed
+ * Normalize a vector
  *
  * The caller needs to free the pointer stored in value
  * if it's different than the original value
  */
-bool
+void
 HnswNormValue(FmgrInfo *procinfo, FmgrInfo *normalizeprocinfo, Oid collation, Datum *value, Vector * result)
 {
 	double		norm;
@@ -62,11 +60,11 @@ HnswNormValue(FmgrInfo *procinfo, FmgrInfo *normalizeprocinfo, Oid collation, Da
 	if (normalizeprocinfo != NULL)
 	{
 		*value = FunctionCall1Coll(normalizeprocinfo, collation, *value);
-		return true;
+		return;
 	}
 
 	if (procinfo == NULL)
-		return true;
+		return;
 
 	norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
@@ -81,11 +79,7 @@ HnswNormValue(FmgrInfo *procinfo, FmgrInfo *normalizeprocinfo, Oid collation, Da
 			result->x[i] = v->x[i] / norm;
 
 		*value = PointerGetDatum(result);
-
-		return true;
 	}
-
-	return false;
 }
 
 /*

@@ -278,8 +278,7 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Normalize if needed */
-	if (!HnswNormValue(buildstate->normprocinfo, buildstate->normalizeprocinfo, collation, &value, buildstate->normvec))
-		return false;
+	HnswNormValue(buildstate->normprocinfo, buildstate->normalizeprocinfo, collation, &value, buildstate->normvec);
 
 	/* Copy value to element so accessible outside of memory context */
 	memcpy(element->vec, DatumGetVector(value), VECTOR_SIZE(buildstate->dimensions));
