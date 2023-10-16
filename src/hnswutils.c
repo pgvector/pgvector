@@ -55,9 +55,20 @@ HnswOptionalProcInfo(Relation rel, uint16 procnum)
  * if it's different than the original value
  */
 bool
-HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
+HnswNormValue(FmgrInfo *procinfo, FmgrInfo *normalizeprocinfo, Oid collation, Datum *value, Vector * result)
 {
-	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
+	double		norm;
+
+	if (normalizeprocinfo != NULL)
+	{
+		*value = FunctionCall1Coll(normalizeprocinfo, collation, *value);
+		return true;
+	}
+
+	if (procinfo == NULL)
+		return true;
+
+	norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
 	if (norm > 0)
 	{

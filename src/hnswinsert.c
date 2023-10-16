@@ -417,6 +417,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 {
 	Datum		value;
 	FmgrInfo   *normprocinfo;
+	FmgrInfo   *normalizeprocinfo;
 	HnswElement entryPoint;
 	HnswElement element;
 	int			m = HnswGetM(index);
@@ -432,11 +433,9 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 
 	/* Normalize if needed */
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		if (!HnswNormValue(normprocinfo, collation, &value, NULL))
-			return false;
-	}
+	normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
+	if (!HnswNormValue(normprocinfo, normalizeprocinfo, collation, &value, NULL))
+		return false;
 
 	/* Create an element */
 	element = HnswInitElement(heap_tid, m, ml, HnswGetMaxLevel(m));

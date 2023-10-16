@@ -78,6 +78,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
+	so->normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
 	so->collation = index->rd_indcollation[0];
 
 	scan->opaque = so;
@@ -140,8 +141,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
 
 			/* Fine if normalization fails */
-			if (so->normprocinfo != NULL)
-				HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
+			HnswNormValue(so->normprocinfo, so->normalizeprocinfo, so->collation, &value, NULL);
 		}
 
 		GetScanItems(scan, value);
