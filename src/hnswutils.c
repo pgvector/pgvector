@@ -4,6 +4,7 @@
 
 #include "hnsw.h"
 #include "storage/bufmgr.h"
+#include "utils/datum.h"
 #include "vector.h"
 
 /*
@@ -32,6 +33,20 @@ HnswGetEfConstruction(Relation index)
 		return opts->efConstruction;
 
 	return HNSW_DEFAULT_EF_CONSTRUCTION;
+}
+
+/*
+ * Get the number of dimensions in the index
+ */
+int
+HnswGetDimensions(Relation index)
+{
+	HnswOptions *opts = (HnswOptions *) index->rd_options;
+
+	if (opts)
+		return opts->dimensions;
+
+	return HNSW_DEFAULT_DIMENSIONS;
 }
 
 /*
@@ -187,7 +202,8 @@ HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
 	list_free_deep(element->heaptids);
-	pfree(element->vec);
+	if (element->loaded)
+		pfree(DatumGetPointer(element->value));
 	pfree(element);
 }
 
@@ -214,7 +230,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 	element->blkno = blkno;
 	element->offno = offno;
 	element->neighbors = NULL;
-	element->vec = NULL;
+	element->loaded = false;
 	return element;
 }
 
@@ -324,7 +340,7 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
-	memcpy(&etup->vec, element->vec, VECTOR_SIZE(element->vec->dim));
+	memcpy(&etup->value, DatumGetPointer(element->value), VARSIZE_ANY(element->value));
 }
 
 /*
@@ -447,8 +463,10 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 
 	if (loadVec)
 	{
-		element->vec = palloc(VECTOR_SIZE(etup->vec.dim));
-		memcpy(element->vec, &etup->vec, VECTOR_SIZE(etup->vec.dim));
+		Datum		value = PointerGetDatum(&etup->value);
+
+		element->value = datumCopy(value, false, -1);
+		element->loaded = true;
 	}
 }
 
@@ -476,7 +494,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 
 	/* Calculate distance */
 	if (distance != NULL)
-		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->vec)));
+		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->value)));
 
 	UnlockReleaseBuffer(buf);
 }
@@ -487,7 +505,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 static float
 GetCandidateDistance(HnswCandidate * hc, Datum q, FmgrInfo *procinfo, Oid collation)
 {
-	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, PointerGetDatum(hc->element->vec)));
+	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, hc->element->value));
 }
 
 /*
@@ -750,7 +768,7 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 		}
 	}
 
-	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(a->vec), PointerGetDatum(b->vec)));
+	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, a->value, b->value));
 }
 
 /*
@@ -877,7 +895,7 @@ HnswFindDuplicate(HnswElement e)
 		HnswCandidate *neighbor = &neighbors->items[i];
 
 		/* Exit early since ordered by distance */
-		if (vector_cmp_internal(e->vec, neighbor->element->vec) != 0)
+		if (!datumIsEqual(e->value, neighbor->element->value, false, -1))
 			break;
 
 		/* Check for space */
@@ -930,13 +948,13 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 		/* Load elements on insert */
 		if (index != NULL)
 		{
-			Datum		q = PointerGetDatum(hc->element->vec);
+			Datum		q = hc->element->value;
 
 			for (int i = 0; i < currentNeighbors->length; i++)
 			{
 				HnswCandidate *hc3 = &currentNeighbors->items[i];
 
-				if (hc3->element->vec == NULL)
+				if (!hc3->element->loaded)
 					HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
 				else
 					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
@@ -1017,7 +1035,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
-	Datum		q = PointerGetDatum(element->vec);
+	Datum		q = element->value;
 	HnswElement skipElement = existing ? element : NULL;
 
 	/* No neighbors if no entry point */

@@ -42,6 +42,9 @@
 #define HNSW_DEFAULT_EF_SEARCH	40
 #define HNSW_MIN_EF_SEARCH		1
 #define HNSW_MAX_EF_SEARCH		1000
+#define HNSW_DEFAULT_DIMENSIONS	-1
+#define HNSW_MIN_DIMENSIONS		1
+#define HNSW_MAX_DIMENSIONS		HNSW_MAX_DIM
 
 /* Tuple types */
 #define HNSW_ELEMENT_TUPLE_TYPE  1
@@ -59,7 +62,7 @@
 
 #define HNSW_MAX_SIZE (BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - sizeof(ItemIdData))
 
-#define HNSW_ELEMENT_TUPLE_SIZE(_dim)	MAXALIGN(offsetof(HnswElementTupleData, vec) + VECTOR_SIZE(_dim))
+#define HNSW_ELEMENT_TUPLE_SIZE(_datum)	MAXALIGN(offsetof(HnswElementTupleData, value) + VARSIZE_ANY(_datum))
 #define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, indextids) + ((level) + 2) * (m) * sizeof(ItemPointerData))
 
 #define HnswPageGetOpaque(page)	((HnswPageOpaque) PageGetSpecialPointer(page))
@@ -98,12 +101,13 @@ typedef struct HnswElementData
 	List	   *heaptids;
 	uint8		level;
 	uint8		deleted;
+	bool		loaded;
 	HnswNeighborArray *neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
-	Vector	   *vec;
+	Datum		value;
 }			HnswElementData;
 
 typedef HnswElementData * HnswElement;
@@ -134,6 +138,7 @@ typedef struct HnswOptions
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			m;				/* number of connections */
 	int			efConstruction; /* size of dynamic candidate list */
+	int			dimensions;
 }			HnswOptions;
 
 typedef struct HnswBuildState
@@ -204,7 +209,7 @@ typedef struct HnswElementTupleData
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
 	uint16		unused2;
-	Vector		vec;
+	char		value[FLEXIBLE_ARRAY_MEMBER];
 }			HnswElementTupleData;
 
 typedef HnswElementTupleData * HnswElementTuple;
@@ -262,6 +267,7 @@ typedef struct HnswVacuumState
 /* Methods */
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
+int			HnswGetDimensions(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
 bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
 void		HnswCommitBuffer(Buffer buf, GenericXLogState *state);
