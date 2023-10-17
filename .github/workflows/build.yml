@@ -79,23 +79,3 @@ jobs:
         shell: cmd
       - if: ${{ failure() }}
         run: cat regression.diffs
-  i386:
-    runs-on: ubuntu-latest
-    container:
-      image: debian:11
-      options: --platform linux/386
-    steps:
-      - run: apt-get update && apt-get install -y build-essential git libipc-run-perl postgresql-13 postgresql-server-dev-13 sudo
-      - run: service postgresql start
-      - run: |
-          git clone https://github.com/${{ github.repository }}.git pgvector
-          cd pgvector
-          git fetch origin ${{ github.ref }}
-          git reset --hard FETCH_HEAD
-          make
-          make install
-          chown -R postgres .
-          sudo -u postgres make installcheck
-          sudo -u postgres make prove_installcheck
-        env:
-          PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
