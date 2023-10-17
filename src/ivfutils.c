@@ -66,17 +66,26 @@ IvfflatOptionalProcInfo(Relation rel, uint16 procnum)
 }
 
 /*
- * Divide by the norm
- *
- * Returns false if value should not be indexed
+ * Normalize a vector
  *
  * The caller needs to free the pointer stored in value
  * if it's different than the original value
  */
-bool
-IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
+void
+IvfflatNormValue(FmgrInfo *procinfo, FmgrInfo *normalizeprocinfo, Oid collation, Datum *value, Vector * result)
 {
-	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
+	double		norm;
+
+	if (normalizeprocinfo != NULL)
+	{
+		*value = FunctionCall1Coll(normalizeprocinfo, collation, *value);
+		return;
+	}
+
+	if (procinfo == NULL)
+		return;
+
+	norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
 	if (norm > 0)
 	{
@@ -89,11 +98,7 @@ IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * resul
 			result->x[i] = v->x[i] / norm;
 
 		*value = PointerGetDatum(result);
-
-		return true;
 	}
-
-	return false;
 }
 
 /*

@@ -194,7 +194,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
 
 	amroutine->amstrategies = 0;
-	amroutine->amsupport = 4;
+	amroutine->amsupport = 6;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amoptsprocnum = 0;
 #endif

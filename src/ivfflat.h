@@ -31,6 +31,8 @@
 #define IVFFLAT_NORM_PROC 2
 #define IVFFLAT_KMEANS_DISTANCE_PROC 3
 #define IVFFLAT_KMEANS_NORM_PROC 4
+#define IVFFLAT_NORMALIZE_PROC 5
+#define IVFFLAT_KMEANS_NORMALIZE_PROC 6
 
 #define IVFFLAT_VERSION	1
 #define IVFFLAT_MAGIC_NUMBER 0x14FF1A7
@@ -172,6 +174,8 @@ typedef struct IvfflatBuildState
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	FmgrInfo   *kmeansnormprocinfo;
+	FmgrInfo   *normalizeprocinfo;
+	FmgrInfo   *kmeansnormalizeprocinfo;
 	Oid			collation;
 
 	/* Variables */
@@ -253,6 +257,7 @@ typedef struct IvfflatScanOpaqueData
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
+	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 
 	/* Lists */
@@ -273,7 +278,7 @@ void		VectorArrayFree(VectorArray arr);
 void		PrintVectorArray(char *msg, VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation rel, uint16 procnum);
-bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
+void		IvfflatNormValue(FmgrInfo *procinfo, FmgrInfo *normalizeprocinfo, Oid collation, Datum *value, Vector * result);
 int			IvfflatGetLists(Relation index);
 void		IvfflatUpdateList(Relation index, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);
 void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);

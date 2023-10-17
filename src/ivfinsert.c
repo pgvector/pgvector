@@ -68,6 +68,7 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 	IndexTuple	itup;
 	Datum		value;
 	FmgrInfo   *normprocinfo;
+	FmgrInfo   *normalizeprocinfo;
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
@@ -81,11 +82,8 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 
 	/* Normalize if needed */
 	normprocinfo = IvfflatOptionalProcInfo(rel, IVFFLAT_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		if (!IvfflatNormValue(normprocinfo, rel->rd_indcollation[0], &value, NULL))
-			return;
-	}
+	normalizeprocinfo = IvfflatOptionalProcInfo(rel, IVFFLAT_NORMALIZE_PROC);
+	IvfflatNormValue(normprocinfo, normalizeprocinfo, rel->rd_indcollation[0], &value, NULL);
 
 	/* Find the insert page - sets the page and list info */
 	FindInsertPage(rel, values, &insertPage, &listInfo);

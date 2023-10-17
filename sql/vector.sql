@@ -268,15 +268,15 @@ CREATE OPERATOR CLASS vector_ip_ops
 	OPERATOR 1 <#> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector),
 	FUNCTION 3 vector_spherical_distance(vector, vector),
-	FUNCTION 4 vector_norm(vector);
+	FUNCTION 6 normalize_l2(vector);
 
 CREATE OPERATOR CLASS vector_cosine_ops
 	FOR TYPE vector USING ivfflat AS
 	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector),
-	FUNCTION 2 vector_norm(vector),
 	FUNCTION 3 vector_spherical_distance(vector, vector),
-	FUNCTION 4 vector_norm(vector);
+	FUNCTION 5 normalize_l2(vector),
+	FUNCTION 6 normalize_l2(vector);
 
 CREATE OPERATOR CLASS vector_l2_ops
 	FOR TYPE vector USING hnsw AS
