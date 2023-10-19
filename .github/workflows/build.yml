@@ -21,7 +21,7 @@ jobs:
           - postgres: 11
             os: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ankane/setup-postgres@v1
         with:
           postgres-version: ${{ matrix.postgres }}
@@ -43,7 +43,7 @@ jobs:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref_name, 'windows') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ankane/setup-postgres@v1
         with:
           postgres-version: 14
@@ -65,7 +65,7 @@ jobs:
     runs-on: windows-latest
     if: ${{ !startsWith(github.ref_name, 'mac') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ankane/setup-postgres@v1
         with:
           postgres-version: 14
