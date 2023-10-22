@@ -186,9 +186,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			Datum		value = PointerGetDatum(hc->element->vec);
 			bool		isnull = false;
 
-			if (scan->xs_itup)
-				pfree(scan->xs_itup);
-
 			scan->xs_itup = index_form_tuple(scan->xs_itupdesc, &value, &isnull);
 			scan->xs_itup->t_tid = *tid;
 		}
@@ -232,9 +229,6 @@ hnswendscan(IndexScanDesc scan)
 	/* Release pin */
 	if (BufferIsValid(so->buf))
 		ReleaseBuffer(so->buf);
-
-	if (scan->xs_itup)
-		pfree(scan->xs_itup);
 
 	MemoryContextDelete(so->tmpCtx);
 
