@@ -207,6 +207,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			Datum		value = PointerGetDatum(hc->element->vec);
 			bool		isnull = false;
 
+			/* Allocate in temporary context, so no need to free */
 			scan->xs_itup = index_form_tuple(scan->xs_itupdesc, &value, &isnull);
 			scan->xs_itup->t_tid = *heaptid;
 		}
