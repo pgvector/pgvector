@@ -17,6 +17,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	Relation	index = scan->indexRelation;
 	FmgrInfo   *procinfo = so->procinfo;
 	Oid			collation = so->collation;
+	bool		loadVec = scan->xs_want_itup;
 	List	   *ep;
 	List	   *w;
 	int			m;
@@ -28,15 +29,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, loadVec));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, loadVec, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, loadVec, NULL);
 }
 
 /*
@@ -112,6 +113,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so->collation = index->rd_indcollation[0];
 
 	scan->opaque = so;
+
+	/* OK to always set since cheap */
+	scan->xs_itupdesc = RelationGetDescr(index);
 
 	return scan;
 }
@@ -198,6 +202,18 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		hc->element->heaptids = list_delete_last(hc->element->heaptids);
 
+		if (scan->xs_want_itup)
+		{
+			Datum		value = PointerGetDatum(hc->element->vec);
+			bool		isnull = false;
+
+			if (scan->xs_itup)
+				pfree(scan->xs_itup);
+
+			scan->xs_itup = index_form_tuple(scan->xs_itupdesc, &value, &isnull);
+			scan->xs_itup->t_tid = *heaptid;
+		}
+
 		MemoryContextSwitchTo(oldCtx);
 
 #if PG_VERSION_NUM >= 120000
@@ -226,4 +242,7 @@ hnswendscan(IndexScanDesc scan)
 
 	pfree(so);
 	scan->opaque = NULL;
+
+	if (scan->xs_itup)
+		pfree(scan->xs_itup);
 }
