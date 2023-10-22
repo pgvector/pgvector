@@ -161,7 +161,7 @@ hnswvalidate(Oid opclassoid)
 static bool
 hnswcanreturn(Relation indexRelation, int attno)
 {
-	return attno == 1 && HnswOptionalProcInfo(indexRelation, HNSW_NORM_PROC) == NULL;
+	return attno == 1 && !OidIsValid(index_getprocid(indexRelation, 1, HNSW_NORM_PROC));
 }
 
 /*
