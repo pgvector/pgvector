@@ -209,7 +209,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 			/* Allocate in temporary context, so no need to free */
 			scan->xs_itup = index_form_tuple(scan->xs_itupdesc, &value, &isnull);
-			scan->xs_itup->t_tid = *heaptid;
 		}
 
 		MemoryContextSwitchTo(oldCtx);
