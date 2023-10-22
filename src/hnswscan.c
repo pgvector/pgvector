@@ -207,9 +207,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			Datum		value = PointerGetDatum(hc->element->vec);
 			bool		isnull = false;
 
-			if (scan->xs_itup)
-				pfree(scan->xs_itup);
-
 			scan->xs_itup = index_form_tuple(scan->xs_itupdesc, &value, &isnull);
 			scan->xs_itup->t_tid = *heaptid;
 		}
@@ -242,7 +239,4 @@ hnswendscan(IndexScanDesc scan)
 
 	pfree(so);
 	scan->opaque = NULL;
-
-	if (scan->xs_itup)
-		pfree(scan->xs_itup);
 }
