@@ -84,6 +84,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 
 	scan->opaque = so;
 
+	/* OK to always set since cheap */
 	scan->xs_itupdesc = RelationGetDescr(index);
 
 	return scan;
