@@ -101,7 +101,6 @@ typedef struct HnswElementData
 	List	   *heaptids;
 	uint8		level;
 	uint8		deleted;
-	bool		loaded;
 	HnswNeighborArray *neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;

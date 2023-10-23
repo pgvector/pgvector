@@ -202,7 +202,7 @@ HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
 	list_free_deep(element->heaptids);
-	if (element->loaded)
+	if (DatumGetPointer(element->value))
 		pfree(DatumGetPointer(element->value));
 	pfree(element);
 }
@@ -230,7 +230,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 	element->blkno = blkno;
 	element->offno = offno;
 	element->neighbors = NULL;
-	element->loaded = false;
+	element->value = PointerGetDatum(NULL);
 	return element;
 }
 
@@ -466,7 +466,6 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 		Datum		value = PointerGetDatum(&etup->value);
 
 		element->value = datumCopy(value, false, -1);
-		element->loaded = true;
 	}
 }
 
@@ -954,7 +953,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 			{
 				HnswCandidate *hc3 = &currentNeighbors->items[i];
 
-				if (!hc3->element->loaded)
+				if (!DatumGetPointer(hc3->element->value))
 					HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
 				else
 					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);

@@ -375,11 +375,13 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (inserted)
 	{
 		element->value = datumCopy(element->value, false, -1);
-		element->loaded = true;
 		buildstate->elements = lappend(buildstate->elements, element);
 	}
 	else
+	{
+		element->value = PointerGetDatum(NULL);
 		HnswFreeElement(element);
+	}
 
 	/* Reset memory context */
 	MemoryContextReset(buildstate->tmpCtx);
