@@ -249,7 +249,7 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 TupleDesc
 IvfflatTupleDesc(Relation index)
 {
-	TupleDesc	tupdesc = RelationGetDescr(index);
+	TupleDesc	tupdesc = CreateTupleDescCopyConstr(RelationGetDescr(index));
 
 	/* Prevent compression */
 	TupleDescAttr(tupdesc, 0)->attstorage = TYPSTORAGE_PLAIN;

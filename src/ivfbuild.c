@@ -339,6 +339,8 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 		/* Set the start and insert pages */
 		IvfflatUpdateList(index, buildstate->listInfo[i], insertPage, InvalidBlockNumber, startPage, forkNum);
 	}
+
+	pfree(tupdesc);
 }
 
 /*
