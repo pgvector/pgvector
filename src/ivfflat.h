@@ -287,6 +287,7 @@ void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		IvfflatInit(void);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
+TupleDesc	IvfflatTupleDesc(Relation index);
 
 /* Index access methods */
 IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);

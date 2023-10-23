@@ -287,7 +287,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 #else
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->tupdesc);
 #endif
-	TupleDesc	tupdesc = RelationGetDescr(index);
+	TupleDesc	tupdesc = IvfflatTupleDesc(index);
 
 	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 

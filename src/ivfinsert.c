@@ -94,7 +94,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	originalInsertPage = insertPage;
 
 	/* Form tuple */
-	itup = index_form_tuple(RelationGetDescr(index), &value, isnull);
+	itup = index_form_tuple(IvfflatTupleDesc(index), &value, isnull);
 	itup->t_tid = *heap_tid;
 
 	/* Get tuple size */

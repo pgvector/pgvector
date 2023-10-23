@@ -238,3 +238,17 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 		UnlockReleaseBuffer(buf);
 	}
 }
+
+/*
+ * Get the tuple descriptor
+ */
+TupleDesc
+IvfflatTupleDesc(Relation index)
+{
+	TupleDesc	tupdesc = RelationGetDescr(index);
+
+	/* Prevent compression */
+	TupleDescAttr(tupdesc, 0)->attstorage = TYPSTORAGE_PLAIN;
+
+	return tupdesc;
+}
