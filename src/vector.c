@@ -34,6 +34,14 @@
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
+#if defined _MSC_VER /* MSVC only */
+#define __attribute__(x)
+#elif defined __APPLE__ /* Apple/OSX only */
+#define target_clones(...)
+#elif !defined __has_attribute || !__has_attribute(target_clones) || !defined __gnu_linux__ /* target_clones not supported */
+#define target_clones(...)
+#endif
+
 PG_MODULE_MAGIC;
 
 /*
@@ -543,6 +551,18 @@ vector_to_float4(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
+__attribute__((target_clones("default", "avx", "fma", "avx512f"))) static float
+l2_distance_impl(const int16 dim, const float *restrict x, const float *restrict y)
+{
+	float distance = 0.0;
+	for (int16 i = 0; i < dim; i++)
+	{
+		const float diff = x[i] - y[i];
+		distance += diff * diff;
+	}
+	return distance;
+}
+
 /*
  * Get the L2 distance between vectors
  */
@@ -554,18 +574,11 @@ l2_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	float		distance = 0.0;
-	float		diff;
+	float		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		diff = ax[i] - bx[i];
-		distance += diff * diff;
-	}
-
+	distance = l2_distance_impl(a->dim, ax, bx);
 	PG_RETURN_FLOAT8(sqrt((double) distance));
 }
 
@@ -581,19 +594,21 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	float		distance = 0.0;
-	float		diff;
+	float		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		diff = ax[i] - bx[i];
-		distance += diff * diff;
-	}
-
+	distance = l2_distance_impl(a->dim, ax, bx);
 	PG_RETURN_FLOAT8((double) distance);
+}
+
+__attribute__((target_clones("default", "avx", "fma", "avx512f"))) static float
+inner_product_impl(const int16 dim, const float *restrict x, const float *restrict y)
+{
+	float dot = 0.0;
+	for (int16 i = 0; i < dim; i++)
+		dot += x[i] * y[i];
+	return dot;
 }
 
 /*
@@ -607,14 +622,11 @@ inner_product(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	float		distance = 0.0;
+	float		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += ax[i] * bx[i];
-
+	distance = inner_product_impl(a->dim, ax, bx);
 	PG_RETURN_FLOAT8((double) distance);
 }
 
@@ -629,15 +641,27 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	float		distance = 0.0;
+	float		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += ax[i] * bx[i];
-
+	distance = inner_product_impl(a->dim, ax, bx);
 	PG_RETURN_FLOAT8((double) distance * -1);
+}
+
+__attribute__((target_clones("default", "avx", "fma", "avx512f"))) static float
+cosine_distance_impl(const int16 dim, const float *restrict x, const float *restrict y)
+{
+	float dot = 0.0;
+	float normx = 0.0;
+	float normy = 0.0;
+	for (int16 i = 0; i < dim; i++)
+	{
+		dot += x[i] * y[i];
+		normx += x[i] * x[i];
+		normy += y[i] * y[i];
+	}
+	return dot / sqrtf(normx * normy);
 }
 
 /*
@@ -651,23 +675,11 @@ cosine_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	float		distance = 0.0;
-	float		norma = 0.0;
-	float		normb = 0.0;
 	double		similarity;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		distance += ax[i] * bx[i];
-		norma += ax[i] * ax[i];
-		normb += bx[i] * bx[i];
-	}
-
-	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
-	similarity = (double) distance / sqrt((double) norma * (double) normb);
+	similarity = cosine_distance_impl(a->dim, ax, bx);
 
 #ifdef _MSC_VER
 	/* /fp:fast may not propagate NaN */
@@ -697,16 +709,11 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	float		dp = 0.0;
 	double		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		dp += ax[i] * bx[i];
-
-	distance = (double) dp;
+	distance = inner_product_impl(a->dim, ax, bx);
 
 	/* Prevent NaN with acos with loss of precision */
 	if (distance > 1)
@@ -715,6 +722,15 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 		distance = -1;
 
 	PG_RETURN_FLOAT8(acos(distance) / M_PI);
+}
+
+__attribute__((target_clones("default", "avx", "fma", "avx512f"))) static float
+l1_distance_impl(const int16 dim, const float *restrict x, const float *restrict y)
+{
+	float distance = 0.0;
+	for (int16 i = 0; i < dim; i++)
+		distance += fabsf(x[i] - y[i]);
+	return distance;
 }
 
 /*
@@ -728,14 +744,11 @@ l1_distance(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	float	   *ax = a->x;
 	float	   *bx = b->x;
-	float		distance = 0.0;
+	float		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += fabsf(ax[i] - bx[i]);
-
+	distance = l1_distance_impl(a->dim, ax, bx);
 	PG_RETURN_FLOAT8((double) distance);
 }
 
@@ -751,6 +764,15 @@ vector_dims(PG_FUNCTION_ARGS)
 	PG_RETURN_INT32(a->dim);
 }
 
+__attribute__((target_clones("default", "avx", "fma", "avx512f"))) static double
+l2_norm_impl(const int16 dim, const float *x)
+{
+	double norm = 0.0;
+	for (int16 i = 0; i < dim; i++)
+		norm += (double)x[i] * (double)x[i];
+	return norm;
+}
+
 /*
  * Get the L2 norm of a vector
  */
@@ -760,12 +782,9 @@ vector_norm(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	float	   *ax = a->x;
-	double		norm = 0.0;
+	double		norm;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		norm += (double) ax[i] * (double) ax[i];
-
+	norm = l2_norm_impl(a->dim, ax);
 	PG_RETURN_FLOAT8(sqrt(norm));
 }
 
