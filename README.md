@@ -360,6 +360,7 @@ Use pgvector from any language with a Postgres client. You can even generate and
 
 Language | Libraries / Examples
 --- | ---
+C | [pgvector-c](https://github.com/pgvector/pgvector-c)
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
 C# | [pgvector-dotnet](https://github.com/pgvector/pgvector-dotnet)
 Crystal | [pgvector-crystal](https://github.com/pgvector/pgvector-crystal)
