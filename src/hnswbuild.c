@@ -20,6 +20,7 @@
 #include "access/tableam.h"
 #include "commands/progress.h"
 #else
+#define PROGRESS_CREATEIDX_TUPLES_TOTAL 0
 #define PROGRESS_CREATEIDX_TUPLES_DONE 0
 #endif
 
@@ -464,6 +465,8 @@ static void
 BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 {
 	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_HNSW_PHASE_LOAD);
+	/* provide estimate of total number of tuples that will be indexed */
+	UpdateProgress(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->heap->rd_rel->reltuples);
 
 #if PG_VERSION_NUM >= 120000
 	buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
