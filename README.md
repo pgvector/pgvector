@@ -286,7 +286,7 @@ The phases are:
 3. `assigning tuples` - IVFFlat only
 4. `loading tuples`
 
-Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
+Note: `tuples_done` and `tuples_total` (IVFFlat only) are only populated during the `loading tuples` phase
 
 ## Filtering
 
