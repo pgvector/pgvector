@@ -215,6 +215,23 @@ SELECT ...
 COMMIT;
 ```
 
+### Indexing Progress
+
+Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
+
+```sql
+SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
+```
+
+The phases for IVFFlat are:
+
+1. `initializing`
+2. `performing k-means`
+3. `assigning tuples`
+4. `loading tuples`
+
+Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
+
 ## HNSW
 
 An HNSW index creates a multilayer graph. It has slower build times and uses more memory than IVFFlat, but has better query performance (in terms of speed-recall tradeoff). There’s no training step like IVFFlat, so the index can be created without any data in the table.
@@ -271,22 +288,18 @@ SELECT ...
 COMMIT;
 ```
 
-## Indexing Progress
+### Indexing Progress
 
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
 
 ```sql
-SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
+SELECT phase, tuples_done, blocks_done, blocks_total FROM pg_stat_progress_create_index;
 ```
 
-The phases are:
+The phases for HNSW are:
 
 1. `initializing`
-2. `performing k-means` - IVFFlat only
-3. `assigning tuples` - IVFFlat only
-4. `loading tuples`
-
-Note: `tuples_done` and `tuples_total` (IVFFlat only) are only populated during the `loading tuples` phase
+2. `loading tuples`
 
 ## Filtering
 
