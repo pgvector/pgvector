@@ -220,7 +220,7 @@ COMMIT;
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
 
 ```sql
-SELECT phase, tuples_done, tuples_total FROM pg_stat_progress_create_index;
+SELECT phase, round(100.0 * tuples_done / nullif(tuples_total, 0), 1) AS progress FROM pg_stat_progress_create_index;
 ```
 
 The phases for IVFFlat are:
@@ -230,7 +230,7 @@ The phases for IVFFlat are:
 3. `assigning tuples`
 4. `loading tuples`
 
-Note: `tuples_done` and `tuples_total` are only populated during the `loading tuples` phase
+Note: `progress` is only populated during the `loading tuples` phase
 
 ## HNSW
 
@@ -293,7 +293,7 @@ COMMIT;
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
 
 ```sql
-SELECT phase, tuples_done, blocks_done, blocks_total FROM pg_stat_progress_create_index;
+SELECT phase, round(100.0 * blocks_done / nullif(blocks_total, 0), 1) AS progress FROM pg_stat_progress_create_index;
 ```
 
 The phases for HNSW are:
