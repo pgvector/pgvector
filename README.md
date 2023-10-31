@@ -385,6 +385,7 @@ Java, Kotlin, Groovy, Scala | [pgvector-java](https://github.com/pgvector/pgvect
 JavaScript, TypeScript | [pgvector-node](https://github.com/pgvector/pgvector-node)
 Julia | [pgvector-julia](https://github.com/pgvector/pgvector-julia)
 Lua | [pgvector-lua](https://github.com/pgvector/pgvector-lua)
+Nim | [pgvector-nim](https://github.com/pgvector/pgvector-nim)
 Perl | [pgvector-perl](https://github.com/pgvector/pgvector-perl)
 PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
 Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
@@ -392,6 +393,7 @@ R | [pgvector-r](https://github.com/pgvector/pgvector-r)
 Ruby | [pgvector-ruby](https://github.com/pgvector/pgvector-ruby), [Neighbor](https://github.com/ankane/neighbor)
 Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
 Swift | [pgvector-swift](https://github.com/pgvector/pgvector-swift)
+Zig | [pgvector-zig](https://github.com/pgvector/pgvector-zig)
 
 ## Frequently Asked Questions
 
