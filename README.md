@@ -411,6 +411,20 @@ Yes, pgvector uses the write-ahead log (WAL), which allows for replication and p
 
 You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Dimensionality_reduction) at the moment.
 
+#### Can I store vectors with different dimensions in the same column?
+
+You can use the `vector` type (instead of `vector(3)`). However, to index the column, you’ll need to use an [expression](https://www.postgresql.org/docs/current/indexes-expressional.html) to set the number of dimensions and a partial index to filter rows with different dimensions.
+
+```sql
+CREATE INDEX ON items USING hnsw ((embedding::vector(3)) vector_l2_ops) WHERE (model_id = 123);
+```
+
+and
+
+```sql
+SELECT * FROM items WHERE model_id = 123 ORDER BY embedding::vector(3) <-> '[3,1,2]' LIMIT 5;
+```
+
 ## Troubleshooting
 
 #### Why isn’t a query using an index?
