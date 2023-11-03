@@ -413,7 +413,7 @@ You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Di
 
 #### Can I store vectors with different dimensions in the same column?
 
-You can use the `vector` type (instead of `vector(3)`). However, to index the column, you’ll need to use an [expression](https://www.postgresql.org/docs/current/indexes-expressional.html) to set the number of dimensions and a partial index to filter rows with different dimensions.
+You can use the `vector` type (instead of `vector(3)`). However, you can only create indexes on rows with the same number of dimensions (using [partial indexing](https://www.postgresql.org/docs/current/indexes-partial.html) on an [expression](https://www.postgresql.org/docs/current/indexes-expressional.html)).
 
 ```sql
 CREATE INDEX ON items USING hnsw ((embedding::vector(3)) vector_l2_ops) WHERE (model_id = 123);
