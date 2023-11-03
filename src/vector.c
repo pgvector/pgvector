@@ -464,7 +464,6 @@ array_to_vector(PG_FUNCTION_ARGS)
 	bool		typbyval;
 	char		typalign;
 	Datum	   *elemsp;
-	bool	   *nullsp;
 	int			nelemsp;
 
 	if (ARR_NDIM(array) > 1)
@@ -478,7 +477,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 				 errmsg("array must not contain nulls")));
 
 	get_typlenbyvalalign(ARR_ELEMTYPE(array), &typlen, &typbyval, &typalign);
-	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, &nullsp, &nelemsp);
+	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, NULL, &nelemsp);
 
 	CheckDim(nelemsp);
 	CheckExpectedDim(typmod, nelemsp);
