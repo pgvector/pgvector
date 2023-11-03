@@ -511,6 +511,12 @@ array_to_vector(PG_FUNCTION_ARGS)
 				 errmsg("unsupported array type")));
 	}
 
+	/*
+	 * Free allocation from deconstruct_array. Do not free individual elements
+	 * when pass-by-reference since they point to original array.
+	 */
+	pfree(elemsp);
+
 	/* Check elements */
 	for (int i = 0; i < result->dim; i++)
 		CheckElement(result->x[i]);
