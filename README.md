@@ -413,16 +413,22 @@ You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Di
 
 #### Can I store vectors with different dimensions in the same column?
 
-You can use the `vector` type (instead of `vector(3)`). However, you can only create indexes on rows with the same number of dimensions (using [expression](https://www.postgresql.org/docs/current/indexes-expressional.html) and [partial](https://www.postgresql.org/docs/current/indexes-partial.html) indexing).
+You can use `vector` as the type (instead of `vector(3)`).
 
 ```sql
-CREATE INDEX ON items USING hnsw ((embedding::vector(3)) vector_l2_ops) WHERE (model_id = 123);
+CREATE TABLE embeddings (item_id bigint, model_id bigint, embedding vector);
 ```
 
-and
+However, you can only create indexes on rows with the same number of dimensions (using [expression](https://www.postgresql.org/docs/current/indexes-expressional.html) and [partial](https://www.postgresql.org/docs/current/indexes-partial.html) indexing):
 
 ```sql
-SELECT * FROM items WHERE model_id = 123 ORDER BY embedding::vector(3) <-> '[3,1,2]' LIMIT 5;
+CREATE INDEX ON embeddings USING hnsw ((embedding::vector(3)) vector_l2_ops) WHERE (model_id = 123);
+```
+
+and query with:
+
+```sql
+SELECT * FROM embeddings WHERE model_id = 123 ORDER BY embedding::vector(3) <-> '[3,1,2]' LIMIT 5;
 ```
 
 #### Can I store vectors with more precision?
