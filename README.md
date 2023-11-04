@@ -442,6 +442,12 @@ CREATE TABLE items (id bigserial PRIMARY KEY, embedding double precision[]);
 INSERT INTO items (embedding) VALUES ('{1,2,3}'), ('{4,5,6}');
 ```
 
+Optionally, add a [check constraint](https://www.postgresql.org/docs/current/ddl-constraints.html) to ensure data can be converted to the `vector` type and has the expected dimensions.
+
+```sql
+ALTER TABLE items ADD CHECK (vector_dims(embedding::vector) = 3);
+```
+
 Use [expression indexing](https://www.postgresql.org/docs/current/indexes-expressional.html) to index (at a lower precision):
 
 ```sql
