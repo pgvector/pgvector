@@ -56,7 +56,7 @@ install:
 	copy $(EXTENSION).control "$(SHAREDIR)\extension"
 	copy sql\$(EXTENSION)--*.sql "$(SHAREDIR)\extension"
 	mkdir "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
-	copy $(HEADERS) "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
+	for %f in ($(HEADERS)) do copy %f "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
 installcheck:
 	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
