@@ -438,6 +438,8 @@ SELECT ...
 COMMIT;
 ```
 
+Also, if the table is small, a table scan may be faster.
+
 #### Why isn’t a query using a parallel table scan?
 
 The planner doesn’t consider [out-of-line storage](https://www.postgresql.org/docs/current/storage-toast.html) in cost estimates, which can make a serial scan look cheaper. You can reduce the cost of a parallel scan for a query with:
