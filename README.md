@@ -416,7 +416,7 @@ You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Di
 You can use `vector` as the type (instead of `vector(3)`).
 
 ```sql
-CREATE TABLE embeddings (model_id bigint, item_id bigint, embedding vector);
+CREATE TABLE embeddings (model_id bigint, item_id bigint, embedding vector, PRIMARY KEY (model_id, item_id));
 ```
 
 However, you can only create indexes on rows with the same number of dimensions (using [expression](https://www.postgresql.org/docs/current/indexes-expressional.html) and [partial](https://www.postgresql.org/docs/current/indexes-partial.html) indexing):
