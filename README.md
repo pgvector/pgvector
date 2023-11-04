@@ -425,6 +425,29 @@ and
 SELECT * FROM items WHERE model_id = 123 ORDER BY embedding::vector(3) <-> '[3,1,2]' LIMIT 5;
 ```
 
+#### Can I store vectors with more precision?
+
+You can use the `double precision[]` or `numeric[]` type to store vectors with more precision.
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding double precision[]);
+
+-- use {} instead of [] for Postgres arrays
+INSERT INTO items (embedding) VALUES ('{1,2,3}'), ('{4,5,6}');
+```
+
+Use [expression indexing](https://www.postgresql.org/docs/current/indexes-expressional.html) to index (at a lower precision):
+
+```sql
+CREATE INDEX ON items USING hnsw ((embedding::vector(3)) vector_l2_ops);
+```
+
+and query with:
+
+```sql
+SELECT * FROM items ORDER BY embedding::vector(3) <-> '[3,1,2]' LIMIT 5;
+```
+
 ## Troubleshooting
 
 #### Why isn’t a query using an index?
