@@ -89,7 +89,7 @@ CheckDim(int dim)
 }
 
 /*
- * Ensure finite elements
+ * Ensure finite element
  */
 static inline void
 CheckElement(float value)
