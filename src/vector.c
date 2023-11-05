@@ -442,12 +442,12 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector);
 Datum
 vector(PG_FUNCTION_ARGS)
 {
-	Vector	   *arg = PG_GETARG_VECTOR_P(0);
+	Vector	   *vec = PG_GETARG_VECTOR_P(0);
 	int32		typmod = PG_GETARG_INT32(1);
 
-	CheckExpectedDim(typmod, arg->dim);
+	CheckExpectedDim(typmod, vec->dim);
 
-	PG_RETURN_POINTER(arg);
+	PG_RETURN_POINTER(vec);
 }
 
 /*
