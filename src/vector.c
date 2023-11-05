@@ -437,6 +437,7 @@ vector_send(PG_FUNCTION_ARGS)
 
 /*
  * Convert vector to vector
+ * This is needed to check the type modifier
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(vector);
 Datum
