@@ -4,6 +4,8 @@ SELECT '(0,1.5),(2,3.5)|5|'::svector::vector(5);
 SELECT '(0,1.5),(2,3.5)|5|'::svector::vector(4);
 SELECT '[0,1.5,0,3.5,0]'::vector::svector;
 
+SELECT '(0,0),(1,1),(2,0)|3|'::svector;
+
 SELECT '|5|'::svector;
 SELECT '|-1|'::svector;
 SELECT '|100001|'::svector;
