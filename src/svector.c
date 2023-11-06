@@ -187,6 +187,7 @@ svector_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("ran out of buffer: \"%s\"", lit)));
 
+		/* TODO Decide whether to store zero values */
 		indices[nnz] = index;
 		values[nnz] = value;
 		nnz++;
