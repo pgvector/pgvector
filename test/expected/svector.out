@@ -1,0 +1,134 @@
+SELECT '(0,1.5),(2,3.5)|5|'::svector;
+      svector       
+--------------------
+ (0,1.5),(2,3.5)|5|
+(1 row)
+
+SELECT '(0,1.5),(2,3.5)|5|'::svector::vector;
+     vector      
+-----------------
+ [1.5,0,3.5,0,0]
+(1 row)
+
+SELECT '(0,1.5),(2,3.5)|5|'::svector::vector(5);
+     vector      
+-----------------
+ [1.5,0,3.5,0,0]
+(1 row)
+
+SELECT '(0,1.5),(2,3.5)|5|'::svector::vector(4);
+ERROR:  expected 4 dimensions, not 5
+SELECT '[0,1.5,0,3.5,0]'::vector::svector;
+      svector       
+--------------------
+ (1,1.5),(3,3.5)|5|
+(1 row)
+
+SELECT '|5|'::svector;
+ svector 
+---------
+ |5|
+(1 row)
+
+SELECT '|-1|'::svector;
+ERROR:  svector must have at least 1 dimension
+LINE 1: SELECT '|-1|'::svector;
+               ^
+SELECT '|100001|'::svector;
+ERROR:  svector cannot have more than 100000 dimensions
+LINE 1: SELECT '|100001|'::svector;
+               ^
+SELECT '|16001|'::svector::vector;
+ERROR:  vector cannot have more than 16000 dimensions
+SELECT '(-1,1)|1|'::svector;
+ERROR:  index must not be negative
+LINE 1: SELECT '(-1,1)|1|'::svector;
+               ^
+SELECT '(1,1)|1|'::svector;
+ERROR:  index must be less than dimensions
+LINE 1: SELECT '(1,1)|1|'::svector;
+               ^
+SELECT '|1|'::svector(2);
+ERROR:  expected 2 dimensions, not 1
+SELECT l2_distance('|2|'::svector, '(0,3),(1,4)|2|');
+ l2_distance 
+-------------
+           5
+(1 row)
+
+SELECT l2_distance('|2|'::svector, '(1,1)|2|');
+ l2_distance 
+-------------
+           1
+(1 row)
+
+SELECT '|2|'::svector <-> '(0,3),(1,4)|2|';
+ ?column? 
+----------
+        5
+(1 row)
+
+SELECT inner_product('(0,1),(1,2)|2|'::svector, '(0,2),(1,4)|2|');
+ inner_product 
+---------------
+            10
+(1 row)
+
+SELECT svector_negative_inner_product('(0,1),(1,2)|2|', '(0,2),(1,4)|2|');
+ svector_negative_inner_product 
+--------------------------------
+                            -10
+(1 row)
+
+SELECT cosine_distance('(0,1),(1,2)|2|'::svector, '(0,2),(1,4)|2|');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('(0,1),(1,2)|2|'::svector, '|2|');
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
+SELECT cosine_distance('(0,1),(1,1)|2|'::svector, '(0,-1),(1,-1)|2|');
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
+SELECT cosine_distance('(0,1)|2|'::svector, '(1,2)|2|');
+ cosine_distance 
+-----------------
+               1
+(1 row)
+
+SELECT cosine_distance('|1|'::svector, '|1|');
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
+SELECT cosine_distance('(0,1)|2|'::svector, '(0,1)|3|');
+ERROR:  different svector dimensions 2 and 3
+SELECT jaccard_distance('(0,1)|2|', '(0,1)|2|');
+ jaccard_distance 
+------------------
+                0
+(1 row)
+
+SELECT jaccard_distance('(0,1)|2|', '(1,1)|2|');
+ jaccard_distance 
+------------------
+                1
+(1 row)
+
+SELECT jaccard_distance('|1|', '|1|');
+ jaccard_distance 
+------------------
+              NaN
+(1 row)
+
+SELECT jaccard_distance('(0,1)|2|', '(0,1)|3|');
+ERROR:  different svector dimensions 2 and 3

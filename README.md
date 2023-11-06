@@ -369,6 +369,26 @@ To speed up queries with an IVFFlat index, increase the number of inverted lists
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
 ```
 
+## Sparse Vectors
+
+Create a sparse vector column with 10 dimensions
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding svector(10));
+```
+
+Insert vectors
+
+```sql
+INSERT INTO items (embedding) VALUES ('(0,1),(1,2),(2,3)|10|'), ('(0,4),(1,5),(4,6)|10|');
+```
+
+Get the nearest neighbors by L2 distance
+
+```sql
+SELECT * FROM items ORDER BY embedding <-> '(0,3),(1,1),(2,2)|10|' LIMIT 5;
+```
+
 ## Languages
 
 Use pgvector from any language with a Postgres client. You can even generate and store vectors in one language and query them in another.
