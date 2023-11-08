@@ -68,7 +68,7 @@ dist:
 .PHONY: docker
 
 docker:
-	docker build --pull --no-cache --platform linux/amd64 -t ankane/pgvector:latest .
+	docker build --pull --no-cache -t ankane/pgvector:latest .
 
 .PHONY: docker-release
 
