@@ -106,8 +106,7 @@ CreateElementPages(HnswBuildState * buildstate)
 {
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
-	int			dimensions = buildstate->dimensions;
-	Size		etupSize;
+	Size		etupAllocSize;
 	Size		maxSize;
 	HnswElementTuple etup;
 	HnswNeighborTuple ntup;
@@ -118,11 +117,11 @@ CreateElementPages(HnswBuildState * buildstate)
 	ListCell   *lc;
 
 	/* Calculate sizes */
+	etupAllocSize = BLCKSZ;
 	maxSize = HNSW_MAX_SIZE;
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VECTOR_SIZE(dimensions));
 
 	/* Allocate once */
-	etup = palloc0(etupSize);
+	etup = palloc0(etupAllocSize);
 	ntup = palloc0(BLCKSZ);
 
 	/* Prepare first page */
@@ -134,14 +133,23 @@ CreateElementPages(HnswBuildState * buildstate)
 	foreach(lc, buildstate->elements)
 	{
 		HnswElement element = lfirst(lc);
+		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
 
-		HnswSetElementTuple(etup, element);
+		/* Zero memory for each element */
+		MemSet(etup, 0, etupAllocSize);
 
 		/* Calculate sizes */
+		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(DatumGetPointer(element->value)));
 		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
 		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
+
+		/* Initial size check */
+		if (etupSize > etupAllocSize)
+			elog(ERROR, "index tuple too large");
+
+		HnswSetElementTuple(etup, element);
 
 		/* Keep element and neighbors on the same page if possible */
 		if (PageGetFreeSpace(page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(page) < combinedSize))
