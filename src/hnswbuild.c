@@ -328,7 +328,7 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += sizeof(HnswNeighborArray) * (e->level + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (e->level + 2));
 	elementSize += sizeof(ItemPointerData);
-	elementSize += VARSIZE_ANY(e->value);
+	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
 	return elementSize;
 }
 

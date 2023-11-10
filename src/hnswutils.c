@@ -325,7 +325,7 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
-	memcpy(&etup->vec, DatumGetPointer(element->value), VARSIZE_ANY(element->value));
+	memcpy(&etup->vec, DatumGetPointer(element->value), VARSIZE_ANY(DatumGetPointer(element->value)));
 }
 
 /*
