@@ -163,7 +163,7 @@ typedef struct HnswBuildState
 	HnswElement entryPoint;
 	double		ml;
 	int			maxLevel;
-	double		maxInMemoryElements;
+	long		memoryLeft;
 	bool		flushed;
 	Vector	   *normvec;
 

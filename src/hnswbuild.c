@@ -314,6 +314,21 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 }
 
 /*
+ * Get the memory used by an element
+ */
+static long
+HnswElementMemory(HnswElement e, int m)
+{
+	long		elementSize = sizeof(HnswElementData);
+
+	elementSize += sizeof(HnswNeighborArray) * (e->level + 1);
+	elementSize += sizeof(HnswCandidate) * (m * (e->level + 2));
+	elementSize += sizeof(ItemPointerData);
+	elementSize += VARSIZE_ANY(e->vec);
+	return elementSize;
+}
+
+/*
  * Callback for table_index_build_scan
  */
 static void
@@ -334,7 +349,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
-	if (buildstate->indtuples >= buildstate->maxInMemoryElements)
+	if (buildstate->memoryLeft <= 0)
 	{
 		if (!buildstate->flushed)
 		{
@@ -374,29 +389,19 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 	/* Add outside memory context */
 	if (dup != NULL)
+	{
 		HnswAddHeapTid(dup, tid);
+		buildstate->memoryLeft -= sizeof(ItemPointerData);
+	}
 
 	/* Add to buildstate or free */
 	if (inserted)
+	{
 		buildstate->elements = lappend(buildstate->elements, element);
+		buildstate->memoryLeft -= HnswElementMemory(element, buildstate->m);
+	}
 	else
 		HnswFreeElement(element);
-}
-
-/*
- * Get the max number of elements that fit into maintenance_work_mem
- */
-static double
-HnswGetMaxInMemoryElements(int m, double ml, int dimensions)
-{
-	Size		elementSize = sizeof(HnswElementData);
-	double		avgLevel = -log(0.5) * ml;
-
-	elementSize += sizeof(HnswNeighborArray) * (avgLevel + 1);
-	elementSize += sizeof(HnswCandidate) * (m * (avgLevel + 2));
-	elementSize += sizeof(ItemPointerData);
-	elementSize += VECTOR_SIZE(dimensions);
-	return (maintenance_work_mem * 1024L) / elementSize;
 }
 
 /*
@@ -436,7 +441,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->entryPoint = NULL;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
-	buildstate->maxInMemoryElements = HnswGetMaxInMemoryElements(buildstate->m, buildstate->ml, buildstate->dimensions);
+	buildstate->memoryLeft = maintenance_work_mem * 1024L;
 	buildstate->flushed = false;
 
 	/* Reuse for each tuple */
