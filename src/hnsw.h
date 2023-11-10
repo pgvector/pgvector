@@ -204,7 +204,7 @@ typedef struct HnswElementTupleData
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
 	uint16		unused2;
-	char		data[FLEXIBLE_ARRAY_MEMBER];
+	Vector		data;
 }			HnswElementTupleData;
 
 typedef HnswElementTupleData * HnswElementTuple;
