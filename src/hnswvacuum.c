@@ -530,7 +530,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Overwrite element */
 			etup->deleted = 1;
-			MemSet(&etup->vec.x, 0, etup->vec.dim * sizeof(float));
+			MemSet(&etup->data, 0, VARSIZE_ANY(&etup->data));
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < ntup->count; i++)

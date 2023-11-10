@@ -325,7 +325,7 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
-	memcpy(&etup->vec, DatumGetPointer(element->value), VARSIZE_ANY(DatumGetPointer(element->value)));
+	memcpy(&etup->data, DatumGetPointer(element->value), VARSIZE_ANY(DatumGetPointer(element->value)));
 }
 
 /*
@@ -448,9 +448,9 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 
 	if (loadVec)
 	{
-		Vector	   *vec = palloc(VARSIZE_ANY(&etup->vec));
+		Vector	   *vec = palloc(VARSIZE_ANY(&etup->data));
 
-		memcpy(vec, &etup->vec, VARSIZE_ANY(&etup->vec));
+		memcpy(vec, &etup->data, VARSIZE_ANY(&etup->data));
 		element->value = PointerGetDatum(vec);
 	}
 }
@@ -479,7 +479,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 
 	/* Calculate distance */
 	if (distance != NULL)
-		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->vec)));
+		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
 
 	UnlockReleaseBuffer(buf);
 }
