@@ -195,8 +195,8 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	GenericXLogState *state;
 	int			m = vacuumstate->m;
 	int			efConstruction = vacuumstate->efConstruction;
-	FmgrInfo   *procinfo = vacuumstate->procinfo;
-	Oid			collation = vacuumstate->collation;
+	FmgrInfo  **procinfos = vacuumstate->procinfos;
+	Oid		   *collations = vacuumstate->collations;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
 	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
@@ -210,7 +210,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	element->heaptids = NIL;
 
 	/* Add element to graph, skipping itself */
-	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, true);
+	HnswInsertElement(element, entryPoint, index, procinfos, collations, m, efConstruction, true, false);
 
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */
@@ -231,7 +231,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	UnlockReleaseBuffer(buf);
 
 	/* Update neighbors */
-	HnswUpdateNeighborPages(index, procinfo, collation, element, m, true);
+	HnswUpdateNeighborPages(index, procinfos, collations, element, m, true);
 }
 
 /*
@@ -258,7 +258,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
 		/* Load element */
-		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
+		HnswLoadElement(highestPoint, NULL, NULL, NULL, NULL, index, vacuumstate->procinfos, vacuumstate->collations, true);
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
@@ -296,7 +296,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			 * is outdated, this can remove connections at higher levels in
 			 * the graph until they are repaired, but this should be fine.
 			 */
-			HnswLoadElement(entryPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
+			HnswLoadElement(entryPoint, NULL, NULL, NULL, NULL, index, vacuumstate->procinfos, vacuumstate->collations, true);
 
 			if (NeedsUpdated(vacuumstate, entryPoint))
 			{
@@ -372,7 +372,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 
 			/* Create an element */
 			element = HnswInitElementFromBlock(blkno, offno);
-			HnswLoadElementFromTuple(element, etup, false, true);
+			HnswLoadElementFromTuple(element, etup, false, true, index);
 
 			elements = lappend(elements, element);
 		}
@@ -442,6 +442,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
+	bool		useIndexTuple = IndexRelationGetNumberOfAttributes(index);
 
 	/*
 	 * Wait for index scans to complete. Scans before this point may contain
@@ -530,7 +531,18 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Overwrite element */
 			etup->deleted = 1;
-			MemSet(&etup->data, 0, VARSIZE_ANY(&etup->data));
+			if (useIndexTuple)
+			{
+				IndexTuple	itup = (IndexTuple) &etup->data;
+
+				MemSet(itup, 0, IndexTupleSize(itup));
+			}
+			else
+			{
+				Vector	   *vec = (Vector *) (&etup->data);
+
+				MemSet(vec, 0, VARSIZE_ANY(vec));
+			}
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < ntup->count; i++)
@@ -586,8 +598,8 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->callback_state = callback_state;
 	vacuumstate->efConstruction = HnswGetEfConstruction(index);
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
-	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	vacuumstate->collation = index->rd_indcollation[0];
+	vacuumstate->procinfos = HnswInitProcinfos(index);
+	vacuumstate->collations = index->rd_indcollation;
 	vacuumstate->ntup = palloc0(BLCKSZ);
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
@@ -611,6 +623,7 @@ FreeVacuumState(HnswVacuumState * vacuumstate)
 {
 	hash_destroy(vacuumstate->deleted);
 	FreeAccessStrategy(vacuumstate->bas);
+	pfree(vacuumstate->procinfos);
 	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);
 }

@@ -106,6 +106,7 @@ CreateElementPages(HnswBuildState * buildstate)
 {
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
+	bool		useIndexTuple = buildstate->useIndexTuple;
 	Size		etupAllocSize;
 	Size		maxSize;
 	HnswElementTuple etup;
@@ -141,7 +142,7 @@ CreateElementPages(HnswBuildState * buildstate)
 		MemSet(etup, 0, etupAllocSize);
 
 		/* Calculate sizes */
-		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(DatumGetPointer(element->value)));
+		etupSize = HNSW_ELEMENT_TUPLE_SIZE(useIndexTuple ? IndexTupleSize(element->itup) : VARSIZE_ANY(DatumGetPointer(element->value)));
 		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
 		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 
@@ -149,7 +150,7 @@ CreateElementPages(HnswBuildState * buildstate)
 		if (etupSize > etupAllocSize)
 			elog(ERROR, "index tuple too large");
 
-		HnswSetElementTuple(etup, element);
+		HnswSetElementTuple(etup, element, useIndexTuple);
 
 		/* Keep element and neighbors on the same page if possible */
 		if (PageGetFreeSpace(page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(page) < combinedSize))
@@ -273,13 +274,14 @@ FlushPages(HnswBuildState * buildstate)
  * Insert tuple
  */
 static bool
-InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup, MemoryContext outerCtx)
+InsertTuple(Relation index, Datum *values, bool *isnull, HnswElement element, HnswBuildState * buildstate, HnswElement * dup, MemoryContext outerCtx)
 {
-	FmgrInfo   *procinfo = buildstate->procinfo;
-	Oid			collation = buildstate->collation;
+	FmgrInfo  **procinfos = buildstate->procinfos;
+	Oid		   *collations = buildstate->collations;
 	HnswElement entryPoint = buildstate->entryPoint;
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
+	bool		inMemory = true;
 	MemoryContext oldCtx;
 
 	/* Detoast once for all calls */
@@ -288,20 +290,20 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
-		if (!HnswNormValue(buildstate->normprocinfo, collation, &value, buildstate->normvec))
+		if (!HnswNormValue(buildstate->normprocinfo, collations[0], &value, buildstate->normvec))
 			return false;
 	}
 
 	/* Copy value to element so accessible outside of memory context */
 	oldCtx = MemoryContextSwitchTo(outerCtx);
-	element->value = datumCopy(value, false, -1);
+	HnswElementSetData(element, index, value, values, isnull);
 	MemoryContextSwitchTo(oldCtx);
 
 	/* Insert element in graph */
-	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+	HnswInsertElement(element, entryPoint, index, procinfos, collations, m, efConstruction, false, inMemory);
 
 	/* Look for duplicate */
-	*dup = HnswFindDuplicate(element);
+	*dup = HnswFindDuplicate(element, index);
 
 	/* Update neighbors if needed */
 	if (*dup == NULL)
@@ -312,7 +314,7 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 			HnswNeighborArray *neighbors = &element->neighbors[lc];
 
 			for (int i = 0; i < neighbors->length; i++)
-				HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
+				HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, index, procinfos, collations, inMemory);
 		}
 	}
 
@@ -336,7 +338,7 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += sizeof(HnswNeighborArray) * (e->level + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (e->level + 2));
 	elementSize += sizeof(ItemPointerData);
-	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
+	elementSize += IndexTupleSize(e->itup);
 	return elementSize;
 }
 
@@ -392,7 +394,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Insert tuple */
-	inserted = InsertTuple(index, values, element, buildstate, &dup, oldCtx);
+	inserted = InsertTuple(index, values, isnull, element, buildstate, &dup, oldCtx);
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
@@ -430,6 +432,19 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
+	/* TODO See if needed */
+	if (IndexRelationGetNumberOfKeyAttributes(index) > 2)
+		elog(ERROR, "index cannot have more than two columns");
+
+	if (!OidIsValid(index_getprocid(index, 1, HNSW_DISTANCE_PROC)))
+		elog(ERROR, "first column must be a vector");
+
+	for (int i = 1; i < IndexRelationGetNumberOfKeyAttributes(index); i++)
+	{
+		if (!OidIsValid(index_getprocid(index, i + 1, HNSW_ATTRIBUTE_DISTANCE_PROC)))
+			elog(ERROR, "column %d cannot be a vector", i + 1);
+	}
+
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
@@ -444,9 +459,9 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->indtuples = 0;
 
 	/* Get support functions */
-	buildstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	buildstate->procinfos = HnswInitProcinfos(index);
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	buildstate->collation = index->rd_indcollation[0];
+	buildstate->collations = index->rd_indcollation;
 
 	buildstate->elements = NIL;
 	buildstate->entryPoint = NULL;
@@ -454,6 +469,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
 	buildstate->memoryLeft = maintenance_work_mem * 1024L;
 	buildstate->flushed = false;
+	buildstate->useIndexTuple = IndexRelationGetNumberOfAttributes(index) > 1;
 
 	/* Reuse for each tuple */
 	buildstate->normvec = InitVector(buildstate->dimensions);
@@ -469,6 +485,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 static void
 FreeBuildState(HnswBuildState * buildstate)
 {
+	pfree(buildstate->procinfos);
 	pfree(buildstate->normvec);
 	MemoryContextDelete(buildstate->tmpCtx);
 }

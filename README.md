@@ -315,6 +315,12 @@ Create an index on one [or more](https://www.postgresql.org/docs/current/indexes
 CREATE INDEX ON items (category_id);
 ```
 
+Or a composite HNSW index for approximate search (added in 0.6.0)
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops, category_id);
+```
+
 Or a [partial index](https://www.postgresql.org/docs/current/indexes-partial.html) on the vector column for approximate search
 
 ```sql
@@ -712,6 +718,7 @@ Thanks to:
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
 - [Efficient and Robust Approximate Nearest Neighbor Search using Hierarchical Navigable Small World Graphs](https://arxiv.org/ftp/arxiv/papers/1603/1603.09320.pdf)
+- [HQANN: Efficient and Robust Similarity Search for Hybrid Queries with Structured and Unstructured Constraints](https://arxiv.org/pdf/2207.07940.pdf)
 
 ## History
 

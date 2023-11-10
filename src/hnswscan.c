@@ -15,12 +15,13 @@ GetScanItems(IndexScanDesc scan, Datum q)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
-	FmgrInfo   *procinfo = so->procinfo;
-	Oid			collation = so->collation;
+	FmgrInfo  **procinfos = so->procinfos;
+	Oid		   *collations = so->collations;
 	List	   *ep;
 	List	   *w;
 	int			m;
 	HnswElement entryPoint;
+	ScanKeyData *keyData = scan->keyData;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
@@ -28,15 +29,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(entryPoint, q, NULL, keyData, index, procinfos, collations, false, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(q, NULL, keyData, ep, 1, lc, index, procinfos, collations, m, false, NULL, false);
 		ep = w;
 	}
 
-	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(q, NULL, keyData, ep, hnsw_ef_search, 0, index, procinfos, collations, m, false, NULL, false);
 }
 
 /*
@@ -83,7 +84,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Fine if normalization fails */
 		if (so->normprocinfo != NULL)
-			HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
+			HnswNormValue(so->normprocinfo, so->collations[0], &value, NULL);
 	}
 
 	return value;
@@ -107,9 +108,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
-	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	so->procinfos = HnswInitProcinfos(index);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->collation = index->rd_indcollation[0];
+	so->collations = index->rd_indcollation;
 
 	scan->opaque = so;
 
@@ -206,6 +207,9 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		scan->xs_ctup.t_self = *heaptid;
 #endif
 
+		/* TODO Check during scan */
+		scan->xs_recheck = scan->numberOfKeys > 0;
+
 		scan->xs_recheckorderby = false;
 		return true;
 	}
@@ -222,6 +226,7 @@ hnswendscan(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
+	pfree(so->procinfos);
 	MemoryContextDelete(so->tmpCtx);
 
 	pfree(so);

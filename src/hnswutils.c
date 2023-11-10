@@ -7,6 +7,10 @@
 #include "utils/datum.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM < 130000
+#define TYPSTORAGE_PLAIN 'p'
+#endif
+
 /*
  * Get the max number of connections in an upper layer for each element in the index
  */
@@ -45,6 +49,22 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 		return NULL;
 
 	return index_getprocinfo(index, 1, procnum);
+}
+
+/*
+ * Init procs
+ */
+FmgrInfo  **
+HnswInitProcinfos(Relation index)
+{
+	int			keyAttributes = IndexRelationGetNumberOfKeyAttributes(index);
+	FmgrInfo  **procinfos = palloc(keyAttributes * sizeof(FmgrInfo *));
+
+	procinfos[0] = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	for (int i = 1; i < keyAttributes; i++)
+		procinfos[i] = index_getprocinfo(index, i + 1, HNSW_ATTRIBUTE_DISTANCE_PROC);
+
+	return procinfos;
 }
 
 /*
@@ -174,6 +194,7 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
 
 	element->level = level;
 	element->deleted = 0;
+	element->itup = NULL;
 
 	HnswInitNeighbors(element, m);
 
@@ -188,8 +209,8 @@ HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
 	list_free_deep(element->heaptids);
-	if (DatumGetPointer(element->value))
-		pfree(DatumGetPointer(element->value));
+	if (element->itup)
+		pfree(element->itup);
 	pfree(element);
 }
 
@@ -217,6 +238,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 	element->offno = offno;
 	element->neighbors = NULL;
 	element->value = PointerGetDatum(NULL);
+	element->itup = NULL;
 	return element;
 }
 
@@ -314,7 +336,7 @@ HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, Bloc
  * Set element tuple, except for neighbor info
  */
 void
-HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
+HnswSetElementTuple(HnswElementTuple etup, HnswElement element, bool useIndexTuple)
 {
 	etup->type = HNSW_ELEMENT_TUPLE_TYPE;
 	etup->level = element->level;
@@ -326,7 +348,11 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
-	memcpy(&etup->data, DatumGetPointer(element->value), VARSIZE_ANY(DatumGetPointer(element->value)));
+
+	if (useIndexTuple)
+		memcpy(&etup->data, element->itup, IndexTupleSize(element->itup));
+	else
+		memcpy(&etup->data, DatumGetPointer(element->value), VARSIZE_ANY(DatumGetPointer(element->value)));
 }
 
 /*
@@ -427,7 +453,7 @@ HnswLoadNeighbors(HnswElement element, Relation index, int m)
  * Load an element from a tuple
  */
 void
-HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec)
+HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec, Relation index)
 {
 	element->level = etup->level;
 	element->deleted = etup->deleted;
@@ -449,18 +475,149 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 
 	if (loadVec)
 	{
-		Vector	   *vec = palloc(VARSIZE_ANY(&etup->data));
+		if (IndexRelationGetNumberOfAttributes(index) > 1)
+		{
+			TupleDesc	tupdesc = RelationGetDescr(index);
+			bool		unused;
 
-		memcpy(vec, &etup->data, VARSIZE_ANY(&etup->data));
-		element->value = PointerGetDatum(vec);
+			element->itup = CopyIndexTuple((IndexTuple) &etup->data);
+			element->value = index_getattr(element->itup, 1, tupdesc, &unused);
+		}
+		else
+		{
+			Vector	   *vec = palloc(VARSIZE_ANY(&etup->data));
+
+			memcpy(vec, &etup->data, VARSIZE_ANY(&etup->data));
+			element->value = PointerGetDatum(vec);
+		}
 	}
+}
+
+/*
+ * Get the tuple descriptor
+ */
+static TupleDesc
+HnswTupleDesc(Relation index)
+{
+	TupleDesc	tupdesc = CreateTupleDescCopyConstr(RelationGetDescr(index));
+
+	/* Prevent compression */
+	TupleDescAttr(tupdesc, 0)->attstorage = TYPSTORAGE_PLAIN;
+
+	return tupdesc;
+}
+
+/*
+ * Set element data
+ */
+void
+HnswElementSetData(HnswElement element, Relation index, Datum value, Datum *values, bool *isnull)
+{
+	/* TODO Create once per index build */
+	TupleDesc	tupdesc = HnswTupleDesc(index);
+	bool		unused;
+	Datum		tmp;
+
+	tmp = values[0];
+	values[0] = value;
+	element->itup = index_form_tuple(tupdesc, values, isnull);
+	values[0] = tmp;
+
+	element->value = index_getattr(element->itup, 1, tupdesc, &unused);
+
+	FreeTupleDesc(tupdesc);
+}
+
+/*
+ * Get the attribute distance
+ */
+static inline double
+AttributeDistance(double e)
+{
+	/* TODO Better bias */
+	/* must be >> max(w * g) + 1 / log10(2) */
+	double		bias = 4.32;
+
+	return e > 0 ? bias - 1.0 / log10(e + 1) : 0;
+}
+
+/*
+ * Get the distance
+ */
+static double
+GetDistance(IndexTuple itup, Datum vec, Datum q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfos, Oid *collations)
+{
+	double		g = DatumGetFloat8(FunctionCall2Coll(procinfos[0], collations[0], q, vec));
+
+	if (IndexRelationGetNumberOfKeyAttributes(index) > 1)
+	{
+		double		w = 0.25;
+		double		e = 0.0;
+		TupleDesc	tupdesc = RelationGetDescr(index);
+
+		if (keyData)
+		{
+			/* TODO need to pass length of key data */
+			int			keyCount = 1;
+
+			for (int i = 0; i < keyCount; i++)
+			{
+				ScanKey		key = &keyData[i];
+				bool		isnull;
+				Datum		value = index_getattr(itup, key->sk_attno, tupdesc, &isnull);
+				bool		attnull = key->sk_flags & SK_ISNULL;
+
+				if (isnull || attnull)
+				{
+					if (isnull != attnull)
+						e += 1000;
+				}
+				else if (!DatumGetBool(FunctionCall2Coll(&key->sk_func, key->sk_collation, value, key->sk_argument)))
+				{
+					double		ei = fabs(DatumGetFloat8(FunctionCall2Coll(procinfos[key->sk_attno - 1], collations[key->sk_attno - 1], value, key->sk_argument)));
+
+					if (ei > 0)
+						e += ei;
+					else
+						/* Distance is zero for inequality */
+						e += 1000;
+				}
+			}
+
+			return w * g + AttributeDistance(e);
+		}
+		else if (qtup)
+		{
+			int			keyCount = IndexRelationGetNumberOfKeyAttributes(index) - 1;
+
+			for (int i = 0; i < keyCount; i++)
+			{
+				bool		isnull;
+				bool		attnull;
+				Datum		value = index_getattr(itup, i + 2, tupdesc, &isnull);
+				Datum		value2 = index_getattr(qtup, i + 2, tupdesc, &attnull);
+
+				if (isnull || attnull)
+				{
+					if (isnull != attnull)
+						e += 1000;
+				}
+				else
+					e += fabs(DatumGetFloat8(FunctionCall2Coll(procinfos[i + 1], collations[i + 1], value, value2)));
+			}
+
+			return w * g + AttributeDistance(e);
+		}
+	}
+
+	return g;
 }
 
 /*
  * Load an element and optionally get its distance from q
  */
 void
-HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
+HnswLoadElement(HnswElement element, float *distance, Datum *q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfos, Oid *collations, bool loadVec)
 {
 	Buffer		buf;
 	Page		page;
@@ -476,11 +633,27 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 	Assert(HnswIsElementTuple(etup));
 
 	/* Load element */
-	HnswLoadElementFromTuple(element, etup, true, loadVec);
+	HnswLoadElementFromTuple(element, etup, true, loadVec, index);
 
 	/* Calculate distance */
 	if (distance != NULL)
-		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
+	{
+		IndexTuple	itup = NULL;
+		Datum		value;
+
+		if (IndexRelationGetNumberOfAttributes(index) > 1)
+		{
+			TupleDesc	tupdesc = RelationGetDescr(index);
+			bool		unused;
+
+			itup = (IndexTuple) &etup->data;
+			value = index_getattr(itup, 1, tupdesc, &unused);
+		}
+		else
+			value = PointerGetDatum(&etup->data);
+
+		*distance = GetDistance(itup, value, *q, qtup, keyData, index, procinfos, collations);
+	}
 
 	UnlockReleaseBuffer(buf);
 }
@@ -489,24 +662,24 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
  * Get the distance for a candidate
  */
 static float
-GetCandidateDistance(HnswCandidate * hc, Datum q, FmgrInfo *procinfo, Oid collation)
+GetCandidateDistance(HnswCandidate * hc, Datum q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfos, Oid *collations)
 {
-	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, hc->element->value));
+	return GetDistance(hc->element->itup, hc->element->value, q, qtup, keyData, index, procinfos, collations);
 }
 
 /*
  * Create a candidate for the entry point
  */
 HnswCandidate *
-HnswEntryCandidate(HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
+HnswEntryCandidate(HnswElement entryPoint, Datum q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfos, Oid *collations, bool loadVec, bool inMemory)
 {
 	HnswCandidate *hc = palloc(sizeof(HnswCandidate));
 
 	hc->element = entryPoint;
-	if (index == NULL)
-		hc->distance = GetCandidateDistance(hc, q, procinfo, collation);
+	if (inMemory)
+		hc->distance = GetCandidateDistance(hc, q, qtup, keyData, index, procinfos, collations);
 	else
-		HnswLoadElement(hc->element, &hc->distance, &q, index, procinfo, collation, loadVec);
+		HnswLoadElement(hc->element, &hc->distance, &q, qtup, keyData, index, procinfos, collations, loadVec);
 	return hc;
 }
 
@@ -556,9 +729,9 @@ CreatePairingHeapNode(HnswCandidate * c)
  * Add to visited
  */
 static inline void
-AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
+AddToVisited(HTAB *v, HnswCandidate * hc, bool inMemory, bool *found)
 {
-	if (index == NULL)
+	if (inMemory)
 		hash_search(v, &hc->element, HASH_ENTER, found);
 	else
 	{
@@ -573,7 +746,7 @@ AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement)
+HnswSearchLayer(Datum q, IndexTuple qtup, ScanKeyData *keyData, List *ep, int ef, int lc, Relation index, FmgrInfo **procinfos, Oid *collations, int m, bool loadVec, HnswElement skipElement, bool inMemory)
 {
 	ListCell   *lc2;
 
@@ -585,7 +758,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 	HTAB	   *v;
 
 	/* Create hash table */
-	if (index == NULL)
+	if (inMemory)
 	{
 		hash_ctl.keysize = sizeof(HnswElement *);
 		hash_ctl.entrysize = sizeof(HnswElement *);
@@ -604,7 +777,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 	{
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
 
-		AddToVisited(v, hc, index, NULL);
+		AddToVisited(v, hc, inMemory, NULL);
 
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
@@ -638,7 +811,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 			HnswCandidate *e = &neighborhood->items[i];
 			bool		visited;
 
-			AddToVisited(v, e, index, &visited);
+			AddToVisited(v, e, inMemory, &visited);
 
 			if (!visited)
 			{
@@ -646,10 +819,10 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 
-				if (index == NULL)
-					eDistance = GetCandidateDistance(e, q, procinfo, collation);
+				if (inMemory)
+					eDistance = GetCandidateDistance(e, q, qtup, keyData, index, procinfos, collations);
 				else
-					HnswLoadElement(e->element, &eDistance, &q, index, procinfo, collation, inserting);
+					HnswLoadElement(e->element, &eDistance, &q, qtup, keyData, index, procinfos, collations, loadVec);
 
 				Assert(!e->element->deleted);
 
@@ -729,7 +902,7 @@ CompareCandidateDistances(const void *a, const void *b)
  * Calculate the distance between elements
  */
 static float
-HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid collation)
+HnswGetCachedDistance(HnswElement a, HnswElement b, int lc, Relation index, FmgrInfo **procinfos, Oid *collations)
 {
 	/* Look for cached distance */
 	if (a->neighbors != NULL)
@@ -754,21 +927,21 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 		}
 	}
 
-	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, a->value, b->value));
+	return GetDistance(a->itup, a->value, b->value, b->itup, NULL, index, procinfos, collations);
 }
 
 /*
  * Check if an element is closer to q than any element from R
  */
 static bool
-CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid collation)
+CheckElementCloser(HnswCandidate * e, List *r, int lc, Relation index, FmgrInfo **procinfos, Oid *collations)
 {
 	ListCell   *lc2;
 
 	foreach(lc2, r)
 	{
 		HnswCandidate *ri = lfirst(lc2);
-		float		distance = HnswGetDistance(e->element, ri->element, lc, procinfo, collation);
+		float		distance = HnswGetCachedDistance(e->element, ri->element, lc, index, procinfos, collations);
 
 		if (distance <= e->distance)
 			return false;
@@ -781,7 +954,7 @@ CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid c
  * Algorithm 4 from paper
  */
 static List *
-SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
+SelectNeighbors(List *c, int m, int lc, Relation index, FmgrInfo **procinfos, Oid *collations, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
 {
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
@@ -808,7 +981,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 
 		/* Use previous state of r and wd to skip work when possible */
 		if (mustCalculate)
-			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
+			e->closer = CheckElementCloser(e, r, lc, index, procinfos, collations);
 		else if (list_length(added) > 0)
 		{
 			/*
@@ -817,7 +990,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 			 */
 			if (e->closer)
 			{
-				e->closer = CheckElementCloser(e, added, lc, procinfo, collation);
+				e->closer = CheckElementCloser(e, added, lc, index, procinfos, collations);
 
 				if (!e->closer)
 					removedAny = true;
@@ -830,7 +1003,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 				 */
 				if (removedAny)
 				{
-					e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
+					e->closer = CheckElementCloser(e, r, lc, index, procinfos, collations);
 					if (e->closer)
 						added = lappend(added, e);
 				}
@@ -838,7 +1011,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 		}
 		else if (e == newCandidate)
 		{
-			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
+			e->closer = CheckElementCloser(e, r, lc, index, procinfos, collations);
 			if (e->closer)
 				added = lappend(added, e);
 		}
@@ -872,9 +1045,13 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
  * Find duplicate element
  */
 HnswElement
-HnswFindDuplicate(HnswElement e)
+HnswFindDuplicate(HnswElement e, Relation index)
 {
 	HnswNeighborArray *neighbors = &e->neighbors[0];
+
+	/* TODO Implement */
+	if (IndexRelationGetNumberOfAttributes(index) > 1)
+		return NULL;
 
 	for (int i = 0; i < neighbors->length; i++)
 	{
@@ -909,7 +1086,7 @@ AddConnections(HnswElement element, List *neighbors, int m, int lc)
  * Update connections
  */
 void
-HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
+HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo **procinfos, Oid *collations, bool inMemory)
 {
 	HnswNeighborArray *currentNeighbors = &hc->element->neighbors[lc];
 
@@ -932,18 +1109,20 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 		HnswCandidate *pruned = NULL;
 
 		/* Load elements on insert */
-		if (index != NULL)
+		if (!inMemory)
 		{
 			Datum		q = hc->element->value;
+			IndexTuple	qtup = hc->element->itup;
+			ScanKeyData *keyData = NULL;
 
 			for (int i = 0; i < currentNeighbors->length; i++)
 			{
 				HnswCandidate *hc3 = &currentNeighbors->items[i];
 
 				if (DatumGetPointer(hc3->element->value) == NULL)
-					HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
+					HnswLoadElement(hc3->element, &hc3->distance, &q, qtup, keyData, index, procinfos, collations, true);
 				else
-					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
+					hc3->distance = GetCandidateDistance(hc3, q, qtup, keyData, index, procinfos, collations);
 
 				/* Prune element if being deleted */
 				if (list_length(hc3->element->heaptids) == 0)
@@ -963,7 +1142,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 				c = lappend(c, &currentNeighbors->items[i]);
 			c = lappend(c, &hc2);
 
-			SelectNeighbors(c, m, lc, procinfo, collation, hc->element, &hc2, &pruned, true);
+			SelectNeighbors(c, m, lc, index, procinfos, collations, hc->element, &hc2, &pruned, true);
 
 			/* Should not happen */
 			if (pruned == NULL)
@@ -1015,13 +1194,15 @@ RemoveElements(List *w, HnswElement skipElement)
  * Algorithm 1 from paper
  */
 void
-HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing)
+HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo **procinfos, Oid *collations, int m, int efConstruction, bool existing, bool inMemory)
 {
 	List	   *ep;
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
 	Datum		q = element->value;
+	IndexTuple	qtup = element->itup;
+	ScanKeyData *keyData = NULL;
 	HnswElement skipElement = existing ? element : NULL;
 
 	/* No neighbors if no entry point */
@@ -1029,13 +1210,13 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		return;
 
 	/* Get entry point and level */
-	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, true));
+	ep = list_make1(HnswEntryCandidate(entryPoint, q, qtup, keyData, index, procinfos, collations, true, inMemory));
 	entryLevel = entryPoint->level;
 
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(q, qtup, keyData, ep, 1, lc, index, procinfos, collations, m, true, skipElement, inMemory);
 		ep = w;
 	}
 
@@ -1053,11 +1234,11 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		List	   *neighbors;
 		List	   *lw;
 
-		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(q, qtup, keyData, ep, efConstruction, lc, index, procinfos, collations, m, true, skipElement, inMemory);
 
 		/* Elements being deleted or skipped can help with search */
 		/* but should be removed before selecting neighbors */
-		if (index != NULL)
+		if (!inMemory)
 			lw = RemoveElements(w, skipElement);
 		else
 			lw = w;
@@ -1067,7 +1248,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		 * sortCandidates to true for in-memory builds to enable closer
 		 * caching, but there does not seem to be a difference in performance.
 		 */
-		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, element, NULL, NULL, false);
+		neighbors = SelectNeighbors(lw, lm, lc, index, procinfos, collations, element, NULL, NULL, false);
 
 		AddConnections(element, neighbors, lm, lc);
 

@@ -19,6 +19,7 @@
 /* Support functions */
 #define HNSW_DISTANCE_PROC 1
 #define HNSW_NORM_PROC 2
+#define HNSW_ATTRIBUTE_DISTANCE_PROC 3
 
 #define HNSW_VERSION	1
 #define HNSW_MAGIC_NUMBER 0xA953A953
@@ -104,6 +105,7 @@ typedef struct HnswElementData
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
 	Datum		value;
+	IndexTuple	itup;
 }			HnswElementData;
 
 typedef HnswElementData * HnswElement;
@@ -154,9 +156,9 @@ typedef struct HnswBuildState
 	double		reltuples;
 
 	/* Support functions */
-	FmgrInfo   *procinfo;
+	FmgrInfo  **procinfos;
 	FmgrInfo   *normprocinfo;
-	Oid			collation;
+	Oid		   *collations;
 
 	/* Variables */
 	List	   *elements;
@@ -165,6 +167,7 @@ typedef struct HnswBuildState
 	int			maxLevel;
 	long		memoryLeft;
 	bool		flushed;
+	bool		useIndexTuple;
 	Vector	   *normvec;
 
 	/* Memory */
@@ -226,9 +229,9 @@ typedef struct HnswScanOpaqueData
 	MemoryContext tmpCtx;
 
 	/* Support functions */
-	FmgrInfo   *procinfo;
+	FmgrInfo  **procinfos;
 	FmgrInfo   *normprocinfo;
-	Oid			collation;
+	Oid		   *collations;
 }			HnswScanOpaqueData;
 
 typedef HnswScanOpaqueData * HnswScanOpaque;
@@ -246,8 +249,8 @@ typedef struct HnswVacuumState
 	int			efConstruction;
 
 	/* Support functions */
-	FmgrInfo   *procinfo;
-	Oid			collation;
+	FmgrInfo  **procinfos;
+	Oid		   *collations;
 
 	/* Variables */
 	HTAB	   *deleted;
@@ -269,26 +272,27 @@ Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		HnswInit(void);
-List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
+List	   *HnswSearchLayer(Datum q, IndexTuple qtup, ScanKeyData *keyData, List *ep, int ef, int lc, Relation index, FmgrInfo **procinfos, Oid *collations, int m, bool loadVec, HnswElement skipElement, bool inMemory);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 void		HnswFreeElement(HnswElement element);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
-void		HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing);
-HnswElement HnswFindDuplicate(HnswElement e);
-HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadVec);
+void		HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo **procinfos, Oid *collations, int m, int efConstruction, bool existing, bool inMemory);
+HnswElement HnswFindDuplicate(HnswElement e, Relation index);
+HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, IndexTuple qtup, ScanKeyData *keyData, Relation rel, FmgrInfo **procinfos, Oid *collations, bool loadVec, bool inMemory);
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum);
 void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
 void		HnswInitNeighbors(HnswElement element, int m);
 bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel);
-void		HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting);
-void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec);
-void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec);
-void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
-void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
+void		HnswUpdateNeighborPages(Relation index, FmgrInfo **procinfos, Oid *collations, HnswElement e, int m, bool checkExisting);
+void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec, Relation index);
+void		HnswLoadElement(HnswElement element, float *distance, Datum *q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfos, Oid *collations, bool loadVec);
+void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element, bool useIndexTuple);
+void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo **procinfos, Oid *collations, bool inMemory);
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
+void		HnswElementSetData(HnswElement element, Relation index, Datum value, Datum *values, bool *isnull);
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);
@@ -305,5 +309,6 @@ IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
+FmgrInfo  **HnswInitProcinfos(Relation index);
 
 #endif

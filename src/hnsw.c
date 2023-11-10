@@ -167,7 +167,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
 
 	amroutine->amstrategies = 0;
-	amroutine->amsupport = 2;
+	amroutine->amsupport = 3;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amoptsprocnum = 0;
 #endif
@@ -175,7 +175,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amcanorderbyop = true;
 	amroutine->amcanbackward = false;	/* can change direction mid-scan */
 	amroutine->amcanunique = false;
-	amroutine->amcanmulticol = false;
+	amroutine->amcanmulticol = true;
 	amroutine->amoptionalkey = true;
 	amroutine->amsearcharray = false;
 	amroutine->amsearchnulls = false;
@@ -221,4 +221,18 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amparallelrescan = NULL;
 
 	PG_RETURN_POINTER(amroutine);
+}
+
+/*
+ * Get the distance between two int4 attributes
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_int4_attribute_distance);
+Datum
+hnsw_int4_attribute_distance(PG_FUNCTION_ARGS)
+{
+	int32		a = PG_GETARG_INT32(0);
+	int32		b = PG_GETARG_INT32(1);
+	double		distance = ((double) a) - ((double) b);
+
+	PG_RETURN_FLOAT8(distance);
 }

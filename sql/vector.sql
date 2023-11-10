@@ -290,3 +290,13 @@ CREATE OPERATOR CLASS vector_cosine_ops
 	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector),
 	FUNCTION 2 vector_norm(vector);
+
+-- hnsw attributes
+
+CREATE FUNCTION hnsw_attribute_distance(integer, integer) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hnsw_int4_attribute_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE OPERATOR CLASS vector_integer_ops
+	DEFAULT FOR TYPE integer USING hnsw AS
+	OPERATOR 2 = (integer, integer),
+	FUNCTION 3 hnsw_attribute_distance(integer, integer);

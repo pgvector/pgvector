@@ -1,3 +1,7 @@
+## 0.6.0 (unreleased)
+
+- Added support for inline filtering with HNSW
+
 ## 0.5.1 (2023-10-10)
 
 - Improved performance of HNSW index builds
