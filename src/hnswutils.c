@@ -187,7 +187,8 @@ HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
 	list_free_deep(element->heaptids);
-	pfree(element->vec);
+	if (DatumGetPointer(element->value))
+		pfree(DatumGetPointer(element->value));
 	pfree(element);
 }
 
@@ -214,7 +215,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 	element->blkno = blkno;
 	element->offno = offno;
 	element->neighbors = NULL;
-	element->vec = NULL;
+	element->value = PointerGetDatum(NULL);
 	return element;
 }
 
@@ -324,7 +325,7 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
-	memcpy(&etup->vec, element->vec, VARSIZE_ANY(element->vec));
+	memcpy(&etup->vec, DatumGetPointer(element->value), VARSIZE_ANY(element->value));
 }
 
 /*
@@ -447,8 +448,10 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 
 	if (loadVec)
 	{
-		element->vec = palloc(VARSIZE_ANY(&etup->vec));
-		memcpy(element->vec, &etup->vec, VARSIZE_ANY(&etup->vec));
+		Vector	   *vec = palloc(VARSIZE_ANY(&etup->vec));
+
+		memcpy(vec, &etup->vec, VARSIZE_ANY(&etup->vec));
+		element->value = PointerGetDatum(vec);
 	}
 }
 
@@ -487,7 +490,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 static float
 GetCandidateDistance(HnswCandidate * hc, Datum q, FmgrInfo *procinfo, Oid collation)
 {
-	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, PointerGetDatum(hc->element->vec)));
+	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, hc->element->value));
 }
 
 /*
@@ -750,7 +753,7 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 		}
 	}
 
-	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(a->vec), PointerGetDatum(b->vec)));
+	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, a->value, b->value));
 }
 
 /*
@@ -877,7 +880,7 @@ HnswFindDuplicate(HnswElement e)
 		HnswCandidate *neighbor = &neighbors->items[i];
 
 		/* Exit early since ordered by distance */
-		if (vector_cmp_internal(e->vec, neighbor->element->vec) != 0)
+		if (vector_cmp_internal(DatumGetVector(e->value), DatumGetVector(neighbor->element->value)) != 0)
 			break;
 
 		/* Check for space */
@@ -930,13 +933,13 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 		/* Load elements on insert */
 		if (index != NULL)
 		{
-			Datum		q = PointerGetDatum(hc->element->vec);
+			Datum		q = hc->element->value;
 
 			for (int i = 0; i < currentNeighbors->length; i++)
 			{
 				HnswCandidate *hc3 = &currentNeighbors->items[i];
 
-				if (hc3->element->vec == NULL)
+				if (DatumGetPointer(hc3->element->value) == NULL)
 					HnswLoadElement(hc3->element, &hc3->distance, &q, index, procinfo, collation, true);
 				else
 					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
@@ -1017,7 +1020,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
-	Datum		q = PointerGetDatum(element->vec);
+	Datum		q = element->value;
 	HnswElement skipElement = existing ? element : NULL;
 
 	/* No neighbors if no entry point */

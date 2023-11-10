@@ -8,6 +8,7 @@
 #include "lib/pairingheap.h"
 #include "nodes/pg_list.h"
 #include "storage/bufmgr.h"
+#include "utils/datum.h"
 #include "utils/memutils.h"
 
 #if PG_VERSION_NUM >= 140000
@@ -264,13 +265,14 @@ FlushPages(HnswBuildState * buildstate)
  * Insert tuple
  */
 static bool
-InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup)
+InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup, MemoryContext outerCtx)
 {
 	FmgrInfo   *procinfo = buildstate->procinfo;
 	Oid			collation = buildstate->collation;
 	HnswElement entryPoint = buildstate->entryPoint;
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
+	MemoryContext oldCtx;
 
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
@@ -283,7 +285,9 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	}
 
 	/* Copy value to element so accessible outside of memory context */
-	memcpy(element->vec, DatumGetVector(value), VECTOR_SIZE(buildstate->dimensions));
+	oldCtx = MemoryContextSwitchTo(outerCtx);
+	element->value = datumCopy(value, false, -1);
+	MemoryContextSwitchTo(oldCtx);
 
 	/* Insert element in graph */
 	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
@@ -324,7 +328,7 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += sizeof(HnswNeighborArray) * (e->level + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (e->level + 2));
 	elementSize += sizeof(ItemPointerData);
-	elementSize += VARSIZE_ANY(e->vec);
+	elementSize += VARSIZE_ANY(e->value);
 	return elementSize;
 }
 
@@ -375,13 +379,12 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 	/* Allocate necessary memory outside of memory context */
 	element = HnswInitElement(tid, buildstate->m, buildstate->ml, buildstate->maxLevel);
-	element->vec = palloc(VECTOR_SIZE(buildstate->dimensions));
 
 	/* Use memory context since detoast can allocate */
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Insert tuple */
-	inserted = InsertTuple(index, values, element, buildstate, &dup);
+	inserted = InsertTuple(index, values, element, buildstate, &dup, oldCtx);
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);

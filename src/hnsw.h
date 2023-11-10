@@ -103,7 +103,7 @@ typedef struct HnswElementData
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
-	Vector	   *vec;
+	Datum		value;
 }			HnswElementData;
 
 typedef HnswElementData * HnswElement;

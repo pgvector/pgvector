@@ -131,7 +131,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(e->vec));
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(e->value));
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;
@@ -517,7 +517,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 
 	/* Create an element */
 	element = HnswInitElement(heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m));
-	element->vec = DatumGetVector(value);
+	element->value = value;
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)
