@@ -88,7 +88,7 @@ $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c
 test_recall(0.99, '<->');
 
 # Test vacuum
-$node->safe_psql("postgres", "DELETE FROM tst WHERE c > 50;");
+$node->safe_psql("postgres", "DELETE FROM tst WHERE c > 5;");
 $node->safe_psql("postgres", "VACUUM tst;");
 
 # Test columns
