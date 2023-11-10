@@ -4,6 +4,7 @@
 
 #include "hnsw.h"
 #include "storage/bufmgr.h"
+#include "utils/datum.h"
 #include "vector.h"
 
 /*
@@ -880,7 +881,7 @@ HnswFindDuplicate(HnswElement e)
 		HnswCandidate *neighbor = &neighbors->items[i];
 
 		/* Exit early since ordered by distance */
-		if (vector_cmp_internal(DatumGetVector(e->value), DatumGetVector(neighbor->element->value)) != 0)
+		if (!datumIsEqual(e->value, neighbor->element->value, false, -1))
 			break;
 
 		/* Check for space */
