@@ -132,7 +132,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VECTOR_SIZE(dimensions));
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;

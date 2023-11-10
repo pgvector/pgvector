@@ -118,7 +118,7 @@ CreateElementPages(HnswBuildState * buildstate)
 
 	/* Calculate sizes */
 	maxSize = HNSW_MAX_SIZE;
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(dimensions);
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VECTOR_SIZE(dimensions));
 
 	/* Allocate once */
 	etup = palloc0(etupSize);
