@@ -405,8 +405,9 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(dup->vec->dim);
+	ItemId		itemid;
 	HnswElementTuple etup;
+	Size		etupSize;
 	int			i;
 
 	/* Read page */
@@ -416,7 +417,9 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup)
 	page = GenericXLogRegisterBuffer(state, buf, 0);
 
 	/* Find space */
-	etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, dup->offno));
+	itemid = PageGetItemId(page, dup->offno);
+	etup = (HnswElementTuple) PageGetItem(page, itemid);
+	etupSize = ItemIdGetLength(itemid);
 	for (i = 0; i < HNSW_HEAPTIDS; i++)
 	{
 		if (!ItemPointerIsValid(&etup->heaptids[i]))

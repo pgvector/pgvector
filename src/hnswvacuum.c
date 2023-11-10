@@ -62,7 +62,8 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 		/* Iterate over nodes */
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			ItemId		itemid = PageGetItemId(page, offno);
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, itemid);
 			int			idx = 0;
 			bool		itemUpdated = false;
 
@@ -93,7 +94,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				if (itemUpdated)
 				{
-					Size		etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
+					Size		etupSize = ItemIdGetLength(itemid);
 
 					/* Mark rest as invalid */
 					for (int i = idx; i < HNSW_HEAPTIDS; i++)
@@ -477,7 +478,8 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 		/* Update element and neighbors together */
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			ItemId		itemid = PageGetItemId(page, offno);
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, itemid);
 			HnswNeighborTuple ntup;
 			Size		etupSize;
 			Size		ntupSize;
@@ -505,7 +507,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 				continue;
 
 			/* Calculate sizes */
-			etupSize = HNSW_ELEMENT_TUPLE_SIZE(etup->vec.dim);
+			etupSize = ItemIdGetLength(itemid);
 			ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(etup->level, vacuumstate->m);
 
 			/* Get neighbor page */
