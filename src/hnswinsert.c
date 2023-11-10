@@ -123,7 +123,6 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	Size		minCombinedSize;
 	HnswElementTuple etup;
 	BlockNumber currentPage = insertPage;
-	int			dimensions = e->vec->dim;
 	HnswNeighborTuple ntup;
 	Buffer		nbuf;
 	Page		npage;
@@ -132,7 +131,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VECTOR_SIZE(dimensions));
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(e->vec));
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;

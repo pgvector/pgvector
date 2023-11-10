@@ -324,7 +324,7 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
-	memcpy(&etup->vec, element->vec, VECTOR_SIZE(element->vec->dim));
+	memcpy(&etup->vec, element->vec, VARSIZE_ANY(element->vec));
 }
 
 /*
@@ -447,8 +447,8 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 
 	if (loadVec)
 	{
-		element->vec = palloc(VECTOR_SIZE(etup->vec.dim));
-		memcpy(element->vec, &etup->vec, VECTOR_SIZE(etup->vec.dim));
+		element->vec = palloc(VARSIZE_ANY(&etup->vec));
+		memcpy(element->vec, &etup->vec, VARSIZE_ANY(&etup->vec));
 	}
 }
 
