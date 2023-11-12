@@ -83,11 +83,32 @@ for my $i (0 .. $#operators)
 		push(@expected, $res);
 	}
 
-	# Add index
-	$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v $opclass);");
+	# Build index serially
+	$node->safe_psql("postgres", qq(
+		SET max_parallel_maintenance_workers = 0;
+		CREATE INDEX idx ON tst USING hnsw (v $opclass);
+	));
 
+	# Test approximate results
 	my $min = $operator eq "<#>" ? 0.80 : 0.99;
 	test_recall($min, $operator);
+
+	$node->safe_psql("postgres", "DROP INDEX idx;");
+
+	# Build index in parallel
+	my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
+		SET client_min_messages = DEBUG;
+		SET min_parallel_table_scan_size = 1;
+		SET hnsw.enable_parallel_build = on;
+		CREATE INDEX idx ON tst USING hnsw (v $opclass);
+	));
+	is($ret, 0, $stderr);
+	like($stderr, qr/using \d+ parallel workers/);
+
+	# Test approximate results
+	test_recall($min, $operator);
+
+	$node->safe_psql("postgres", "DROP INDEX idx;");
 }
 
 done_testing();

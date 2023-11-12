@@ -1,3 +1,7 @@
+## 0.5.2 (unreleased)
+
+- Added support for on-disk parallel index builds for HNSW
+
 ## 0.5.1 (2023-10-10)
 
 - Improved performance of HNSW index builds
