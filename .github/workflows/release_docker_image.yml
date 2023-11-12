@@ -17,13 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - postgres-major: 11
         - postgres-major: 12
         - postgres-major: 13
         - postgres-major: 14
         - postgres-major: 15
         - postgres-major: 16
-        - postgres-major: 17
     runs-on: ubuntu-latest
     # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
