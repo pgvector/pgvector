@@ -448,12 +448,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 	}
 
 	if (loadVec)
-	{
-		Vector	   *vec = palloc(VARSIZE_ANY(&etup->data));
-
-		memcpy(vec, &etup->data, VARSIZE_ANY(&etup->data));
-		element->value = PointerGetDatum(vec);
-	}
+		element->value = datumCopy(PointerGetDatum(&etup->data), false, -1);
 }
 
 /*
