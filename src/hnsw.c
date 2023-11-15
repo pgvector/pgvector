@@ -236,3 +236,17 @@ hnsw_int4_attribute_distance(PG_FUNCTION_ARGS)
 
 	PG_RETURN_FLOAT8(distance);
 }
+
+/*
+ * Get the distance between two int8 attributes
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_int8_attribute_distance);
+Datum
+hnsw_int8_attribute_distance(PG_FUNCTION_ARGS)
+{
+	int64		a = PG_GETARG_INT64(0);
+	int64		b = PG_GETARG_INT64(1);
+	double		distance = ((double) a) - ((double) b);
+
+	PG_RETURN_FLOAT8(distance);
+}

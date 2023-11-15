@@ -56,7 +56,7 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4);");
+$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int8);");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 20000) i;"
 );
