@@ -39,7 +39,9 @@ HnswInit(void)
 
 	add_int_reloption(hnsw_relopt_kind, "dims", "Expected number of vector dimensions",
 					  -1, -1, HNSW_MAX_DIM
+#if PG_VERSION_NUM >= 130000
 					  ,AccessExclusiveLock
+#endif
 		);
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,

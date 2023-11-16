@@ -31,7 +31,9 @@ IvfflatInit(void)
 		);
 	add_int_reloption(ivfflat_relopt_kind, "dims", "Expected number of vector dimensions",
 					  -1, -1, IVFFLAT_MAX_DIM
+#if PG_VERSION_NUM >= 130000
 					  ,AccessExclusiveLock
+#endif
 		);
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
