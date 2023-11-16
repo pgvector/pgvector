@@ -177,6 +177,8 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
 
 	HnswInitNeighbors(element, m);
 
+	element->value = PointerGetDatum(NULL);
+
 	return element;
 }
 
