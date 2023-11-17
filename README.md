@@ -269,6 +269,8 @@ Specify HNSW parameters
 CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
 ```
 
+A higher value of `ef_construction` provides better recall at the cost of index build time / insert speed.
+
 ### Query Options
 
 Specify the size of the dynamic candidate list for search (40 by default)
