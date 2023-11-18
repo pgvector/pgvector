@@ -114,6 +114,7 @@ typedef struct HnswCandidate
 {
 	HnswElement element;
 	float		distance;
+	bool		matches;
 	bool		closer;
 }			HnswCandidate;
 
@@ -288,7 +289,7 @@ void		HnswInitNeighbors(HnswElement element, int m);
 bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel);
 void		HnswUpdateNeighborPages(Relation index, FmgrInfo **procinfos, Oid *collations, HnswElement e, int m, bool checkExisting);
 void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec, Relation index);
-void		HnswLoadElement(HnswElement element, float *distance, Datum *q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfos, Oid *collations, bool loadVec);
+void		HnswLoadElement(HnswElement element, float *distance, bool *matches, Datum *q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfos, Oid *collations, bool loadVec);
 void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element, bool useIndexTuple);
 void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo **procinfos, Oid *collations, bool inMemory);
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
