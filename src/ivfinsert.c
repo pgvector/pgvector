@@ -83,10 +83,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	/* Normalize if needed */
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	if (normprocinfo != NULL)
-	{
-		if (!IvfflatNormValue(normprocinfo, index->rd_indcollation[0], &value, NULL))
-			return;
-	}
+		IvfflatNormValue(normprocinfo, index->rd_indcollation[0], &value, NULL);
 
 	/* Find the insert page - sets the page and list info */
 	FindInsertPage(index, values, &insertPage, &listInfo);

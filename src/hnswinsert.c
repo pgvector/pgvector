@@ -500,10 +500,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	/* Normalize if needed */
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	if (normprocinfo != NULL)
-	{
-		if (!HnswNormValue(normprocinfo, collation, &value, NULL))
-			return false;
-	}
+		HnswNormValue(normprocinfo, collation, &value, NULL);
 
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts

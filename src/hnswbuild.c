@@ -307,10 +307,7 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
-	{
-		if (!HnswNormValue(buildstate->normprocinfo, collation, &value, buildstate->normvec))
-			return false;
-	}
+		HnswNormValue(buildstate->normprocinfo, collation, &value, buildstate->normvec);
 
 	/* Copy value to element so accessible outside of memory context */
 	oldCtx = MemoryContextSwitchTo(outerCtx);

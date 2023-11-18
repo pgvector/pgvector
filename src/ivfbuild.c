@@ -177,10 +177,7 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
-	{
-		if (!IvfflatNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->normvec))
-			return;
-	}
+		IvfflatNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->normvec);
 
 	/* Find the list that minimizes the distance */
 	for (int i = 0; i < centers->length; i++)

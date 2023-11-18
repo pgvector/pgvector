@@ -55,7 +55,7 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
  * The caller needs to free the pointer stored in value
  * if it's different than the original value
  */
-bool
+void
 HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
 {
 	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
@@ -71,11 +71,7 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
 			result->x[i] = v->x[i] / norm;
 
 		*value = PointerGetDatum(result);
-
-		return true;
 	}
-
-	return false;
 }
 
 /*
