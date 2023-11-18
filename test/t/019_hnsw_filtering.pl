@@ -34,6 +34,8 @@ sub test_recall
 		my @actual_ids = split("\n", $actual);
 		my %actual_set = map { $_ => 1 } @actual_ids;
 
+		is(scalar(@actual_ids), $limit);
+
 		my @expected_ids = split("\n", $expected[$i]);
 
 		foreach (@expected_ids)
