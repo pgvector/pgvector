@@ -28,19 +28,19 @@ jobs:
         with:
           postgres-version: ${{ matrix.postgres }}
           dev-files: true
-      - run: make
+      - run: make USE_PGXS=1
         env:
           PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
       - run: |
           export PG_CONFIG=`which pg_config`
-          sudo --preserve-env=PG_CONFIG make install
-      - run: make installcheck
+          sudo --preserve-env=PG_CONFIG make USE_PGXS=1 install
+      - run: make USE_PGXS=1 installcheck
       - if: ${{ failure() }}
         run: cat regression.diffs
       - run: |
           sudo apt-get update
           sudo apt-get install libipc-run-perl
-      - run: make prove_installcheck
+      - run: make USE_PGXS=1 prove_installcheck
   mac:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref_name, 'windows') }}
@@ -49,11 +49,11 @@ jobs:
       - uses: ankane/setup-postgres@v1
         with:
           postgres-version: 14
-      - run: make
+      - run: make USE_PGXS=1
         env:
           PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter
-      - run: make install
-      - run: make installcheck
+      - run: make USE_PGXS=1 install
+      - run: make USE_PGXS=1 installcheck
       - if: ${{ failure() }}
         run: cat regression.diffs
       - run: |
@@ -61,8 +61,8 @@ jobs:
           cpanm --notest IPC::Run
           wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_5.tar.gz
           tar xf REL_14_5.tar.gz
-      - run: make prove_installcheck PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
-      - run: make clean && /usr/local/opt/llvm@15/bin/scan-build --status-bugs make
+      - run: make USE_PGXS=1 prove_installcheck PROVE_FLAGS="-I ./postgres-REL_14_5/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
+      - run: make USE_PGXS=1 clean && /usr/local/opt/llvm@15/bin/scan-build --status-bugs make USE_PGXS=1
   windows:
     runs-on: windows-latest
     if: ${{ !startsWith(github.ref_name, 'mac') }}
@@ -93,10 +93,10 @@ jobs:
           cd pgvector
           git fetch origin ${{ github.ref }}
           git reset --hard FETCH_HEAD
-          make
-          make install
+          make USE_PGXS=1
+          make USE_PGXS=1 install
           chown -R postgres .
-          sudo -u postgres make installcheck
-          sudo -u postgres make prove_installcheck
+          sudo -u postgres make USE_PGXS=1 installcheck
+          sudo -u postgres make USE_PGXS=1 prove_installcheck
         env:
           PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
