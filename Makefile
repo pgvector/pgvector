@@ -2,13 +2,13 @@ EXTENSION = vector
 EXTVERSION = 0.5.1
 
 MODULE_big = vector
-DATA = $(wildcard sql/*--*.sql)
+DATA = $(patsubst $(srcdir)/%,%,$(wildcard $(srcdir)/sql/*--*.sql))
 OBJS = src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/vector.o
 HEADERS = src/vector.h
 
-TESTS = $(wildcard test/sql/*.sql)
-REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
-REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
+TESTS = $(wildcard $(srcdir)/test/sql/*.sql)
+REGRESS = $(patsubst $(srcdir)/test/sql/%.sql,%,$(TESTS))
+REGRESS_OPTS = --inputdir=$(srcdir)/test --load-extension=$(EXTENSION)
 
 OPTFLAGS = -march=native
 
@@ -39,13 +39,20 @@ PG_CFLAGS += $(OPTFLAGS) -ftree-vectorize -fassociative-math -fno-signed-zeros -
 all: sql/$(EXTENSION)--$(EXTVERSION).sql
 
 sql/$(EXTENSION)--$(EXTVERSION).sql: sql/$(EXTENSION).sql
-	cp $< $@
+	cp $< $(srcdir)/$@
 
-EXTRA_CLEAN = sql/$(EXTENSION)--$(EXTVERSION).sql
+EXTRA_CLEAN = $(srcdir)/sql/$(EXTENSION)--$(EXTVERSION).sql
 
+ifdef USE_PGXS
 PG_CONFIG ?= pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
+else
+subdir = contrib/pgvector
+top_builddir = ../..
+include $(top_builddir)/src/Makefile.global
+include $(top_srcdir)/contrib/contrib-global.mk
+endif
 
 # for Mac
 ifeq ($(PROVE),)
