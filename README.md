@@ -379,7 +379,7 @@ Language | Libraries / Examples
 --- | ---
 C | [pgvector-c](https://github.com/pgvector/pgvector-c)
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
-C# | [pgvector-dotnet](https://github.com/pgvector/pgvector-dotnet)
+C#, F# | [pgvector-dotnet](https://github.com/pgvector/pgvector-dotnet)
 Crystal | [pgvector-crystal](https://github.com/pgvector/pgvector-crystal)
 Dart | [pgvector-dart](https://github.com/pgvector/pgvector-dart)
 Elixir | [pgvector-elixir](https://github.com/pgvector/pgvector-elixir)
