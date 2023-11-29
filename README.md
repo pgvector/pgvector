@@ -390,6 +390,7 @@ JavaScript, TypeScript | [pgvector-node](https://github.com/pgvector/pgvector-no
 Julia | [pgvector-julia](https://github.com/pgvector/pgvector-julia)
 Lua | [pgvector-lua](https://github.com/pgvector/pgvector-lua)
 Nim | [pgvector-nim](https://github.com/pgvector/pgvector-nim)
+OCaml | [pgvector-ocaml](https://github.com/pgvector/pgvector-ocaml)
 Perl | [pgvector-perl](https://github.com/pgvector/pgvector-perl)
 PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
 Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
