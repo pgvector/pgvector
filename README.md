@@ -414,6 +414,14 @@ Yes, pgvector uses the write-ahead log (WAL), which allows for replication and p
 
 You’ll need to use [dimensionality reduction](https://en.wikipedia.org/wiki/Dimensionality_reduction) at the moment.
 
+#### Do indexes need to fit into memory?
+
+No, but as with other index types, you’ll likely see better performance if they do. You can get the size of an index with:
+
+```sql
+SELECT pg_size_pretty(pg_relation_size('index_name'));
+```
+
 #### Can I store vectors with different dimensions in the same column?
 
 You can use `vector` as the type (instead of `vector(3)`).
