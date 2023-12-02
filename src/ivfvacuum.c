@@ -67,13 +67,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 				buf = ReadBufferExtended(index, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
 
-				/*
-				 * ambulkdelete cannot delete entries from pages that are
-				 * pinned by other backends
-				 *
-				 * https://www.postgresql.org/docs/current/index-locking.html
-				 */
-				LockBufferForCleanup(buf);
+				LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
 				state = GenericXLogStart(index);
 				page = GenericXLogRegisterBuffer(state, buf, 0);
