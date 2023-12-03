@@ -724,7 +724,7 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the L1 distance between vectors
+ * Get the L1 distance between two vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(l1_distance);
 Datum
