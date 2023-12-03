@@ -75,3 +75,8 @@ CREATE OPERATOR <=> (
 	LEFTARG = half[], RIGHTARG = half[], PROCEDURE = cosine_distance,
 	COMMUTATOR = '<=>'
 );
+
+CREATE OPERATOR CLASS half_l2_ops
+	FOR TYPE half[] USING hnsw AS
+	OPERATOR 1 <-> (half[], half[]) FOR ORDER BY float_ops,
+	FUNCTION 1 half_l2_squared_distance(half[], half[]);
