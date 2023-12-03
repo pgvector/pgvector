@@ -1,0 +1,182 @@
+SELECT '1.5'::half;
+ half 
+------
+ 1.5
+(1 row)
+
+SELECT '65504'::half;
+ half  
+-------
+ 65504
+(1 row)
+
+SELECT '65505'::half;
+ERROR:  "65505" is out of range for type half
+LINE 1: SELECT '65505'::half;
+               ^
+SELECT '-65504'::half;
+  half  
+--------
+ -65504
+(1 row)
+
+SELECT '-65505'::half;
+ERROR:  "-65505" is out of range for type half
+LINE 1: SELECT '-65505'::half;
+               ^
+SELECT ''::half;
+ERROR:  invalid input syntax for type half: ""
+LINE 1: SELECT ''::half;
+               ^
+SELECT ' '::half;
+ERROR:  invalid input syntax for type half: " "
+LINE 1: SELECT ' '::half;
+               ^
+SELECT '-'::half;
+ERROR:  invalid input syntax for type half: "-"
+LINE 1: SELECT '-'::half;
+               ^
+SELECT ' 1.5'::half;
+ half 
+------
+ 1.5
+(1 row)
+
+SELECT '1.5 '::half;
+ half 
+------
+ 1.5
+(1 row)
+
+SELECT '1.5a'::half;
+ERROR:  invalid input syntax for type half: "1.5a"
+LINE 1: SELECT '1.5a'::half;
+               ^
+SELECT '{1,2,3}'::half[];
+  half   
+---------
+ {1,2,3}
+(1 row)
+
+SELECT '65505'::integer::half;
+ half  
+-------
+ 65504
+(1 row)
+
+SELECT 'NaN'::real::half;
+ half 
+------
+ NaN
+(1 row)
+
+SELECT 'Infinity'::real::half;
+   half   
+----------
+ Infinity
+(1 row)
+
+SELECT l2_distance('{0,0}'::half[], '{3,4}'::half[]);
+ l2_distance 
+-------------
+           5
+(1 row)
+
+SELECT l2_distance('{0,0}'::half[], '{0,1}'::half[]);
+ l2_distance 
+-------------
+           1
+(1 row)
+
+SELECT l2_distance('{1,2}'::half[], '{3}'::half[]);
+ERROR:  different dimensions 2 and 1
+SELECT '{0,0}'::half[] <-> '{3,4}'::half[];
+ ?column? 
+----------
+        5
+(1 row)
+
+SELECT inner_product('{1,2}'::half[], '{3,4}'::half[]);
+ inner_product 
+---------------
+            11
+(1 row)
+
+SELECT inner_product('{1,2}'::half[], '{3}'::half[]);
+ERROR:  different dimensions 2 and 1
+SELECT inner_product('{65504}'::half[], '{65504}'::half[]);
+ inner_product 
+---------------
+    4290774016
+(1 row)
+
+SELECT '{1,2}'::half[] <#> '{3,4}'::half[];
+ ?column? 
+----------
+      -11
+(1 row)
+
+SELECT cosine_distance('{1,2}'::half[], '{2,4}'::half[]);
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('{1,2}'::half[], '{0,0}'::half[]);
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
+SELECT cosine_distance('{1,1}'::half[], '{1,1}'::half[]);
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('{1,0}'::half[], '{0,2}'::half[]);
+ cosine_distance 
+-----------------
+               1
+(1 row)
+
+SELECT cosine_distance('{1,1}'::half[], '{-1,-1}'::half[]);
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
+SELECT cosine_distance('{1,2}'::half[], '{3}'::half[]);
+ERROR:  different dimensions 2 and 1
+SELECT cosine_distance('{1,1}'::half[], '{1.1,1.1}'::half[]);
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('{1,1}'::half[], '{-1.1,-1.1}'::half[]);
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
+SELECT '{1,2}'::half[] <=> '{2,4}'::half[];
+ ?column? 
+----------
+        0
+(1 row)
+
+SELECT l1_distance('{0,0}'::half[], '{3,4}');
+ l1_distance 
+-------------
+           7
+(1 row)
+
+SELECT l1_distance('{0,0}'::half[], '{0,1}');
+ l1_distance 
+-------------
+           1
+(1 row)
+
+SELECT l1_distance('{1,2}'::half[], '{3}');
+ERROR:  different dimensions 2 and 1
