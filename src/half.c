@@ -424,6 +424,8 @@ integer_to_half(PG_FUNCTION_ARGS)
 
 /*
  * Convert numeric to half
+ *
+ * TODO Improve error message if out of range
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(numeric_to_half);
 Datum
