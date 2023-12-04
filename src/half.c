@@ -305,7 +305,15 @@ static half
 Float8ToHalf(double num)
 {
 	/* TODO Convert directly for greater accuracy */
-	return Float4ToHalf((float) num);
+	half		result = Float4ToHalfUnchecked((float) num);
+
+	/* TODO Perform checks without HalfToFloat4 */
+	if (unlikely(isinf(HalfToFloat4(result))) && !isinf(num))
+		float_overflow_error();
+	if (unlikely(HalfToFloat4(result) == 0.0f) && num != 0.0)
+		float_underflow_error();
+
+	return result;
 }
 
 /*
