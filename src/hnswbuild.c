@@ -387,10 +387,11 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	{
 		if (!buildstate->flushed)
 		{
-			ereport(NOTICE,
-					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
-					 errdetail("Building will take significantly more time."),
-					 errhint("Increase maintenance_work_mem to speed up builds.")));
+			if (buildstate->memoryLeft <= 0)
+				ereport(NOTICE,
+						(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
+						 errdetail("Building will take significantly more time."),
+						 errhint("Increase maintenance_work_mem to speed up builds.")));
 
 			FlushPages(buildstate);
 		}
