@@ -903,8 +903,8 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_lt);
 Datum
 vector_lt(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = (Vector *) PG_GETARG_VECTOR_P(0);
-	Vector	   *b = (Vector *) PG_GETARG_VECTOR_P(1);
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
 
 	PG_RETURN_BOOL(vector_cmp_internal(a, b) < 0);
 }
@@ -916,8 +916,8 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_le);
 Datum
 vector_le(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = (Vector *) PG_GETARG_VECTOR_P(0);
-	Vector	   *b = (Vector *) PG_GETARG_VECTOR_P(1);
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
 
 	PG_RETURN_BOOL(vector_cmp_internal(a, b) <= 0);
 }
@@ -929,8 +929,8 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_eq);
 Datum
 vector_eq(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = (Vector *) PG_GETARG_VECTOR_P(0);
-	Vector	   *b = (Vector *) PG_GETARG_VECTOR_P(1);
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
 
 	PG_RETURN_BOOL(vector_cmp_internal(a, b) == 0);
 }
@@ -942,8 +942,8 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_ne);
 Datum
 vector_ne(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = (Vector *) PG_GETARG_VECTOR_P(0);
-	Vector	   *b = (Vector *) PG_GETARG_VECTOR_P(1);
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
 
 	PG_RETURN_BOOL(vector_cmp_internal(a, b) != 0);
 }
@@ -955,8 +955,8 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_ge);
 Datum
 vector_ge(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = (Vector *) PG_GETARG_VECTOR_P(0);
-	Vector	   *b = (Vector *) PG_GETARG_VECTOR_P(1);
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
 
 	PG_RETURN_BOOL(vector_cmp_internal(a, b) >= 0);
 }
@@ -968,8 +968,8 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_gt);
 Datum
 vector_gt(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = (Vector *) PG_GETARG_VECTOR_P(0);
-	Vector	   *b = (Vector *) PG_GETARG_VECTOR_P(1);
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
 
 	PG_RETURN_BOOL(vector_cmp_internal(a, b) > 0);
 }
@@ -981,8 +981,8 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_cmp);
 Datum
 vector_cmp(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = (Vector *) PG_GETARG_VECTOR_P(0);
-	Vector	   *b = (Vector *) PG_GETARG_VECTOR_P(1);
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
 
 	PG_RETURN_INT32(vector_cmp_internal(a, b));
 }
