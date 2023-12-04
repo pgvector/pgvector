@@ -56,6 +56,8 @@
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)
 #define PARALLEL_KEY_QUERY_TEXT			UINT64CONST(0xA000000000000002)
 
+#define LIST_MAX_LENGTH ((1 << 26) - 1)
+
 /*
  * Create the metapage
  */
@@ -381,7 +383,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
-	if (buildstate->memoryLeft <= 0)
+	if (buildstate->memoryLeft <= 0 || list_length(buildstate->elements) == LIST_MAX_LENGTH)
 	{
 		if (!buildstate->flushed)
 		{
