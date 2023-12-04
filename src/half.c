@@ -299,6 +299,16 @@ Float4ToHalf(float num)
 }
 
 /*
+ * Convert a float8 to a half
+ */
+static half
+Float8ToHalf(double num)
+{
+	/* TODO Convert directly for greater accuracy */
+	return Float4ToHalf((float) num);
+}
+
+/*
  * Convert textual representation to internal representation
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(half_in);
@@ -464,6 +474,32 @@ half_to_float4(PG_FUNCTION_ARGS)
 	float		f = HalfToFloat4(h);
 
 	PG_RETURN_FLOAT4(f);
+}
+
+/*
+ * Convert float8 to half
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(float8_to_half);
+Datum
+float8_to_half(PG_FUNCTION_ARGS)
+{
+	float8		d = PG_GETARG_FLOAT8(0);
+	half		h = Float8ToHalf(d);
+
+	PG_RETURN_HALF(h);
+}
+
+/*
+ * Convert half to float8
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(half_to_float8);
+Datum
+half_to_float8(PG_FUNCTION_ARGS)
+{
+	half		h = PG_GETARG_HALF(0);
+	float		f = HalfToFloat4(h);
+
+	PG_RETURN_FLOAT8((double) f);
 }
 
 /*

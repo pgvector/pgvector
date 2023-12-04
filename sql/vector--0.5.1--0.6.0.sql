@@ -49,6 +49,12 @@ CREATE FUNCTION float4_to_half(real, integer, boolean) RETURNS half
 CREATE FUNCTION half_to_float4(half, integer, boolean) RETURNS real
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION float8_to_half(float8, integer, boolean) RETURNS half
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION half_to_float8(half, integer, boolean) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION integer_to_half(integer, integer, boolean) RETURNS half
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -63,6 +69,12 @@ CREATE CAST (real AS half)
 
 CREATE CAST (half AS real)
 	WITH FUNCTION half_to_float4(half, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (float8 AS half)
+	WITH FUNCTION float8_to_half(float8, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (half AS float8)
+	WITH FUNCTION half_to_float8(half, integer, boolean) AS IMPLICIT;
 
 CREATE CAST (integer AS half)
 	WITH FUNCTION integer_to_half(integer, integer, boolean) AS IMPLICIT;

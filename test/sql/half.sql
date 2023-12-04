@@ -21,6 +21,9 @@ SELECT 'Infinity'::real::half;
 SELECT '1.5'::half::real;
 SELECT '1.5'::real::half;
 
+SELECT '1.5'::half::double precision;
+SELECT '1.5'::double precision::half;
+
 SELECT '1.5'::half::numeric;
 SELECT '1.5'::numeric::half;
 

@@ -94,6 +94,18 @@ SELECT '1.5'::real::half;
  1.5
 (1 row)
 
+SELECT '1.5'::half::double precision;
+ float8 
+--------
+    1.5
+(1 row)
+
+SELECT '1.5'::double precision::half;
+ half 
+------
+ 1.5
+(1 row)
+
 SELECT '1.5'::half::numeric;
  numeric 
 ---------
