@@ -383,7 +383,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
-	if (buildstate->memoryLeft <= 0 || list_length(buildstate->elements) == LIST_MAX_LENGTH)
+	if (buildstate->flushed || buildstate->memoryLeft <= 0 || list_length(buildstate->elements) == LIST_MAX_LENGTH)
 	{
 		if (!buildstate->flushed)
 		{
