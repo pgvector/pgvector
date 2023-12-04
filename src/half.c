@@ -427,6 +427,20 @@ numeric_to_half(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Convert half to numeric
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(half_to_numeric);
+Datum
+half_to_numeric(PG_FUNCTION_ARGS)
+{
+	half		h = PG_GETARG_HALF(0);
+	float		f = HalfToFloat4(h);
+	Numeric		num = DatumGetNumeric(DirectFunctionCall1(float4_numeric, Float4GetDatum(f)));
+
+	PG_RETURN_NUMERIC(num);
+}
+
+/*
  * Convert float4 to half
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(float4_to_half);

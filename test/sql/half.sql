@@ -12,13 +12,17 @@ SELECT '1.5 '::half;
 SELECT '1.5a'::half;
 
 SELECT '{1,2,3}'::half[];
+SELECT '{1,2,3}'::half[]::real[];
 
 SELECT '65505'::integer::half;
 SELECT 'NaN'::real::half;
 SELECT 'Infinity'::real::half;
 
 SELECT '1.5'::half::real;
-SELECT '{1.5}'::half[]::real[];
+SELECT '1.5'::real::half;
+
+SELECT '1.5'::half::numeric;
+SELECT '1.5'::numeric::half;
 
 SELECT l2_distance('{0,0}'::half[], '{3,4}'::half[]);
 SELECT l2_distance('{0,0}'::half[], '{0,1}'::half[]);

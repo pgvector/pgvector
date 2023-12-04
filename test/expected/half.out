@@ -58,6 +58,12 @@ SELECT '{1,2,3}'::half[];
  {1,2,3}
 (1 row)
 
+SELECT '{1,2,3}'::half[]::real[];
+ float4  
+---------
+ {1,2,3}
+(1 row)
+
 SELECT '65505'::integer::half;
  half  
 -------
@@ -82,10 +88,22 @@ SELECT '1.5'::half::real;
     1.5
 (1 row)
 
-SELECT '{1.5}'::half[]::real[];
- float4 
---------
- {1.5}
+SELECT '1.5'::real::half;
+ half 
+------
+ 1.5
+(1 row)
+
+SELECT '1.5'::half::numeric;
+ numeric 
+---------
+     1.5
+(1 row)
+
+SELECT '1.5'::numeric::half;
+ half 
+------
+ 1.5
 (1 row)
 
 SELECT l2_distance('{0,0}'::half[], '{3,4}'::half[]);

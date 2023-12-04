@@ -353,6 +353,9 @@ CREATE FUNCTION integer_to_half(integer, integer, boolean) RETURNS half
 CREATE FUNCTION numeric_to_half(numeric, integer, boolean) RETURNS half
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION half_to_numeric(half, integer, boolean) RETURNS numeric
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- half casts
 
 CREATE CAST (real AS half)
@@ -366,6 +369,9 @@ CREATE CAST (integer AS half)
 
 CREATE CAST (numeric AS half)
 	WITH FUNCTION numeric_to_half(numeric, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (half AS numeric)
+	WITH FUNCTION half_to_numeric(half, integer, boolean) AS IMPLICIT;
 
 -- half operators
 
