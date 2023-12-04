@@ -295,6 +295,19 @@ HalfIsInf(half num)
 }
 
 /*
+ * Check if half is zero
+ */
+static inline bool
+HalfIsZero(half num)
+{
+#ifdef FLT16_SUPPORT
+	return num == 0;
+#else
+	return (num << 1) == 0x0000;
+#endif
+}
+
+/*
  * Convert a float4 to a half
  */
 static half
@@ -304,8 +317,7 @@ Float4ToHalf(float num)
 
 	if (unlikely(HalfIsInf(result)) && !isinf(num))
 		float_overflow_error();
-	/* TODO Perform check without HalfToFloat4 */
-	if (unlikely(HalfToFloat4(result) == 0.0f) && num != 0.0)
+	if (unlikely(HalfIsZero(result)) && num != 0.0)
 		float_underflow_error();
 
 	return result;
@@ -322,8 +334,7 @@ Float8ToHalf(double num)
 
 	if (unlikely(HalfIsInf(result)) && !isinf(num))
 		float_overflow_error();
-	/* TODO Perform check without HalfToFloat4 */
-	if (unlikely(HalfToFloat4(result) == 0.0f) && num != 0.0)
+	if (unlikely(HalfIsZero(result)) && num != 0.0)
 		float_underflow_error();
 
 	return result;

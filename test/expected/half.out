@@ -82,6 +82,8 @@ SELECT 'Infinity'::real::half;
  Infinity
 (1 row)
 
+SELECT '1e-38'::real::half;
+ERROR:  value out of range: underflow
 SELECT '1.5'::half::real;
  float4 
 --------

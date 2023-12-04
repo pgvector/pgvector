@@ -17,6 +17,7 @@ SELECT '{1,2,3}'::half[]::real[];
 SELECT '65505'::integer::half;
 SELECT 'NaN'::real::half;
 SELECT 'Infinity'::real::half;
+SELECT '1e-38'::real::half;
 
 SELECT '1.5'::half::real;
 SELECT '1.5'::real::half;
