@@ -17,6 +17,9 @@ SELECT '65505'::integer::half;
 SELECT 'NaN'::real::half;
 SELECT 'Infinity'::real::half;
 
+SELECT '1.5'::half::real;
+SELECT '{1.5}'::half[]::real[];
+
 SELECT l2_distance('{0,0}'::half[], '{3,4}'::half[]);
 SELECT l2_distance('{0,0}'::half[], '{0,1}'::half[]);
 SELECT l2_distance('{1,2}'::half[], '{3}'::half[]);

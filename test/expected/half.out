@@ -76,6 +76,18 @@ SELECT 'Infinity'::real::half;
  Infinity
 (1 row)
 
+SELECT '1.5'::half::real;
+ float4 
+--------
+    1.5
+(1 row)
+
+SELECT '{1.5}'::half[]::real[];
+ float4 
+--------
+ {1.5}
+(1 row)
+
 SELECT l2_distance('{0,0}'::half[], '{3,4}'::half[]);
  l2_distance 
 -------------

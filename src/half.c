@@ -440,6 +440,19 @@ float4_to_half(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Convert half to float4
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(half_to_float4);
+Datum
+half_to_float4(PG_FUNCTION_ARGS)
+{
+	half		h = PG_GETARG_HALF(0);
+	float		f = HalfToFloat4(h);
+
+	PG_RETURN_FLOAT4(f);
+}
+
+/*
  * Get the L2 distance between half arrays
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(half_l2_distance);

@@ -46,6 +46,9 @@ CREATE FUNCTION half_negative_inner_product(half[], half[]) RETURNS float8
 CREATE FUNCTION float4_to_half(real, integer, boolean) RETURNS half
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION half_to_float4(half, integer, boolean) RETURNS real
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION integer_to_half(integer, integer, boolean) RETURNS half
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -54,6 +57,9 @@ CREATE FUNCTION numeric_to_half(numeric, integer, boolean) RETURNS half
 
 CREATE CAST (real AS half)
 	WITH FUNCTION float4_to_half(real, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (half AS real)
+	WITH FUNCTION half_to_float4(half, integer, boolean) AS IMPLICIT;
 
 CREATE CAST (integer AS half)
 	WITH FUNCTION integer_to_half(integer, integer, boolean) AS IMPLICIT;
