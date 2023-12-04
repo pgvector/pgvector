@@ -21,7 +21,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
 
-	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
+	procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
 	collation = index->rd_indcollation[0];
 
 	/* Choose an initial center uniformly at random */
@@ -209,7 +209,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		elog(ERROR, "Indexing overflow detected. Please report a bug.");
 
 	/* Set support functions */
-	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
+	procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	collation = index->rd_indcollation[0];
 
