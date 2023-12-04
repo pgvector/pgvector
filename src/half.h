@@ -5,7 +5,6 @@
 
 #include <float.h>
 
-/* _Float16 and __fp16 are not supported on x86_64 with GCC 11 */
 #if defined(__is_identifier)
 #if __is_identifier(_Float16)
 #define FLT16_SUPPORT
