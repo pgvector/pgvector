@@ -6,7 +6,7 @@
 #include <float.h>
 
 #if defined(__is_identifier)
-#if __is_identifier(_Float16)
+#if __is_identifier(__Float16)
 #define FLT16_SUPPORT
 #endif
 #elif defined(FLT16_MAX)
