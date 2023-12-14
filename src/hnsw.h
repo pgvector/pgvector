@@ -303,7 +303,7 @@ typedef struct HnswVacuumState
 	Oid			collation;
 
 	/* Variables */
-	HTAB	   *deleted;
+	struct tids_hash *deleted;
 	BufferAccessStrategy bas;
 	HnswNeighborTuple ntup;
 	HnswElementData highestPoint;
@@ -359,5 +359,34 @@ IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
+
+/*
+ * TIDs and pointers hash table declarations. These are defined in
+ * hnswutils.c.
+ */
+
+typedef struct {
+	ItemPointerData tid;
+	char		status;
+} TidHashEntry;
+
+#define SH_PREFIX tids
+#define SH_ELEMENT_TYPE TidHashEntry
+#define SH_KEY_TYPE ItemPointerData
+#define SH_SCOPE extern
+#define SH_DECLARE
+#include "lib/simplehash.h"
+
+typedef struct {
+	uintptr_t	ptr;
+	char		status;
+} PointerHashEntry;
+
+#define SH_PREFIX pointers
+#define SH_ELEMENT_TYPE PointerHashEntry
+#define SH_KEY_TYPE uintptr_t
+#define SH_SCOPE extern
+#define SH_DECLARE
+#include "lib/simplehash.h"
 
 #endif

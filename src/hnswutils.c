@@ -2,10 +2,23 @@
 
 #include <math.h>
 
+#if PG_VERSION_NUM >= 130000
+#include "common/hashfn.h"
+#else
+#include "utils/hashutils.h"
+#endif
 #include "hnsw.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "vector.h"
+
+/*
+ * Define a hash table to hold TIDs that have already been visited during search
+ */
+typedef union {
+	pointers_hash *pointers;
+	tids_hash *tids;
+} visited_nodes_hash;
 
 /*
  * Get the max number of connections in an upper layer for each element in the index
@@ -553,16 +566,18 @@ CreatePairingHeapNode(HnswCandidate * c)
  * Add to visited
  */
 static inline void
-AddToVisited(HTAB *v, HnswCandidate * hc, Relation index, bool *found)
+AddToVisited(visited_nodes_hash v, HnswCandidate * hc, Relation index, bool *found)
 {
 	if (index == NULL)
-		hash_search(v, &hc->element, HASH_ENTER, found);
+	{
+		pointers_insert(v.pointers, (uintptr_t) hc->element, found);
+	}
 	else
 	{
 		ItemPointerData indextid;
 
 		ItemPointerSet(&indextid, hc->element->blkno, hc->element->offno);
-		hash_search(v, &indextid, HASH_ENTER, found);
+		tids_insert(v.tids, indextid, found);
 	}
 }
 
@@ -578,30 +593,21 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
 	int			wlen = 0;
-	HASHCTL		hash_ctl;
-	HTAB	   *v;
+	visited_nodes_hash v;
 
 	/* Create hash table */
 	if (index == NULL)
-	{
-		hash_ctl.keysize = sizeof(HnswElement *);
-		hash_ctl.entrysize = sizeof(HnswElement *);
-	}
+		v.pointers = pointers_create(CurrentMemoryContext, ef * 5, NULL);
 	else
-	{
-		hash_ctl.keysize = sizeof(ItemPointerData);
-		hash_ctl.entrysize = sizeof(ItemPointerData);
-	}
-
-	hash_ctl.hcxt = CurrentMemoryContext;
-	v = hash_create("hnsw visited", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
+		v.tids = tids_create(CurrentMemoryContext, ef * 5, NULL);
 
 	/* Add entry points to v, C, and W */
 	foreach(lc2, ep)
 	{
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
+		bool		found;
 
-		AddToVisited(v, hc, index, NULL);
+		AddToVisited(v, hc, index, &found);
 
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
@@ -1071,3 +1077,83 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		ep = w;
 	}
 }
+
+/*
+ * Definitions of two simplehash-based hash tables. One for storing TIDs and
+ * another for pointers.
+ */
+
+#if PG_VERSION_NUM < 170000
+/* 64-bit variant */
+static inline uint64
+murmurhash64(uint64 data)
+{
+        uint64          h = data;
+
+        h ^= h >> 33;
+        h *= 0xff51afd7ed558ccd;
+        h ^= h >> 33;
+        h *= 0xc4ceb9fe1a85ec53;
+        h ^= h >> 33;
+
+        return h;
+}
+#endif
+
+/* TIDs hash table */
+static uint32
+hash_tid(ItemPointerData tid)
+{
+	union {
+		uint64 i;
+		ItemPointerData tid;
+	} x;
+
+	x.i = 0;		/* clear bytes not used by ItemPointerData */
+	x.tid = tid;
+
+	return murmurhash64(x.i);
+}
+
+#define SH_PREFIX		tids
+#define SH_ELEMENT_TYPE	TidHashEntry
+#define SH_KEY_TYPE		ItemPointerData
+#define	SH_KEY			tid
+#define SH_HASH_KEY(tb, key)	hash_tid(key)
+#define SH_EQUAL(tb, a, b)		ItemPointerEquals(&a, &b)
+#define	SH_SCOPE		extern
+#define SH_DEFINE
+#include "lib/simplehash.h"
+
+/* Pointers hash table */
+static uint32
+hash_pointer(uintptr_t ptr)
+{
+#if SIZEOF_VOID_P == 8
+	return murmurhash64((uint64) ptr);
+#else
+	return murmurhash32((uint32) ptr);
+#endif
+}
+
+/*
+ * These hacks are needed to include simplehash.h twice in the same
+ * source file on older versions.
+ */
+#if PG_VERSION_NUM < 130000
+#undef SH_EQUAL
+#endif
+#if PG_VERSION_NUM < 120000
+#define sh_log2 pointers_sh_log2
+#define sh_pow2 pointers_sh_pow2
+#endif
+
+#define SH_PREFIX		pointers
+#define SH_ELEMENT_TYPE	PointerHashEntry
+#define SH_KEY_TYPE		uintptr_t
+#define	SH_KEY			ptr
+#define SH_HASH_KEY(tb, key)	hash_pointer(key)
+#define SH_EQUAL(tb, a, b)		(a == b)
+#define	SH_SCOPE		extern
+#define SH_DEFINE
+#include "lib/simplehash.h"
