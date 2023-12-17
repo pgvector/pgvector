@@ -104,6 +104,7 @@ typedef struct HnswElementData
 	List	   *heaptids;
 	uint8		level;
 	uint8		deleted;
+	uint32		hash;
 	HnswNeighborArray *neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
@@ -303,7 +304,7 @@ typedef struct HnswVacuumState
 	Oid			collation;
 
 	/* Variables */
-	HTAB	   *deleted;
+	struct tidhash_hash *deleted;
 	BufferAccessStrategy bas;
 	HnswNeighborTuple ntup;
 	HnswElementData highestPoint;
@@ -359,5 +360,32 @@ IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
+
+/* Hash tables */
+typedef struct TidHashEntry
+{
+	ItemPointerData tid;
+	char		status;
+}			TidHashEntry;
+
+#define SH_PREFIX tidhash
+#define SH_ELEMENT_TYPE TidHashEntry
+#define SH_KEY_TYPE ItemPointerData
+#define SH_SCOPE extern
+#define SH_DECLARE
+#include "lib/simplehash.h"
+
+typedef struct PointerHashEntry
+{
+	uintptr_t	ptr;
+	char		status;
+}			PointerHashEntry;
+
+#define SH_PREFIX pointerhash
+#define SH_ELEMENT_TYPE PointerHashEntry
+#define SH_KEY_TYPE uintptr_t
+#define SH_SCOPE extern
+#define SH_DECLARE
+#include "lib/simplehash.h"
 
 #endif

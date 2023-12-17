@@ -12,12 +12,9 @@
  * Check if deleted list contains an index TID
  */
 static bool
-DeletedContains(HTAB *deleted, ItemPointer indextid)
+DeletedContains(tidhash_hash * deleted, ItemPointer indextid)
 {
-	bool		found;
-
-	hash_search(deleted, indextid, HASH_FIND, &found);
-	return found;
+	return tidhash_lookup(deleted, *indextid) != NULL;
 }
 
 /*
@@ -110,11 +107,13 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			if (!ItemPointerIsValid(&etup->heaptids[0]))
 			{
 				ItemPointerData ip;
+				bool		found;
 
 				/* Add to deleted list */
 				ItemPointerSet(&ip, blkno, offno);
 
-				(void) hash_search(vacuumstate->deleted, &ip, HASH_ENTER, NULL);
+				tidhash_insert(vacuumstate->deleted, ip, &found);
+				Assert(!found);
 			}
 			else if (etup->level > highestLevel && !(entryPoint != NULL && blkno == entryPoint->blkno && offno == entryPoint->offno))
 			{
@@ -575,7 +574,6 @@ static void
 InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state)
 {
 	Relation	index = info->index;
-	HASHCTL		hash_ctl;
 
 	if (stats == NULL)
 		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
@@ -597,10 +595,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
 
 	/* Create hash table */
-	hash_ctl.keysize = sizeof(ItemPointerData);
-	hash_ctl.entrysize = sizeof(ItemPointerData);
-	hash_ctl.hcxt = CurrentMemoryContext;
-	vacuumstate->deleted = hash_create("hnswbulkdelete indextids", 256, &hash_ctl, HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
+	vacuumstate->deleted = tidhash_create(CurrentMemoryContext, 256, NULL);
 }
 
 /*
@@ -609,7 +604,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 static void
 FreeVacuumState(HnswVacuumState * vacuumstate)
 {
-	hash_destroy(vacuumstate->deleted);
+	tidhash_destroy(vacuumstate->deleted);
 	FreeAccessStrategy(vacuumstate->bas);
 	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);

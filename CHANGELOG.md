@@ -1,5 +1,6 @@
 ## 0.5.2 (unreleased)
 
+- Improved performance of HNSW
 - Added support for on-disk parallel index builds for HNSW
 - Fixed `invalid memory alloc request size` error with HNSW index build
 
