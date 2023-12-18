@@ -114,7 +114,6 @@ pq_getmsghalf(StringInfo msg)
 		uint16		i;
 	}			swap;
 
-	/* TODO Likely use float4 for clients */
 	swap.i = pq_getmsgint(msg, 2);
 	return swap.h;
 }
@@ -131,7 +130,6 @@ pq_sendhalf(StringInfo buf, half h)
 		uint16		i;
 	}			swap;
 
-	/* TODO Likely use float4 for clients */
 	swap.h = h;
 	pq_sendint16(buf, swap.i);
 }
