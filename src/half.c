@@ -103,7 +103,7 @@ DatumGetHalf(Datum X)
 }
 
 /*
- * Append a half to a StringInfo buffer
+ * Get a half from a message buffer
  */
 static half
 pq_getmsghalf(StringInfo msg)
@@ -120,7 +120,7 @@ pq_getmsghalf(StringInfo msg)
 }
 
 /*
- * Get a half from a message buffer
+ * Append a half to a StringInfo buffer
  */
 static void
 pq_sendhalf(StringInfo buf, half h)
