@@ -206,7 +206,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 
 	/* Init fields */
 	HnswInitNeighbors(element, m);
-	element->heaptids = NIL;
+	element->num_heaptids = 0;
 
 	/* Add element to graph, skipping itself */
 	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, true);

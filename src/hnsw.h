@@ -101,11 +101,22 @@ typedef struct HnswNeighborArray HnswNeighborArray;
 
 typedef struct HnswElementData
 {
-	List	   *heaptids;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
+
+	/*
+	 * A compact array to hold up to HNSW_HEAPTIDS tids. If num_heaptids == 1,
+	 * the single tid is stored in 'single'. If num_heaptids > 1, 'array'
+	 * points to a palloc'd array that holds all the TIDs. Use the
+	 * HnswAdd/RemoveHeapTid() functions to handle the transitions correctly.
+	 */
+	union {
+		ItemPointerData single;
+		ItemPointerData *array;
+	} heaptids;
+	uint8		num_heaptids;
 
 	uint8		level;
 	uint8		deleted;
@@ -337,6 +348,8 @@ HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInf
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum);
 void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
+ItemPointer	HnswGetHeapTids(HnswElement element);
+ItemPointerData HnswRemoveHeapTid(HnswElement element);
 void		HnswInitNeighbors(HnswElement element, int m);
 bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel);
 void		HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting);

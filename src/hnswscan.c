@@ -185,25 +185,23 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	while (list_length(so->w) > 0)
 	{
 		HnswCandidate *hc = llast(so->w);
-		ItemPointer heaptid;
+		ItemPointerData heaptid;
 
 		/* Move to next element if no valid heap TIDs */
-		if (list_length(hc->element->heaptids) == 0)
+		if (hc->element->num_heaptids == 0)
 		{
 			so->w = list_delete_last(so->w);
 			continue;
 		}
 
-		heaptid = llast(hc->element->heaptids);
-
-		hc->element->heaptids = list_delete_last(hc->element->heaptids);
+		heaptid = HnswRemoveHeapTid(hc->element);
 
 		MemoryContextSwitchTo(oldCtx);
 
 #if PG_VERSION_NUM >= 120000
-		scan->xs_heaptid = *heaptid;
+		scan->xs_heaptid = heaptid;
 #else
-		scan->xs_ctup.t_self = *heaptid;
+		scan->xs_ctup.t_self = heaptid;
 #endif
 
 		scan->xs_recheckorderby = false;

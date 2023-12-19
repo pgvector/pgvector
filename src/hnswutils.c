@@ -282,7 +282,7 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel, Datum value
 	if (level > maxLevel)
 		level = maxLevel;
 
-	element->heaptids = NIL;
+	element->num_heaptids = 0;
 	HnswAddHeapTid(element, heaptid);
 
 	element->level = level;
@@ -303,7 +303,8 @@ void
 HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
-	list_free_deep(element->heaptids);
+	if (element->num_heaptids > 1)
+		pfree(element->heaptids.array);
 	pfree(element);
 }
 
@@ -313,10 +314,62 @@ HnswFreeElement(HnswElement element)
 void
 HnswAddHeapTid(HnswElement element, ItemPointer heaptid)
 {
-	ItemPointer copy = palloc(sizeof(ItemPointerData));
+	Assert(element->num_heaptids < HNSW_HEAPTIDS);
+	if (element->num_heaptids == 0)
+		element->heaptids.single = *heaptid;
+	else if (element->num_heaptids == 1)
+	{
+		ItemPointer array = palloc(sizeof(ItemPointerData) * HNSW_HEAPTIDS);
+		array[0] = element->heaptids.single;
+		array[1] = *heaptid;
+		element->heaptids.array = array;
+	}
+	else
+	{
+		element->heaptids.array[element->num_heaptids] = *heaptid;
+	}
+	element->num_heaptids++;
+}
 
-	ItemPointerCopy(heaptid, copy);
-	element->heaptids = lappend(element->heaptids, copy);
+ItemPointerData
+HnswRemoveHeapTid(HnswElement element)
+{
+	ItemPointerData ret;
+
+	if (element->num_heaptids >= 2)
+	{
+		ret = element->heaptids.array[element->num_heaptids - 1];
+		if (element->num_heaptids == 2)
+		{
+			ItemPointerData remain = element->heaptids.array[0];
+
+			pfree(element->heaptids.array);
+			element->heaptids.single = remain;
+		}
+	}
+	else
+	{
+		Assert(element->num_heaptids == 1);
+		ret = element->heaptids.single;
+	}
+	element->num_heaptids--;
+
+	return ret;
+}
+
+/*
+ * Return an element's heap TIDs as an array.
+ */
+ItemPointer
+HnswGetHeapTids(HnswElement element)
+{
+	/*
+	 * If it's a single TID stored inline in the element, return a pointer to
+	 * that, treating it as a one-element array. This way the caller doesn't need
+	 * to distinguish between the two cases.
+	 */
+	return (element->num_heaptids > 1) ?
+		element->heaptids.array : &element->heaptids.single;
 }
 
 /*
@@ -430,13 +483,15 @@ HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, Bloc
 void
 HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 {
+	ItemPointer heaptids = HnswGetHeapTids(element);
+
 	etup->type = HNSW_ELEMENT_TUPLE_TYPE;
 	etup->level = element->level;
 	etup->deleted = 0;
 	for (int i = 0; i < HNSW_HEAPTIDS; i++)
 	{
-		if (i < list_length(element->heaptids))
-			etup->heaptids[i] = *((ItemPointer) list_nth(element->heaptids, i));
+		if (i < element->num_heaptids)
+			etup->heaptids[i] = heaptids[i];
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
@@ -547,7 +602,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 	element->deleted = etup->deleted;
 	element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 	element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
-	element->heaptids = NIL;
+	element->num_heaptids = 0;
 
 	if (loadHeaptids)
 	{
@@ -720,7 +775,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 		 * would be ideal to do this for inserts as well, but this could
 		 * affect insert performance.
 		 */
-		if (skipElement == NULL || list_length(hc->element->heaptids) != 0)
+		if (skipElement == NULL || hc->element->num_heaptids != 0)
 			wlen++;
 	}
 
@@ -779,7 +834,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 					 * vacuuming. It would be ideal to do this for inserts as
 					 * well, but this could affect insert performance.
 					 */
-					if (skipElement == NULL || list_length(e->element->heaptids) != 0)
+					if (skipElement == NULL || e->element->num_heaptids != 0)
 					{
 						wlen++;
 
@@ -991,7 +1046,7 @@ HnswFindDuplicate(HnswElement e)
 			break;
 
 		/* Check for space */
-		if (list_length(neighbor->element->heaptids) < HNSW_HEAPTIDS)
+		if (neighbor->element->num_heaptids < HNSW_HEAPTIDS)
 			return neighbor->element;
 	}
 
@@ -1052,7 +1107,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
 
 				/* Prune element if being deleted */
-				if (list_length(hc3->element->heaptids) == 0)
+				if (hc3->element->num_heaptids == 0)
 				{
 					pruned = &currentNeighbors->items[i];
 					break;
@@ -1110,7 +1165,7 @@ RemoveElements(List *w, HnswElement skipElement)
 		if (skipElement != NULL && hc->element->blkno == skipElement->blkno && hc->element->offno == skipElement->offno)
 			continue;
 
-		if (list_length(hc->element->heaptids) != 0)
+		if (hc->element->num_heaptids != 0)
 			w2 = lappend(w2, hc);
 	}
 
