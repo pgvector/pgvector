@@ -156,7 +156,10 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
 		if (building)
+		{
+			state = NULL;
 			page = BufferGetPage(buf);
+		}
 		else
 		{
 			state = GenericXLogStart(index);
@@ -225,7 +228,10 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 			/* Prepare new buffer */
 			buf = newbuf;
 			if (building)
+			{
+				state = NULL;
 				page = BufferGetPage(buf);
+			}
 			else
 			{
 				state = GenericXLogStart(index);
@@ -365,7 +371,10 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
 			buf = ReadBuffer(index, hc->element->neighborPage);
 			LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 			if (building)
+			{
+				state = NULL;
 				page = BufferGetPage(buf);
+			}
 			else
 			{
 				state = GenericXLogStart(index);
@@ -441,7 +450,10 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool buil
 	buf = ReadBuffer(index, dup->blkno);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	if (building)
+	{
+		state = NULL;
 		page = BufferGetPage(buf);
+	}
 	else
 	{
 		state = GenericXLogStart(index);
