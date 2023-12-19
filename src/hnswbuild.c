@@ -890,7 +890,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 	if (RelationNeedsWAL(index))
 	{
 #if PG_VERSION_NUM >= 110008
-		log_newpage_range(index, MAIN_FORKNUM, 0, RelationGetNumberOfBlocks(index), true);
+		log_newpage_range(index, forkNum, 0, RelationGetNumberOfBlocks(index), true);
 #else
 		for (BlockNumber blkno = 0; blkno < RelationGetNumberOfBlocksInFork(index, forkNum); blkno++)
 		{
