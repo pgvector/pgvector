@@ -271,6 +271,9 @@ CreateNeighborPages(HnswBuildState * buildstate)
 static void
 FlushPages(HnswBuildState * buildstate)
 {
+	elog(LOG, "memoryUsed: %lu", maintenance_work_mem * 1024L - buildstate->memoryLeft);
+	MemoryContextStats(buildstate->memGraphCtx);
+
 	CreateMetaPage(buildstate);
 	CreateElementPages(buildstate);
 	CreateNeighborPages(buildstate);
