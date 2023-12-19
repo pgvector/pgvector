@@ -58,6 +58,8 @@
 
 #define LIST_MAX_LENGTH ((1 << 26) - 1)
 
+static long HnswElementMemory(HnswElement e, int m);
+
 /*
  * Create the metapage
  */
@@ -264,20 +266,6 @@ CreateNeighborPages(HnswBuildState * buildstate)
 }
 
 /*
- * Free elements
- */
-static void
-FreeElements(HnswBuildState * buildstate)
-{
-	ListCell   *lc;
-
-	foreach(lc, buildstate->elements)
-		HnswFreeElement(lfirst(lc));
-
-	list_free(buildstate->elements);
-}
-
-/*
  * Flush pages
  */
 static void
@@ -287,21 +275,27 @@ FlushPages(HnswBuildState * buildstate)
 	CreateElementPages(buildstate);
 	CreateNeighborPages(buildstate);
 
+	/* Free the in-memory graph. It's all held in 'memGraphCtx'. */
+	MemoryContextDelete(buildstate->memGraphCtx);
+	buildstate->memGraphCtx = NULL;
+	buildstate->elements = NIL;
+
 	buildstate->flushed = true;
-	FreeElements(buildstate);
 }
 
 /*
  * Insert tuple
  */
 static bool
-InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup)
+InsertTupleInMemory(Relation index, ItemPointer heaptid, Datum *values, HnswBuildState * buildstate)
 {
 	FmgrInfo   *procinfo = buildstate->procinfo;
 	Oid			collation = buildstate->collation;
 	HnswElement entryPoint = buildstate->entryPoint;
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
+	HnswElement element;
+	HnswElement dup;
 	Datum		value;
 
 	/*
@@ -318,8 +312,9 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 			return false;
 	}
 
-	/* Copy value to the element, in the long-lived memory context */
+	/* Allocate element in the long-lived memory context */
 	MemoryContextSwitchTo(buildstate->memGraphCtx);
+	element = HnswInitElement(heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel);
 	element->value = datumCopy(value, false, -1);
 	MemoryContextSwitchTo(buildstate->tmpCtx);
 
@@ -327,10 +322,10 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
 	/* Look for duplicate */
-	*dup = HnswFindDuplicate(element);
+	dup = HnswFindDuplicate(element);
 
 	/* Update neighbors if needed */
-	if (*dup == NULL)
+	if (dup == NULL)
 	{
 		for (int lc = element->level; lc >= 0; lc--)
 		{
@@ -343,12 +338,24 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	}
 
 	/* Update entry point if needed */
-	if (*dup == NULL && (entryPoint == NULL || element->level > entryPoint->level))
+	if (dup == NULL && (entryPoint == NULL || element->level > entryPoint->level))
 		buildstate->entryPoint = element;
 
-	UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
-
-	return *dup == NULL;
+	/* Add to buildstate or free */
+	MemoryContextSwitchTo(buildstate->memGraphCtx);
+	if (dup != NULL)
+	{
+		HnswAddHeapTid(dup, heaptid);
+		buildstate->memoryLeft -= sizeof(ItemPointerData);
+		HnswFreeElement(element);
+		return false;
+	}
+	else
+	{
+		buildstate->elements = lappend(buildstate->elements, element);
+		buildstate->memoryLeft -= HnswElementMemory(element, buildstate->m);
+		return true;
+	}
 }
 
 /*
@@ -374,10 +381,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 			  bool *isnull, bool tupleIsAlive, void *state)
 {
 	HnswBuildState *buildstate = (HnswBuildState *) state;
-	MemoryContext oldCtx;
-	HnswElement element;
-	HnswElement dup = NULL;
-	bool		inserted;
+	MemoryContext oldCtx = CurrentMemoryContext;
 
 #if PG_VERSION_NUM < 130000
 	ItemPointer tid = &hup->t_self;
@@ -387,19 +391,20 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
-	if (buildstate->flushed || buildstate->memoryLeft <= 0 || list_length(buildstate->elements) == LIST_MAX_LENGTH)
+	/* Is it time to switch from in-memory to on-disk build? */
+	if (!buildstate->flushed && (buildstate->memoryLeft <= 0 || list_length(buildstate->elements) == LIST_MAX_LENGTH))
 	{
-		if (!buildstate->flushed)
-		{
-			if (buildstate->memoryLeft <= 0)
-				ereport(NOTICE,
-						(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
-						 errdetail("Building will take significantly more time."),
-						 errhint("Increase maintenance_work_mem to speed up builds.")));
+		if (buildstate->memoryLeft <= 0)
+			ereport(NOTICE,
+					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
+					 errdetail("Building will take significantly more time."),
+					 errhint("Increase maintenance_work_mem to speed up builds.")));
 
-			FlushPages(buildstate);
-		}
+		FlushPages(buildstate);
+	}
 
+	if (buildstate->flushed)
+	{
 		oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 		if (HnswInsertTuple(buildstate->index, values, isnull, tid, buildstate->heap))
@@ -415,40 +420,16 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 			else
 				UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
 		}
-
-		/* Reset memory context */
-		MemoryContextSwitchTo(oldCtx);
-		MemoryContextReset(buildstate->tmpCtx);
-
-		return;
 	}
-
-	/* Allocate necessary memory in the long-lived memory context */
-	oldCtx = MemoryContextSwitchTo(buildstate->memGraphCtx);
-	element = HnswInitElement(tid, buildstate->m, buildstate->ml, buildstate->maxLevel);
-
-	/* Insert tuple */
-	inserted = InsertTuple(index, values, element, buildstate, &dup);
+	else
+	{
+		if (InsertTupleInMemory(index, tid, values, buildstate))
+			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
+	}
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
 	MemoryContextReset(buildstate->tmpCtx);
-
-	/* Add outside memory context */
-	if (dup != NULL)
-	{
-		HnswAddHeapTid(dup, tid);
-		buildstate->memoryLeft -= sizeof(ItemPointerData);
-	}
-
-	/* Add to buildstate or free */
-	if (inserted)
-	{
-		buildstate->elements = lappend(buildstate->elements, element);
-		buildstate->memoryLeft -= HnswElementMemory(element, buildstate->m);
-	}
-	else
-		HnswFreeElement(element);
 }
 
 /*
@@ -495,8 +476,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->normvec = InitVector(buildstate->dimensions);
 
 	buildstate->memGraphCtx = AllocSetContextCreate(CurrentMemoryContext,
-													"Hnsw in-memory build context",
-													ALLOCSET_DEFAULT_SIZES);
+											   "Hnsw in-memory build context",
+											   ALLOCSET_DEFAULT_SIZES);
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Hnsw build temporary context",
 											   ALLOCSET_DEFAULT_SIZES);
