@@ -872,6 +872,21 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 		HnswEndParallel(buildstate->hnswleader);
 }
 
+#if PG_VERSION_NUM < 110008
+void log_newpage_range(Relation rel, ForkNumber forkNum, BlockNumber startblk, BlockNumber endblk, bool page_std)
+{
+	for (BlockNumber blkno = startblk; blkno < endblk; blkno++)
+	{
+		Buffer		buf = ReadBufferExtended(rel, forkNum, blkno, RBM_NORMAL, NULL);
+
+		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+		MarkBufferDirty(buf);
+		log_newpage_buffer(buf, page_std);
+		UnlockReleaseBuffer(buf);
+	}
+}
+#endif
+
 /*
  * Build the index
  */
@@ -888,21 +903,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 		FlushPages(buildstate);
 
 	if (RelationNeedsWAL(index))
-	{
-#if PG_VERSION_NUM >= 110008
 		log_newpage_range(index, forkNum, 0, RelationGetNumberOfBlocks(index), true);
-#else
-		for (BlockNumber blkno = 0; blkno < RelationGetNumberOfBlocksInFork(index, forkNum); blkno++)
-		{
-			Buffer		buf = ReadBufferExtended(index, forkNum, blkno, RBM_NORMAL, NULL);
-
-			LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-			MarkBufferDirty(buf);
-			log_newpage_buffer(buf, true);
-			UnlockReleaseBuffer(buf);
-		}
-#endif
-	}
 
 	FreeBuildState(buildstate);
 }
