@@ -873,7 +873,8 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 }
 
 #if PG_VERSION_NUM < 110008
-void log_newpage_range(Relation rel, ForkNumber forkNum, BlockNumber startblk, BlockNumber endblk, bool page_std)
+void
+log_newpage_range(Relation rel, ForkNumber forkNum, BlockNumber startblk, BlockNumber endblk, bool page_std)
 {
 	for (BlockNumber blkno = startblk; blkno < endblk; blkno++)
 	{
