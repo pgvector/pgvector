@@ -295,17 +295,21 @@ FlushPages(HnswBuildState * buildstate)
  * Insert tuple
  */
 static bool
-InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup, MemoryContext outerCtx)
+InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup)
 {
 	FmgrInfo   *procinfo = buildstate->procinfo;
 	Oid			collation = buildstate->collation;
 	HnswElement entryPoint = buildstate->entryPoint;
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
-	MemoryContext oldCtx;
+	Datum		value;
 
-	/* Detoast once for all calls */
-	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	/*
+	 * Detoast once for all calls. Detoast can allocate, so switch to temp
+	 * memory context first.
+	 */
+	MemoryContextSwitchTo(buildstate->tmpCtx);
+	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -314,10 +318,10 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 			return false;
 	}
 
-	/* Copy value to element so accessible outside of memory context */
-	oldCtx = MemoryContextSwitchTo(outerCtx);
+	/* Copy value to the element, in the long-lived memory context */
+	MemoryContextSwitchTo(buildstate->memGraphCtx);
 	element->value = datumCopy(value, false, -1);
-	MemoryContextSwitchTo(oldCtx);
+	MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Insert element in graph */
 	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
@@ -419,14 +423,12 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		return;
 	}
 
-	/* Allocate necessary memory outside of memory context */
+	/* Allocate necessary memory in the long-lived memory context */
+	oldCtx = MemoryContextSwitchTo(buildstate->memGraphCtx);
 	element = HnswInitElement(tid, buildstate->m, buildstate->ml, buildstate->maxLevel);
 
-	/* Use memory context since detoast can allocate */
-	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
-
 	/* Insert tuple */
-	inserted = InsertTuple(index, values, element, buildstate, &dup, oldCtx);
+	inserted = InsertTuple(index, values, element, buildstate, &dup);
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
@@ -492,6 +494,9 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	/* Reuse for each tuple */
 	buildstate->normvec = InitVector(buildstate->dimensions);
 
+	buildstate->memGraphCtx = AllocSetContextCreate(CurrentMemoryContext,
+													"Hnsw in-memory build context",
+													ALLOCSET_DEFAULT_SIZES);
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Hnsw build temporary context",
 											   ALLOCSET_DEFAULT_SIZES);
@@ -508,6 +513,8 @@ FreeBuildState(HnswBuildState * buildstate)
 {
 	pfree(buildstate->normvec);
 	MemoryContextDelete(buildstate->tmpCtx);
+	if (buildstate->memGraphCtx)
+		MemoryContextDelete(buildstate->memGraphCtx);
 }
 
 /*

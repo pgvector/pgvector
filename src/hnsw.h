@@ -218,7 +218,8 @@ typedef struct HnswBuildState
 	Vector	   *normvec;
 
 	/* Memory */
-	MemoryContext tmpCtx;
+	MemoryContext memGraphCtx;		/* holds the graph during in-memory build */
+	MemoryContext tmpCtx;			/* reset between each tuple */
 
 	/* Parallel builds */
 	HnswLeader *hnswleader;
