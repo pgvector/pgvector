@@ -102,14 +102,15 @@ typedef struct HnswNeighborArray HnswNeighborArray;
 typedef struct HnswElementData
 {
 	List	   *heaptids;
-	uint8		level;
-	uint8		deleted;
-	uint32		hash;
-	HnswNeighborArray *neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
+
+	uint8		level;
+	uint8		deleted;
+	uint32		hash;
+	HnswNeighborArray *neighbors;
 	Datum		value;
 }			HnswElementData;
 
@@ -327,7 +328,7 @@ void		HnswInit(void);
 List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
-HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
+HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel, Datum value);
 void		HnswFreeElement(HnswElement element);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
 void		HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing);

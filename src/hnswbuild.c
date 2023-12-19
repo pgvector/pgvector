@@ -317,11 +317,10 @@ InsertTupleInMemory(Relation index, ItemPointer heaptid, Datum *values, HnswBuil
 
 	/* Allocate element in the long-lived memory context */
 	MemoryContextSwitchTo(buildstate->memGraphCtx);
-	element = HnswInitElement(heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel);
-	element->value = datumCopy(value, false, -1);
+	element = HnswInitElement(heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel, value);
 	MemoryContextSwitchTo(buildstate->tmpCtx);
 
-	/* Insert element in graph */
+	/* Find insert location in graph. In other words, fill in the neighbors arrays in 'element' */
 	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
 	/* Look for duplicate */

@@ -516,7 +516,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
 	/* Create an element */
-	element = HnswInitElement(heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m));
+	element = HnswInitElement(heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), (Datum) 0);
 	element->value = value;
 
 	/* Prevent concurrent inserts when likely updating entry point */

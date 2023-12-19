@@ -240,13 +240,43 @@ HnswFreeNeighbors(HnswElement element)
 
 /*
  * Allocate an element
+ *
+ * if 'value' is given, it's copied together with the HnswElement
  */
 HnswElement
-HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
+HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel, Datum value)
 {
-	HnswElement element = palloc(sizeof(HnswElementData));
-
+	void	   *valuep = DatumGetPointer(value);
 	int			level = (int) (-log(RandomDouble()) * ml);
+	HnswElement element;
+	size_t		totalsz;
+	size_t		datumsz = 0;
+	char	   *p;
+
+	/*
+	 * Allocate HnswElementData struct and space for value Datum in one chunk.
+	 * (MAXALIGN is just pro forma here, the struct's size is MAXALIGNed
+	 * anyway.)
+	 */
+	totalsz = MAXALIGN(sizeof(HnswElementData));
+	if (valuep != NULL)
+	{
+		datumsz = VARSIZE_ANY(valuep);
+		totalsz += datumsz;
+	}
+
+	p = palloc(totalsz);
+	element = (HnswElement) p;
+	p += MAXALIGN(sizeof(HnswElementData));
+
+	/* Copy the 'value' to the space reserved after the struct */
+	if (valuep != NULL)
+	{
+		memcpy(p, valuep, datumsz);
+		element->value = PointerGetDatum(p);
+	}
+	else
+		element->value = PointerGetDatum(NULL);
 
 	/* Cap level */
 	if (level > maxLevel)
@@ -260,21 +290,20 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
 
 	HnswInitNeighbors(element, m);
 
-	element->value = PointerGetDatum(NULL);
-
 	return element;
 }
 
 /*
- * Free an element
+ * Free an element.
+ *
+ * Note: this does not free the 'value', if it was allocated separately.
+ * Currently, this function is never called on such elements.
  */
 void
 HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
 	list_free_deep(element->heaptids);
-	if (DatumGetPointer(element->value))
-		pfree(DatumGetPointer(element->value));
 	pfree(element);
 }
 
