@@ -207,7 +207,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	/* Commit */
 	UnlockReleaseBuffer(buf);
 
-	HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, buildstate->entryPoint, insertPage, forkNum);
+	HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, buildstate->entryPoint, insertPage, forkNum, true);
 
 	pfree(etup);
 	pfree(ntup);

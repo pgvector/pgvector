@@ -514,14 +514,14 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 
 	/* Update insert page if needed */
 	if (BlockNumberIsValid(newInsertPage))
-		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM);
+		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM, building);
 
 	/* Update neighbors */
 	HnswUpdateNeighborPages(index, procinfo, collation, element, m, false, building);
 
 	/* Update metapage if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
-		HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_GREATER, element, InvalidBlockNumber, MAIN_FORKNUM);
+		HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_GREATER, element, InvalidBlockNumber, MAIN_FORKNUM, building);
 }
 
 /*

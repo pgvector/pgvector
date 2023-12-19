@@ -379,7 +379,7 @@ HnswUpdateMetaPageInfo(Page page, int updateEntry, HnswElement entryPoint, Block
  * Update the metapage
  */
 void
-HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum)
+HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -387,12 +387,22 @@ HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, Bloc
 
 	buf = ReadBufferExtended(index, forkNum, HNSW_METAPAGE_BLKNO, RBM_NORMAL, NULL);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-	state = GenericXLogStart(index);
-	page = GenericXLogRegisterBuffer(state, buf, 0);
+	if (building)
+	{
+		state = NULL;
+		page = BufferGetPage(buf);
+	}
+	else
+	{
+		state = GenericXLogStart(index);
+		page = GenericXLogRegisterBuffer(state, buf, 0);
+	}
 
 	HnswUpdateMetaPageInfo(page, updateEntry, entryPoint, insertPage);
 
-	HnswCommitBuffer(buf, state);
+	if (!building)
+		GenericXLogFinish(state);
+	UnlockReleaseBuffer(buf);
 }
 
 /*
