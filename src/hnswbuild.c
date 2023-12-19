@@ -68,11 +68,11 @@ CreateMetaPage(HnswBuildState * buildstate)
 	ForkNumber	forkNum = buildstate->forkNum;
 	Buffer		buf;
 	Page		page;
-	GenericXLogState *state;
 	HnswMetaPage metap;
 
 	buf = HnswNewBuffer(index, forkNum);
-	HnswInitRegisterPage(index, &buf, &page, &state);
+	page = BufferGetPage(buf);
+	HnswInitPage(buf, page);
 
 	/* Set metapage data */
 	metap = HnswPageGetMeta(page);
@@ -88,7 +88,7 @@ CreateMetaPage(HnswBuildState * buildstate)
 	((PageHeader) page)->pd_lower =
 		((char *) metap + sizeof(HnswMetaPageData)) - (char *) page;
 
-	HnswCommitBuffer(buf, state);
+	UnlockReleaseBuffer(buf);
 }
 
 /*
