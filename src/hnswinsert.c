@@ -220,11 +220,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 
 			/* Commit */
 			if (building)
-			{
 				MarkBufferDirty(buf);
-				if (nbuf != buf)
-					MarkBufferDirty(nbuf);
-			}
 			else
 				GenericXLogFinish(state);
 
