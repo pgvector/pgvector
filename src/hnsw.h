@@ -72,8 +72,10 @@
 
 #if PG_VERSION_NUM >= 150000
 #define RandomDouble() pg_prng_double(&pg_global_prng_state)
+#define SeedRandom(seed) pg_prng_seed(&pg_global_prng_state, seed)
 #else
 #define RandomDouble() (((double) random()) / MAX_RANDOM_VALUE)
+#define SeedRandom(seed) srandom(seed)
 #endif
 
 #if PG_VERSION_NUM < 130000

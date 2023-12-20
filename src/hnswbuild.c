@@ -279,6 +279,14 @@ FreeElements(HnswBuildState * buildstate)
 static void
 FlushPages(HnswBuildState * buildstate)
 {
+#ifdef HNSW_MEMORY
+#if PG_VERSION_NUM >= 130000
+	elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, false) / (1024 * 1024));
+#else
+	MemoryContextStats(CurrentMemoryContext);
+#endif
+#endif
+
 	CreateMetaPage(buildstate);
 	CreateElementPages(buildstate);
 	CreateNeighborPages(buildstate);
@@ -902,6 +910,10 @@ static void
 BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 		   HnswBuildState * buildstate, ForkNumber forkNum)
 {
+#ifdef HNSW_MEMORY
+	SeedRandom(42);
+#endif
+
 	InitBuildState(buildstate, heap, index, indexInfo, forkNum);
 
 	if (buildstate->heap != NULL)
