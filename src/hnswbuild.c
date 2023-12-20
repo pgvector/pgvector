@@ -366,6 +366,7 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
 	/* Each allocation has a 64-bit header */
 	elementSize += (e->level + 7) * sizeof(uint64);
+	/* TODO Account for additional memory */
 	return elementSize;
 }
 
