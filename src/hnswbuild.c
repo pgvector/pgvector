@@ -349,8 +349,11 @@ HnswElementMemory(HnswElement e, int m)
 
 	elementSize += sizeof(HnswNeighborArray) * (e->level + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (e->level + 2));
-	elementSize += sizeof(ItemPointerData);
+	elementSize += sizeof(List);
+	elementSize += sizeof(ItemPointerData) + sizeof(uintptr_t);
 	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
+	/* Each allocation has a 64-bit header */
+	elementSize += (e->level + 7) * sizeof(uint64);
 	return elementSize;
 }
 
@@ -428,7 +431,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (dup != NULL)
 	{
 		HnswAddHeapTid(dup, tid);
-		buildstate->memoryLeft -= sizeof(ItemPointerData);
+		buildstate->memoryLeft -= sizeof(ItemPointerData) + sizeof(uintptr_t) + sizeof(uint64);
 	}
 
 	/* Add to buildstate or free */
