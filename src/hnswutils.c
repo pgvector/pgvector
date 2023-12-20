@@ -379,7 +379,9 @@ HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, Bloc
 
 	HnswUpdateMetaPageInfo(page, updateEntry, entryPoint, insertPage);
 
-	if (!building)
+	if (building)
+		MarkBufferDirty(buf);
+	else
 		GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 }
