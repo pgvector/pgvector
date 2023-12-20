@@ -88,6 +88,7 @@ CreateMetaPage(HnswBuildState * buildstate)
 	((PageHeader) page)->pd_lower =
 		((char *) metap + sizeof(HnswMetaPageData)) - (char *) page;
 
+	MarkBufferDirty(buf);
 	UnlockReleaseBuffer(buf);
 }
 
@@ -104,6 +105,7 @@ HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, ForkNumber forkNum)
 	HnswPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(newbuf);
 
 	/* Commit */
+	MarkBufferDirty(*buf);
 	UnlockReleaseBuffer(*buf);
 
 	/* Can take a while, so ensure we can interrupt */
@@ -205,6 +207,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	insertPage = BufferGetBlockNumber(buf);
 
 	/* Commit */
+	MarkBufferDirty(buf);
 	UnlockReleaseBuffer(buf);
 
 	HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, buildstate->entryPoint, insertPage, forkNum, true);
@@ -249,6 +252,7 @@ CreateNeighborPages(HnswBuildState * buildstate)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 		/* Commit */
+		MarkBufferDirty(buf);
 		UnlockReleaseBuffer(buf);
 	}
 
