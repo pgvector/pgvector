@@ -185,27 +185,6 @@ HnswInitPage(Buffer buf, Page page)
 }
 
 /*
- * Init and register page
- */
-void
-HnswInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state)
-{
-	*state = GenericXLogStart(index);
-	*page = GenericXLogRegisterBuffer(*state, *buf, GENERIC_XLOG_FULL_IMAGE);
-	HnswInitPage(*buf, *page);
-}
-
-/*
- * Commit buffer
- */
-void
-HnswCommitBuffer(Buffer buf, GenericXLogState *state)
-{
-	GenericXLogFinish(state);
-	UnlockReleaseBuffer(buf);
-}
-
-/*
  * Allocate neighbors
  */
 void
