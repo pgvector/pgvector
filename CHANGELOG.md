@@ -2,6 +2,7 @@
 
 - Improved performance of HNSW
 - Added support for on-disk parallel index builds for HNSW
+- Reduced WAL generation for HNSW index builds
 - Fixed `invalid memory alloc request size` error with HNSW index build
 
 ## 0.5.1 (2023-10-10)

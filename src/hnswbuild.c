@@ -68,11 +68,11 @@ CreateMetaPage(HnswBuildState * buildstate)
 	ForkNumber	forkNum = buildstate->forkNum;
 	Buffer		buf;
 	Page		page;
-	GenericXLogState *state;
 	HnswMetaPage metap;
 
 	buf = HnswNewBuffer(index, forkNum);
-	HnswInitRegisterPage(index, &buf, &page, &state);
+	page = BufferGetPage(buf);
+	HnswInitPage(buf, page);
 
 	/* Set metapage data */
 	metap = HnswPageGetMeta(page);
@@ -88,14 +88,14 @@ CreateMetaPage(HnswBuildState * buildstate)
 	((PageHeader) page)->pd_lower =
 		((char *) metap + sizeof(HnswMetaPageData)) - (char *) page;
 
-	HnswCommitBuffer(buf, state);
+	UnlockReleaseBuffer(buf);
 }
 
 /*
  * Add a new page
  */
 static void
-HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum)
+HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, ForkNumber forkNum)
 {
 	/* Add a new page */
 	Buffer		newbuf = HnswNewBuffer(index, forkNum);
@@ -104,7 +104,6 @@ HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **
 	HnswPageGetOpaque(*page)->nextblkno = BufferGetBlockNumber(newbuf);
 
 	/* Commit */
-	GenericXLogFinish(*state);
 	UnlockReleaseBuffer(*buf);
 
 	/* Can take a while, so ensure we can interrupt */
@@ -115,8 +114,7 @@ HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **
 
 	/* Prepare new page */
 	*buf = newbuf;
-	*state = GenericXLogStart(index);
-	*page = GenericXLogRegisterBuffer(*state, *buf, GENERIC_XLOG_FULL_IMAGE);
+	*page = BufferGetPage(*buf);
 	HnswInitPage(*buf, *page);
 }
 
@@ -135,7 +133,6 @@ CreateElementPages(HnswBuildState * buildstate)
 	BlockNumber insertPage;
 	Buffer		buf;
 	Page		page;
-	GenericXLogState *state;
 	ListCell   *lc;
 
 	/* Calculate sizes */
@@ -148,8 +145,7 @@ CreateElementPages(HnswBuildState * buildstate)
 
 	/* Prepare first page */
 	buf = HnswNewBuffer(index, forkNum);
-	state = GenericXLogStart(index);
-	page = GenericXLogRegisterBuffer(state, buf, GENERIC_XLOG_FULL_IMAGE);
+	page = BufferGetPage(buf);
 	HnswInitPage(buf, page);
 
 	foreach(lc, buildstate->elements)
@@ -175,7 +171,7 @@ CreateElementPages(HnswBuildState * buildstate)
 
 		/* Keep element and neighbors on the same page if possible */
 		if (PageGetFreeSpace(page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(page) < combinedSize))
-			HnswBuildAppendPage(index, &buf, &page, &state, forkNum);
+			HnswBuildAppendPage(index, &buf, &page, forkNum);
 
 		/* Calculate offsets */
 		element->blkno = BufferGetBlockNumber(buf);
@@ -199,7 +195,7 @@ CreateElementPages(HnswBuildState * buildstate)
 
 		/* Add new page if needed */
 		if (PageGetFreeSpace(page) < ntupSize)
-			HnswBuildAppendPage(index, &buf, &page, &state, forkNum);
+			HnswBuildAppendPage(index, &buf, &page, forkNum);
 
 		/* Add placeholder for neighbors */
 		if (PageAddItem(page, (Item) ntup, ntupSize, InvalidOffsetNumber, false, false) != element->neighborOffno)
@@ -209,10 +205,9 @@ CreateElementPages(HnswBuildState * buildstate)
 	insertPage = BufferGetBlockNumber(buf);
 
 	/* Commit */
-	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 
-	HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, buildstate->entryPoint, insertPage, forkNum);
+	HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, buildstate->entryPoint, insertPage, forkNum, true);
 
 	pfree(etup);
 	pfree(ntup);
@@ -238,7 +233,6 @@ CreateNeighborPages(HnswBuildState * buildstate)
 		HnswElement e = lfirst(lc);
 		Buffer		buf;
 		Page		page;
-		GenericXLogState *state;
 		Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 
 		/* Can take a while, so ensure we can interrupt */
@@ -247,8 +241,7 @@ CreateNeighborPages(HnswBuildState * buildstate)
 
 		buf = ReadBufferExtended(index, forkNum, e->neighborPage, RBM_NORMAL, NULL);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-		state = GenericXLogStart(index);
-		page = GenericXLogRegisterBuffer(state, buf, 0);
+		page = BufferGetPage(buf);
 
 		HnswSetNeighborTuple(ntup, e, m);
 
@@ -256,7 +249,6 @@ CreateNeighborPages(HnswBuildState * buildstate)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 		/* Commit */
-		GenericXLogFinish(state);
 		UnlockReleaseBuffer(buf);
 	}
 
@@ -398,7 +390,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 		oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
-		if (HnswInsertTuple(buildstate->index, values, isnull, tid, buildstate->heap))
+		if (HnswInsertTuple(buildstate->index, values, isnull, tid, buildstate->heap, true))
 		{
 			if (buildstate->hnswshared)
 			{
@@ -880,6 +872,22 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 		HnswEndParallel(buildstate->hnswleader);
 }
 
+#if PG_VERSION_NUM < 110008
+void
+log_newpage_range(Relation rel, ForkNumber forkNum, BlockNumber startblk, BlockNumber endblk, bool page_std)
+{
+	for (BlockNumber blkno = startblk; blkno < endblk; blkno++)
+	{
+		Buffer		buf = ReadBufferExtended(rel, forkNum, blkno, RBM_NORMAL, NULL);
+
+		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+		MarkBufferDirty(buf);
+		log_newpage_buffer(buf, page_std);
+		UnlockReleaseBuffer(buf);
+	}
+}
+#endif
+
 /*
  * Build the index
  */
@@ -894,6 +902,9 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 
 	if (!buildstate->flushed)
 		FlushPages(buildstate);
+
+	if (RelationNeedsWAL(index))
+		log_newpage_range(index, forkNum, 0, RelationGetNumberOfBlocks(index), true);
 
 	FreeBuildState(buildstate);
 }
