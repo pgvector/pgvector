@@ -362,10 +362,10 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += sizeof(HnswNeighborArray) * (e->level + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (e->level + 2));
 	elementSize += sizeof(List);
-	elementSize += sizeof(ItemPointerData) + sizeof(uintptr_t);
+	elementSize += sizeof(ItemPointerData) + SIZEOF_VOID_P;
 	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
-	/* Each allocation has a 64-bit header */
-	elementSize += (e->level + 7) * sizeof(uint64);
+	/* Each allocation has chunk header */
+	elementSize += (e->level + 7) * (SIZEOF_SIZE_T + SIZEOF_VOID_P);
 	/* TODO Account for additional memory */
 	return elementSize;
 }
