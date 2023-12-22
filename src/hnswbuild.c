@@ -297,62 +297,6 @@ FlushPages(HnswBuildState * buildstate)
 	MemoryContextReset(buildstate->graphCtx);
 }
 
-/*
- * Insert tuple
- */
-static bool
-InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup)
-{
-	FmgrInfo   *procinfo = buildstate->procinfo;
-	Oid			collation = buildstate->collation;
-	HnswElement entryPoint = buildstate->entryPoint;
-	int			efConstruction = buildstate->efConstruction;
-	int			m = buildstate->m;
-	MemoryContext oldCtx;
-
-	/* Detoast once for all calls */
-	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
-
-	/* Normalize if needed */
-	if (buildstate->normprocinfo != NULL)
-	{
-		if (!HnswNormValue(buildstate->normprocinfo, collation, &value, buildstate->normvec))
-			return false;
-	}
-
-	/* Copy value to element so accessible outside of memory context */
-	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
-	element->value = datumCopy(value, false, -1);
-	MemoryContextSwitchTo(oldCtx);
-
-	/* Insert element in graph */
-	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
-
-	/* Look for duplicate */
-	*dup = HnswFindDuplicate(element);
-
-	/* Update neighbors if needed */
-	if (*dup == NULL)
-	{
-		for (int lc = element->level; lc >= 0; lc--)
-		{
-			int			lm = HnswGetLayerM(m, lc);
-			HnswNeighborArray *neighbors = &element->neighbors[lc];
-
-			for (int i = 0; i < neighbors->length; i++)
-				HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
-		}
-	}
-
-	/* Update entry point if needed */
-	if (*dup == NULL && (entryPoint == NULL || element->level > entryPoint->level))
-		buildstate->entryPoint = element;
-
-	UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
-
-	return *dup == NULL;
-}
-
 #if PG_VERSION_NUM < 130000
 /*
  * Get the memory used by an element
@@ -375,6 +319,90 @@ HnswElementMemory(HnswElement e, int m)
 #endif
 
 /*
+ * Insert tuple into in-memory graph
+ */
+static bool
+InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuildState * buildstate)
+{
+	FmgrInfo   *procinfo = buildstate->procinfo;
+	Oid			collation = buildstate->collation;
+	HnswElement entryPoint = buildstate->entryPoint;
+	int			efConstruction = buildstate->efConstruction;
+	int			m = buildstate->m;
+	MemoryContext oldCtx;
+	HnswElement element;
+	HnswElement dup;
+
+	/* Detoast once for all calls */
+	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+	/* Normalize if needed */
+	if (buildstate->normprocinfo != NULL)
+	{
+		if (!HnswNormValue(buildstate->normprocinfo, collation, &value, buildstate->normvec))
+			return false;
+	}
+
+	/* Allocate element in graph memory context */
+	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
+	element = HnswInitElement(heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel);
+	element->value = datumCopy(value, false, -1);
+	MemoryContextSwitchTo(oldCtx);
+
+	/* Insert element in graph */
+	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+
+	/* Look for duplicate */
+	dup = HnswFindDuplicate(element);
+
+	/* Update neighbors if needed */
+	if (dup == NULL)
+	{
+		for (int lc = element->level; lc >= 0; lc--)
+		{
+			int			lm = HnswGetLayerM(m, lc);
+			HnswNeighborArray *neighbors = &element->neighbors[lc];
+
+			for (int i = 0; i < neighbors->length; i++)
+				HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
+		}
+	}
+
+	/* Update entry point if needed */
+	if (dup == NULL && (entryPoint == NULL || element->level > entryPoint->level))
+		buildstate->entryPoint = element;
+
+	/* Add to graph memory context */
+	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
+
+	if (dup != NULL)
+	{
+		HnswAddHeapTid(dup, heaptid);
+		HnswFreeElement(element);
+
+#if PG_VERSION_NUM >= 130000
+		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
+#else
+		buildstate->memoryUsed += sizeof(ItemPointerData) + SIZEOF_VOID_P + GENERATIONCHUNK_RAWSIZE;
+#endif
+	}
+	else
+	{
+		buildstate->elements = lappend(buildstate->elements, element);
+
+#if PG_VERSION_NUM >= 130000
+		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
+#else
+		buildstate->memoryUsed += HnswElementMemory(element, buildstate->m);
+#endif
+	}
+
+	MemoryContextSwitchTo(oldCtx);
+
+	return true;
+}
+
+/*
  * Callback for table_index_build_scan
  */
 static void
@@ -383,9 +411,6 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 {
 	HnswBuildState *buildstate = (HnswBuildState *) state;
 	MemoryContext oldCtx;
-	HnswElement element;
-	HnswElement dup = NULL;
-	bool		inserted;
 
 #if PG_VERSION_NUM < 130000
 	ItemPointer tid = &hup->t_self;
@@ -395,22 +420,22 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
-	if (buildstate->flushed || buildstate->memoryUsed >= buildstate->memoryTotal || list_length(buildstate->elements) == LIST_MAX_LENGTH)
+	if (!buildstate->flushed && (buildstate->memoryUsed >= buildstate->memoryTotal || list_length(buildstate->elements) == LIST_MAX_LENGTH))
 	{
-		if (!buildstate->flushed)
-		{
-			if (buildstate->memoryUsed >= buildstate->memoryTotal)
-				ereport(NOTICE,
-						(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
-						 errdetail("Building will take significantly more time."),
-						 errhint("Increase maintenance_work_mem to speed up builds.")));
+		if (buildstate->memoryUsed >= buildstate->memoryTotal)
+			ereport(NOTICE,
+					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
+					 errdetail("Building will take significantly more time."),
+					 errhint("Increase maintenance_work_mem to speed up builds.")));
 
-			FlushPages(buildstate);
-		}
+		FlushPages(buildstate);
+	}
 
-		oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
+	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
-		if (HnswInsertTuple(buildstate->index, values, isnull, tid, buildstate->heap, true))
+	if (buildstate->flushed)
+	{
+		if (HnswInsertTuple(index, values, isnull, tid, buildstate->heap, true))
 		{
 			if (buildstate->hnswshared)
 			{
@@ -423,54 +448,16 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 			else
 				UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
 		}
-
-		/* Reset memory context */
-		MemoryContextSwitchTo(oldCtx);
-		MemoryContextReset(buildstate->tmpCtx);
-
-		return;
 	}
-
-	/* Allocate necessary memory outside of memory context */
-	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
-	element = HnswInitElement(tid, buildstate->m, buildstate->ml, buildstate->maxLevel);
-	MemoryContextSwitchTo(oldCtx);
-
-	/* Use memory context since detoast can allocate */
-	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
-
-	/* Insert tuple */
-	inserted = InsertTuple(index, values, element, buildstate, &dup);
+	else
+	{
+		if (InsertTupleInMemory(index, values, tid, buildstate))
+			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
+	}
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
 	MemoryContextReset(buildstate->tmpCtx);
-
-	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
-
-	/* Add outside memory context */
-	if (dup != NULL)
-	{
-		HnswAddHeapTid(dup, tid);
-#if PG_VERSION_NUM >= 130000
-		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
-#else
-		buildstate->memoryUsed += sizeof(ItemPointerData) + SIZEOF_VOID_P + GENERATIONCHUNK_RAWSIZE;
-#endif
-	}
-
-	/* Add to buildstate or free */
-	if (inserted)
-	{
-		buildstate->elements = lappend(buildstate->elements, element);
-#if PG_VERSION_NUM >= 130000
-		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
-#else
-		buildstate->memoryUsed += HnswElementMemory(element, buildstate->m);
-#endif
-	}
-
-	MemoryContextSwitchTo(oldCtx);
 }
 
 /*
