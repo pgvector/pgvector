@@ -58,6 +58,10 @@
 
 #define LIST_MAX_LENGTH ((1 << 26) - 1)
 
+#if PG_VERSION_NUM < 130000
+#define GENERATIONCHUNK_RAWSIZE (SIZEOF_SIZE_T + SIZEOF_VOID_P * 2)
+#endif
+
 /*
  * Create the metapage
  */
@@ -260,10 +264,10 @@ CreateNeighborPages(HnswBuildState * buildstate)
 }
 
 /*
- * Flush pages
+ * Show memory usage
  */
 static void
-FlushPages(HnswBuildState * buildstate)
+ShowMemoryUsage(HnswBuildState * buildstate)
 {
 #ifdef HNSW_MEMORY
 #if PG_VERSION_NUM >= 130000
@@ -272,8 +276,18 @@ FlushPages(HnswBuildState * buildstate)
 		 MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
 #else
 	MemoryContextStats(CurrentMemoryContext);
+	elog(INFO, "estimated memory: %zu MB", buildstate->memoryUsed / (1024 * 1024));
 #endif
 #endif
+}
+
+/*
+ * Flush pages
+ */
+static void
+FlushPages(HnswBuildState * buildstate)
+{
+	ShowMemoryUsage(buildstate);
 
 	CreateMetaPage(buildstate);
 	CreateElementPages(buildstate);
@@ -339,6 +353,7 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	return *dup == NULL;
 }
 
+#if PG_VERSION_NUM < 130000
 /*
  * Get the memory used by an element
  */
@@ -353,10 +368,10 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += sizeof(ItemPointerData) + SIZEOF_VOID_P;
 	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
 	/* Each allocation has chunk header */
-	elementSize += (e->level + 7) * (SIZEOF_SIZE_T + SIZEOF_VOID_P);
-	/* TODO Account for additional memory */
+	elementSize += (e->level + 7) * GENERATIONCHUNK_RAWSIZE;
 	return elementSize;
 }
+#endif
 
 /*
  * Callback for table_index_build_scan
@@ -379,11 +394,11 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
-	if (buildstate->flushed || buildstate->memoryLeft <= 0 || list_length(buildstate->elements) == LIST_MAX_LENGTH)
+	if (buildstate->flushed || buildstate->memoryUsed >= buildstate->memoryTotal || list_length(buildstate->elements) == LIST_MAX_LENGTH)
 	{
 		if (!buildstate->flushed)
 		{
-			if (buildstate->memoryLeft <= 0)
+			if (buildstate->memoryUsed >= buildstate->memoryTotal)
 				ereport(NOTICE,
 						(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
 						 errdetail("Building will take significantly more time."),
@@ -436,14 +451,22 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (dup != NULL)
 	{
 		HnswAddHeapTid(dup, tid);
-		buildstate->memoryLeft -= sizeof(ItemPointerData) + sizeof(uintptr_t) + sizeof(uint64);
+#if PG_VERSION_NUM >= 130000
+		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
+#else
+		buildstate->memoryUsed += sizeof(ItemPointerData) + SIZEOF_VOID_P + GENERATIONCHUNK_RAWSIZE;
+#endif
 	}
 
 	/* Add to buildstate or free */
 	if (inserted)
 	{
 		buildstate->elements = lappend(buildstate->elements, element);
-		buildstate->memoryLeft -= HnswElementMemory(element, buildstate->m);
+#if PG_VERSION_NUM >= 130000
+		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
+#else
+		buildstate->memoryUsed += HnswElementMemory(element, buildstate->m);
+#endif
 	}
 
 	MemoryContextSwitchTo(oldCtx);
@@ -486,7 +509,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->entryPoint = NULL;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
-	buildstate->memoryLeft = maintenance_work_mem * 1024L;
+	buildstate->memoryUsed = 0;
+	buildstate->memoryTotal = maintenance_work_mem * 1024L;
 	buildstate->flushed = false;
 
 	/* Reuse for each tuple */
@@ -569,7 +593,7 @@ HnswParallelScanAndInsert(HnswSpool * hnswspool, HnswShared * hnswshared, bool p
 	indexInfo->ii_Concurrent = hnswshared->isconcurrent;
 	InitBuildState(&buildstate, hnswspool->heap, hnswspool->index, indexInfo, MAIN_FORKNUM);
 	/* TODO Support in-memory builds */
-	buildstate.memoryLeft = 0;
+	buildstate.memoryTotal = 0;
 	buildstate.flushed = true;
 	buildstate.hnswshared = hnswshared;
 #if PG_VERSION_NUM >= 120000
