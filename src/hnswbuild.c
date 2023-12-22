@@ -491,11 +491,11 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->normvec = InitVector(buildstate->dimensions);
 
 	buildstate->graphCtx = GenerationContextCreate(CurrentMemoryContext,
-											   "Hnsw build graph context",
+												   "Hnsw build graph context",
 #if PG_VERSION_NUM >= 150000
-											   1024 * 1024, 1024 * 1024,
+												   1024 * 1024, 1024 * 1024,
 #endif
-											   1024 * 1024);
+												   1024 * 1024);
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Hnsw build temporary context",
 											   ALLOCSET_DEFAULT_SIZES);
