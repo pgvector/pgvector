@@ -267,9 +267,11 @@ FlushPages(HnswBuildState * buildstate)
 {
 #ifdef HNSW_MEMORY
 #if PG_VERSION_NUM >= 130000
-	elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(buildstate->graphCtx, false) / (1024 * 1024));
+	elog(INFO, "graph memory: %zu MB, total memory: %zu MB",
+		 MemoryContextMemAllocated(buildstate->graphCtx, false) / (1024 * 1024),
+		 MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
 #else
-	MemoryContextStats(buildstate->graphCtx);
+	MemoryContextStats(CurrentMemoryContext);
 #endif
 #endif
 
