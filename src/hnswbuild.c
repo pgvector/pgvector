@@ -367,7 +367,7 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += sizeof(List);
 	elementSize += sizeof(ItemPointerData) + SIZEOF_VOID_P;
 	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
-	/* Each allocation has chunk header */
+	/* Each allocation has a chunk header */
 	elementSize += (e->level + 7) * GENERATIONCHUNK_RAWSIZE;
 	return elementSize;
 }
