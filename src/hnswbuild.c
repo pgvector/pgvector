@@ -369,7 +369,8 @@ HnswElementMemory(HnswElement e, int m)
 	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
 	/* Each allocation has a chunk header */
 	elementSize += (e->level + 7) * GENERATIONCHUNK_RAWSIZE;
-	return elementSize;
+	/* Add an extra 5% for alignment and other overhead */
+	return elementSize * 1.05;
 }
 #endif
 
