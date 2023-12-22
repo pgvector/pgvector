@@ -543,10 +543,10 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	pfree(list);
 }
 
+#ifdef IVFFLAT_KMEANS_DEBUG
 /*
  * Print k-means metrics
  */
-#ifdef IVFFLAT_KMEANS_DEBUG
 static void
 PrintKmeansMetrics(IvfflatBuildState * buildstate)
 {
