@@ -220,6 +220,7 @@ typedef struct HnswBuildState
 	Vector	   *normvec;
 
 	/* Memory */
+	MemoryContext graphCtx;
 	MemoryContext tmpCtx;
 
 	/* Parallel builds */

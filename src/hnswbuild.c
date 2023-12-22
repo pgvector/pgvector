@@ -260,20 +260,6 @@ CreateNeighborPages(HnswBuildState * buildstate)
 }
 
 /*
- * Free elements
- */
-static void
-FreeElements(HnswBuildState * buildstate)
-{
-	ListCell   *lc;
-
-	foreach(lc, buildstate->elements)
-		HnswFreeElement(lfirst(lc));
-
-	list_free(buildstate->elements);
-}
-
-/*
  * Flush pages
  */
 static void
@@ -281,9 +267,9 @@ FlushPages(HnswBuildState * buildstate)
 {
 #ifdef HNSW_MEMORY
 #if PG_VERSION_NUM >= 130000
-	elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, false) / (1024 * 1024));
+	elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(buildstate->graphCtx, false) / (1024 * 1024));
 #else
-	MemoryContextStats(CurrentMemoryContext);
+	MemoryContextStats(buildstate->graphCtx);
 #endif
 #endif
 
@@ -292,14 +278,14 @@ FlushPages(HnswBuildState * buildstate)
 	CreateNeighborPages(buildstate);
 
 	buildstate->flushed = true;
-	FreeElements(buildstate);
+	MemoryContextReset(buildstate->graphCtx);
 }
 
 /*
  * Insert tuple
  */
 static bool
-InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup, MemoryContext outerCtx)
+InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState * buildstate, HnswElement * dup)
 {
 	FmgrInfo   *procinfo = buildstate->procinfo;
 	Oid			collation = buildstate->collation;
@@ -319,7 +305,7 @@ InsertTuple(Relation index, Datum *values, HnswElement element, HnswBuildState *
 	}
 
 	/* Copy value to element so accessible outside of memory context */
-	oldCtx = MemoryContextSwitchTo(outerCtx);
+	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
 	element->value = datumCopy(value, false, -1);
 	MemoryContextSwitchTo(oldCtx);
 
@@ -428,17 +414,21 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	}
 
 	/* Allocate necessary memory outside of memory context */
+	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
 	element = HnswInitElement(tid, buildstate->m, buildstate->ml, buildstate->maxLevel);
+	MemoryContextSwitchTo(oldCtx);
 
 	/* Use memory context since detoast can allocate */
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Insert tuple */
-	inserted = InsertTuple(index, values, element, buildstate, &dup, oldCtx);
+	inserted = InsertTuple(index, values, element, buildstate, &dup);
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
 	MemoryContextReset(buildstate->tmpCtx);
+
+	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
 
 	/* Add outside memory context */
 	if (dup != NULL)
@@ -453,8 +443,8 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		buildstate->elements = lappend(buildstate->elements, element);
 		buildstate->memoryLeft -= HnswElementMemory(element, buildstate->m);
 	}
-	else
-		HnswFreeElement(element);
+
+	MemoryContextSwitchTo(oldCtx);
 }
 
 /*
@@ -500,6 +490,9 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	/* Reuse for each tuple */
 	buildstate->normvec = InitVector(buildstate->dimensions);
 
+	buildstate->graphCtx = GenerationContextCreate(CurrentMemoryContext,
+											   "Hnsw build graph context",
+											   1024 * 1024, 1024 * 1024, 1024 * 1024);
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Hnsw build temporary context",
 											   ALLOCSET_DEFAULT_SIZES);
@@ -515,6 +508,7 @@ static void
 FreeBuildState(HnswBuildState * buildstate)
 {
 	pfree(buildstate->normvec);
+	MemoryContextDelete(buildstate->graphCtx);
 	MemoryContextDelete(buildstate->tmpCtx);
 }
 
