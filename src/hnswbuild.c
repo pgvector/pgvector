@@ -263,13 +263,13 @@ CreateNeighborPages(HnswBuildState * buildstate)
 	pfree(ntup);
 }
 
+#ifdef HNSW_MEMORY
 /*
  * Show memory usage
  */
 static void
 ShowMemoryUsage(HnswBuildState * buildstate)
 {
-#ifdef HNSW_MEMORY
 #if PG_VERSION_NUM >= 130000
 	elog(INFO, "graph memory: %zu MB, total memory: %zu MB",
 		 MemoryContextMemAllocated(buildstate->graphCtx, false) / (1024 * 1024),
@@ -278,8 +278,8 @@ ShowMemoryUsage(HnswBuildState * buildstate)
 	MemoryContextStats(CurrentMemoryContext);
 	elog(INFO, "estimated memory: %zu MB", buildstate->memoryUsed / (1024 * 1024));
 #endif
-#endif
 }
+#endif
 
 /*
  * Flush pages
@@ -287,7 +287,9 @@ ShowMemoryUsage(HnswBuildState * buildstate)
 static void
 FlushPages(HnswBuildState * buildstate)
 {
+#ifdef HNSW_MEMORY
 	ShowMemoryUsage(buildstate);
+#endif
 
 	CreateMetaPage(buildstate);
 	CreateElementPages(buildstate);
