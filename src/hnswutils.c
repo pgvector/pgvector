@@ -738,19 +738,24 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 	return w;
 }
 
+static HnswNeighborArray *
+HnswAllocNeighborArray(int max_size)
+{
+	HnswNeighborArray *r;
+
+	r = palloc(sizeof(HnswNeighborArray));
+	r->closerSet = false;
+	r->items = palloc(max_size * sizeof(HnswCandidate));
+	r->length = 0;
+	return r;
+}
+
 /*
  * Compare candidate distances
  */
 static int
-#if PG_VERSION_NUM >= 130000
-CompareCandidateDistances(const ListCell *a, const ListCell *b)
-#else
-CompareCandidateDistances(const void *a, const void *b)
-#endif
+CompareCandidateDistances(const HnswCandidate *hca, const HnswCandidate *hcb)
 {
-	HnswCandidate *hca = lfirst((ListCell *) a);
-	HnswCandidate *hcb = lfirst((ListCell *) b);
-
 	if (hca->distance < hcb->distance)
 		return 1;
 
@@ -765,6 +770,23 @@ CompareCandidateDistances(const void *a, const void *b)
 
 	return 0;
 }
+
+#if PG_VERSION_NUM >= 140000
+#define ST_SORT sort_candidates
+#define ST_ELEMENT_TYPE HnswCandidate
+#define ST_COMPARE(a, b) CompareCandidateDistances(a, b)
+#define ST_SCOPE static
+#define ST_DEFINE
+#include <lib/sort_template.h>
+#else
+static void
+sort_candidates(HnswCandidate *data, size_t n)
+{
+	typedef int (*qsort_comparator) (const void *a, const void *b);
+
+	qsort(data, n, sizeof(HnswCandidate), (qsort_comparator) CompareCandidateDistances);
+}
+#endif
 
 /*
  * Calculate the distance between elements
@@ -802,13 +824,11 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
  * Check if an element is closer to q than any element from R
  */
 static bool
-CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid collation)
+CheckElementCloser(HnswCandidate * e, HnswNeighborArray *r, int lc, FmgrInfo *procinfo, Oid collation)
 {
-	ListCell   *lc2;
-
-	foreach(lc2, r)
+	for (int i = 0; i < r->length; i++)
 	{
-		HnswCandidate *ri = lfirst(lc2);
+		HnswCandidate *ri = &r->items[i];
 		float		distance = HnswGetDistance(e->element, ri->element, lc, procinfo, collation);
 
 		if (distance <= e->distance)
@@ -821,36 +841,43 @@ CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid c
 /*
  * Algorithm 4 from paper
  */
-static List *
+static HnswNeighborArray *
 SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
 {
-	List	   *r = NIL;
-	List	   *w = list_copy(c);
+	HnswNeighborArray *r;
+	HnswNeighborArray *w;
 	pairingheap *wd;
 	bool		mustCalculate = !e2->neighbors[lc].closerSet;
-	List	   *added = NIL;
+	HnswNeighborArray *added;
 	bool		removedAny = false;
+	ListCell *cell;
 
-	if (list_length(w) <= m)
+	/* Convert the candidate list of neighbors 'c' to an array */
+	w = HnswAllocNeighborArray(list_length(c));
+	foreach(cell, c)
+		w->items[w->length++] = *(HnswCandidate *) lfirst(cell);
+
+	/* Fast exit if we don't need to prune any of the candidates */
+	if (w->length <= m)
 		return w;
 
 	wd = pairingheap_allocate(CompareNearestCandidates, NULL);
 
 	/* Ensure order of candidates is deterministic for closer caching */
 	if (sortCandidates)
-		list_sort(w, CompareCandidateDistances);
+		sort_candidates(w->items, w->length);
 
-	while (list_length(w) > 0 && list_length(r) < m)
+	r = HnswAllocNeighborArray(m);
+	added = HnswAllocNeighborArray(m);
+	while (w->length > 0 && r->length < m)
 	{
 		/* Assumes w is already ordered desc */
-		HnswCandidate *e = llast(w);
-
-		w = list_delete_last(w);
+		HnswCandidate *e = &w->items[--w->length];
 
 		/* Use previous state of r and wd to skip work when possible */
 		if (mustCalculate)
 			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
-		else if (list_length(added) > 0)
+		else if (added->length > 0)
 		{
 			/*
 			 * If the current candidate was closer, we only need to compare it
@@ -873,7 +900,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 				{
 					e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
 					if (e->closer)
-						added = lappend(added, e);
+						added->items[added->length++] = *e;
 				}
 			}
 		}
@@ -881,11 +908,11 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 		{
 			e->closer = CheckElementCloser(e, r, lc, procinfo, collation);
 			if (e->closer)
-				added = lappend(added, e);
+				added->items[added->length++] = *e;
 		}
 
 		if (e->closer)
-			r = lappend(r, e);
+			r->items[r->length++] = *e;
 		else
 			pairingheap_add(wd, &(CreatePairingHeapNode(e)->ph_node));
 	}
@@ -894,8 +921,12 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	e2->neighbors[lc].closerSet = sortCandidates;
 
 	/* Keep pruned connections */
-	while (!pairingheap_is_empty(wd) && list_length(r) < m)
-		r = lappend(r, ((HnswPairingHeapNode *) pairingheap_remove_first(wd))->inner);
+	while (!pairingheap_is_empty(wd) && r->length < m)
+	{
+		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_remove_first(wd))->inner;
+
+		r->items[r->length++] = *c;
+	}
 
 	/* Return pruned for update connections */
 	if (pruned != NULL)
@@ -903,7 +934,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 		if (!pairingheap_is_empty(wd))
 			*pruned = ((HnswPairingHeapNode *) pairingheap_first(wd))->inner;
 		else
-			*pruned = linitial(w);
+			*pruned = &w->items[0];
 	}
 
 	return r;
@@ -937,13 +968,12 @@ HnswFindDuplicate(HnswElement e)
  * Add connections
  */
 static void
-AddConnections(HnswElement element, List *neighbors, int m, int lc)
+AddConnections(HnswElement element, HnswNeighborArray *neighbors, int m, int lc)
 {
-	ListCell   *lc2;
 	HnswNeighborArray *a = &element->neighbors[lc];
 
-	foreach(lc2, neighbors)
-		a->items[a->length++] = *((HnswCandidate *) lfirst(lc2));
+	for (int i = 0; i < neighbors->length; i++)
+		a->items[a->length++] = neighbors->items[i];
 }
 
 /*
@@ -1097,7 +1127,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 	for (int lc = level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
-		List	   *neighbors;
+		HnswNeighborArray *neighbors;
 		List	   *lw;
 
 		w = HnswSearchLayer(q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement);
