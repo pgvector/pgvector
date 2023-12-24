@@ -6,6 +6,10 @@
 #include "ivfflat.h"
 #include "miscadmin.h"
 
+#ifdef IVFFLAT_MEMORY
+#include "utils/memutils.h"
+#endif
+
 /*
  * Initialize with kmeans++
  *
@@ -151,6 +155,23 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 	}
 }
 
+#ifdef IVFFLAT_MEMORY
+/*
+ * Show memory usage
+ */
+static void
+ShowMemoryUsage(Size estimatedSize)
+{
+#if PG_VERSION_NUM >= 130000
+	elog(INFO, "total memory: %zu MB",
+		 MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
+#else
+	MemoryContextStats(CurrentMemoryContext);
+#endif
+	elog(INFO, "estimated memory: %zu MB", estimatedSize / (1024 * 1024));
+}
+#endif
+
 /*
  * Use Elkan for performance. This requires distance function to satisfy triangle inequality.
  *
@@ -230,6 +251,10 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
 		vec->dim = dimensions;
 	}
+
+#ifdef IVFFLAT_MEMORY
+	ShowMemoryUsage(totalSize);
+#endif
 
 	/* Pick initial centers */
 	InitCenters(index, samples, centers, lowerBound);
