@@ -413,6 +413,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 {
 	HnswBuildState *buildstate = (HnswBuildState *) state;
 	MemoryContext oldCtx;
+	bool		inserted;
 
 #if PG_VERSION_NUM < 130000
 	ItemPointer tid = &hup->t_self;
@@ -436,24 +437,21 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	if (buildstate->flushed)
-	{
-		if (HnswInsertTuple(index, values, isnull, tid, buildstate->heap, true))
-		{
-			if (buildstate->hnswshared)
-			{
-				HnswShared *hnswshared = buildstate->hnswshared;
-
-				SpinLockAcquire(&hnswshared->mutex);
-				UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++hnswshared->indtuples);
-				SpinLockRelease(&hnswshared->mutex);
-			}
-			else
-				UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
-		}
-	}
+		inserted = HnswInsertTuple(index, values, isnull, tid, buildstate->heap, true);
 	else
+		inserted = InsertTupleInMemory(index, values, tid, buildstate);
+
+	if (inserted)
 	{
-		if (InsertTupleInMemory(index, values, tid, buildstate))
+		if (buildstate->hnswshared)
+		{
+			HnswShared *hnswshared = buildstate->hnswshared;
+
+			SpinLockAcquire(&hnswshared->mutex);
+			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++hnswshared->indtuples);
+			SpinLockRelease(&hnswshared->mutex);
+		}
+		else
 			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
 	}
 
