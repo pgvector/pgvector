@@ -423,6 +423,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (isnull[0])
 		return;
 
+	/* Flush pages if needed */
 	if (!buildstate->flushed && (buildstate->memoryUsed >= buildstate->memoryTotal || list_length(buildstate->elements) == LIST_MAX_LENGTH))
 	{
 		if (buildstate->memoryUsed >= buildstate->memoryTotal)
@@ -436,11 +437,13 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
+	/* Insert tuple */
 	if (buildstate->flushed)
 		inserted = HnswInsertTuple(index, values, isnull, tid, buildstate->heap, true);
 	else
 		inserted = InsertTupleInMemory(index, values, tid, buildstate);
 
+	/* Update progress */
 	if (inserted)
 	{
 		if (buildstate->hnswshared)
