@@ -446,10 +446,10 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	/* Update progress */
 	if (inserted)
 	{
-		if (buildstate->hnswshared)
-		{
-			HnswShared *hnswshared = buildstate->hnswshared;
+		HnswShared *hnswshared = buildstate->hnswshared;
 
+		if (hnswshared)
+		{
 			SpinLockAcquire(&hnswshared->mutex);
 			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++hnswshared->indtuples);
 			SpinLockRelease(&hnswshared->mutex);
