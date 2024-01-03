@@ -231,7 +231,7 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
 	if (level > maxLevel)
 		level = maxLevel;
 
-	element->heaptids = NIL;
+	element->heaptidsLength = 0;
 	HnswAddHeapTid(element, heaptid);
 
 	element->level = level;
@@ -251,7 +251,6 @@ void
 HnswFreeElement(HnswElement element)
 {
 	HnswFreeNeighbors(element);
-	list_free_deep(element->heaptids);
 	if (DatumGetPointer(element->value))
 		pfree(DatumGetPointer(element->value));
 	pfree(element);
@@ -263,10 +262,7 @@ HnswFreeElement(HnswElement element)
 void
 HnswAddHeapTid(HnswElement element, ItemPointer heaptid)
 {
-	ItemPointer copy = palloc(sizeof(ItemPointerData));
-
-	ItemPointerCopy(heaptid, copy);
-	element->heaptids = lappend(element->heaptids, copy);
+	element->heaptids[element->heaptidsLength++] = *heaptid;
 }
 
 /*
@@ -397,8 +393,8 @@ HnswSetElementTuple(HnswElementTuple etup, HnswElement element)
 	etup->deleted = 0;
 	for (int i = 0; i < HNSW_HEAPTIDS; i++)
 	{
-		if (i < list_length(element->heaptids))
-			etup->heaptids[i] = *((ItemPointer) list_nth(element->heaptids, i));
+		if (i < element->heaptidsLength)
+			etup->heaptids[i] = element->heaptids[i];
 		else
 			ItemPointerSetInvalid(&etup->heaptids[i]);
 	}
@@ -509,7 +505,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 	element->deleted = etup->deleted;
 	element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 	element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
-	element->heaptids = NIL;
+	element->heaptidsLength = 0;
 
 	if (loadHeaptids)
 	{
@@ -682,7 +678,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 		 * would be ideal to do this for inserts as well, but this could
 		 * affect insert performance.
 		 */
-		if (skipElement == NULL || list_length(hc->element->heaptids) != 0)
+		if (skipElement == NULL || hc->element->heaptidsLength != 0)
 			wlen++;
 	}
 
@@ -741,7 +737,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 					 * vacuuming. It would be ideal to do this for inserts as
 					 * well, but this could affect insert performance.
 					 */
-					if (skipElement == NULL || list_length(e->element->heaptids) != 0)
+					if (skipElement == NULL || e->element->heaptidsLength != 0)
 					{
 						wlen++;
 
@@ -953,7 +949,7 @@ HnswFindDuplicate(HnswElement e)
 			break;
 
 		/* Check for space */
-		if (list_length(neighbor->element->heaptids) < HNSW_HEAPTIDS)
+		if (neighbor->element->heaptidsLength < HNSW_HEAPTIDS)
 			return neighbor->element;
 	}
 
@@ -1014,7 +1010,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 					hc3->distance = GetCandidateDistance(hc3, q, procinfo, collation);
 
 				/* Prune element if being deleted */
-				if (list_length(hc3->element->heaptids) == 0)
+				if (hc3->element->heaptidsLength == 0)
 				{
 					pruned = &currentNeighbors->items[i];
 					break;
@@ -1072,7 +1068,7 @@ RemoveElements(List *w, HnswElement skipElement)
 		if (skipElement != NULL && hc->element->blkno == skipElement->blkno && hc->element->offno == skipElement->offno)
 			continue;
 
-		if (list_length(hc->element->heaptids) != 0)
+		if (hc->element->heaptidsLength != 0)
 			w2 = lappend(w2, hc);
 	}
 

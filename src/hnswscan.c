@@ -188,15 +188,13 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		ItemPointer heaptid;
 
 		/* Move to next element if no valid heap TIDs */
-		if (list_length(hc->element->heaptids) == 0)
+		if (hc->element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
 			continue;
 		}
 
-		heaptid = llast(hc->element->heaptids);
-
-		hc->element->heaptids = list_delete_last(hc->element->heaptids);
+		heaptid = &hc->element->heaptids[--hc->element->heaptidsLength];
 
 		MemoryContextSwitchTo(oldCtx);
 

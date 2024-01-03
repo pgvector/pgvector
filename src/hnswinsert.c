@@ -490,7 +490,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool buil
 	}
 
 	/* Add heap TID */
-	etup->heaptids[i] = *((ItemPointer) linitial(element->heaptids));
+	etup->heaptids[i] = element->heaptids[0];
 
 	/* Overwrite tuple */
 	if (!PageIndexTupleOverwrite(page, dup->offno, (Item) etup, etupSize))

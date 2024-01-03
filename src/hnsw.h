@@ -103,7 +103,8 @@ typedef struct HnswNeighborArray HnswNeighborArray;
 
 typedef struct HnswElementData
 {
-	List	   *heaptids;
+	ItemPointerData heaptids[HNSW_HEAPTIDS];
+	uint8		heaptidsLength;
 	uint8		level;
 	uint8		deleted;
 	uint32		hash;
