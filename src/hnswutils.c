@@ -207,17 +207,6 @@ HnswInitNeighbors(HnswElement element, int m)
 }
 
 /*
- * Free neighbors
- */
-static void
-HnswFreeNeighbors(HnswElement element)
-{
-	for (int lc = 0; lc <= element->level; lc++)
-		pfree(element->neighbors[lc].items);
-	pfree(element->neighbors);
-}
-
-/*
  * Allocate an element
  */
 HnswElement
@@ -242,18 +231,6 @@ HnswInitElement(ItemPointer heaptid, int m, double ml, int maxLevel)
 	element->value = PointerGetDatum(NULL);
 
 	return element;
-}
-
-/*
- * Free an element
- */
-void
-HnswFreeElement(HnswElement element)
-{
-	HnswFreeNeighbors(element);
-	if (DatumGetPointer(element->value))
-		pfree(DatumGetPointer(element->value));
-	pfree(element);
 }
 
 /*

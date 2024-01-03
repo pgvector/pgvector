@@ -310,11 +310,9 @@ HnswElementMemory(HnswElement e, int m)
 
 	elementSize += sizeof(HnswNeighborArray) * (e->level + 1);
 	elementSize += sizeof(HnswCandidate) * (m * (e->level + 2));
-	elementSize += sizeof(List);
-	elementSize += sizeof(ItemPointerData) + SIZEOF_VOID_P;
 	elementSize += VARSIZE_ANY(DatumGetPointer(e->value));
 	/* Each allocation has a chunk header */
-	elementSize += (e->level + 7) * GENERATIONCHUNK_RAWSIZE;
+	elementSize += (e->level + 4) * GENERATIONCHUNK_RAWSIZE;
 	/* Add an extra 5% for alignment and other overhead */
 	return elementSize * 1.05;
 }
@@ -379,27 +377,20 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 
 	if (dup != NULL)
 	{
+		/* No need to free element since memory unlikely to be reallocated */
 		HnswAddHeapTid(dup, heaptid);
-		HnswFreeElement(element);
-
-#if PG_VERSION_NUM >= 130000
-		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
-#else
-		buildstate->memoryUsed += sizeof(ItemPointerData) + SIZEOF_VOID_P + GENERATIONCHUNK_RAWSIZE;
-#endif
 	}
 	else
-	{
 		buildstate->elements = lappend(buildstate->elements, element);
 
-#if PG_VERSION_NUM >= 130000
-		buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
-#else
-		buildstate->memoryUsed += HnswElementMemory(element, buildstate->m);
-#endif
-	}
-
 	MemoryContextSwitchTo(oldCtx);
+
+	/* Update memory usage */
+#if PG_VERSION_NUM >= 130000
+	buildstate->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
+#else
+	buildstate->memoryUsed += HnswElementMemory(element, buildstate->m);
+#endif
 
 	return true;
 }

@@ -330,7 +330,6 @@ List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, Fmgr
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
-void		HnswFreeElement(HnswElement element);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
 void		HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing);
 HnswElement HnswFindDuplicate(HnswElement e);
