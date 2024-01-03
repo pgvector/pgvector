@@ -375,13 +375,14 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 	/* Add to graph memory context */
 	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
 
-	if (dup != NULL)
+	if (dup == NULL)
+		buildstate->elements = lappend(buildstate->elements, element);
+	else
 	{
 		/* No need to free element since memory unlikely to be reallocated */
+		/* Element is also used to estimate memory usage below */
 		HnswAddHeapTid(dup, heaptid);
 	}
-	else
-		buildstate->elements = lappend(buildstate->elements, element);
 
 	MemoryContextSwitchTo(oldCtx);
 
