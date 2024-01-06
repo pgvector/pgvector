@@ -854,6 +854,27 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 }
 
 /*
+ * Compute parallel workers
+ */
+static int
+ComputeParallelWorkers(Relation heap, Relation index)
+{
+	int			parallel_workers;
+
+	/* Make sure it's safe to use parallel workers */
+	parallel_workers = plan_create_index_workers(RelationGetRelid(heap), RelationGetRelid(index));
+	if (parallel_workers == 0)
+		return 0;
+
+	/* Use parallel_workers storage parameter on table if set */
+	parallel_workers = RelationGetParallelWorkers(heap, -1);
+	if (parallel_workers != -1)
+		return Min(parallel_workers, max_parallel_maintenance_workers);
+
+	return max_parallel_maintenance_workers;
+}
+
+/*
  * Build graph
  */
 static void
@@ -865,7 +886,7 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 
 	/* Calculate parallel workers */
 	if (hnsw_enable_parallel_build)
-		parallel_workers = plan_create_index_workers(RelationGetRelid(buildstate->heap), RelationGetRelid(buildstate->index));
+		parallel_workers = ComputeParallelWorkers(buildstate->heap, buildstate->index);
 
 	/* Attempt to launch parallel worker scan when required */
 	if (parallel_workers > 0)
