@@ -353,9 +353,12 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 	/* Look for duplicate */
 	dup = HnswFindDuplicate(element);
 
-	/* Update neighbors if needed */
 	if (dup == NULL)
 	{
+		/* Add element */
+		slist_push_head(&buildstate->elements, &element->next);
+
+		/* Update neighbors */
 		for (int lc = element->level; lc >= 0; lc--)
 		{
 			int			lm = HnswGetLayerM(m, lc);
@@ -364,14 +367,11 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 			for (int i = 0; i < neighbors->length; i++)
 				HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
 		}
+
+		/* Update entry point if needed */
+		if (entryPoint == NULL || element->level > entryPoint->level)
+			buildstate->entryPoint = element;
 	}
-
-	/* Update entry point if needed */
-	if (dup == NULL && (entryPoint == NULL || element->level > entryPoint->level))
-		buildstate->entryPoint = element;
-
-	if (dup == NULL)
-		slist_push_head(&buildstate->elements, &element->next);
 	else
 	{
 		/* No need to free element since memory unlikely to be reallocated */
