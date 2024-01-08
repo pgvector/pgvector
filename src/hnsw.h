@@ -148,6 +148,15 @@ typedef struct HnswOptions
 	int			efConstruction; /* size of dynamic candidate list */
 }			HnswOptions;
 
+typedef struct HnswGraph
+{
+	slist_head	elements;
+	HnswElement entryPoint;
+	long		memoryUsed;
+	long		memoryTotal;
+	bool		flushed;
+}			HnswGraph;
+
 typedef struct HnswSpool
 {
 	Relation	heap;
@@ -172,6 +181,7 @@ typedef struct HnswShared
 	int			nparticipantsdone;
 	double		reltuples;
 	double		indtuples;
+	HnswGraph	graphData;
 
 #if PG_VERSION_NUM < 120000
 	ParallelHeapScanDescData heapdesc;	/* must come last */
@@ -214,13 +224,10 @@ typedef struct HnswBuildState
 	Oid			collation;
 
 	/* Variables */
-	slist_head	elements;
-	HnswElement entryPoint;
+	HnswGraph	graphData;
+	HnswGraph  *graph;
 	double		ml;
 	int			maxLevel;
-	long		memoryUsed;
-	long		memoryTotal;
-	bool		flushed;
 	Vector	   *normvec;
 
 	/* Memory */
