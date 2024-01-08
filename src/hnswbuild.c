@@ -432,21 +432,18 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		return;
 
 	/* Flush pages if needed */
+	HnswLockAcquire(hnswshared);
 	if (!graph->flushed && graph->memoryUsed >= graph->memoryTotal)
 	{
-		HnswLockAcquire(hnswshared);
-
 		if (!hnswshared)
 			ereport(NOTICE,
 					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) graph->indtuples),
 					 errdetail("Building will take significantly more time."),
 					 errhint("Increase maintenance_work_mem to speed up builds.")));
 
-		if (!graph->flushed)
-			FlushPages(buildstate);
-
-		HnswLockRelease(hnswshared);
+		FlushPages(buildstate);
 	}
+	HnswLockRelease(hnswshared);
 
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
