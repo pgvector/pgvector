@@ -56,8 +56,6 @@
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)
 #define PARALLEL_KEY_QUERY_TEXT			UINT64CONST(0xA000000000000002)
 
-#define LIST_MAX_LENGTH ((1 << 26) - 1)
-
 #if PG_VERSION_NUM < 130000
 #define GENERATIONCHUNK_RAWSIZE (SIZEOF_SIZE_T + SIZEOF_VOID_P * 2)
 #endif
@@ -139,7 +137,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	BlockNumber insertPage;
 	Buffer		buf;
 	Page		page;
-	ListCell   *lc;
+	slist_iter	iter;
 
 	/* Calculate sizes */
 	etupAllocSize = BLCKSZ;
@@ -154,9 +152,9 @@ CreateElementPages(HnswBuildState * buildstate)
 	page = BufferGetPage(buf);
 	HnswInitPage(buf, page);
 
-	foreach(lc, buildstate->elements)
+	slist_foreach(iter, &buildstate->elements)
 	{
-		HnswElement element = lfirst(lc);
+		HnswElement element = slist_container(HnswElementData, next, iter.cur);
 		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
@@ -229,15 +227,15 @@ CreateNeighborPages(HnswBuildState * buildstate)
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
 	int			m = buildstate->m;
-	ListCell   *lc;
+	slist_iter	iter;
 	HnswNeighborTuple ntup;
 
 	/* Allocate once */
 	ntup = palloc0(BLCKSZ);
 
-	foreach(lc, buildstate->elements)
+	slist_foreach(iter, &buildstate->elements)
 	{
-		HnswElement e = lfirst(lc);
+		HnswElement e = slist_container(HnswElementData, next, iter.cur);
 		Buffer		buf;
 		Page		page;
 		Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
@@ -372,19 +370,14 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 	if (dup == NULL && (entryPoint == NULL || element->level > entryPoint->level))
 		buildstate->entryPoint = element;
 
-	/* Add to graph memory context */
-	oldCtx = MemoryContextSwitchTo(buildstate->graphCtx);
-
 	if (dup == NULL)
-		buildstate->elements = lappend(buildstate->elements, element);
+		slist_push_head(&buildstate->elements, &element->next);
 	else
 	{
 		/* No need to free element since memory unlikely to be reallocated */
 		/* Element is also used to estimate memory usage below */
 		HnswAddHeapTid(dup, heaptid);
 	}
-
-	MemoryContextSwitchTo(oldCtx);
 
 	/* Update memory usage */
 #if PG_VERSION_NUM >= 130000
@@ -416,13 +409,12 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		return;
 
 	/* Flush pages if needed */
-	if (!buildstate->flushed && (buildstate->memoryUsed >= buildstate->memoryTotal || list_length(buildstate->elements) == LIST_MAX_LENGTH))
+	if (!buildstate->flushed && buildstate->memoryUsed >= buildstate->memoryTotal)
 	{
-		if (buildstate->memoryUsed >= buildstate->memoryTotal)
-			ereport(NOTICE,
-					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
-					 errdetail("Building will take significantly more time."),
-					 errhint("Increase maintenance_work_mem to speed up builds.")));
+		ereport(NOTICE,
+				(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
+				 errdetail("Building will take significantly more time."),
+				 errhint("Increase maintenance_work_mem to speed up builds.")));
 
 		FlushPages(buildstate);
 	}
@@ -488,7 +480,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
-	buildstate->elements = NIL;
+	slist_init(&buildstate->elements);
 	buildstate->entryPoint = NULL;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);

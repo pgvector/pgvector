@@ -6,6 +6,7 @@
 #include "access/generic_xlog.h"
 #include "access/parallel.h"
 #include "access/reloptions.h"
+#include "lib/ilist.h"
 #include "nodes/execnodes.h"
 #include "port.h"				/* for random() */
 #include "utils/sampling.h"
@@ -103,6 +104,7 @@ typedef struct HnswNeighborArray HnswNeighborArray;
 
 typedef struct HnswElementData
 {
+	slist_node	next;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	uint8		heaptidsLength;
 	uint8		level;
@@ -212,7 +214,7 @@ typedef struct HnswBuildState
 	Oid			collation;
 
 	/* Variables */
-	List	   *elements;
+	slist_head	elements;
 	HnswElement entryPoint;
 	double		ml;
 	int			maxLevel;
