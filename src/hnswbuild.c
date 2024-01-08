@@ -432,18 +432,15 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		return;
 
 	/* Flush pages if needed */
-	HnswLockAcquire(hnswshared);
 	if (!graph->flushed && graph->memoryUsed >= graph->memoryTotal)
 	{
-		if (!hnswshared)
-			ereport(NOTICE,
-					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) graph->indtuples),
-					 errdetail("Building will take significantly more time."),
-					 errhint("Increase maintenance_work_mem to speed up builds.")));
+		ereport(NOTICE,
+				(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) graph->indtuples),
+				 errdetail("Building will take significantly more time."),
+				 errhint("Increase maintenance_work_mem to speed up builds.")));
 
 		FlushPages(buildstate);
 	}
-	HnswLockRelease(hnswshared);
 
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
@@ -825,6 +822,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	InitGraph(&hnswshared->graphData);
 	/* TODO Support in-memory builds */
 	hnswshared->graphData.memoryTotal = 0;
+	hnswshared->graphData.flushed = true;
 #if PG_VERSION_NUM >= 120000
 	table_parallelscan_initialize(buildstate->heap,
 								  ParallelTableScanFromHnswShared(hnswshared),
@@ -912,7 +910,11 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 
 	/* Attempt to launch parallel worker scan when required */
 	if (parallel_workers > 0)
+	{
+		/* TODO Support in-memory builds */
+		FlushPages(buildstate);
 		HnswBeginParallel(buildstate, buildstate->indexInfo->ii_Concurrent, parallel_workers);
+	}
 
 	/* Add tuples to graph */
 	if (buildstate->heap != NULL)
