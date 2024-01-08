@@ -391,6 +391,26 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 }
 
 /*
+ * Acquire a lock if needed
+ */
+static inline void
+HnswLockAcquire(HnswShared * hnswshared)
+{
+	if (hnswshared)
+		SpinLockAcquire(&hnswshared->mutex);
+}
+
+/*
+ * Release a lock if needed
+ */
+static inline void
+HnswLockRelease(HnswShared * hnswshared)
+{
+	if (hnswshared)
+		SpinLockRelease(&hnswshared->mutex);
+}
+
+/*
  * Callback for table_index_build_scan
  */
 static void
@@ -414,8 +434,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	/* Flush pages if needed */
 	if (!graph->flushed && graph->memoryUsed >= graph->memoryTotal)
 	{
-		if (hnswshared)
-			SpinLockAcquire(&hnswshared->mutex);
+		HnswLockAcquire(hnswshared);
 
 		if (!hnswshared)
 			ereport(NOTICE,
@@ -426,8 +445,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 		if (!graph->flushed)
 			FlushPages(buildstate);
 
-		if (hnswshared)
-			SpinLockRelease(&hnswshared->mutex);
+		HnswLockRelease(hnswshared);
 	}
 
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
@@ -441,13 +459,9 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	/* Update progress */
 	if (inserted)
 	{
-		if (hnswshared)
-			SpinLockAcquire(&hnswshared->mutex);
-
+		HnswLockAcquire(hnswshared);
 		UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++graph->indtuples);
-
-		if (hnswshared)
-			SpinLockRelease(&hnswshared->mutex);
+		HnswLockRelease(hnswshared);
 	}
 
 	/* Reset memory context */
