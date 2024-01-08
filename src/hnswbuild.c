@@ -885,7 +885,7 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_HNSW_PHASE_LOAD);
 
 	/* Calculate parallel workers */
-	if (hnsw_enable_parallel_build)
+	if (buildstate->heap != NULL && hnsw_enable_parallel_build)
 		parallel_workers = ComputeParallelWorkers(buildstate->heap, buildstate->index);
 
 	/* Attempt to launch parallel worker scan when required */
@@ -896,19 +896,26 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 		HnswBeginParallel(buildstate, buildstate->indexInfo->ii_Concurrent, parallel_workers);
 	}
 
-	/* Add tuples to sort */
-	if (buildstate->hnswleader)
-		buildstate->reltuples = ParallelHeapScan(buildstate);
-	else
+	/* Add tuples to graph */
+	if (buildstate->heap != NULL)
 	{
+		if (buildstate->hnswleader)
+			buildstate->reltuples = ParallelHeapScan(buildstate);
+		else
+		{
 #if PG_VERSION_NUM >= 120000
-		buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-													   true, true, BuildCallback, (void *) buildstate, NULL);
+			buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
+														   true, true, BuildCallback, (void *) buildstate, NULL);
 #else
-		buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-												   true, BuildCallback, (void *) buildstate, NULL);
+			buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
+													   true, BuildCallback, (void *) buildstate, NULL);
 #endif
+		}
 	}
+
+	/* Flush pages */
+	if (!buildstate->flushed)
+		FlushPages(buildstate);
 
 	/* End parallel build */
 	if (buildstate->hnswleader)
@@ -944,11 +951,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 
 	InitBuildState(buildstate, heap, index, indexInfo, forkNum);
 
-	if (buildstate->heap != NULL)
-		BuildGraph(buildstate, forkNum);
-
-	if (!buildstate->flushed)
-		FlushPages(buildstate);
+	BuildGraph(buildstate, forkNum);
 
 	if (RelationNeedsWAL(index))
 		log_newpage_range(index, forkNum, 0, RelationGetNumberOfBlocks(index), true);
