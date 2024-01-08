@@ -155,6 +155,7 @@ typedef struct HnswGraph
 	long		memoryUsed;
 	long		memoryTotal;
 	bool		flushed;
+	double		indtuples;
 }			HnswGraph;
 
 typedef struct HnswSpool
@@ -180,7 +181,6 @@ typedef struct HnswShared
 	/* Mutable state */
 	int			nparticipantsdone;
 	double		reltuples;
-	double		indtuples;
 	HnswGraph	graphData;
 
 #if PG_VERSION_NUM < 120000

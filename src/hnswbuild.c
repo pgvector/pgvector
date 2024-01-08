@@ -419,7 +419,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 
 		if (!hnswshared)
 			ereport(NOTICE,
-					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) buildstate->indtuples),
+					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) graph->indtuples),
 					 errdetail("Building will take significantly more time."),
 					 errhint("Increase maintenance_work_mem to speed up builds.")));
 
@@ -442,13 +442,12 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	if (inserted)
 	{
 		if (hnswshared)
-		{
 			SpinLockAcquire(&hnswshared->mutex);
-			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++hnswshared->indtuples);
+
+		UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++graph->indtuples);
+
+		if (hnswshared)
 			SpinLockRelease(&hnswshared->mutex);
-		}
-		else
-			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++buildstate->indtuples);
 	}
 
 	/* Reset memory context */
@@ -467,6 +466,7 @@ InitGraph(HnswGraph * graph)
 	graph->memoryUsed = 0;
 	graph->memoryTotal = maintenance_work_mem * 1024L;
 	graph->flushed = false;
+	graph->indtuples = 0;
 }
 
 /*
@@ -552,7 +552,6 @@ ParallelHeapScan(HnswBuildState * buildstate)
 		if (hnswshared->nparticipantsdone == nparticipanttuplesorts)
 		{
 			buildstate->graph = &hnswshared->graphData;
-			buildstate->indtuples = hnswshared->indtuples;
 			reltuples = hnswshared->reltuples;
 			SpinLockRelease(&hnswshared->mutex);
 			break;
@@ -812,7 +811,6 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Initialize mutable state */
 	hnswshared->nparticipantsdone = 0;
 	hnswshared->reltuples = 0;
-	hnswshared->indtuples = 0;
 	InitGraph(&hnswshared->graphData);
 	/* TODO Support in-memory builds */
 	hnswshared->graphData.memoryTotal = 0;
@@ -920,6 +918,8 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 													   true, BuildCallback, (void *) buildstate, NULL);
 #endif
 		}
+
+		buildstate->indtuples = buildstate->graph->indtuples;
 	}
 
 	/* Flush pages */
