@@ -161,76 +161,8 @@ You can add an index to use approximate nearest neighbor search, which trades so
 
 Supported index types are:
 
-- [IVFFlat](#ivfflat)
 - [HNSW](#hnsw) - added in 0.5.0
-
-## IVFFlat
-
-An IVFFlat index divides vectors into lists, and then searches a subset of those lists that are closest to the query vector. It has faster build times and uses less memory than HNSW, but has lower query performance (in terms of speed-recall tradeoff).
-
-Three keys to achieving good recall are:
-
-1. Create the index *after* the table has some data
-2. Choose an appropriate number of lists - a good place to start is `rows / 1000` for up to 1M rows and `sqrt(rows)` for over 1M rows
-3. When querying, specify an appropriate number of [probes](#query-options) (higher is better for recall, lower is better for speed) - a good place to start is `sqrt(lists)`
-
-Add an index for each distance function you want to use.
-
-L2 distance
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-```
-
-Inner product
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_ip_ops) WITH (lists = 100);
-```
-
-Cosine distance
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-```
-
-Vectors with up to 2,000 dimensions can be indexed.
-
-### Query Options
-
-Specify the number of probes (1 by default)
-
-```sql
-SET ivfflat.probes = 10;
-```
-
-A higher value provides better recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search (at which point the planner won’t use the index)
-
-Use `SET LOCAL` inside a transaction to set it for a single query
-
-```sql
-BEGIN;
-SET LOCAL ivfflat.probes = 10;
-SELECT ...
-COMMIT;
-```
-
-### Indexing Progress
-
-Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
-
-```sql
-SELECT phase, round(100.0 * tuples_done / nullif(tuples_total, 0), 1) AS "%" FROM pg_stat_progress_create_index;
-```
-
-The phases for IVFFlat are:
-
-1. `initializing`
-2. `performing k-means`
-3. `assigning tuples`
-4. `loading tuples`
-
-Note: `%` is only populated during the `loading tuples` phase
+- [IVFFlat](#ivfflat)
 
 ## HNSW
 
@@ -302,6 +234,74 @@ The phases for HNSW are:
 
 1. `initializing`
 2. `loading tuples`
+
+## IVFFlat
+
+An IVFFlat index divides vectors into lists, and then searches a subset of those lists that are closest to the query vector. It has faster build times and uses less memory than HNSW, but has lower query performance (in terms of speed-recall tradeoff).
+
+Three keys to achieving good recall are:
+
+1. Create the index *after* the table has some data
+2. Choose an appropriate number of lists - a good place to start is `rows / 1000` for up to 1M rows and `sqrt(rows)` for over 1M rows
+3. When querying, specify an appropriate number of [probes](#query-options) (higher is better for recall, lower is better for speed) - a good place to start is `sqrt(lists)`
+
+Add an index for each distance function you want to use.
+
+L2 distance
+
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+```
+
+Inner product
+
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_ip_ops) WITH (lists = 100);
+```
+
+Cosine distance
+
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+Vectors with up to 2,000 dimensions can be indexed.
+
+### Query Options
+
+Specify the number of probes (1 by default)
+
+```sql
+SET ivfflat.probes = 10;
+```
+
+A higher value provides better recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search (at which point the planner won’t use the index)
+
+Use `SET LOCAL` inside a transaction to set it for a single query
+
+```sql
+BEGIN;
+SET LOCAL ivfflat.probes = 10;
+SELECT ...
+COMMIT;
+```
+
+### Indexing Progress
+
+Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
+
+```sql
+SELECT phase, round(100.0 * tuples_done / nullif(tuples_total, 0), 1) AS "%" FROM pg_stat_progress_create_index;
+```
+
+The phases for IVFFlat are:
+
+1. `initializing`
+2. `performing k-means`
+3. `assigning tuples`
+4. `loading tuples`
+
+Note: `%` is only populated during the `loading tuples` phase
 
 ## Filtering
 
