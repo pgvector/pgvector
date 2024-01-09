@@ -166,7 +166,7 @@ Supported index types are:
 
 ## HNSW
 
-An HNSW index creates a multilayer graph. It has better query performance than IVFFlat (in terms of speed-recall tradeoff), but has slower build times and uses more memory. There’s also no training step like IVFFlat, so the index can be created without any data in the table.
+An HNSW index creates a multilayer graph. It has better query performance than IVFFlat (in terms of speed-recall tradeoff), but has slower build times and uses more memory. Also, an index can be created without any data in the table since there isn’t a training step like IVFFlat.
 
 Add an index for each distance function you want to use.
 
