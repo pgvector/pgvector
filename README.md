@@ -190,22 +190,6 @@ CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
 
 Vectors with up to 2,000 dimensions can be indexed.
 
-### Index Build Time
-
-Indexes build significantly faster when the graph fits into `maintenance_work_mem`
-
-```sql
-SET maintenance_work_mem = '8GB';
-```
-
-A notice is shown when the graph no longer fits
-
-```text
-NOTICE:  hnsw graph no longer fits into maintenance_work_mem after 100000 tuples
-DETAIL:  Building will take significantly more time.
-HINT:  Increase maintenance_work_mem to speed up builds.
-```
-
 ### Index Options
 
 Specify HNSW parameters
@@ -236,6 +220,22 @@ BEGIN;
 SET LOCAL hnsw.ef_search = 100;
 SELECT ...
 COMMIT;
+```
+
+### Index Build Time
+
+Indexes build significantly faster when the graph fits into `maintenance_work_mem`
+
+```sql
+SET maintenance_work_mem = '8GB';
+```
+
+A notice is shown when the graph no longer fits
+
+```text
+NOTICE:  hnsw graph no longer fits into maintenance_work_mem after 100000 tuples
+DETAIL:  Building will take significantly more time.
+HINT:  Increase maintenance_work_mem to speed up builds.
 ```
 
 ### Indexing Progress
