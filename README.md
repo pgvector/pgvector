@@ -162,7 +162,12 @@ You can add an index to use approximate nearest neighbor search, which trades so
 Supported index types are:
 
 - [HNSW](#hnsw) - added in 0.5.0
+  - Better query performance than IVFFlat
+  - Slower build times than IVFFlat
+  - Uses more memory than IVFFlat
+  - Does not need to train on seed data
 - [IVFFlat](#ivfflat)
+  - Requires pre-existing seed data to train the index
 
 ## HNSW
 
