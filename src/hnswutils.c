@@ -625,13 +625,12 @@ AddToVisited(visited_hash v, HnswCandidate * hc, Relation index, bool *found)
 List *
 HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement)
 {
-	ListCell   *lc2;
-
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
 	int			wlen = 0;
 	visited_hash v;
+	ListCell   *lc2;
 
 	/* Create hash table */
 	if (index == NULL)
