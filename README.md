@@ -238,6 +238,8 @@ DETAIL:  Building will take significantly more time.
 HINT:  Increase maintenance_work_mem to speed up builds.
 ```
 
+Note: Do not set `maintenance_work_mem` so high that it exhausts the memory on the server
+
 ### Indexing Progress
 
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
