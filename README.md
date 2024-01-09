@@ -509,7 +509,7 @@ Then use `nmake` to build:
 
 ```cmd
 set "PGROOT=C:\Program Files\PostgreSQL\15"
-git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git
+git clone --branch v0.5.2 https://github.com/pgvector/pgvector.git
 cd pgvector
 nmake /F Makefile.win
 nmake /F Makefile.win install
