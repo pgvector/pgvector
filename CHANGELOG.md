@@ -1,3 +1,7 @@
+## 0.5.2
+
+- Increased max dimensions for index from 2000 to 4096
+
 ## 0.5.1 (2023-10-10)
 
 - Improved performance of HNSW index builds

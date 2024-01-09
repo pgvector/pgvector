@@ -1,5 +1,5 @@
 EXTENSION = vector
-EXTVERSION = 0.5.1
+EXTVERSION = 0.5.2
 
 MODULE_big = vector
 DATA = $(wildcard sql/*--*.sql)
@@ -63,7 +63,7 @@ prove_installcheck:
 
 dist:
 	mkdir -p dist
-	git archive --format zip --prefix=$(EXTENSION)-$(EXTVERSION)/ --output dist/$(EXTENSION)-$(EXTVERSION).zip master
+	git archive --format zip --prefix=$(EXTENSION)-$(EXTVERSION)/ --output dist/$(EXTENSION)-$(EXTVERSION).zip v0.5.2
 
 .PHONY: docker
 
