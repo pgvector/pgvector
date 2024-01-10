@@ -100,8 +100,6 @@
 extern int	hnsw_ef_search;
 extern bool hnsw_enable_parallel_build;
 
-typedef struct HnswNeighborArray HnswNeighborArray;
-
 typedef struct HnswElementData
 {
 	slist_node	next;
@@ -110,7 +108,7 @@ typedef struct HnswElementData
 	uint8		level;
 	uint8		deleted;
 	uint32		hash;
-	HnswNeighborArray *neighbors;
+	struct HnswNeighborArray *neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
