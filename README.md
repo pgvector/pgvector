@@ -588,10 +588,10 @@ If compilation fails with `fatal error: postgres.h: No such file or directory`, 
 For Ubuntu and Debian, use:
 
 ```sh
-sudo apt install postgresql-server-dev-15
+sudo apt install postgresql-server-dev-16
 ```
 
-Note: Replace `15` with your Postgres server version
+Note: Replace `16` with your Postgres server version
 
 ### Windows
 
@@ -606,7 +606,7 @@ Note: The exact path will vary depending on your Visual Studio version and editi
 Then use `nmake` to build:
 
 ```cmd
-set "PGROOT=C:\Program Files\PostgreSQL\15"
+set "PGROOT=C:\Program Files\PostgreSQL\16"
 git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git
 cd pgvector
 nmake /F Makefile.win
@@ -656,22 +656,22 @@ pgxn install vector
 Debian and Ubuntu packages are available from the [PostgreSQL APT Repository](https://wiki.postgresql.org/wiki/Apt). Follow the [setup instructions](https://wiki.postgresql.org/wiki/Apt#Quickstart) and run:
 
 ```sh
-sudo apt install postgresql-15-pgvector
+sudo apt install postgresql-16-pgvector
 ```
 
-Note: Replace `15` with your Postgres server version
+Note: Replace `16` with your Postgres server version
 
 ### Yum
 
 RPM packages are available from the [PostgreSQL Yum Repository](https://yum.postgresql.org/). Follow the [setup instructions](https://www.postgresql.org/download/linux/redhat/) for your distribution and run:
 
 ```sh
-sudo yum install pgvector_15
+sudo yum install pgvector_16
 # or
-sudo dnf install pgvector_15
+sudo dnf install pgvector_16
 ```
 
-Note: Replace `15` with your Postgres server version
+Note: Replace `16` with your Postgres server version
 
 ### conda-forge
 
