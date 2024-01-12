@@ -5,6 +5,7 @@
 #include "hnsw.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
+#include "utils/datum.h"
 #include "utils/memutils.h"
 
 /*
@@ -446,7 +447,7 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
  * Add a heap TID to an existing element
  */
 static bool
-HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool building)
+HnswAddDuplicateToPage(Relation index, HnswElement element, HnswElement dup, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -507,19 +508,40 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool buil
 }
 
 /*
+ * Add duplicate if found
+ */
+static bool
+HnswAddDuplicateIfFound(Relation index, HnswElement element, bool building)
+{
+	HnswNeighborArray *neighbors = &element->neighbors[0];
+
+	for (int i = 0; i < neighbors->length; i++)
+	{
+		HnswCandidate *neighbor = &neighbors->items[i];
+
+		/* Exit early if not duplicate since ordered by distance */
+		if (!datumIsEqual(element->value, neighbor->element->value, false, -1))
+			return false;
+
+		/* If adding fails, continue to next duplicate element */
+		if (HnswAddDuplicateToPage(index, element, neighbor->element, building))
+			return true;
+	}
+
+	return false;
+}
+
+/*
  * Write changes to disk
  */
 static void
-WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement dup, HnswElement entryPoint, bool building)
+WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, bool building)
 {
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Try to add to existing page */
-	if (dup != NULL)
-	{
-		if (HnswAddDuplicate(index, element, dup, building))
-			return;
-	}
+	if (HnswAddDuplicateIfFound(index, element, building))
+		return;
 
 	/* Write element and neighbor tuples */
 	WriteNewElementPages(index, element, m, GetInsertPage(index), &newInsertPage, building);
@@ -550,7 +572,6 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	int			efConstruction = HnswGetEfConstruction(index);
 	FmgrInfo   *procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	Oid			collation = index->rd_indcollation[0];
-	HnswElement dup;
 	LOCKMODE	lockmode = ShareLock;
 
 	/* Detoast once for all calls */
@@ -595,11 +616,8 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	/* Insert element in graph */
 	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, false);
 
-	/* Look for duplicate */
-	dup = HnswFindDuplicate(element);
-
 	/* Write to disk */
-	WriteElement(index, procinfo, collation, element, m, efConstruction, dup, entryPoint, building);
+	WriteElement(index, procinfo, collation, element, m, efConstruction, entryPoint, building);
 
 	/* Release lock */
 	UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
