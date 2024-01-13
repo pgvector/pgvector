@@ -447,7 +447,7 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
  * Add a heap TID to an existing element
  */
 static bool
-HnswAddDuplicateToPage(Relation index, HnswElement element, HnswElement dup, bool building)
+HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -508,10 +508,10 @@ HnswAddDuplicateToPage(Relation index, HnswElement element, HnswElement dup, boo
 }
 
 /*
- * Add duplicate if found
+ * Find duplicate element
  */
 static bool
-HnswAddDuplicateIfFound(Relation index, HnswElement element, bool building)
+HnswFindDuplicate(Relation index, HnswElement element, bool building)
 {
 	HnswNeighborArray *neighbors = &element->neighbors[0];
 
@@ -519,12 +519,11 @@ HnswAddDuplicateIfFound(Relation index, HnswElement element, bool building)
 	{
 		HnswCandidate *neighbor = &neighbors->items[i];
 
-		/* Exit early if not duplicate since ordered by distance */
+		/* Exit early since ordered by distance */
 		if (!datumIsEqual(element->value, neighbor->element->value, false, -1))
 			return false;
 
-		/* If adding fails, continue to next duplicate element */
-		if (HnswAddDuplicateToPage(index, element, neighbor->element, building))
+		if (HnswAddDuplicate(index, element, neighbor->element, building))
 			return true;
 	}
 
@@ -539,8 +538,8 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 {
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
-	/* Try to add to existing page */
-	if (HnswAddDuplicateIfFound(index, element, building))
+	/* Look for duplicate */
+	if (HnswFindDuplicate(index, element, building))
 		return;
 
 	/* Write element and neighbor tuples */
@@ -553,7 +552,7 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 	/* Update neighbors */
 	HnswUpdateNeighborPages(index, procinfo, collation, element, m, false, building);
 
-	/* Update metapage if needed */
+	/* Update entry point if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
 		HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_GREATER, element, InvalidBlockNumber, MAIN_FORKNUM, building);
 }

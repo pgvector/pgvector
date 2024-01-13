@@ -909,30 +909,6 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 }
 
 /*
- * Find duplicate element
- */
-HnswElement
-HnswFindDuplicate(HnswElement e)
-{
-	HnswNeighborArray *neighbors = &e->neighbors[0];
-
-	for (int i = 0; i < neighbors->length; i++)
-	{
-		HnswCandidate *neighbor = &neighbors->items[i];
-
-		/* Exit early since ordered by distance */
-		if (!datumIsEqual(e->value, neighbor->element->value, false, -1))
-			break;
-
-		/* Check for space */
-		if (neighbor->element->heaptidsLength < HNSW_HEAPTIDS)
-			return neighbor->element;
-	}
-
-	return NULL;
-}
-
-/*
  * Add connections
  */
 static void

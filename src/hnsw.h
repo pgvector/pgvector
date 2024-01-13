@@ -339,7 +339,6 @@ void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
 void		HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing);
-HnswElement HnswFindDuplicate(HnswElement e);
 HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadVec);
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum, bool building);
 void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);

@@ -317,6 +317,33 @@ HnswElementMemory(HnswElement e, int m)
 #endif
 
 /*
+ * Find duplicate element
+ */
+static bool
+HnswFindDuplicateInMemory(HnswElement element)
+{
+	HnswNeighborArray *neighbors = &element->neighbors[0];
+
+	for (int i = 0; i < neighbors->length; i++)
+	{
+		HnswCandidate *neighbor = &neighbors->items[i];
+
+		/* Exit early since ordered by distance */
+		if (!datumIsEqual(element->value, neighbor->element->value, false, -1))
+			return false;
+
+		/* Check for space */
+		if (neighbor->element->heaptidsLength < HNSW_HEAPTIDS)
+		{
+			HnswAddHeapTid(neighbor->element, &element->heaptids[0]);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+/*
  * Insert tuple into in-memory graph
  */
 static bool
@@ -330,7 +357,6 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 	int			m = buildstate->m;
 	MemoryContext oldCtx;
 	HnswElement element;
-	HnswElement dup;
 
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
@@ -348,44 +374,39 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 	element->value = datumCopy(value, false, -1);
 	MemoryContextSwitchTo(oldCtx);
 
-	/* Insert element in graph */
-	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
-
-	/* Look for duplicate */
-	dup = HnswFindDuplicate(element);
-
-	if (dup == NULL)
-	{
-		/* Add element */
-		slist_push_head(&graph->elements, &element->next);
-
-		/* Update neighbors */
-		for (int lc = element->level; lc >= 0; lc--)
-		{
-			int			lm = HnswGetLayerM(m, lc);
-			HnswNeighborArray *neighbors = &element->neighbors[lc];
-
-			for (int i = 0; i < neighbors->length; i++)
-				HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
-		}
-
-		/* Update entry point if needed */
-		if (entryPoint == NULL || element->level > entryPoint->level)
-			graph->entryPoint = element;
-	}
-	else
-	{
-		/* No need to free element since memory unlikely to be reallocated */
-		/* Element is also used to estimate memory usage below */
-		HnswAddHeapTid(dup, heaptid);
-	}
-
 	/* Update memory usage */
 #if PG_VERSION_NUM >= 130000
 	graph->memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
 #else
 	graph->memoryUsed += HnswElementMemory(element, buildstate->m);
 #endif
+
+	/* Insert element in graph */
+	HnswInsertElement(element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+
+	/* Look for duplicate */
+	if (HnswFindDuplicateInMemory(element))
+	{
+		/* No need to free element since memory unlikely to be reallocated */
+		return true;
+	}
+
+	/* Add element */
+	slist_push_head(&graph->elements, &element->next);
+
+	/* Update neighbors */
+	for (int lc = element->level; lc >= 0; lc--)
+	{
+		int			lm = HnswGetLayerM(m, lc);
+		HnswNeighborArray *neighbors = &element->neighbors[lc];
+
+		for (int i = 0; i < neighbors->length; i++)
+			HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
+	}
+
+	/* Update entry point if needed */
+	if (entryPoint == NULL || element->level > entryPoint->level)
+		graph->entryPoint = element;
 
 	return true;
 }
