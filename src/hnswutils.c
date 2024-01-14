@@ -390,7 +390,7 @@ HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m)
 
 	for (int lc = e->level; lc >= 0; lc--)
 	{
-		HnswNeighborArray *neighbors = &e->neighbors[lc];
+		HnswNeighborArray *neighbors = HnswGetNeighbors(e, lc);
 		int			lm = HnswGetLayerM(m, lc);
 
 		for (int i = 0; i < lm; i++)
@@ -448,7 +448,7 @@ LoadNeighborsFromPage(HnswElement element, Relation index, Page page, int m)
 		if (level < 0)
 			level = 0;
 
-		neighbors = &element->neighbors[level];
+		neighbors = HnswGetNeighbors(element, level);
 		hc = &neighbors->items[neighbors->length++];
 		hc->element = e;
 	}
@@ -671,7 +671,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 			HnswLoadNeighbors(c->element, index, m);
 
 		/* Get the neighborhood at layer lc */
-		neighborhood = &c->element->neighbors[lc];
+		neighborhood = HnswGetNeighbors(c->element, lc);
 
 		for (int i = 0; i < neighborhood->length; i++)
 		{
@@ -774,23 +774,23 @@ HnswGetDistance(HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid co
 	/* Look for cached distance */
 	if (a->neighbors != NULL)
 	{
-		Assert(a->level >= lc);
+		HnswNeighborArray *neighbors = HnswGetNeighbors(a, lc);
 
-		for (int i = 0; i < a->neighbors[lc].length; i++)
+		for (int i = 0; i < neighbors->length; i++)
 		{
-			if (a->neighbors[lc].items[i].element == b)
-				return a->neighbors[lc].items[i].distance;
+			if (neighbors->items[i].element == b)
+				return neighbors->items[i].distance;
 		}
 	}
 
 	if (b->neighbors != NULL)
 	{
-		Assert(b->level >= lc);
+		HnswNeighborArray *neighbors = HnswGetNeighbors(b, lc);
 
-		for (int i = 0; i < b->neighbors[lc].length; i++)
+		for (int i = 0; i < neighbors->length; i++)
 		{
-			if (b->neighbors[lc].items[i].element == a)
-				return b->neighbors[lc].items[i].distance;
+			if (neighbors->items[i].element == a)
+				return neighbors->items[i].distance;
 		}
 	}
 
@@ -826,7 +826,8 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
 	pairingheap *wd;
-	bool		mustCalculate = !e2->neighbors[lc].closerSet;
+	HnswNeighborArray *neighbors = HnswGetNeighbors(e2, lc);
+	bool		mustCalculate = !neighbors->closerSet;
 	List	   *added = NIL;
 	bool		removedAny = false;
 
@@ -890,7 +891,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	}
 
 	/* Cached value can only be used in future if sorted deterministically */
-	e2->neighbors[lc].closerSet = sortCandidates;
+	neighbors->closerSet = sortCandidates;
 
 	/* Keep pruned connections */
 	while (!pairingheap_is_empty(wd) && list_length(r) < m)
@@ -915,7 +916,7 @@ static void
 AddConnections(HnswElement element, List *neighbors, int m, int lc)
 {
 	ListCell   *lc2;
-	HnswNeighborArray *a = &element->neighbors[lc];
+	HnswNeighborArray *a = HnswGetNeighbors(element, lc);
 
 	foreach(lc2, neighbors)
 		a->items[a->length++] = *((HnswCandidate *) lfirst(lc2));
@@ -927,7 +928,7 @@ AddConnections(HnswElement element, List *neighbors, int m, int lc)
 void
 HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
-	HnswNeighborArray *currentNeighbors = &hc->element->neighbors[lc];
+	HnswNeighborArray *currentNeighbors = HnswGetNeighbors(hc->element, lc);
 
 	HnswCandidate hc2;
 

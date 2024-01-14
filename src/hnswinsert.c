@@ -343,7 +343,7 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
 	for (int lc = e->level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
-		HnswNeighborArray *neighbors = &e->neighbors[lc];
+		HnswNeighborArray *neighbors = HnswGetNeighbors(e, lc);
 
 		for (int i = 0; i < neighbors->length; i++)
 		{
@@ -513,7 +513,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool buil
 static bool
 HnswFindDuplicate(Relation index, HnswElement element, bool building)
 {
-	HnswNeighborArray *neighbors = &element->neighbors[0];
+	HnswNeighborArray *neighbors = HnswGetNeighbors(element, 0);
 
 	for (int i = 0; i < neighbors->length; i++)
 	{

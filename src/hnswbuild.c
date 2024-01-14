@@ -322,7 +322,7 @@ HnswElementMemory(HnswElement e, int m)
 static bool
 HnswFindDuplicateInMemory(HnswElement element)
 {
-	HnswNeighborArray *neighbors = &element->neighbors[0];
+	HnswNeighborArray *neighbors = HnswGetNeighbors(element, 0);
 
 	for (int i = 0; i < neighbors->length; i++)
 	{
@@ -398,7 +398,7 @@ InsertTupleInMemory(Relation index, Datum *values, ItemPointer heaptid, HnswBuil
 	for (int lc = element->level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
-		HnswNeighborArray *neighbors = &element->neighbors[lc];
+		HnswNeighborArray *neighbors = HnswGetNeighbors(element, lc);
 
 		for (int i = 0; i < neighbors->length; i++)
 			HnswUpdateConnection(element, &neighbors->items[i], lm, lc, NULL, NULL, procinfo, collation);
