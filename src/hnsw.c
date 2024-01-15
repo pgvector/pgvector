@@ -14,7 +14,6 @@
 #endif
 
 int			hnsw_ef_search;
-bool		hnsw_enable_parallel_build;
 static relopt_kind hnsw_relopt_kind;
 
 /*
@@ -40,11 +39,6 @@ HnswInit(void)
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
-
-	/* Behind a variable for now since can be slower than building in memory */
-	DefineCustomBoolVariable("hnsw.enable_parallel_build", "Enables or disables building indexes in parallel",
-							 NULL, &hnsw_enable_parallel_build,
-							 false, PGC_USERSET, 0, NULL, NULL, NULL);
 }
 
 /*

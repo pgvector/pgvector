@@ -205,15 +205,15 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 		return;
 
 	/* Init fields */
-	HnswInitNeighbors(element, m);
+	HnswInitNeighbors(NULL, element, m, NULL);
 	element->heaptidsLength = 0;
 
 	/* Add element to graph, skipping itself */
-	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, true);
+	HnswInsertElement(NULL, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
 
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */
-	HnswSetNeighborTuple(ntup, element, m);
+	HnswSetNeighborTuple(NULL, ntup, element, m);
 
 	/* Get neighbor page */
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
@@ -301,7 +301,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			{
 				/* Reset neighbors from previous update */
 				if (highestPoint != NULL)
-					highestPoint->neighbors = NULL;
+					HnswPtrSetNull(NULL, highestPoint->neighbors);
 
 				RepairGraphElement(vacuumstate, entryPoint, highestPoint);
 			}

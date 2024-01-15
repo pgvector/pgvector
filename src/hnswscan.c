@@ -21,6 +21,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	List	   *w;
 	int			m;
 	HnswElement entryPoint;
+	char	   *base = NULL;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
@@ -28,15 +29,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
 }
 
 /*
@@ -184,17 +185,19 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 	while (list_length(so->w) > 0)
 	{
+		char	   *base = NULL;
 		HnswCandidate *hc = llast(so->w);
+		HnswElement element = HnswPtrAccess(base, hc->element);
 		ItemPointer heaptid;
 
 		/* Move to next element if no valid heap TIDs */
-		if (hc->element->heaptidsLength == 0)
+		if (element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
 			continue;
 		}
 
-		heaptid = &hc->element->heaptids[--hc->element->heaptidsLength];
+		heaptid = &element->heaptids[--element->heaptidsLength];
 
 		MemoryContextSwitchTo(oldCtx);
 

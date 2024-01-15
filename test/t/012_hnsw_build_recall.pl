@@ -95,11 +95,10 @@ for my $i (0 .. $#operators)
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 
-	# Build index in parallel
+	# Build index in parallel in memory
 	my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
 		SET client_min_messages = DEBUG;
 		SET min_parallel_table_scan_size = 1;
-		SET hnsw.enable_parallel_build = on;
 		CREATE INDEX idx ON tst USING hnsw (v $opclass);
 	));
 	is($ret, 0, $stderr);
@@ -107,6 +106,21 @@ for my $i (0 .. $#operators)
 
 	# Test approximate results
 	test_recall($min, $operator);
+
+	$node->safe_psql("postgres", "DROP INDEX idx;");
+
+	# Build index in parallel on disk
+	# Set parallel_workers on table to use workers with low maintenance_work_mem
+	($ret, $stdout, $stderr) = $node->psql("postgres", qq(
+		ALTER TABLE tst SET (parallel_workers = 2);
+		SET client_min_messages = DEBUG;
+		SET maintenance_work_mem = '4MB';
+		CREATE INDEX idx ON tst USING hnsw (v $opclass);
+		ALTER TABLE tst RESET (parallel_workers);
+	));
+	is($ret, 0, $stderr);
+	like($stderr, qr/using \d+ parallel workers/);
+	like($stderr, qr/hnsw graph no longer fits into maintenance_work_mem/);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 }
