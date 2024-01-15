@@ -641,7 +641,7 @@ With Homebrew Postgres, you can use:
 brew install pgvector
 ```
 
-Note: This adds it to the `postgresql@16` and `postgresql@15` formulas
+Note: This only adds it to the `postgresql@14` formula
 
 ### PGXN
 
