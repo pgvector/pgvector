@@ -412,6 +412,9 @@ HnswUpdateNeighborPagesInMemory(char *base, FmgrInfo *procinfo, Oid collation, H
 			HnswCandidate *hc = &neighbors->items[i];
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
 
+			/* Keep scan-build happy on Mac x86-64 */
+			Assert(neighborElement);
+
 			/* Use element for lock instead of hc since hc can be replaced */
 			SpinLockAcquire(&neighborElement->lock);
 			HnswUpdateConnection(base, e, hc, lm, lc, NULL, NULL, procinfo, collation);
