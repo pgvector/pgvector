@@ -116,6 +116,11 @@
 /* Variables */
 extern int	hnsw_ef_search;
 
+/* These are initialized when the module is loaded */
+extern int	entryLockTrancheId;
+extern int	allocatorLockTrancheId;
+extern int	flushLockTrancheId;
+
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
 
@@ -177,24 +182,6 @@ typedef struct HnswOptions
 	int			efConstruction; /* size of dynamic candidate list */
 }			HnswOptions;
 
-typedef enum HnswLWLockMode
-{
-	RW_EXCLUSIVE,
-	RW_SHARED
-}			HnswLWLockMode;
-
-/*
- * Readers-writers with weak priority to the readers
- *
- * https://doi.org/10.1007/978-3-642-32027-9
- */
-typedef struct HnswRWLock
-{
-	volatile int readers;
-	slock_t		readersMutex;
-	slock_t		globalMutex;
-}			HnswRWLock;
-
 typedef struct HnswGraph
 {
 	/* Graph state */
@@ -203,16 +190,16 @@ typedef struct HnswGraph
 	double		indtuples;
 
 	/* Entry state */
-	slock_t		entryLock;
+	LWLock		entryLock;
 	HnswElementPtr entryPoint;
 
 	/* Allocations state */
-	slock_t		allocatorLock;
+	LWLock		allocatorLock;
 	long		memoryUsed;
 	long		memoryTotal;
 
 	/* Flushed state */
-	HnswRWLock	flushLock;
+	LWLock		flushLock;
 	bool		flushed;
 }			HnswGraph;
 
