@@ -116,10 +116,8 @@
 /* Variables */
 extern int	hnsw_ef_search;
 
-/* These are initialized when the module is loaded */
-extern int	entryLockTrancheId;
-extern int	allocatorLockTrancheId;
-extern int	flushLockTrancheId;
+/* This is initialized when the module is loaded */
+extern int	hnsw_lock_tranche_id;
 
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
@@ -149,7 +147,7 @@ typedef struct HnswElementData
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
 	DatumPtr	value;
-	slock_t		lock;
+	LWLock		lock;
 }			HnswElementData;
 
 typedef HnswElementData * HnswElement;

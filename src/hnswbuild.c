@@ -297,17 +297,17 @@ FlushPages(HnswBuildState * buildstate)
 static bool
 HnswAddDuplicateInMemory(HnswElement element, HnswElement dup)
 {
-	SpinLockAcquire(&dup->lock);
+	LWLockAcquire(&dup->lock, LW_EXCLUSIVE);
 
 	if (dup->heaptidsLength == HNSW_HEAPTIDS)
 	{
-		SpinLockRelease(&dup->lock);
+		LWLockRelease(&dup->lock);
 		return false;
 	}
 
 	HnswAddHeapTid(dup, &element->heaptids[0]);
 
-	SpinLockRelease(&dup->lock);
+	LWLockRelease(&dup->lock);
 
 	return true;
 }
@@ -371,9 +371,9 @@ HnswUpdateNeighborPagesInMemory(char *base, FmgrInfo *procinfo, Oid collation, H
 			Assert(neighborElement);
 
 			/* Use element for lock instead of hc since hc can be replaced */
-			SpinLockAcquire(&neighborElement->lock);
+			LWLockAcquire(&neighborElement->lock, LW_EXCLUSIVE);
 			HnswUpdateConnection(base, e, hc, lm, lc, NULL, NULL, procinfo, collation);
-			SpinLockRelease(&neighborElement->lock);
+			LWLockRelease(&neighborElement->lock);
 		}
 	}
 }
@@ -482,7 +482,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswPtrStore(base, element->value, valuePtr);
 
 	/* Create element lock */
-	SpinLockInit(&element->lock);
+	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
 
 	/* Get entry point */
 	LWLockAcquire(&graph->entryLock, LW_EXCLUSIVE);
@@ -558,9 +558,9 @@ InitGraph(HnswGraph * graph, char *base, long memoryTotal)
 	graph->flushed = false;
 	graph->indtuples = 0;
 	SpinLockInit(&graph->lock);
-	LWLockInitialize(&graph->entryLock, entryLockTrancheId);
-	LWLockInitialize(&graph->allocatorLock, allocatorLockTrancheId);
-	LWLockInitialize(&graph->flushLock, flushLockTrancheId);
+	LWLockInitialize(&graph->entryLock, hnsw_lock_tranche_id);
+	LWLockInitialize(&graph->allocatorLock, hnsw_lock_tranche_id);
+	LWLockInitialize(&graph->flushLock, hnsw_lock_tranche_id);
 }
 
 /*

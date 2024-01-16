@@ -780,9 +780,9 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		/* Copy neighborhood to local memory if needed */
 		if (index == NULL)
 		{
-			SpinLockAcquire(&cElement->lock);
+			LWLockAcquire(&cElement->lock, LW_EXCLUSIVE);
 			memcpy(neighborhoodData, neighborhood, neighborhoodSize);
-			SpinLockRelease(&cElement->lock);
+			LWLockRelease(&cElement->lock);
 			neighborhood = neighborhoodData;
 		}
 

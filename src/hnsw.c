@@ -16,9 +16,35 @@
 int			hnsw_ef_search;
 static relopt_kind hnsw_relopt_kind;
 
-int			entryLockTrancheId;
-int			allocatorLockTrancheId;
-int			flushLockTrancheId;
+int			hnsw_lock_tranche_id;
+
+/*
+ * Assign tranche IDs for our LWLocks. This only needs to be done by one
+ * backend, the tranche IDs are remembered in shared memory.
+ *
+ * This shared memory area is very small, so we just allocate it from the
+ * "slop" that PostgreSQL reserves for small allocations like this. If
+ * this grows bigger, we should use a shmem_request_hook and
+ * RequestAddinShmemSpace() to pre-reserve space for this.
+ */
+static void
+HnswInitLockTranche(void)
+{
+	int		   *tranche_ids;
+	bool		found;
+
+	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
+	tranche_ids = ShmemInitStruct("hnsw LWLock ids",
+								  sizeof(int) * 1,
+								  &found);
+	if (!found)
+		tranche_ids[0] = LWLockNewTrancheId();
+	hnsw_lock_tranche_id = tranche_ids[0];
+	LWLockRelease(AddinShmemInitLock);
+
+	/* Per-backend registration of the tranche IDs */
+	LWLockRegisterTranche(hnsw_lock_tranche_id, "HnswBuild");
+}
 
 /*
  * Initialize index options and variables
@@ -26,37 +52,7 @@ int			flushLockTrancheId;
 void
 HnswInit(void)
 {
-	int		   *tranche_ids;
-	bool		found;
-
-	/*
-	 * Assign tranche IDs for our LWLocks. This only needs to be done by one
-	 * backend, the tranche IDs are remembered in shared memory.
-	 *
-	 * This shared memory area is very small, so we just allocate it from the
-	 * "slop" that PostgreSQL reserves for small allocations like this. If
-	 * this grows bigger, we should use a shmem_request_hook and
-	 * RequestAddinShmemSpace() to pre-reserve space for this.
-	 */
-	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
-	tranche_ids = ShmemInitStruct("pgvector LWLock ids",
-								  sizeof(int) * 3,
-								  &found);
-	if (!found)
-	{
-		tranche_ids[0] = LWLockNewTrancheId();
-		tranche_ids[1] = LWLockNewTrancheId();
-		tranche_ids[2] = LWLockNewTrancheId();
-	}
-	entryLockTrancheId = tranche_ids[0];
-	allocatorLockTrancheId = tranche_ids[1];
-	flushLockTrancheId = tranche_ids[2];
-	LWLockRelease(AddinShmemInitLock);
-
-	/* Per-backend registration of the tranche IDs */
-	LWLockRegisterTranche(entryLockTrancheId, "pgvector entryLock");
-	LWLockRegisterTranche(allocatorLockTrancheId, "pgvector allocatorLock");
-	LWLockRegisterTranche(flushLockTrancheId, "pgvector flushLock");
+	HnswInitLockTranche();
 
 	hnsw_relopt_kind = add_reloption_kind();
 	add_int_reloption(hnsw_relopt_kind, "m", "Max number of connections",
