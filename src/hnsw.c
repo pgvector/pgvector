@@ -14,13 +14,12 @@
 #endif
 
 int			hnsw_ef_search;
+int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
-int			hnsw_lock_tranche_id;
-
 /*
- * Assign tranche IDs for our LWLocks. This only needs to be done by one
- * backend, the tranche IDs are remembered in shared memory.
+ * Assign a tranche ID for our LWLocks. This only needs to be done by one
+ * backend, as the tranche ID is remembered in shared memory.
  *
  * This shared memory area is very small, so we just allocate it from the
  * "slop" that PostgreSQL reserves for small allocations like this. If
@@ -42,7 +41,7 @@ HnswInitLockTranche(void)
 	hnsw_lock_tranche_id = tranche_ids[0];
 	LWLockRelease(AddinShmemInitLock);
 
-	/* Per-backend registration of the tranche IDs */
+	/* Per-backend registration of the tranche ID */
 	LWLockRegisterTranche(hnsw_lock_tranche_id, "HnswBuild");
 }
 
