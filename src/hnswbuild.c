@@ -931,6 +931,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	Snapshot	snapshot;
 	Size		esthnswshared;
 	Size		esthnswarea;
+	Size		estother;
 	HnswShared *hnswshared;
 	char	   *hnswarea;
 	HnswLeader *hnswleader = (HnswLeader *) palloc0(sizeof(HnswLeader));
@@ -961,7 +962,15 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Estimate size of workspaces */
 	esthnswshared = ParallelEstimateShared(buildstate->heap, snapshot);
 	shm_toc_estimate_chunk(&pcxt->estimator, esthnswshared);
+
+	/* Leave space for other objects in shared memory */
+	/* Docker has a default limit of 64 MB for shm_size */
+	/* which happens to be the default value of maintenance_work_mem */
 	esthnswarea = maintenance_work_mem * 1024L;
+	estother = 2 * 1024 * 1024;
+	if (esthnswarea > estother)
+		esthnswarea -= estother;
+
 	shm_toc_estimate_chunk(&pcxt->estimator, esthnswarea);
 	shm_toc_estimate_keys(&pcxt->estimator, 2);
 
