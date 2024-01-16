@@ -292,51 +292,6 @@ FlushPages(HnswBuildState * buildstate)
 }
 
 /*
- * Initialize a readers-writer lock
- */
-static void
-HnswRWLockInitialize(HnswRWLock * lock)
-{
-	lock->readers = 0;
-	SpinLockInit(&lock->readersMutex);
-	SpinLockInit(&lock->globalMutex);
-}
-
-/*
- * Acquire a readers-writer lock
- */
-static void
-HnswRWLockAcquire(HnswRWLock * lock, HnswLWLockMode lockmode)
-{
-	if (lockmode == RW_EXCLUSIVE)
-		SpinLockAcquire(&lock->globalMutex);
-	else
-	{
-		SpinLockAcquire(&lock->readersMutex);
-		if (++lock->readers == 1)
-			SpinLockAcquire(&lock->globalMutex);
-		SpinLockRelease(&lock->readersMutex);
-	}
-}
-
-/*
- * Release a readers-writer lock
- */
-static void
-HnswRWLockRelease(HnswRWLock * lock, HnswLWLockMode lockmode)
-{
-	if (lockmode == RW_EXCLUSIVE)
-		SpinLockRelease(&lock->globalMutex);
-	else
-	{
-		SpinLockAcquire(&lock->readersMutex);
-		if (--lock->readers == 0)
-			SpinLockRelease(&lock->globalMutex);
-		SpinLockRelease(&lock->readersMutex);
-	}
-}
-
-/*
  * Add a heap TID to an existing element
  */
 static bool
@@ -463,7 +418,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Size		valueSize;
 	Pointer		valuePtr;
 	bool		updateEntryPoint;
-	HnswRWLock *flushLock = &graph->flushLock;
+	LWLock	   *flushLock = &graph->flushLock;
 	char	   *base = buildstate->hnswarea;
 
 	/* Detoast once for all calls */
@@ -480,25 +435,25 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	valueSize = VARSIZE_ANY(DatumGetPointer(value));
 
 	/* Ensure graph not flushed when inserting */
-	HnswRWLockAcquire(flushLock, RW_SHARED);
+	LWLockAcquire(flushLock, LW_SHARED);
 
 	if (graph->flushed)
 	{
-		HnswRWLockRelease(flushLock, RW_SHARED);
+		LWLockRelease(flushLock);
 
 		return HnswInsertTupleOnDisk(index, value, values, isnull, heaptid, buildstate->heap, true);
 	}
 
 	/* Get lock for allocator */
-	SpinLockAcquire(&graph->allocatorLock);
+	LWLockAcquire(&graph->allocatorLock, LW_EXCLUSIVE);
 
 	/* Flush pages if needed */
 	if (graph->memoryUsed >= graph->memoryTotal)
 	{
-		SpinLockRelease(&graph->allocatorLock);
+		LWLockRelease(&graph->allocatorLock);
 
-		HnswRWLockRelease(flushLock, RW_SHARED);
-		HnswRWLockAcquire(flushLock, RW_EXCLUSIVE);
+		LWLockRelease(flushLock);
+		LWLockAcquire(flushLock, LW_EXCLUSIVE);
 
 		if (!graph->flushed)
 		{
@@ -510,7 +465,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 			FlushPages(buildstate);
 		}
 
-		HnswRWLockRelease(flushLock, RW_EXCLUSIVE);
+		LWLockRelease(flushLock);
 
 		return HnswInsertTupleOnDisk(index, value, values, isnull, heaptid, buildstate->heap, true);
 	}
@@ -520,7 +475,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	valuePtr = HnswAlloc(allocator, valueSize);
 
 	/* Release allocator lock */
-	SpinLockRelease(&graph->allocatorLock);
+	LWLockRelease(&graph->allocatorLock);
 
 	/* Copy datum */
 	memcpy(valuePtr, DatumGetPointer(value), valueSize);
@@ -530,13 +485,13 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	SpinLockInit(&element->lock);
 
 	/* Get entry point */
-	SpinLockAcquire(&graph->entryLock);
+	LWLockAcquire(&graph->entryLock, LW_EXCLUSIVE);
 	entryPoint = HnswPtrAccess(base, graph->entryPoint);
 	updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
 
 	/* Release lock if not updating entry point */
 	if (!updateEntryPoint)
-		SpinLockRelease(&graph->entryLock);
+		LWLockRelease(&graph->entryLock);
 
 	/* Insert element in graph */
 	HnswInsertElement(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
@@ -546,10 +501,10 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 	/* Release lock if needed */
 	if (updateEntryPoint)
-		SpinLockRelease(&graph->entryLock);
+		LWLockRelease(&graph->entryLock);
 
 	/* Release flush lock */
-	HnswRWLockRelease(flushLock, RW_SHARED);
+	LWLockRelease(flushLock);
 
 	return true;
 }
@@ -603,9 +558,9 @@ InitGraph(HnswGraph * graph, char *base, long memoryTotal)
 	graph->flushed = false;
 	graph->indtuples = 0;
 	SpinLockInit(&graph->lock);
-	SpinLockInit(&graph->entryLock);
-	SpinLockInit(&graph->allocatorLock);
-	HnswRWLockInitialize(&graph->flushLock);
+	LWLockInitialize(&graph->entryLock, entryLockTrancheId);
+	LWLockInitialize(&graph->allocatorLock, allocatorLockTrancheId);
+	LWLockInitialize(&graph->flushLock, flushLockTrancheId);
 }
 
 /*
