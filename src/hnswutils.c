@@ -697,13 +697,16 @@ AddToVisited(char *base, visited_hash v, HnswCandidate * hc, Relation index, boo
 static inline bool
 CountElement(char *base, HnswElement skipElement, HnswCandidate * hc)
 {
+	HnswElement e;
+
 	if (skipElement == NULL)
 		return true;
 
 	/* Ensure does not access heaptidsLength during in-memory build */
 	pg_memory_barrier();
 
-	return HnswPtrAccess(base, hc->element)->heaptidsLength != 0;
+	e = HnswPtrAccess(base, hc->element);
+	return e->heaptidsLength != 0;
 }
 
 /*

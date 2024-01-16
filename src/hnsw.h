@@ -104,9 +104,9 @@
 
 /* Pointer macros */
 #define HnswPtrAccess(base, hp) ((base) == NULL ? (hp).ptr : relptr_access(base, (hp).relptr))
-#define HnswPtrStore(base, hp, value) ((base) == NULL ? (hp).ptr = (value) : (void) relptr_store(base, (hp).relptr, value))
+#define HnswPtrStore(base, hp, value) ((base) == NULL ? (void) ((hp).ptr = (value)) : (void) relptr_store(base, (hp).relptr, value))
 #define HnswPtrIsNull(base, hp) ((base) == NULL ? (hp).ptr == NULL : relptr_is_null((hp).relptr))
-#define HnswPtrSetNull(base, hp) ((base) == NULL ? (hp).ptr = NULL : (void) ((hp).relptr.relptr_off = 0))
+#define HnswPtrSetNull(base, hp) ((base) == NULL ? (void) ((hp).ptr = NULL) : (void) ((hp).relptr.relptr_off = 0))
 #define HnswPtrEqual(base, hp1, hp2) ((base) == NULL ? (hp1).ptr == (hp2).ptr : relptr_offset((hp1).relptr) == relptr_offset((hp2).relptr))
 
 /* For code paths dedicated to each type */
@@ -439,8 +439,8 @@ void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, 
 bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
 
-static inline
-HnswNeighborArray * HnswGetNeighbors(char *base, HnswElement element, int lc)
+static inline HnswNeighborArray *
+HnswGetNeighbors(char *base, HnswElement element, int lc)
 {
 	HnswNeighborArrayPtr *neighborList = HnswPtrAccess(base, element->neighbors);
 
