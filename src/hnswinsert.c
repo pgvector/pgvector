@@ -137,7 +137,7 @@ WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPag
 	char	   *base = NULL;
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(relptr_access(base, e->value)));
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;
@@ -359,7 +359,7 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
 			Size		ntupSize;
 			int			idx = -1;
 			int			startIdx;
-			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
+			HnswElement neighborElement = relptr_access(base, hc->element);
 			OffsetNumber offno = neighborElement->neighborOffno;
 
 			/* Get latest neighbors since they may have changed */
@@ -523,7 +523,7 @@ HnswFindDuplicate(Relation index, HnswElement element, bool building)
 	for (int i = 0; i < neighbors->length; i++)
 	{
 		HnswCandidate *neighbor = &neighbors->items[i];
-		HnswElement neighborElement = HnswPtrAccess(base, neighbor->element);
+		HnswElement neighborElement = relptr_access(base, neighbor->element);
 		Datum		value = HnswGetValue(base, element);
 		Datum		neighborValue = HnswGetValue(base, neighborElement);
 
@@ -592,7 +592,7 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 
 	/* Create an element */
 	element = HnswInitElement(base, heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
-	HnswPtrStore(base, element->value, DatumGetPointer(value));
+	relptr_store(base, element->value, DatumGetPointer(value));
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)

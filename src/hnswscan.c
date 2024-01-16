@@ -187,7 +187,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	{
 		char	   *base = NULL;
 		HnswCandidate *hc = llast(so->w);
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswElement element = relptr_access(base, hc->element);
 		ItemPointer heaptid;
 
 		/* Move to next element if no valid heap TIDs */

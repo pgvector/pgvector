@@ -155,13 +155,13 @@ CreateElementPages(HnswBuildState * buildstate)
 	page = BufferGetPage(buf);
 	HnswInitPage(buf, page);
 
-	while (!HnswPtrIsNull(base, iter))
+	while (!relptr_is_null(iter))
 	{
-		HnswElement element = HnswPtrAccess(base, iter);
+		HnswElement element = relptr_access(base, iter);
 		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
-		void	   *valuePtr = HnswPtrAccess(base, element->value);
+		void	   *valuePtr = relptr_access(base, element->value);
 
 		/* Update iterator */
 		iter = element->next;
@@ -219,7 +219,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	MarkBufferDirty(buf);
 	UnlockReleaseBuffer(buf);
 
-	entryPoint = HnswPtrAccess(base, buildstate->graph->entryPoint);
+	entryPoint = relptr_access(base, buildstate->graph->entryPoint);
 	HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_ALWAYS, entryPoint, insertPage, forkNum, true);
 
 	pfree(etup);
@@ -242,9 +242,9 @@ CreateNeighborPages(HnswBuildState * buildstate)
 	/* Allocate once */
 	ntup = palloc0(BLCKSZ);
 
-	while (!HnswPtrIsNull(base, iter))
+	while (!relptr_is_null(iter))
 	{
-		HnswElement e = HnswPtrAccess(base, iter);
+		HnswElement e = relptr_access(base, iter);
 		Buffer		buf;
 		Page		page;
 		Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
@@ -368,7 +368,7 @@ HnswFindDuplicateInMemory(char *base, HnswElement element)
 	for (int i = 0; i < neighbors->length; i++)
 	{
 		HnswCandidate *neighbor = &neighbors->items[i];
-		HnswElement neighborElement = HnswPtrAccess(base, neighbor->element);
+		HnswElement neighborElement = relptr_access(base, neighbor->element);
 		Datum		value = HnswGetValue(base, element);
 		Datum		neighborValue = HnswGetValue(base, neighborElement);
 
@@ -392,7 +392,7 @@ WriteNewElementPagesInMemory(char *base, HnswGraph * graph, HnswElement element)
 {
 	SpinLockAcquire(&graph->lock);
 	element->next = graph->head;
-	HnswPtrStore(base, graph->head, element);
+	relptr_store(base, graph->head, element);
 	SpinLockRelease(&graph->lock);
 }
 
@@ -410,7 +410,7 @@ HnswUpdateNeighborPagesInMemory(char *base, FmgrInfo *procinfo, Oid collation, H
 		for (int i = 0; i < neighbors->length; i++)
 		{
 			HnswCandidate *hc = &neighbors->items[i];
-			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
+			HnswElement neighborElement = relptr_access(base, hc->element);
 
 			/* Keep scan-build happy on Mac x86-64 */
 			Assert(neighborElement);
@@ -443,7 +443,7 @@ WriteElementInMemory(Relation index, FmgrInfo *procinfo, Oid collation, HnswElem
 
 	/* Update entry point if needed (already have lock) */
 	if (updateEntryPoint)
-		HnswPtrStore(base, graph->entryPoint, element);
+		relptr_store(base, graph->entryPoint, element);
 }
 
 /*
@@ -524,14 +524,14 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 	/* Copy datum */
 	memcpy(valuePtr, DatumGetPointer(value), valueSize);
-	HnswPtrStore(base, element->value, valuePtr);
+	relptr_store(base, element->value, valuePtr);
 
 	/* Create element lock */
 	SpinLockInit(&element->lock);
 
 	/* Get entry point */
 	SpinLockAcquire(&graph->entryLock);
-	entryPoint = HnswPtrAccess(base, graph->entryPoint);
+	entryPoint = relptr_access(base, graph->entryPoint);
 	updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
 
 	/* Release lock if not updating entry point */
@@ -596,8 +596,8 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 static void
 InitGraph(HnswGraph * graph, char *base, long memoryTotal)
 {
-	HnswPtrStore(base, graph->head, (HnswElement) NULL);
-	HnswPtrStore(base, graph->entryPoint, (HnswElement) NULL);
+	relptr_store(base, graph->head, (HnswElement) NULL);
+	relptr_store(base, graph->entryPoint, (HnswElement) NULL);
 	graph->memoryUsed = 0;
 	graph->memoryTotal = memoryTotal;
 	graph->flushed = false;

@@ -96,16 +96,15 @@
 /* Ensure fits on page and in uint8 */
 #define HnswGetMaxLevel(m) Min(((BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - offsetof(HnswNeighborTupleData, indextids) - sizeof(ItemIdData)) / (sizeof(ItemPointerData)) / (m)) - 2, 255)
 
-#define HnswGetValue(base, element) PointerGetDatum(HnswPtrAccess(base, (element)->value))
+#define HnswGetValue(base, element) PointerGetDatum(relptr_access(base, (element)->value))
 
-/* Pointer macros */
-#define HnswPtrAccess(base, hp) relptr_access(base, hp)
-#define HnswPtrStore(base, hp, value) relptr_store(base, hp, value)
-#define HnswPtrIsNull(base, hp) relptr_is_null(hp)
-#define HnswPtrEqual(base, hp1, hp2) ((hp1).relptr_off == (hp2).relptr_off)
-
-/* For code paths dedicated to each type */
-#define HnswPtrPointer(hp) relptr_pointer(hp)
+/*
+ * Compare two relptrs. Surprisingly, the core header doesn't define this.
+ *
+ * (Would be nice to have static type assertions here like in most relptr_*
+ * macros, to check that the pointers are of the same type.)
+ */
+#define relptr_equals(a, b) ((a).relptr_off == (b).relptr_off)
 
 /* Variables */
 extern int	hnsw_ef_search;
@@ -432,11 +431,11 @@ void		hnswendscan(IndexScanDesc scan);
 static inline HnswNeighborArray *
 HnswGetNeighbors(char *base, HnswElement element, int lc)
 {
-	HnswNeighborArrayRelptr *neighborList = HnswPtrAccess(base, element->neighbors);
+	HnswNeighborArrayRelptr *neighborList = relptr_access(base, element->neighbors);
 
 	Assert(element->level >= lc);
 
-	return HnswPtrAccess(base, neighborList[lc]);
+	return relptr_access(base, neighborList[lc]);
 }
 
 /* Hash tables */

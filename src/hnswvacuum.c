@@ -301,7 +301,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			{
 				/* Reset neighbors from previous update */
 				if (highestPoint != NULL)
-					HnswPtrStore((char *) NULL, highestPoint->neighbors, (HnswNeighborArrayRelptr *) NULL);
+					relptr_store((char *) NULL, highestPoint->neighbors, (HnswNeighborArrayRelptr *) NULL);
 
 				RepairGraphElement(vacuumstate, entryPoint, highestPoint);
 			}
