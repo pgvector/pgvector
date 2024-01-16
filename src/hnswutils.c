@@ -56,34 +56,6 @@ hash_tid(ItemPointerData tid)
 #define SH_DEFINE
 #include "lib/simplehash.h"
 
-/* Needed to include simplehash.h twice */
-#if PG_VERSION_NUM < 120000
-#undef SH_EQUAL
-#define sh_log2 pointerhash_sh_log2
-#define sh_pow2 pointerhash_sh_pow2
-#endif
-
-/* Pointer hash table */
-static uint32
-hash_pointer(uintptr_t ptr)
-{
-#if SIZEOF_VOID_P == 8
-	return murmurhash64((uint64) ptr);
-#else
-	return murmurhash32((uint32) ptr);
-#endif
-}
-
-#define SH_PREFIX		pointerhash
-#define SH_ELEMENT_TYPE	PointerHashEntry
-#define SH_KEY_TYPE		uintptr_t
-#define	SH_KEY			ptr
-#define SH_HASH_KEY(tb, key)	hash_pointer(key)
-#define SH_EQUAL(tb, a, b)		(a == b)
-#define	SH_SCOPE		extern
-#define SH_DEFINE
-#include "lib/simplehash.h"
-
 /* Needed to include simplehash.h again */
 #if PG_VERSION_NUM < 120000
 #undef SH_EQUAL
@@ -93,9 +65,9 @@ hash_pointer(uintptr_t ptr)
 #define sh_pow2 offsethash_sh_pow2
 #endif
 
-/* Offset hash table */
+/* (Relative) pointer hash table */
 static uint32
-hash_offset(Size offset)
+hash_relptr(Size offset)
 {
 #if SIZEOF_SIZE_T == 8
 	return murmurhash64((uint64) offset);
@@ -104,11 +76,11 @@ hash_offset(Size offset)
 #endif
 }
 
-#define SH_PREFIX		offsethash
-#define SH_ELEMENT_TYPE	OffsetHashEntry
+#define SH_PREFIX		relptrhash
+#define SH_ELEMENT_TYPE	RelptrHashEntry
 #define SH_KEY_TYPE		Size
-#define	SH_KEY			offset
-#define SH_HASH_KEY(tb, key)	hash_offset(key)
+#define	SH_KEY			relptr
+#define SH_HASH_KEY(tb, key)	hash_relptr(key)
 #define SH_EQUAL(tb, a, b)		(a == b)
 #define	SH_SCOPE		extern
 #define SH_DEFINE
@@ -116,8 +88,7 @@ hash_offset(Size offset)
 
 typedef union
 {
-	pointerhash_hash *pointers;
-	offsethash_hash *offsets;
+	relptrhash_hash *relptrs;
 	tidhash_hash *tids;
 }			visited_hash;
 
@@ -223,7 +194,7 @@ HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * alloca
 {
 	int			level = element->level;
 
-	HnswNeighborArrayPtr *neighborList = (HnswNeighborArrayPtr *) HnswAlloc(allocator, sizeof(HnswNeighborArrayPtr) * (level + 1));
+	HnswNeighborArrayRelptr *neighborList = (HnswNeighborArrayRelptr *) HnswAlloc(allocator, sizeof(HnswNeighborArrayRelptr) * (level + 1));
 
 	HnswPtrStore(base, element->neighbors, neighborList);
 
@@ -274,7 +245,7 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 
 	HnswInitNeighbors(base, element, m, allocator);
 
-	HnswPtrSetNull(base, element->value);
+	HnswPtrStore(base, element->value, (Pointer) NULL);
 
 	return element;
 }
@@ -298,8 +269,8 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 
 	element->blkno = blkno;
 	element->offno = offno;
-	HnswPtrSetNull(NULL, element->neighbors);
-	HnswPtrSetNull(NULL, element->value);
+	HnswPtrStore((char *) NULL, element->neighbors, (HnswNeighborArrayRelptr *) NULL);
+	HnswPtrStore((char *) NULL, element->value, (Pointer) NULL);
 	return element;
 }
 
@@ -669,24 +640,14 @@ AddToVisited(char *base, visited_hash v, HnswCandidate * hc, Relation index, boo
 		ItemPointerSet(&indextid, element->blkno, element->offno);
 		tidhash_insert(v.tids, indextid, found);
 	}
-	else if (base != NULL)
-	{
-#if PG_VERSION_NUM >= 130000
-		HnswElement element = HnswPtrAccess(base, hc->element);
-
-		offsethash_insert_hash(v.offsets, HnswPtrOffset(hc->element), element->hash, found);
-#else
-		offsethash_insert(v.offsets, HnswPtrOffset(hc->element), found);
-#endif
-	}
 	else
 	{
 #if PG_VERSION_NUM >= 130000
 		HnswElement element = HnswPtrAccess(base, hc->element);
 
-		pointerhash_insert_hash(v.pointers, (uintptr_t) HnswPtrPointer(hc->element), element->hash, found);
+		relptrhash_insert_hash(v.relptrs, hc->element.relptr_off, element->hash, found);
 #else
-		pointerhash_insert(v.pointers, (uintptr_t) HnswPtrPointer(hc->element), found);
+		relptrhash_insert(v.relptrs, hc->element.relptr_off, found);
 #endif
 	}
 }
@@ -727,10 +688,8 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	/* Create hash table */
 	if (index != NULL)
 		v.tids = tidhash_create(CurrentMemoryContext, ef * m * 2, NULL);
-	else if (base != NULL)
-		v.offsets = offsethash_create(CurrentMemoryContext, ef * m * 2, NULL);
 	else
-		v.pointers = pointerhash_create(CurrentMemoryContext, ef * m * 2, NULL);
+		v.relptrs = relptrhash_create(CurrentMemoryContext, ef * m * 2, NULL);
 
 	/* Create local memory for neighborhood if needed */
 	if (index == NULL)
@@ -870,38 +829,10 @@ CompareCandidateDistances(const void *a, const void *b)
 	if (hca->distance > hcb->distance)
 		return -1;
 
-	if (HnswPtrPointer(hca->element) < HnswPtrPointer(hcb->element))
+	if (hca->element.relptr_off < hcb->element.relptr_off)
 		return 1;
 
-	if (HnswPtrPointer(hca->element) > HnswPtrPointer(hcb->element))
-		return -1;
-
-	return 0;
-}
-
-/*
- * Compare candidate distances with offset tie-breaker
- */
-static int
-#if PG_VERSION_NUM >= 130000
-CompareCandidateDistancesOffset(const ListCell *a, const ListCell *b)
-#else
-CompareCandidateDistancesOffset(const void *a, const void *b)
-#endif
-{
-	HnswCandidate *hca = lfirst((ListCell *) a);
-	HnswCandidate *hcb = lfirst((ListCell *) b);
-
-	if (hca->distance < hcb->distance)
-		return 1;
-
-	if (hca->distance > hcb->distance)
-		return -1;
-
-	if (HnswPtrOffset(hca->element) < HnswPtrOffset(hcb->element))
-		return 1;
-
-	if (HnswPtrOffset(hca->element) > HnswPtrOffset(hcb->element))
+	if (hca->element.relptr_off > hcb->element.relptr_off)
 		return -1;
 
 	return 0;
@@ -993,12 +924,7 @@ SelectNeighbors(char *base, List *c, int m, int lc, FmgrInfo *procinfo, Oid coll
 
 	/* Ensure order of candidates is deterministic for closer caching */
 	if (sortCandidates)
-	{
-		if (base == NULL)
-			list_sort(w, CompareCandidateDistances);
-		else
-			list_sort(w, CompareCandidateDistancesOffset);
-	}
+		list_sort(w, CompareCandidateDistances);
 
 	while (list_length(w) > 0 && list_length(r) < m)
 	{
@@ -1200,14 +1126,11 @@ RemoveElements(char *base, List *w, HnswElement skipElement)
 static void
 PrecomputeHash(char *base, HnswElement element)
 {
-	HnswElementPtr ptr;
+	HnswElementRelptr ptr;
 
 	HnswPtrStore(base, ptr, element);
 
-	if (base == NULL)
-		element->hash = hash_pointer((uintptr_t) HnswPtrPointer(ptr));
-	else
-		element->hash = hash_offset(HnswPtrOffset(ptr));
+	element->hash = hash_relptr(ptr.relptr_off);
 }
 #endif
 

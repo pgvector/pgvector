@@ -139,7 +139,7 @@ CreateElementPages(HnswBuildState * buildstate)
 	HnswElement entryPoint;
 	Buffer		buf;
 	Page		page;
-	HnswElementPtr iter = buildstate->graph->head;
+	HnswElementRelptr iter = buildstate->graph->head;
 	char	   *base = buildstate->hnswarea;
 
 	/* Calculate sizes */
@@ -235,7 +235,7 @@ CreateNeighborPages(HnswBuildState * buildstate)
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
 	int			m = buildstate->m;
-	HnswElementPtr iter = buildstate->graph->head;
+	HnswElementRelptr iter = buildstate->graph->head;
 	char	   *base = buildstate->hnswarea;
 	HnswNeighborTuple ntup;
 
@@ -596,8 +596,8 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 static void
 InitGraph(HnswGraph * graph, char *base, long memoryTotal)
 {
-	HnswPtrSetNull(base, graph->head);
-	HnswPtrSetNull(base, graph->entryPoint);
+	HnswPtrStore(base, graph->head, (HnswElement) NULL);
+	HnswPtrStore(base, graph->entryPoint, (HnswElement) NULL);
 	graph->memoryUsed = 0;
 	graph->memoryTotal = memoryTotal;
 	graph->flushed = false;

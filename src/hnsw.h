@@ -98,20 +98,14 @@
 
 #define HnswGetValue(base, element) PointerGetDatum(HnswPtrAccess(base, (element)->value))
 
-#if PG_VERSION_NUM < 140005
-#define relptr_offset(rp) ((rp).relptr_off - 1)
-#endif
-
 /* Pointer macros */
-#define HnswPtrAccess(base, hp) ((base) == NULL ? (hp).ptr : relptr_access(base, (hp).relptr))
-#define HnswPtrStore(base, hp, value) ((base) == NULL ? (void) ((hp).ptr = (value)) : (void) relptr_store(base, (hp).relptr, value))
-#define HnswPtrIsNull(base, hp) ((base) == NULL ? (hp).ptr == NULL : relptr_is_null((hp).relptr))
-#define HnswPtrSetNull(base, hp) ((base) == NULL ? (void) ((hp).ptr = NULL) : (void) ((hp).relptr.relptr_off = 0))
-#define HnswPtrEqual(base, hp1, hp2) ((base) == NULL ? (hp1).ptr == (hp2).ptr : relptr_offset((hp1).relptr) == relptr_offset((hp2).relptr))
+#define HnswPtrAccess(base, hp) relptr_access(base, hp)
+#define HnswPtrStore(base, hp, value) relptr_store(base, hp, value)
+#define HnswPtrIsNull(base, hp) relptr_is_null(hp)
+#define HnswPtrEqual(base, hp1, hp2) ((hp1).relptr_off == (hp2).relptr_off)
 
 /* For code paths dedicated to each type */
-#define HnswPtrPointer(hp) (hp).ptr
-#define HnswPtrOffset(hp) relptr_offset((hp).relptr)
+#define HnswPtrPointer(hp) relptr_pointer(hp)
 
 /* Variables */
 extern int	hnsw_ef_search;
@@ -119,31 +113,27 @@ extern int	hnsw_ef_search;
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
 
-#define HnswPtrDeclare(type, relptrtype, ptrtype) \
-	relptr_declare(type, relptrtype); \
-	typedef union { type *ptr; relptrtype relptr; } ptrtype;
-
-/* Pointers that can be absolute or relative */
-/* Use char for DatumPtr so works with Pointer */
-HnswPtrDeclare(HnswElementData, HnswElementRelptr, HnswElementPtr);
-HnswPtrDeclare(HnswNeighborArray, HnswNeighborArrayRelptr, HnswNeighborArrayPtr);
-HnswPtrDeclare(HnswNeighborArrayPtr, HnswNeighborsRelptr, HnswNeighborsPtr);
-HnswPtrDeclare(char, DatumRelptr, DatumPtr);
+/* Relative pointer types */
+/* Use char for DatumRelPtr so it works with Pointer */
+relptr_declare(HnswElementData, HnswElementRelptr);
+relptr_declare(HnswNeighborArray, HnswNeighborArrayRelptr);
+relptr_declare(HnswNeighborArrayRelptr, HnswNeighborsRelptr);
+relptr_declare(char, DatumRelptr);
 
 typedef struct HnswElementData
 {
-	HnswElementPtr next;
+	HnswElementRelptr next;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	uint8		heaptidsLength;
 	uint8		level;
 	uint8		deleted;
 	uint32		hash;
-	HnswNeighborsPtr neighbors;
+	HnswNeighborsRelptr neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
-	DatumPtr	value;
+	DatumRelptr	value;
 	slock_t		lock;
 }			HnswElementData;
 
@@ -151,7 +141,7 @@ typedef HnswElementData * HnswElement;
 
 typedef struct HnswCandidate
 {
-	HnswElementPtr element;
+	HnswElementRelptr element;
 	float		distance;
 	bool		closer;
 }			HnswCandidate;
@@ -199,12 +189,12 @@ typedef struct HnswGraph
 {
 	/* Graph state */
 	slock_t		lock;
-	HnswElementPtr head;
+	HnswElementRelptr head;
 	double		indtuples;
 
 	/* Entry state */
 	slock_t		entryLock;
-	HnswElementPtr entryPoint;
+	HnswElementRelptr entryPoint;
 
 	/* Allocations state */
 	slock_t		allocatorLock;
@@ -442,7 +432,7 @@ void		hnswendscan(IndexScanDesc scan);
 static inline HnswNeighborArray *
 HnswGetNeighbors(char *base, HnswElement element, int lc)
 {
-	HnswNeighborArrayPtr *neighborList = HnswPtrAccess(base, element->neighbors);
+	HnswNeighborArrayRelptr *neighborList = HnswPtrAccess(base, element->neighbors);
 
 	Assert(element->level >= lc);
 
@@ -463,28 +453,15 @@ typedef struct TidHashEntry
 #define SH_DECLARE
 #include "lib/simplehash.h"
 
-typedef struct PointerHashEntry
+typedef struct RelptrHashEntry
 {
-	uintptr_t	ptr;
+	size_t		relptr;
 	char		status;
-}			PointerHashEntry;
+}			RelptrHashEntry;
 
-#define SH_PREFIX pointerhash
-#define SH_ELEMENT_TYPE PointerHashEntry
-#define SH_KEY_TYPE uintptr_t
-#define SH_SCOPE extern
-#define SH_DECLARE
-#include "lib/simplehash.h"
-
-typedef struct OffsetHashEntry
-{
-	Size		offset;
-	char		status;
-}			OffsetHashEntry;
-
-#define SH_PREFIX offsethash
-#define SH_ELEMENT_TYPE OffsetHashEntry
-#define SH_KEY_TYPE Size
+#define SH_PREFIX relptrhash
+#define SH_ELEMENT_TYPE RelptrHashEntry
+#define SH_KEY_TYPE size_t
 #define SH_SCOPE extern
 #define SH_DECLARE
 #include "lib/simplehash.h"
