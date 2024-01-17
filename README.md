@@ -572,7 +572,7 @@ sum(vector) → vector | sum | 0.5.0
 If your machine has multiple Postgres installations, specify the path to [pg_config](https://www.postgresql.org/docs/current/app-pgconfig.html) with:
 
 ```sh
-export PG_CONFIG=/Applications/Postgres.app/Contents/Versions/latest/bin/pg_config
+export PG_CONFIG=/Library/PostgreSQL/16/bin/pg_config
 ```
 
 Then re-run the installation instructions (run `make clean` before `make` if needed). If `sudo` is needed for `make install`, use:
