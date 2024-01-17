@@ -213,6 +213,7 @@ typedef struct HnswShared
 	Oid			indexrelid;
 	bool		isconcurrent;
 	int			scantuplesortstates;
+	dsa_pointer dsaptr;
 
 	/* Worker progress */
 	ConditionVariable workersdonecv;
