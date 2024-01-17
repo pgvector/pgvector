@@ -177,14 +177,15 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_in);
 Datum
 vector_in(PG_FUNCTION_ARGS)
 {
-	char	   *str = PG_GETARG_CSTRING(0);
+	char	   *lit = PG_GETARG_CSTRING(0);
 	int32		typmod = PG_GETARG_INT32(2);
 	float		x[VECTOR_MAX_DIM];
 	int			dim = 0;
 	char	   *pt;
 	char	   *stringEnd;
 	Vector	   *result;
-	char	   *lit = pstrdup(str);
+	char	   *litcopy = pstrdup(lit);
+	char	   *str = litcopy;
 
 	while (vector_isspace(*str))
 		str++;
@@ -268,7 +269,7 @@ vector_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("vector must have at least 1 dimension")));
 
-	pfree(lit);
+	pfree(litcopy);
 
 	CheckExpectedDim(typmod, dim);
 
