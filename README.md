@@ -781,7 +781,19 @@ make prove_installcheck PROVE_TESTS=test/t/001_wal.pl  # TAP test
 To enable benchmarking:
 
 ```sh
-make clean && PG_CFLAGS=-DIVFFLAT_BENCH make && make install
+make clean && PG_CFLAGS="-DIVFFLAT_BENCH" make && make install
+```
+
+To show memory usage:
+
+```sh
+make clean && PG_CFLAGS="-DHNSW_MEMORY -DIVFFLAT_MEMORY" make && make install
+```
+
+To enable assertions:
+
+```sh
+make clean && PG_CFLAGS="-DUSE_ASSERT_CHECKING" make && make install
 ```
 
 Resources for contributors
