@@ -274,7 +274,7 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 
 	HnswInitNeighbors(base, element, m, allocator);
 
-	HnswPtrSetNull(base, element->value);
+	HnswPtrStore(base, element->value, (Pointer) NULL);
 
 	return element;
 }
@@ -295,11 +295,12 @@ HnswElement
 HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 {
 	HnswElement element = palloc(sizeof(HnswElementData));
+	char	   *base = NULL;
 
 	element->blkno = blkno;
 	element->offno = offno;
-	HnswPtrSetNull(NULL, element->neighbors);
-	HnswPtrSetNull(NULL, element->value);
+	HnswPtrStore(base, element->neighbors, (HnswNeighborArrayPtr *) NULL);
+	HnswPtrStore(base, element->value, (Pointer) NULL);
 	return element;
 }
 

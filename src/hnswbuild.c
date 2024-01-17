@@ -551,8 +551,8 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 static void
 InitGraph(HnswGraph * graph, char *base, long memoryTotal)
 {
-	HnswPtrSetNull(base, graph->head);
-	HnswPtrSetNull(base, graph->entryPoint);
+	HnswPtrStore(base, graph->head, (HnswElement) NULL);
+	HnswPtrStore(base, graph->entryPoint, (HnswElement) NULL);
 	graph->memoryUsed = 0;
 	graph->memoryTotal = memoryTotal;
 	graph->flushed = false;
