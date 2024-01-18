@@ -897,7 +897,6 @@ static void
 HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 {
 	ParallelContext *pcxt;
-	int			scantuplesortstates;
 	Snapshot	snapshot;
 	Size		esthnswshared;
 	Size		esthnswarea;
@@ -920,8 +919,6 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 #else
 	pcxt = CreateParallelContext("vector", "HnswParallelBuildMain", request, true);
 #endif
-
-	scantuplesortstates = leaderparticipates ? request + 1 : request;
 
 	/* Get snapshot for table scan */
 	if (!isconcurrent)
@@ -973,7 +970,6 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	hnswshared->heaprelid = RelationGetRelid(buildstate->heap);
 	hnswshared->indexrelid = RelationGetRelid(buildstate->index);
 	hnswshared->isconcurrent = isconcurrent;
-	hnswshared->scantuplesortstates = scantuplesortstates;
 	ConditionVariableInit(&hnswshared->workersdonecv);
 	SpinLockInit(&hnswshared->mutex);
 	/* Initialize mutable state */
