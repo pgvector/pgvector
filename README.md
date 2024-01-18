@@ -796,6 +796,12 @@ To enable assertions:
 make clean && PG_CFLAGS="-DUSE_ASSERT_CHECKING" make && make install
 ```
 
+To get k-means metrics:
+
+```sh
+make clean && PG_CFLAGS="-DIVFFLAT_KMEANS_DEBUG" make && make install
+```
+
 Resources for contributors
 
 - [Extension Building Infrastructure](https://www.postgresql.org/docs/current/extend-pgxs.html)
