@@ -200,12 +200,6 @@ typedef struct HnswGraph
 	bool		flushed;
 }			HnswGraph;
 
-typedef struct HnswSpool
-{
-	Relation	heap;
-	Relation	index;
-}			HnswSpool;
-
 typedef struct HnswShared
 {
 	/* Immutable state */
