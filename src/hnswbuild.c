@@ -600,7 +600,7 @@ ParallelHeapScan(HnswBuildState * buildstate)
  * Perform a worker's portion of a parallel insert
  */
 static void
-HnswParallelScanAndInsert(HnswSpool * hnswspool, HnswShared * hnswshared, bool progress)
+HnswParallelScanAndInsert(Relation heapRel, Relation indexRel, HnswShared * hnswshared, bool progress)
 {
 	HnswBuildState buildstate;
 #if PG_VERSION_NUM >= 120000
@@ -612,20 +612,20 @@ HnswParallelScanAndInsert(HnswSpool * hnswspool, HnswShared * hnswshared, bool p
 	IndexInfo  *indexInfo;
 
 	/* Join parallel scan */
-	indexInfo = BuildIndexInfo(hnswspool->index);
+	indexInfo = BuildIndexInfo(indexRel);
 	indexInfo->ii_Concurrent = hnswshared->isconcurrent;
-	InitBuildState(&buildstate, hnswspool->heap, hnswspool->index, indexInfo, MAIN_FORKNUM);
+	InitBuildState(&buildstate, heapRel, indexRel, indexInfo, MAIN_FORKNUM);
 	buildstate.graph = &hnswshared->graphData;
 	buildstate.hnswshared = hnswshared;
 #if PG_VERSION_NUM >= 120000
-	scan = table_beginscan_parallel(hnswspool->heap,
+	scan = table_beginscan_parallel(heapRel,
 									ParallelTableScanFromHnswShared(hnswshared));
-	reltuples = table_index_build_scan(hnswspool->heap, hnswspool->index, indexInfo,
+	reltuples = table_index_build_scan(heapRel, indexRel, indexInfo,
 									   true, progress, BuildCallback,
 									   (void *) &buildstate, scan);
 #else
-	scan = heap_beginscan_parallel(hnswspool->heap, &hnswshared->heapdesc);
-	reltuples = IndexBuildHeapScan(hnswspool->heap, hnswspool->index, indexInfo,
+	scan = heap_beginscan_parallel(heapRel, &hnswshared->heapdesc);
+	reltuples = IndexBuildHeapScan(heapRel, indexRel, indexInfo,
 								   true, BuildCallback,
 								   (void *) &buildstate, scan);
 #endif
@@ -655,7 +655,6 @@ void
 HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 {
 	char	   *sharedquery;
-	HnswSpool  *hnswspool;
 	HnswShared *hnswshared;
 	Relation	heapRel;
 	Relation	indexRel;
@@ -692,13 +691,8 @@ HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 #endif
 	indexRel = index_open(hnswshared->indexrelid, indexLockmode);
 
-	/* Initialize worker's own spool */
-	hnswspool = (HnswSpool *) palloc0(sizeof(HnswSpool));
-	hnswspool->heap = heapRel;
-	hnswspool->index = indexRel;
-
 	/* Perform inserts */
-	HnswParallelScanAndInsert(hnswspool, hnswshared, false);
+	HnswParallelScanAndInsert(heapRel, indexRel, hnswshared, false);
 
 	/* Close relations within worker */
 	index_close(indexRel, indexLockmode);
@@ -753,15 +747,9 @@ static void
 HnswLeaderParticipateAsWorker(HnswBuildState * buildstate)
 {
 	HnswLeader *hnswleader = buildstate->hnswleader;
-	HnswSpool  *leaderworker;
-
-	/* Allocate memory and initialize private spool */
-	leaderworker = (HnswSpool *) palloc0(sizeof(HnswSpool));
-	leaderworker->heap = buildstate->heap;
-	leaderworker->index = buildstate->index;
 
 	/* Perform work common to all participants */
-	HnswParallelScanAndInsert(leaderworker, hnswleader->hnswshared, true);
+	HnswParallelScanAndInsert(buildstate->heap, buildstate->index, hnswleader->hnswshared, true);
 }
 
 /*

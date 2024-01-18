@@ -158,12 +158,6 @@ typedef struct HnswGraph
 	double		indtuples;
 }			HnswGraph;
 
-typedef struct HnswSpool
-{
-	Relation	heap;
-	Relation	index;
-}			HnswSpool;
-
 typedef struct HnswShared
 {
 	/* Immutable state */
