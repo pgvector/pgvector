@@ -170,7 +170,6 @@ typedef struct HnswShared
 	Oid			heaprelid;
 	Oid			indexrelid;
 	bool		isconcurrent;
-	int			scantuplesortstates;
 
 	/* Worker progress */
 	ConditionVariable workersdonecv;
