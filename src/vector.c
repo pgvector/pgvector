@@ -181,24 +181,26 @@ vector_in(PG_FUNCTION_ARGS)
 	int32		typmod = PG_GETARG_INT32(2);
 	float		x[VECTOR_MAX_DIM];
 	int			dim = 0;
-	char	   *pt = lit;
+	char	   *pt;
 	char	   *stringEnd;
 	Vector	   *result;
-	bool		malformed = false;
+	char	   *litcopy = pstrdup(lit);
+	char	   *str = litcopy;
 
-	while (vector_isspace(*pt))
-		pt++;
+	while (vector_isspace(*str))
+		str++;
 
-	if (*pt != '[')
+	if (*str != '[')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("malformed vector literal: \"%s\"", lit),
 				 errdetail("Vector contents must start with \"[\".")));
 
-	pt++;
+	str++;
+	pt = strtok(str, ",");
 	stringEnd = pt;
 
-	while (*pt != '\0' && *pt != ',' && *stringEnd != ']')
+	while (pt != NULL && *stringEnd != ']')
 	{
 		if (dim == VECTOR_MAX_DIM)
 			ereport(ERROR,
@@ -227,22 +229,12 @@ vector_in(PG_FUNCTION_ARGS)
 		while (vector_isspace(*stringEnd))
 			stringEnd++;
 
-		if (*stringEnd == '\0')
-			break;
-
-		if (*stringEnd != ',' && *stringEnd != ']')
+		if (*stringEnd != '\0' && *stringEnd != ']')
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
 
-		pt = stringEnd + 1;
-
-		/* TODO Remove in 0.6.0 */
-		while (*pt == ',')
-		{
-			malformed = true;
-			pt++;
-		}
+		pt = strtok(NULL, ",");
 	}
 
 	if (stringEnd == NULL || *stringEnd != ']')
@@ -263,16 +255,21 @@ vector_in(PG_FUNCTION_ARGS)
 				 errmsg("malformed vector literal: \"%s\"", lit),
 				 errdetail("Junk after closing right brace.")));
 
-	/* TODO Remove in 0.6.0 */
-	if (malformed)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed vector literal: \"%s\"", lit)));
+	/* Ensure no consecutive delimiters since strtok skips */
+	for (pt = lit + 1; *pt != '\0'; pt++)
+	{
+		if (pt[-1] == ',' && *pt == ',')
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+					 errmsg("malformed vector literal: \"%s\"", lit)));
+	}
 
 	if (dim < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("vector must have at least 1 dimension")));
+
+	pfree(litcopy);
 
 	CheckExpectedDim(typmod, dim);
 
