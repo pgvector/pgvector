@@ -382,7 +382,7 @@ HnswUpdateNeighborPagesInMemory(char *base, FmgrInfo *procinfo, Oid collation, H
  * Write changes in memory
  */
 static void
-WriteElementInMemory(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate, HnswGraph * graph, bool updateEntryPoint)
+WriteElementInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate, HnswGraph * graph, bool updateEntryPoint)
 {
 	char	   *base = buildstate->hnswarea;
 
@@ -497,7 +497,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswInsertElement(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
 	/* Write to memory */
-	WriteElementInMemory(index, procinfo, collation, element, m, efConstruction, entryPoint, buildstate, graph, updateEntryPoint);
+	WriteElementInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, graph, updateEntryPoint);
 
 	/* Release lock if needed */
 	if (updateEntryPoint)
