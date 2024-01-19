@@ -781,7 +781,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		/* Copy neighborhood to local memory if needed */
 		if (index == NULL)
 		{
-			LWLockAcquire(&cElement->lock, LW_EXCLUSIVE);
+			LWLockAcquire(&cElement->lock, LW_SHARED);
 			memcpy(neighborhoodData, neighborhood, neighborhoodSize);
 			LWLockRelease(&cElement->lock);
 			neighborhood = neighborhoodData;
