@@ -402,24 +402,61 @@ WriteElementInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int
 }
 
 /*
- * Insert tuple
+ * Insert tuple in memory
  */
-static bool
-InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, HnswBuildState * buildstate)
+static void
+InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 {
 	FmgrInfo   *procinfo = buildstate->procinfo;
 	Oid			collation = buildstate->collation;
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement entryPoint;
+	LWLock	   *entryLock = &graph->entryLock;
+	bool		updateEntryPoint = false;
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
+	char	   *base = buildstate->hnswarea;
+
+	/* Get entry point */
+	LWLockAcquire(entryLock, LW_SHARED);
+	entryPoint = HnswPtrAccess(base, graph->entryPoint);
+
+	/* Prevent concurrent inserts when likely updating entry point */
+	if (entryPoint == NULL || element->level > entryPoint->level)
+	{
+		/* Release shared lock */
+		LWLockRelease(entryLock);
+
+		/* Get exclusive lock */
+		LWLockAcquire(entryLock, LW_EXCLUSIVE);
+
+		/* Get latest entry point after lock is acquired */
+		entryPoint = HnswPtrAccess(base, graph->entryPoint);
+		updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
+	}
+
+	/* Insert element in graph */
+	HnswInsertElement(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+
+	/* Write to memory */
+	WriteElementInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, graph, updateEntryPoint);
+
+	/* Release entry lock */
+	LWLockRelease(entryLock);
+}
+
+/*
+ * Insert tuple
+ */
+static bool
+InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, HnswBuildState * buildstate)
+{
+	HnswGraph  *graph = buildstate->graph;
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
 	Size		valueSize;
 	Pointer		valuePtr;
-	bool		updateEntryPoint;
 	LWLock	   *flushLock = &graph->flushLock;
-	LWLock	   *entryLock;
 	char	   *base = buildstate->hnswarea;
 
 	/* Detoast once for all calls */
@@ -428,7 +465,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
-		if (!HnswNormValue(buildstate->normprocinfo, collation, &value, buildstate->normvec))
+		if (!HnswNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->normvec))
 			return false;
 	}
 
@@ -485,35 +522,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Create element lock */
 	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
 
-	entryLock = &graph->entryLock;
-	updateEntryPoint = false;
-
-	/* Get entry point */
-	LWLockAcquire(entryLock, LW_SHARED);
-	entryPoint = HnswPtrAccess(base, graph->entryPoint);
-
-	/* Prevent concurrent inserts when likely updating entry point */
-	if (entryPoint == NULL || element->level > entryPoint->level)
-	{
-		/* Release shared lock */
-		LWLockRelease(entryLock);
-
-		/* Get exclusive lock */
-		LWLockAcquire(entryLock, LW_EXCLUSIVE);
-
-		/* Get latest entry point after lock is acquired */
-		entryPoint = HnswPtrAccess(base, graph->entryPoint);
-		updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
-	}
-
-	/* Insert element in graph */
-	HnswInsertElement(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
-
-	/* Write to memory */
-	WriteElementInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, graph, updateEntryPoint);
-
-	/* Release entry lock */
-	LWLockRelease(entryLock);
+	/* Insert tuple */
+	InsertTupleInMemory(buildstate, element);
 
 	/* Release flush lock */
 	LWLockRelease(flushLock);
