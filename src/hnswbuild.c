@@ -419,6 +419,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Pointer		valuePtr;
 	bool		updateEntryPoint;
 	LWLock	   *flushLock = &graph->flushLock;
+	LWLock	   *entryLock;
 	char	   *base = buildstate->hnswarea;
 
 	/* Detoast once for all calls */
@@ -484,14 +485,26 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Create element lock */
 	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
 
-	/* Get entry point */
-	LWLockAcquire(&graph->entryLock, LW_EXCLUSIVE);
-	entryPoint = HnswPtrAccess(base, graph->entryPoint);
-	updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
+	entryLock = &graph->entryLock;
+	updateEntryPoint = false;
 
-	/* Release lock if not updating entry point */
-	if (!updateEntryPoint)
-		LWLockRelease(&graph->entryLock);
+	/* Get entry point */
+	LWLockAcquire(entryLock, LW_SHARED);
+	entryPoint = HnswPtrAccess(base, graph->entryPoint);
+
+	/* Prevent concurrent inserts when likely updating entry point */
+	if (entryPoint == NULL || element->level > entryPoint->level)
+	{
+		/* Release shared lock */
+		LWLockRelease(entryLock);
+
+		/* Get exclusive lock */
+		LWLockAcquire(entryLock, LW_EXCLUSIVE);
+
+		/* Get latest entry point after lock is acquired */
+		entryPoint = HnswPtrAccess(base, graph->entryPoint);
+		updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
+	}
 
 	/* Insert element in graph */
 	HnswInsertElement(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
@@ -499,9 +512,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Write to memory */
 	WriteElementInMemory(index, procinfo, collation, element, m, efConstruction, entryPoint, buildstate, graph, updateEntryPoint);
 
-	/* Release lock if needed */
-	if (updateEntryPoint)
-		LWLockRelease(&graph->entryLock);
+	/* Release entry lock */
+	LWLockRelease(entryLock);
 
 	/* Release flush lock */
 	LWLockRelease(flushLock);
