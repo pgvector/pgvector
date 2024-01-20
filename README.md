@@ -603,6 +603,10 @@ sudo apt install postgresql-server-dev-16
 
 Note: Replace `16` with your Postgres server version
 
+### Missing SDK
+
+If compilation fails and includes `warning: no such sysroot directory` on Mac, reinstall Xcode Command Line Tools.
+
 ### Windows
 
 Support for Windows is currently experimental. Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed, and run:
