@@ -613,7 +613,7 @@ Note: Replace `16` with your Postgres server version
 
 ### Missing SDK
 
-If compilation fails and includes `warning: no such sysroot directory` on Mac, reinstall Xcode Command Line Tools.
+If compilation fails and the output includes `warning: no such sysroot directory` on Mac, reinstall Xcode Command Line Tools.
 
 ### Windows
 
