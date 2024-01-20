@@ -499,6 +499,18 @@ No, but like other index types, you’ll likely see better performance if they d
 SELECT pg_size_pretty(pg_relation_size('index_name'));
 ```
 
+#### Should I use HNSW or IVFFlat indexes?
+
+The ideal index type depends on specific trade-offs needed for any given workload. While a comprehensive analysis of all possible trade-offs is outside the scope of this discussion, the following provides a summary of typical (but not definitive) expectations. Of course we recommend benchmarking your specific workload for optimal performance.
+
+Feature | HNSW | IVFFlat
+--- | --- | ---
+Query speed | Faster | Slower
+Recall | Higher | Lower
+Index building | Slower | Faster
+Memory usage | Higher | Lower
+Incremental data changes | Handles well | Less optimal, may need re-building
+
 ## Troubleshooting
 
 #### Why isn’t a query using an index?
