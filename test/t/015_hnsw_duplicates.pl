@@ -23,10 +23,11 @@ sub insert_vectors
 
 sub test_duplicates
 {
+	# TODO Improve
 	my $res = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
-		SET hnsw.ef_search = 1;
-		SELECT COUNT(*) FROM (SELECT * FROM tst ORDER BY v <-> '[1,1,1]') t;
+		SET hnsw.ef_search = 10;
+		SELECT COUNT(*) FROM (SELECT * FROM tst ORDER BY v <-> '[1,1,1]' LIMIT 10) t;
 	));
 	is($res, 10);
 }

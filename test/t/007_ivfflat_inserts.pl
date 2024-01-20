@@ -49,7 +49,7 @@ is(idx_scan(), 0);
 $count = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
 	SET ivfflat.probes = 100;
-	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1)) t;
+	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 20000) t;
 ));
 is($count, $expected);
 is(idx_scan(), 1);

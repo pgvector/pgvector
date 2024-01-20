@@ -83,8 +83,11 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	List	   *qinfos;
 #endif
 
-	/* Never use index without order */
-	if (path->indexorderbys == NULL)
+	/*
+	 * Never use index without order or limit, or if limit + offset >
+	 * ef_search
+	 */
+	if (path->indexorderbys == NULL || root->limit_tuples < 0 || root->limit_tuples > hnsw_ef_search)
 	{
 		*indexStartupCost = DBL_MAX;
 		*indexTotalCost = DBL_MAX;
