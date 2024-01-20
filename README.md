@@ -591,6 +591,14 @@ Then re-run the installation instructions (run `make clean` before `make` if nee
 sudo --preserve-env=PG_CONFIG make install
 ```
 
+A few common paths on Mac are:
+
+- EDB installer - `/Library/PostgreSQL/16/bin/pg_config`
+- Homebrew (arm64) - `/opt/homebrew/opt/postgresql@16/bin/pg_config`
+- Homebrew (x86-64) - `/usr/local/opt/postgresql@16/bin/pg_config`
+
+Note: Replace `16` with your Postgres server version
+
 ### Missing Header
 
 If compilation fails with `fatal error: postgres.h: No such file or directory`, make sure Postgres development files are installed on the server.
