@@ -94,6 +94,20 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		return;
 	}
 
+	/*
+	 * Do not use index if no limit or limit + offset > ef_search unless
+	 * enable_seqscan = off
+	 */
+	if (root->limit_tuples < 0 || root->limit_tuples > hnsw_ef_search)
+	{
+		*indexStartupCost = 1.0e10 - 1;
+		*indexTotalCost = 1.0e10 - 1;
+		*indexSelectivity = 0;
+		*indexCorrelation = 0;
+		*indexPages = 0;
+		return;
+	}
+
 	MemSet(&costs, 0, sizeof(costs));
 
 	index = index_open(path->indexinfo->indexoid, NoLock);

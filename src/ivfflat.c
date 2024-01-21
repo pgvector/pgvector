@@ -105,6 +105,20 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 */
 	costs.numIndexTuples = path->indexinfo->tuples * ratio;
 
+	/*
+	 * Do not use index if no limit or limit + offset > expected tuples unless
+	 * enable_seqscan = off
+	 */
+	if (root->limit_tuples < 0 || root->limit_tuples > costs.numIndexTuples)
+	{
+		*indexStartupCost = 1.0e10 - 1;
+		*indexTotalCost = 1.0e10 - 1;
+		*indexSelectivity = 0;
+		*indexCorrelation = 0;
+		*indexPages = 0;
+		return;
+	}
+
 #if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
 #else
