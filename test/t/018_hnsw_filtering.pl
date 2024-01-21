@@ -39,6 +39,12 @@ my $explain = $node->safe_psql("postgres", qq(
 # TODO Do not use index
 like($explain, qr/Index Scan using idx/);
 
+# Test attribute filtering with few rows removed
+my $explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c != $c ORDER BY v <-> '$query' LIMIT $limit;
+));
+like($explain, qr/Index Scan using idx/);
+
 # Test distance filtering
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE v <-> '$query' < 1 ORDER BY v <-> '$query' LIMIT $limit;
