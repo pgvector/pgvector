@@ -112,7 +112,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	{
 		RestrictInfo *rinfo = lfirst(lc);
 
-		if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1 && rinfo->norm_selec != DEFAULT_INEQ_SEL)
+		if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1 && rinfo->norm_selec != (Selectivity) DEFAULT_INEQ_SEL)
 			selectivity *= rinfo->norm_selec;
 	}
 
