@@ -83,14 +83,25 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	List	   *qinfos;
 #endif
 
-	/*
-	 * Never use index without order or limit, or if limit + offset >
-	 * ef_search
-	 */
-	if (path->indexorderbys == NULL || root->limit_tuples < 0 || root->limit_tuples > hnsw_ef_search)
+	/* Never use index without order or limit */
+	if (path->indexorderbys == NULL || root->limit_tuples < 0)
 	{
 		*indexStartupCost = DBL_MAX;
 		*indexTotalCost = DBL_MAX;
+		*indexSelectivity = 0;
+		*indexCorrelation = 0;
+		*indexPages = 0;
+		return;
+	}
+
+	/*
+	 * Do not use index if limit + offset > ef_search unless enable_seqscan =
+	 * off
+	 */
+	if (root->limit_tuples > hnsw_ef_search)
+	{
+		*indexStartupCost = 1.0e10 - 1;
+		*indexTotalCost = 1.0e10 - 1;
 		*indexSelectivity = 0;
 		*indexCorrelation = 0;
 		*indexPages = 0;
