@@ -42,7 +42,7 @@ for my $i (1 .. 20)
 
 	my $count = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
-		SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1)) t;
+		SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 20) t;
 	));
 	is($count, 10);
 
@@ -63,7 +63,7 @@ $node->pgbench(
 my $count = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
 	SET hnsw.ef_search = 1000;
-	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1)) t;
+	SELECT COUNT(*) FROM (SELECT v FROM tst ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 1000) t;
 ));
 # Elements may lose all incoming connections with the HNSW algorithm
 # Vacuuming can fix this if one of the elements neighbors is deleted

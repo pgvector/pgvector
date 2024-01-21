@@ -6,11 +6,11 @@ CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 1);
 
 INSERT INTO t (val) VALUES ('[1,2,4]');
 
-SELECT * FROM t ORDER BY val <-> '[3,3,3]';
-SELECT * FROM t ORDER BY val <-> (SELECT NULL::vector);
+SELECT * FROM t ORDER BY val <-> '[3,3,3]' LIMIT 5;
+SELECT * FROM t ORDER BY val <-> (SELECT NULL::vector) LIMIT 5;
 SELECT COUNT(*) FROM t;
 
 TRUNCATE t;
-SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+SELECT * FROM t ORDER BY val <-> '[3,3,3]' LIMIT 5;
 
 DROP TABLE t;
