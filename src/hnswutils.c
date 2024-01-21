@@ -591,6 +591,10 @@ GetElementDistance(char *base, HnswElement he, Datum q, FmgrInfo *procinfo, Oid 
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, value));
 }
 
+
+extern Datum vector_negative_inner_product(PG_FUNCTION_ARGS);
+extern Datum vector_negative_inner_product4(PG_FUNCTION_ARGS);
+
 /*
  * Fill in the 'distance' field in an array of candidates, with the distance
  * of each candidate from 'q'.
@@ -603,7 +607,44 @@ CalculateCandidateDistances(char *base, HnswCandidate *tovisit, int num_tovisit,
 
 	if (index == NULL)
 	{
-		for (i = 0; i < num_tovisit; i++)
+		i = 0;
+
+		/*
+		 * Fast-path: Calculate 4 distances in one call
+		 *
+		 * XXX: I only implemented an array version for
+		 * vector_negative_inner_product().  For a proper implementation, this
+		 * ought to be defined as an extra support function. Or perhaps
+		 * something like btree sortsupport machinery
+		 */
+		if (procinfo->fn_addr == vector_negative_inner_product)
+		{
+			for (; i < num_tovisit - 4; i += 4)
+			{
+				HnswElement e[4];
+				double		result[4];
+
+				e[0] = HnswPtrAccess(base, tovisit[i].element);
+				e[1] = HnswPtrAccess(base, tovisit[i + 1].element);
+				e[2] = HnswPtrAccess(base, tovisit[i + 2].element);
+				e[3] = HnswPtrAccess(base, tovisit[i + 3].element);
+				DirectFunctionCall6Coll(vector_negative_inner_product4,
+										collation,
+										q,
+										HnswGetValue(base, e[0]),
+										HnswGetValue(base, e[1]),
+										HnswGetValue(base, e[2]),
+										HnswGetValue(base, e[3]),
+										PointerGetDatum(result));
+				tovisit[i].distance = result[0];
+				tovisit[i + 1].distance = result[1];
+				tovisit[i + 2].distance = result[2];
+				tovisit[i + 3].distance = result[3];
+			}
+		}
+
+		/* Process the remaining elements one by one */
+		for (; i < num_tovisit; i++)
 		{
 			float eDistance;
 
