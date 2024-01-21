@@ -45,6 +45,13 @@ $explain = $node->safe_psql("postgres", qq(
 ));
 like($explain, qr/Index Scan using idx/);
 
+# Test distance filtering greater than distance
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE v <-> '$query' > 1 ORDER BY v <-> '$query' LIMIT $limit;
+));
+# TODO Do not use index
+like($explain, qr/Index Scan using idx/);
+
 # Test distance filtering without order
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE v <-> '$query' < 1;
