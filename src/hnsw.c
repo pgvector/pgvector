@@ -94,6 +94,34 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		return;
 	}
 
+	/*
+	 * Do not use index if large % of tuples will be filtered unless
+	 * enable_seqscan = off
+	 */
+	if (list_length(path->indexinfo->indrestrictinfo) > 0)
+	{
+		double		selectivity = 1;
+		ListCell   *lc;
+
+		foreach(lc, path->indexinfo->indrestrictinfo)
+		{
+			RestrictInfo *rinfo = lfirst(lc);
+
+			if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1)
+				selectivity *= rinfo->norm_selec;
+		}
+
+		if (selectivity < 0.1)
+		{
+			*indexStartupCost = 1.0e10 - 1;
+			*indexTotalCost = 1.0e10 - 1;
+			*indexSelectivity = 0;
+			*indexCorrelation = 0;
+			*indexPages = 0;
+			return;
+		}
+	}
+
 	MemSet(&costs, 0, sizeof(costs));
 
 	index = index_open(path->indexinfo->indexoid, NoLock);
