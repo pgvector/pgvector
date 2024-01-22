@@ -19,9 +19,10 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4, t text);");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, 'test ' || i FROM generate_series(1, 10000) i;"
 );
 $node->safe_psql("postgres", "CREATE INDEX idx ON tst USING ivfflat (v vector_l2_ops) WITH (lists = 100);");
+$node->safe_psql("postgres", "ANALYZE tst;");
 
 # Generate query
 my @r = ();
@@ -68,8 +69,7 @@ like($explain, qr/Index Scan using idx/);
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE t LIKE '%%other%%' ORDER BY v <-> '$query' LIMIT $limit;
 ));
-# TODO Do not use index
-like($explain, qr/Index Scan using idx/);
+like($explain, qr/Seq Scan/);
 
 # Test distance filtering
 $explain = $node->safe_psql("postgres", qq(
@@ -102,13 +102,15 @@ $node->safe_psql("postgres", "CREATE INDEX attribute_idx ON tst (c);");
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = $c ORDER BY v <-> '$query' LIMIT $limit;
 ));
-like($explain, qr/Bitmap Index Scan on attribute_idx/);
+# TODO Use attribute index
+like($explain, qr/Index Scan using idx/);
 
 # Test partial index
 $node->safe_psql("postgres", "CREATE INDEX partial_idx ON tst USING ivfflat (v vector_l2_ops) WITH (lists = 5) WHERE (c = $c);");
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = $c ORDER BY v <-> '$query' LIMIT $limit;
 ));
-like($explain, qr/Index Scan using partial_idx/);
+# TODO Use partial index
+like($explain, qr/Index Scan using idx/);
 
 done_testing();

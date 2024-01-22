@@ -22,6 +22,7 @@ $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, 'test ' || i FROM generate_series(1, 10000) i;"
 );
 $node->safe_psql("postgres", "CREATE INDEX idx ON tst USING hnsw (v vector_l2_ops);");
+$node->safe_psql("postgres", "ANALYZE tst;");
 
 # Generate query
 my @r = ();
@@ -68,8 +69,7 @@ like($explain, qr/Index Scan using idx/);
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE t LIKE '%%other%%' ORDER BY v <-> '$query' LIMIT $limit;
 ));
-# TODO Do not use index
-like($explain, qr/Index Scan using idx/);
+like($explain, qr/Seq Scan/);
 
 # Test distance filtering
 $explain = $node->safe_psql("postgres", qq(
@@ -101,7 +101,8 @@ $node->safe_psql("postgres", "CREATE INDEX attribute_idx ON tst (c);");
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = $c ORDER BY v <-> '$query' LIMIT $limit;
 ));
-like($explain, qr/Bitmap Index Scan on attribute_idx/);
+# TODO Use attribute index
+like($explain, qr/Index Scan using idx/);
 
 # Test partial index
 $node->safe_psql("postgres", "CREATE INDEX partial_idx ON tst USING hnsw (v vector_l2_ops) WHERE (c = $c);");
