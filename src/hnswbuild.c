@@ -1,5 +1,5 @@
 /*
- * HNSW build happens in two phases:
+ * The HNSW build happens in two phases:
  *
  * 1. In-memory phase
  *
@@ -29,7 +29,7 @@
  * In the on-disk phase, the index is built by inserting each vector to the
  * index one by one, just like on INSERT. The only difference is that we don't
  * WAL-log the individual inserts. If the graph fit completely in memory and
- * was fully build in the in-memory phase, the on-disk phase is skipped.
+ * was fully built in the in-memory phase, the on-disk phase is skipped.
  *
  * After we have finished building the graph, we perform one more scan through
  * the index and write all the pages to the WAL.
@@ -508,8 +508,10 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Get datum size */
 	valueSize = VARSIZE_ANY(DatumGetPointer(value));
 
-	/* Are we in the on-disk phase? */
+	/* Ensure graph not flushed when inserting */
 	LWLockAcquire(flushLock, LW_SHARED);
+
+	/* Are we in the on-disk phase? */
 	if (graph->flushed)
 	{
 		LWLockRelease(flushLock);
@@ -518,16 +520,14 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	}
 
 	/*
-	 * Construct an HnswElement to represent the new value.
-	 *
 	 * In a parallel build, the HnswElement is allocated from the shared
 	 * memory area, so we need to coordinate with other processes.
 	 */
 	LWLockAcquire(&graph->allocatorLock, LW_EXCLUSIVE);
 
 	/*
-	 * Check that we still have enough memory available for the new element,
-	 * now that we have the allocator lock.
+	 * Check that we have enough memory available for the new element now that
+	 * we have the allocator lock, and flush pages if needed.
 	 */
 	if (graph->memoryUsed >= graph->memoryTotal)
 	{
@@ -562,8 +562,11 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	 */
 	LWLockRelease(&graph->allocatorLock);
 
+	/* Copy the datum */
 	memcpy(valuePtr, DatumGetPointer(value), valueSize);
 	HnswPtrStore(base, element->value, valuePtr);
+
+	/* Create a lock for the element */
 	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
 
 	/* Insert tuple */
