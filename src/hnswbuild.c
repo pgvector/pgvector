@@ -1,3 +1,39 @@
+/*
+ * HNSW build happens in two phases:
+ *
+ * 1. In-memory phase
+ *
+ * In this first phase, the graph is held completely in memory. When the graph
+ * is fully built, or we run out of memory reserved for the build (determined
+ * by maintenance_work_mem), we materialize the graph to disk (see
+ * FlushPages()), and switch to the on-disk phase.
+ *
+ * In a parallel build, a large contiguous chunk of shared memory is allocated
+ * to hold the graph. Each worker process has its own HnswBuildState struct in
+ * private memory, which contains information that doesn't change throughout
+ * the build, and pointers to the shared structs in shared memory. The shared
+ * memory area is mapped to a different address in each worker process, and
+ * 'HnswBuildState.hnswarea' points to the beginning of the shared area in the
+ * worker process's address space. All pointers used in the graph are
+ * "relative pointers", stored as an offset from 'hnswarea'.
+ *
+ * Each element is protected by an LWLock. It must be held when reading or
+ * modifying the element's neighbors or 'heaptids'.
+ *
+ * In a non-parallel build, the graph is held in backend-private memory. All
+ * the elements are allocated in a dedicated memory context, 'graphCtx', and
+ * the pointers used in the graph are regular pointers.
+ *
+ * 2. On-disk phase
+ *
+ * In the on-disk phase, the index is built by inserting each vector to the
+ * index one by one, just like on INSERT. The only difference is that we don't
+ * WAL-log the individual inserts. If the graph fit completely in memory and
+ * was fully build in the in-memory phase, the on-disk phase is skipped.
+ *
+ * After we have finished building the graph, we perform one more scan through
+ * the index and write all the pages to the WAL.
+ */
 #include "postgres.h"
 
 #include <math.h>
@@ -472,9 +508,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Get datum size */
 	valueSize = VARSIZE_ANY(DatumGetPointer(value));
 
-	/* Ensure graph not flushed when inserting */
+	/* Are we in the on-disk phase? */
 	LWLockAcquire(flushLock, LW_SHARED);
-
 	if (graph->flushed)
 	{
 		LWLockRelease(flushLock);
@@ -482,10 +517,18 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 		return HnswInsertTupleOnDisk(index, value, values, isnull, heaptid, buildstate->heap, true);
 	}
 
-	/* Get lock for allocator */
+	/*
+	 * Construct an HnswElement to represent the new value.
+	 *
+	 * In a parallel build, the HnswElement is allocated from the shared
+	 * memory area, so we need to coordinate with other processes.
+	 */
 	LWLockAcquire(&graph->allocatorLock, LW_EXCLUSIVE);
 
-	/* Flush pages if needed */
+	/*
+	 * Check that we still have enough memory available for the new element,
+	 * now that we have the allocator lock.
+	 */
 	if (graph->memoryUsed >= graph->memoryTotal)
 	{
 		LWLockRelease(&graph->allocatorLock);
@@ -508,18 +551,19 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 		return HnswInsertTupleOnDisk(index, value, values, isnull, heaptid, buildstate->heap, true);
 	}
 
-	/* Create an element */
+	/* Ok, we can proceed to allocate the element */
 	element = HnswInitElement(base, heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel, allocator);
 	valuePtr = HnswAlloc(allocator, valueSize);
 
-	/* Release allocator lock */
+	/*
+	 * We have now allocated the space needed for the element, so we don't
+	 * need the allocator lock anymore. Release it and initialize the rest of
+	 * the element.
+	 */
 	LWLockRelease(&graph->allocatorLock);
 
-	/* Copy datum */
 	memcpy(valuePtr, DatumGetPointer(value), valueSize);
 	HnswPtrStore(base, element->value, valuePtr);
-
-	/* Create element lock */
 	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
 
 	/* Insert tuple */
