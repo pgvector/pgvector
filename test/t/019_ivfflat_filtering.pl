@@ -17,7 +17,7 @@ $node->start;
 
 # Create table and index
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4);");
+$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4, t text);");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
 );
@@ -54,6 +54,19 @@ like($explain, qr/Index Scan using idx/);
 # Test attribute filtering with many rows removed comparison
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c < 1 ORDER BY v <-> '$query' LIMIT $limit;
+));
+# TODO Do not use index
+like($explain, qr/Index Scan using idx/);
+
+# Test attribute filtering with few rows removed like
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE t LIKE '%%test%%' ORDER BY v <-> '$query' LIMIT $limit;
+));
+like($explain, qr/Index Scan using idx/);
+
+# Test attribute filtering with many rows removed like
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE t LIKE '%%other%%' ORDER BY v <-> '$query' LIMIT $limit;
 ));
 # TODO Do not use index
 like($explain, qr/Index Scan using idx/);
