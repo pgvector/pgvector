@@ -79,15 +79,40 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	int			m;
 	int			entryLevel;
 	Relation	index;
+	double		selectivity = 1;
+	ListCell   *lc;
 #if PG_VERSION_NUM < 120000
 	List	   *qinfos;
 #endif
 
-	/* Never use index without order */
-	if (path->indexorderbys == NULL)
+	/* Never use index without order or limit */
+	if (path->indexorderbys == NULL || root->limit_tuples < 0)
 	{
 		*indexStartupCost = DBL_MAX;
 		*indexTotalCost = DBL_MAX;
+		*indexSelectivity = 0;
+		*indexCorrelation = 0;
+		*indexPages = 0;
+		return;
+	}
+
+	/* Get the selectivity of non-index conditions */
+	foreach(lc, path->indexinfo->indrestrictinfo)
+	{
+		RestrictInfo *rinfo = lfirst(lc);
+
+		if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1 && rinfo->norm_selec != (Selectivity) DEFAULT_INEQ_SEL)
+			selectivity *= rinfo->norm_selec;
+	}
+
+	/*
+	 * Do not use index if limit + offset > expected tuples unless
+	 * enable_seqscan = off
+	 */
+	if (root->limit_tuples > hnsw_ef_search * selectivity)
+	{
+		*indexStartupCost = 1.0e10 - 1;
+		*indexTotalCost = 1.0e10 - 1;
 		*indexSelectivity = 0;
 		*indexCorrelation = 0;
 		*indexPages = 0;

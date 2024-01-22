@@ -26,7 +26,7 @@ sub test_duplicates
 	my $res = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
 		SET hnsw.ef_search = 1;
-		SELECT COUNT(*) FROM (SELECT * FROM tst ORDER BY v <-> '[1,1,1]') t;
+		SELECT COUNT(*) FROM (SELECT * FROM tst ORDER BY v <-> '[1,1,1]' LIMIT 20) t;
 	));
 	is($res, 10);
 }
