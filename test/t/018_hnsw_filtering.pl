@@ -22,6 +22,7 @@ $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
 );
 $node->safe_psql("postgres", "CREATE INDEX idx ON tst USING hnsw (v vector_l2_ops);");
+$node->safe_psql("postgres", "ANALYZE tst;");
 
 # Generate query
 my @r = ();
@@ -43,6 +44,18 @@ $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c != $c ORDER BY v <-> '$query' LIMIT $limit;
 ));
 like($explain, qr/Index Scan using idx/);
+
+# Test attribute filtering with few rows removed comparison
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c >= 1 ORDER BY v <-> '$query' LIMIT $limit;
+));
+like($explain, qr/Index Scan using idx/);
+
+# Test attribute filtering with many rows removed comparison
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c < 1 ORDER BY v <-> '$query' LIMIT $limit;
+));
+like($explain, qr/Seq Scan/);
 
 # Test distance filtering
 $explain = $node->safe_psql("postgres", qq(
