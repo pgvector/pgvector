@@ -418,11 +418,12 @@ HnswUpdateNeighborPagesInMemory(char *base, FmgrInfo *procinfo, Oid collation, H
  * Write changes in memory
  */
 static void
-WriteElementInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate, HnswGraph * graph, bool updateEntryPoint)
+WriteElementInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate, bool updateEntryPoint)
 {
+	HnswGraph  *graph = buildstate->graph;
 	char	   *base = buildstate->hnswarea;
 
-	/* Try to add to existing page */
+	/* Look for duplicate */
 	if (HnswFindDuplicateInMemory(base, element))
 		return;
 
@@ -475,7 +476,7 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	HnswInsertElement(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
 	/* Write to memory */
-	WriteElementInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, graph, updateEntryPoint);
+	WriteElementInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, updateEntryPoint);
 
 	/* Release entry lock */
 	LWLockRelease(entryLock);
