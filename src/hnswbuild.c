@@ -415,10 +415,10 @@ HnswUpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswE
 }
 
 /*
- * Apply changes in memory
+ * Update graph in memory
  */
 static void
-ApplyChangesInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate, bool updateEntryPoint)
+UpdateGraphInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate, bool updateEntryPoint)
 {
 	HnswGraph  *graph = buildstate->graph;
 	char	   *base = buildstate->hnswarea;
@@ -475,8 +475,8 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	/* Find neighbors for element */
 	HnswFindElementNeighbors(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
-	/* Apply changes in memory */
-	ApplyChangesInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, updateEntryPoint);
+	/* Update graph in memory */
+	UpdateGraphInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, updateEntryPoint);
 
 	/* Release entry lock */
 	LWLockRelease(entryLock);
