@@ -978,7 +978,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Docker has a default limit of 64 MB for shm_size */
 	/* which happens to be the default value of maintenance_work_mem */
 	esthnswarea = maintenance_work_mem * 1024L;
-	estother = 2 * 1024 * 1024;
+	estother = 3 * 1024 * 1024;
 	if (esthnswarea > estother)
 		esthnswarea -= estother;
 
