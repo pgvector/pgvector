@@ -199,21 +199,22 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
 	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
+	char	   *base = NULL;
 
 	/* Skip if element is entry point */
 	if (entryPoint != NULL && element->blkno == entryPoint->blkno && element->offno == entryPoint->offno)
 		return;
 
 	/* Init fields */
-	HnswInitNeighbors(NULL, element, m, NULL);
+	HnswInitNeighbors(base, element, m, NULL);
 	element->heaptidsLength = 0;
 
 	/* Find neighbors for element, skipping itself */
-	HnswFindElementNeighbors(NULL, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
+	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
 
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */
-	HnswSetNeighborTuple(NULL, ntup, element, m);
+	HnswSetNeighborTuple(base, ntup, element, m);
 
 	/* Get neighbor page */
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
