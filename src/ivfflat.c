@@ -10,6 +10,10 @@
 #include "utils/selfuncs.h"
 #include "utils/spccache.h"
 
+#if PG_VERSION_NUM < 150000
+#define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
+#endif
+
 int			ivfflat_probes;
 static relopt_kind ivfflat_relopt_kind;
 
@@ -30,6 +34,8 @@ IvfflatInit(void)
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
 							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	MarkGUCPrefixReserved("ivfflat");
 }
 
 /*

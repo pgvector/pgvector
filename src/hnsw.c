@@ -10,6 +10,10 @@
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
 
+#if PG_VERSION_NUM < 150000
+#define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
+#endif
+
 int			hnsw_ef_search;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
@@ -67,6 +71,8 @@ HnswInit(void)
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	MarkGUCPrefixReserved("hnsw");
 }
 
 /*

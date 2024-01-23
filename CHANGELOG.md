@@ -2,6 +2,7 @@
 
 - Improved performance of HNSW
 - Added support for parallel index builds for HNSW
+- Added validation for GUC parameters
 - Reduced memory usage for HNSW index builds
 - Reduced WAL generation for HNSW index builds
 - Fixed error with logical replication
