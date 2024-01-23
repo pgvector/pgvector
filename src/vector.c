@@ -1140,12 +1140,12 @@ vector_avg(PG_FUNCTION_ARGS)
  * Ensure same number of bytes
  */
 static inline void
-CheckByteLengths(unsigned long aLen, unsigned long bLen)
+CheckByteLengths(uint32 aLen, uint32 bLen)
 {
 	if (aLen != bLen)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("different byte lengths %lu and %lu", aLen, bLen)));
+				 errmsg("different byte lengths %u and %u", aLen, bLen)));
 }
 
 /*
@@ -1159,13 +1159,13 @@ hamming_distance(PG_FUNCTION_ARGS)
 	bytea	   *b = PG_GETARG_BYTEA_PP(1);
 	char	   *ax = VARDATA_ANY(a);
 	char	   *bx = VARDATA_ANY(b);
-	unsigned long aLen = VARSIZE_ANY_EXHDR(a);
-	unsigned long bLen = VARSIZE_ANY_EXHDR(b);
+	uint32		aLen = VARSIZE_ANY_EXHDR(a);
+	uint32		bLen = VARSIZE_ANY_EXHDR(b);
 	uint64		distance = 0;
 
 	CheckByteLengths(aLen, bLen);
 
-	for (unsigned long i = 0; i < aLen; i++)
+	for (uint32 i = 0; i < aLen; i++)
 	{
 		unsigned char diff = (unsigned char) (ax[i] ^ bx[i]);
 
