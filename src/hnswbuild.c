@@ -47,7 +47,6 @@
 #include "hnsw.h"
 #include "miscadmin.h"
 #include "lib/pairingheap.h"
-#include "nodes/pg_list.h"
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
 #include "tcop/tcopprot.h"
