@@ -451,7 +451,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
  * Add a heap TID to an existing element
  */
 static bool
-HnswAddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool building)
+AddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -515,7 +515,7 @@ HnswAddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, boo
  * Find duplicate element
  */
 static bool
-HnswFindDuplicateOnDisk(Relation index, HnswElement element, bool building)
+FindDuplicateOnDisk(Relation index, HnswElement element, bool building)
 {
 	char	   *base = NULL;
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
@@ -531,7 +531,7 @@ HnswFindDuplicateOnDisk(Relation index, HnswElement element, bool building)
 		if (!datumIsEqual(value, neighborValue, false, -1))
 			return false;
 
-		if (HnswAddDuplicateOnDisk(index, element, neighborElement, building))
+		if (AddDuplicateOnDisk(index, element, neighborElement, building))
 			return true;
 	}
 
@@ -547,7 +547,7 @@ UpdateGraphOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Look for duplicate */
-	if (HnswFindDuplicateOnDisk(index, element, building))
+	if (FindDuplicateOnDisk(index, element, building))
 		return;
 
 	/* Add element */

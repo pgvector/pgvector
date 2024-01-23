@@ -331,7 +331,7 @@ FlushPages(HnswBuildState * buildstate)
  * Add a heap TID to an existing element
  */
 static bool
-HnswAddDuplicateInMemory(HnswElement element, HnswElement dup)
+AddDuplicateInMemory(HnswElement element, HnswElement dup)
 {
 	LWLockAcquire(&dup->lock, LW_EXCLUSIVE);
 
@@ -352,7 +352,7 @@ HnswAddDuplicateInMemory(HnswElement element, HnswElement dup)
  * Find duplicate element
  */
 static bool
-HnswFindDuplicateInMemory(char *base, HnswElement element)
+FindDuplicateInMemory(char *base, HnswElement element)
 {
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
 	Datum		value = HnswGetValue(base, element);
@@ -368,7 +368,7 @@ HnswFindDuplicateInMemory(char *base, HnswElement element)
 			return false;
 
 		/* Check for space */
-		if (HnswAddDuplicateInMemory(element, neighborElement))
+		if (AddDuplicateInMemory(element, neighborElement))
 			return true;
 	}
 
@@ -379,7 +379,7 @@ HnswFindDuplicateInMemory(char *base, HnswElement element)
  * Add to element list
  */
 static void
-HnswAddElementInMemory(char *base, HnswGraph * graph, HnswElement element)
+AddElementInMemory(char *base, HnswGraph * graph, HnswElement element)
 {
 	SpinLockAcquire(&graph->lock);
 	element->next = graph->head;
@@ -391,7 +391,7 @@ HnswAddElementInMemory(char *base, HnswGraph * graph, HnswElement element)
  * Update neighbors
  */
 static void
-HnswUpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
+UpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -424,14 +424,14 @@ UpdateGraphInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int 
 	char	   *base = buildstate->hnswarea;
 
 	/* Look for duplicate */
-	if (HnswFindDuplicateInMemory(base, element))
+	if (FindDuplicateInMemory(base, element))
 		return;
 
 	/* Add element */
-	HnswAddElementInMemory(base, graph, element);
+	AddElementInMemory(base, graph, element);
 
 	/* Update neighbors */
-	HnswUpdateNeighborsInMemory(base, procinfo, collation, element, m);
+	UpdateNeighborsInMemory(base, procinfo, collation, element, m);
 
 	/* Update entry point if needed (already have lock) */
 	if (entryPoint == NULL || element->level > entryPoint->level)
