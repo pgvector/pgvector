@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "hnsw.h"
+#include "lib/pairingheap.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "vector.h"

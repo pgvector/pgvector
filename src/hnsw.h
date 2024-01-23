@@ -6,6 +6,7 @@
 #include "access/generic_xlog.h"
 #include "access/parallel.h"
 #include "access/reloptions.h"
+#include "lib/pairingheap.h"
 #include "nodes/execnodes.h"
 #include "port.h"				/* for random() */
 #include "utils/relptr.h"

@@ -5,6 +5,7 @@
 #include "access/relscan.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
+#include "lib/pairingheap.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "pgstat.h"
