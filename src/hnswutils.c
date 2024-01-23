@@ -821,7 +821,7 @@ CheckElementCloser(HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid c
  * Algorithm 4 from paper
  */
 static List *
-SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
+SelectNeighbors(List *c, int lm, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
 {
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
@@ -831,7 +831,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	List	   *added = NIL;
 	bool		removedAny = false;
 
-	if (list_length(w) <= m)
+	if (list_length(w) <= lm)
 		return w;
 
 	wd = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -840,7 +840,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	if (sortCandidates)
 		list_sort(w, CompareCandidateDistances);
 
-	while (list_length(w) > 0 && list_length(r) < m)
+	while (list_length(w) > 0 && list_length(r) < lm)
 	{
 		/* Assumes w is already ordered desc */
 		HnswCandidate *e = llast(w);
@@ -894,7 +894,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
 	neighbors->closerSet = sortCandidates;
 
 	/* Keep pruned connections */
-	while (!pairingheap_is_empty(wd) && list_length(r) < m)
+	while (!pairingheap_is_empty(wd) && list_length(r) < lm)
 		r = lappend(r, ((HnswPairingHeapNode *) pairingheap_remove_first(wd))->inner);
 
 	/* Return pruned for update connections */
@@ -926,7 +926,7 @@ AddConnections(HnswElement element, List *neighbors, int lc)
  * Update connections
  */
 void
-HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
+HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
 	HnswNeighborArray *currentNeighbors = HnswGetNeighbors(hc->element, lc);
 
@@ -935,7 +935,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 	hc2.element = element;
 	hc2.distance = hc->distance;
 
-	if (currentNeighbors->length < m)
+	if (currentNeighbors->length < lm)
 	{
 		currentNeighbors->items[currentNeighbors->length++] = hc2;
 
@@ -980,7 +980,7 @@ HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int
 				c = lappend(c, &currentNeighbors->items[i]);
 			c = lappend(c, &hc2);
 
-			SelectNeighbors(c, m, lc, procinfo, collation, hc->element, &hc2, &pruned, true);
+			SelectNeighbors(c, lm, lc, procinfo, collation, hc->element, &hc2, &pruned, true);
 
 			/* Should not happen */
 			if (pruned == NULL)

@@ -351,7 +351,7 @@ void		HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation,
 void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec);
 void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec);
 void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
-void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int m, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
+void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
