@@ -29,8 +29,6 @@
 #define CALLBACK_ITEM_POINTER HeapTuple hup
 #endif
 
-#define UpdateProgress(index, val) pgstat_progress_update_param(index, val)
-
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
 #include "utils/wait_event.h"
@@ -262,9 +260,9 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsMinimalTuple);
 	TupleDesc	tupdesc = RelationGetDescr(index);
 
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
+	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 
-	UpdateProgress(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->indtuples);
+	pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->indtuples);
 
 	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 
@@ -300,7 +298,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 			pfree(itup);
 
-			UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++inserted);
+			pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE, ++inserted);
 
 			GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 		}
@@ -400,7 +398,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 {
 	int			numSamples;
 
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
+	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
 
 	/* Target 50 samples per list, with at least 10000 samples */
 	/* The number of samples has a large effect on index build time */
@@ -921,7 +919,7 @@ AssignTuples(IvfflatBuildState * buildstate)
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
 
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_ASSIGN);
+	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_ASSIGN);
 
 	/* Calculate parallel workers */
 	if (buildstate->heap != NULL)
