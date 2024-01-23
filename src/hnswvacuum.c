@@ -208,8 +208,8 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	HnswInitNeighbors(NULL, element, m, NULL);
 	element->heaptidsLength = 0;
 
-	/* Add element to graph, skipping itself */
-	HnswInsertElement(NULL, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
+	/* Find neighbors for element, skipping itself */
+	HnswFindElementNeighbors(NULL, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
 
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */

@@ -472,8 +472,8 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 		updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
 	}
 
-	/* Insert element in graph */
-	HnswInsertElement(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
+	/* Find neighbors for element */
+	HnswFindElementNeighbors(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
 	/* Apply changes in memory */
 	ApplyChangesInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, updateEntryPoint);

@@ -608,8 +608,8 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 		entryPoint = HnswGetEntryPoint(index);
 	}
 
-	/* Insert element in graph */
-	HnswInsertElement(base, element, entryPoint, index, procinfo, collation, m, efConstruction, false);
+	/* Find neighbors for the element */
+	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, false);
 
 	/* Apply changes on disk */
 	ApplyChangesOnDisk(index, procinfo, collation, element, m, efConstruction, entryPoint, building);
