@@ -600,14 +600,14 @@ CreatePairingHeapNode(HnswCandidate * c)
  * Add to visited
  */
 static inline void
-AddToVisited(visited_hash v, HnswCandidate * hc, Relation index, bool *found)
+AddToVisited(visited_hash * v, HnswCandidate * hc, Relation index, bool *found)
 {
 	if (index == NULL)
 	{
 #if PG_VERSION_NUM >= 130000
-		pointerhash_insert_hash(v.pointers, (uintptr_t) hc->element, hc->element->hash, found);
+		pointerhash_insert_hash(v->pointers, (uintptr_t) hc->element, hc->element->hash, found);
 #else
-		pointerhash_insert(v.pointers, (uintptr_t) hc->element, found);
+		pointerhash_insert(v->pointers, (uintptr_t) hc->element, found);
 #endif
 	}
 	else
@@ -615,7 +615,7 @@ AddToVisited(visited_hash v, HnswCandidate * hc, Relation index, bool *found)
 		ItemPointerData indextid;
 
 		ItemPointerSet(&indextid, hc->element->blkno, hc->element->offno);
-		tidhash_insert(v.tids, indextid, found);
+		tidhash_insert(v->tids, indextid, found);
 	}
 }
 
@@ -644,7 +644,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
 		bool		found;
 
-		AddToVisited(v, hc, index, &found);
+		AddToVisited(&v, hc, index, &found);
 
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
@@ -678,7 +678,7 @@ HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *pro
 			HnswCandidate *e = &neighborhood->items[i];
 			bool		visited;
 
-			AddToVisited(v, e, index, &visited);
+			AddToVisited(&v, e, index, &visited);
 
 			if (!visited)
 			{
