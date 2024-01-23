@@ -105,12 +105,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 	double		tuples = 0;
-
-#if PG_VERSION_NUM >= 120000
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
-#else
-	TupleTableSlot *slot = MakeSingleTupleTableSlot(so->tupdesc);
-#endif
 
 	/*
 	 * Reuse same set of shared buffers for scan
@@ -216,22 +211,14 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->collation = index->rd_indcollation[0];
 
 	/* Create tuple description for sorting */
-#if PG_VERSION_NUM >= 120000
 	so->tupdesc = CreateTemplateTupleDesc(2);
-#else
-	so->tupdesc = CreateTemplateTupleDesc(2, false);
-#endif
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
 
 	/* Prep sort */
 	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
 
-#if PG_VERSION_NUM >= 120000
 	so->slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
-#else
-	so->slot = MakeSingleTupleTableSlot(so->tupdesc);
-#endif
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
 
@@ -321,12 +308,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	{
 		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
 
-#if PG_VERSION_NUM >= 120000
 		scan->xs_heaptid = *heaptid;
-#else
-		scan->xs_ctup.t_self = *heaptid;
-#endif
-
 		scan->xs_recheckorderby = false;
 		return true;
 	}

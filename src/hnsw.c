@@ -4,14 +4,11 @@
 #include <math.h>
 
 #include "access/amapi.h"
+#include "commands/progress.h"
 #include "commands/vacuum.h"
 #include "hnsw.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
-
-#if PG_VERSION_NUM >= 120000
-#include "commands/progress.h"
-#endif
 
 int			hnsw_ef_search;
 int			hnsw_lock_tranche_id;
@@ -75,7 +72,6 @@ HnswInit(void)
 /*
  * Get the name of index build phase
  */
-#if PG_VERSION_NUM >= 120000
 static char *
 hnswbuildphasename(int64 phasenum)
 {
@@ -89,7 +85,6 @@ hnswbuildphasename(int64 phasenum)
 			return NULL;
 	}
 }
-#endif
 
 /*
  * Estimate the cost of an index scan
@@ -104,9 +99,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	int			m;
 	int			entryLevel;
 	Relation	index;
-#if PG_VERSION_NUM < 120000
-	List	   *qinfos;
-#endif
 
 	/* Never use index without order */
 	if (path->indexorderbys == NULL)
@@ -132,12 +124,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	/* Account for number of tuples (or entry level), m, and ef_search */
 	costs.numIndexTuples = (entryLevel + 2) * m;
 
-#if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
-#else
-	qinfos = deconstruct_indexquals(path);
-	genericcostestimate(root, path, loop_count, qinfos, &costs);
-#endif
 
 	/* Use total cost since most work happens before first tuple is returned */
 	*indexStartupCost = costs.indexTotalCost;
@@ -231,9 +218,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amcostestimate = hnswcostestimate;
 	amroutine->amoptions = hnswoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
-#if PG_VERSION_NUM >= 120000
 	amroutine->ambuildphasename = hnswbuildphasename;
-#endif
 	amroutine->amvalidate = hnswvalidate;
 #if PG_VERSION_NUM >= 140000
 	amroutine->amadjustmembers = NULL;

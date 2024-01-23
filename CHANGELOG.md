@@ -1,4 +1,4 @@
-## 0.5.2 (unreleased)
+## 0.6.0 (unreleased)
 
 - Improved performance of HNSW
 - Added support for parallel index builds for HNSW
@@ -6,6 +6,7 @@
 - Reduced WAL generation for HNSW index builds
 - Fixed error with logical replication
 - Fixed `invalid memory alloc request size` error with HNSW index build
+- Dropped support for Postgres 11
 
 ## 0.5.1 (2023-10-10)
 

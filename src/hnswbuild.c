@@ -39,12 +39,16 @@
 #include <math.h>
 
 #include "access/parallel.h"
+#include "access/table.h"
+#include "access/tableam.h"
 #include "access/xact.h"
 #include "catalog/index.h"
+#include "commands/progress.h"
 #include "hnsw.h"
 #include "miscadmin.h"
 #include "lib/pairingheap.h"
 #include "nodes/pg_list.h"
+#include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
 #include "tcop/tcopprot.h"
 #include "utils/datum.h"
@@ -52,15 +56,8 @@
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_progress.h"
-#elif PG_VERSION_NUM >= 120000
-#include "pgstat.h"
-#endif
-
-#if PG_VERSION_NUM >= 120000
-#include "access/tableam.h"
-#include "commands/progress.h"
 #else
-#define PROGRESS_CREATEIDX_TUPLES_DONE 0
+#include "pgstat.h"
 #endif
 
 #if PG_VERSION_NUM >= 130000
@@ -69,24 +66,11 @@
 #define CALLBACK_ITEM_POINTER HeapTuple hup
 #endif
 
-#if PG_VERSION_NUM >= 120000
 #define UpdateProgress(index, val) pgstat_progress_update_param(index, val)
-#else
-#define UpdateProgress(index, val) ((void)val)
-#endif
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
 #include "utils/wait_event.h"
-#endif
-
-#if PG_VERSION_NUM >= 120000
-#include "access/table.h"
-#include "optimizer/optimizer.h"
-#else
-#include "access/heapam.h"
-#include "optimizer/planner.h"
-#include "pgstat.h"
 #endif
 
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)
@@ -781,11 +765,7 @@ static void
 HnswParallelScanAndInsert(Relation heapRel, Relation indexRel, HnswShared * hnswshared, char *hnswarea, bool progress)
 {
 	HnswBuildState buildstate;
-#if PG_VERSION_NUM >= 120000
 	TableScanDesc scan;
-#else
-	HeapScanDesc scan;
-#endif
 	double		reltuples;
 	IndexInfo  *indexInfo;
 
@@ -796,18 +776,11 @@ HnswParallelScanAndInsert(Relation heapRel, Relation indexRel, HnswShared * hnsw
 	buildstate.graph = &hnswshared->graphData;
 	buildstate.hnswarea = hnswarea;
 	InitAllocator(&buildstate.allocator, &HnswSharedMemoryAlloc, &buildstate);
-#if PG_VERSION_NUM >= 120000
 	scan = table_beginscan_parallel(heapRel,
 									ParallelTableScanFromHnswShared(hnswshared));
 	reltuples = table_index_build_scan(heapRel, indexRel, indexInfo,
 									   true, progress, BuildCallback,
 									   (void *) &buildstate, scan);
-#else
-	scan = heap_beginscan_parallel(heapRel, &hnswshared->heapdesc);
-	reltuples = IndexBuildHeapScan(heapRel, indexRel, indexInfo,
-								   true, BuildCallback,
-								   (void *) &buildstate, scan);
-#endif
 
 	/* Record statistics */
 	SpinLockAcquire(&hnswshared->mutex);
@@ -864,11 +837,7 @@ HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 	}
 
 	/* Open relations within worker */
-#if PG_VERSION_NUM >= 120000
 	heapRel = table_open(hnswshared->heaprelid, heapLockmode);
-#else
-	heapRel = heap_open(hnswshared->heaprelid, heapLockmode);
-#endif
 	indexRel = index_open(hnswshared->indexrelid, indexLockmode);
 
 	hnswarea = shm_toc_lookup(toc, PARALLEL_KEY_HNSW_AREA, false);
@@ -878,11 +847,7 @@ HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 
 	/* Close relations within worker */
 	index_close(indexRel, indexLockmode);
-#if PG_VERSION_NUM >= 120000
 	table_close(heapRel, heapLockmode);
-#else
-	heap_close(heapRel, heapLockmode);
-#endif
 }
 
 /*
@@ -907,19 +872,7 @@ HnswEndParallel(HnswLeader * hnswleader)
 static Size
 ParallelEstimateShared(Relation heap, Snapshot snapshot)
 {
-#if PG_VERSION_NUM >= 120000
 	return add_size(BUFFERALIGN(sizeof(HnswShared)), table_parallelscan_estimate(heap, snapshot));
-#else
-	if (!IsMVCCSnapshot(snapshot))
-	{
-		Assert(snapshot == SnapshotAny);
-		return sizeof(HnswShared);
-	}
-
-	return add_size(offsetof(HnswShared, heapdesc) +
-					offsetof(ParallelHeapScanDescData, phs_snapshot_data),
-					EstimateSnapshotSpace(snapshot));
-#endif
 }
 
 /*
@@ -958,11 +911,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Enter parallel mode and create context */
 	EnterParallelMode();
 	Assert(request > 0);
-#if PG_VERSION_NUM >= 120000
 	pcxt = CreateParallelContext("vector", "HnswParallelBuildMain", request);
-#else
-	pcxt = CreateParallelContext("vector", "HnswParallelBuildMain", request, true);
-#endif
 
 	/* Get snapshot for table scan */
 	if (!isconcurrent)
@@ -1019,13 +968,9 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Initialize mutable state */
 	hnswshared->nparticipantsdone = 0;
 	hnswshared->reltuples = 0;
-#if PG_VERSION_NUM >= 120000
 	table_parallelscan_initialize(buildstate->heap,
 								  ParallelTableScanFromHnswShared(hnswshared),
 								  snapshot);
-#else
-	heap_parallelscan_initialize(&hnswshared->heapdesc, buildstate->heap, snapshot);
-#endif
 
 	hnswarea = (char *) shm_toc_allocate(pcxt->toc, esthnswarea);
 	/* Report less than allocated so never fails */
@@ -1120,15 +1065,8 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 		if (buildstate->hnswleader)
 			buildstate->reltuples = ParallelHeapScan(buildstate);
 		else
-		{
-#if PG_VERSION_NUM >= 120000
 			buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
 														   true, true, BuildCallback, (void *) buildstate, NULL);
-#else
-			buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-													   true, BuildCallback, (void *) buildstate, NULL);
-#endif
-		}
 
 		buildstate->indtuples = buildstate->graph->indtuples;
 	}
@@ -1141,22 +1079,6 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 	if (buildstate->hnswleader)
 		HnswEndParallel(buildstate->hnswleader);
 }
-
-#if PG_VERSION_NUM < 110008
-void
-log_newpage_range(Relation rel, ForkNumber forkNum, BlockNumber startblk, BlockNumber endblk, bool page_std)
-{
-	for (BlockNumber blkno = startblk; blkno < endblk; blkno++)
-	{
-		Buffer		buf = ReadBufferExtended(rel, forkNum, blkno, RBM_NORMAL, NULL);
-
-		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-		MarkBufferDirty(buf);
-		log_newpage_buffer(buf, page_std);
-		UnlockReleaseBuffer(buf);
-	}
-}
-#endif
 
 /*
  * Build the index

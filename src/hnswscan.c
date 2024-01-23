@@ -201,12 +201,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		MemoryContextSwitchTo(oldCtx);
 
-#if PG_VERSION_NUM >= 120000
 		scan->xs_heaptid = *heaptid;
-#else
-		scan->xs_ctup.t_self = *heaptid;
-#endif
-
 		scan->xs_recheckorderby = false;
 		return true;
 	}

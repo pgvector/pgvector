@@ -16,10 +16,6 @@
 #include "common/pg_prng.h"
 #endif
 
-#if PG_VERSION_NUM < 120000
-#include "access/relscan.h"
-#endif
-
 #ifdef IVFFLAT_BENCH
 #include "portability/instr_time.h"
 #endif
@@ -135,16 +131,10 @@ typedef struct IvfflatShared
 #ifdef IVFFLAT_KMEANS_DEBUG
 	double		inertia;
 #endif
-
-#if PG_VERSION_NUM < 120000
-	ParallelHeapScanDescData heapdesc;	/* must come last */
-#endif
 }			IvfflatShared;
 
-#if PG_VERSION_NUM >= 120000
 #define ParallelTableScanFromIvfflatShared(shared) \
 	(ParallelTableScanDesc) ((char *) (shared) + BUFFERALIGN(sizeof(IvfflatShared)))
-#endif
 
 typedef struct IvfflatLeader
 {

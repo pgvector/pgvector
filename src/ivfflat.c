@@ -3,15 +3,12 @@
 #include <float.h>
 
 #include "access/amapi.h"
+#include "commands/progress.h"
 #include "commands/vacuum.h"
 #include "ivfflat.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
 #include "utils/spccache.h"
-
-#if PG_VERSION_NUM >= 120000
-#include "commands/progress.h"
-#endif
 
 int			ivfflat_probes;
 static relopt_kind ivfflat_relopt_kind;
@@ -38,7 +35,6 @@ IvfflatInit(void)
 /*
  * Get the name of index build phase
  */
-#if PG_VERSION_NUM >= 120000
 static char *
 ivfflatbuildphasename(int64 phasenum)
 {
@@ -56,7 +52,6 @@ ivfflatbuildphasename(int64 phasenum)
 			return NULL;
 	}
 }
-#endif
 
 /*
  * Estimate the cost of an index scan
@@ -72,9 +67,6 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	double		ratio;
 	double		spc_seq_page_cost;
 	Relation	index;
-#if PG_VERSION_NUM < 120000
-	List	   *qinfos;
-#endif
 
 	/* Never use index without order */
 	if (path->indexorderbys == NULL)
@@ -105,12 +97,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 */
 	costs.numIndexTuples = path->indexinfo->tuples * ratio;
 
-#if PG_VERSION_NUM >= 120000
 	genericcostestimate(root, path, loop_count, &costs);
-#else
-	qinfos = deconstruct_indexquals(path);
-	genericcostestimate(root, path, loop_count, qinfos, &costs);
-#endif
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
@@ -227,9 +214,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amcostestimate = ivfflatcostestimate;
 	amroutine->amoptions = ivfflatoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
-#if PG_VERSION_NUM >= 120000
 	amroutine->ambuildphasename = ivfflatbuildphasename;
-#endif
 	amroutine->amvalidate = ivfflatvalidate;
 #if PG_VERSION_NUM >= 140000
 	amroutine->amadjustmembers = NULL;

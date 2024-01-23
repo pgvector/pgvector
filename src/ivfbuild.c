@@ -2,30 +2,25 @@
 
 #include <float.h>
 
+#include "access/table.h"
+#include "access/tableam.h"
 #include "access/parallel.h"
 #include "access/xact.h"
 #include "catalog/index.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
+#include "commands/progress.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
 #include "tcop/tcopprot.h"
 #include "utils/memutils.h"
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_progress.h"
-#elif PG_VERSION_NUM >= 120000
-#include "pgstat.h"
-#endif
-
-#if PG_VERSION_NUM >= 120000
-#include "access/tableam.h"
-#include "commands/progress.h"
 #else
-#define PROGRESS_CREATEIDX_SUBPHASE 0
-#define PROGRESS_CREATEIDX_TUPLES_TOTAL 0
-#define PROGRESS_CREATEIDX_TUPLES_DONE 0
+#include "pgstat.h"
 #endif
 
 #if PG_VERSION_NUM >= 130000
@@ -34,24 +29,11 @@
 #define CALLBACK_ITEM_POINTER HeapTuple hup
 #endif
 
-#if PG_VERSION_NUM >= 120000
 #define UpdateProgress(index, val) pgstat_progress_update_param(index, val)
-#else
-#define UpdateProgress(index, val) ((void)val)
-#endif
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
 #include "utils/wait_event.h"
-#endif
-
-#if PG_VERSION_NUM >= 120000
-#include "access/table.h"
-#include "optimizer/optimizer.h"
-#else
-#include "access/heapam.h"
-#include "optimizer/planner.h"
-#include "pgstat.h"
 #endif
 
 #define PARALLEL_KEY_IVFFLAT_SHARED		UINT64CONST(0xA000000000000001)
@@ -150,13 +132,8 @@ SampleRows(IvfflatBuildState * buildstate)
 	{
 		BlockNumber targblock = BlockSampler_Next(&buildstate->bs);
 
-#if PG_VERSION_NUM >= 120000
 		table_index_build_range_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
 									 false, true, false, targblock, 1, SampleCallback, (void *) buildstate, NULL);
-#else
-		IndexBuildHeapRangeScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-								false, true, targblock, 1, SampleCallback, (void *) buildstate, NULL);
-#endif
 	}
 }
 
@@ -282,11 +259,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	IndexTuple	itup = NULL;	/* silence compiler warning */
 	int64		inserted = 0;
 
-#if PG_VERSION_NUM >= 120000
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsMinimalTuple);
-#else
-	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->tupdesc);
-#endif
 	TupleDesc	tupdesc = RelationGetDescr(index);
 
 	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
@@ -375,20 +348,12 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 		elog(ERROR, "dimensions must be greater than one for this opclass");
 
 	/* Create tuple description for sorting */
-#if PG_VERSION_NUM >= 120000
 	buildstate->tupdesc = CreateTemplateTupleDesc(3);
-#else
-	buildstate->tupdesc = CreateTemplateTupleDesc(3, false);
-#endif
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
 	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
 
-#if PG_VERSION_NUM >= 120000
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
-#else
-	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc);
-#endif
 
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions);
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
@@ -631,11 +596,7 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 {
 	SortCoordinate coordinate;
 	IvfflatBuildState buildstate;
-#if PG_VERSION_NUM >= 120000
 	TableScanDesc scan;
-#else
-	HeapScanDesc scan;
-#endif
 	double		reltuples;
 	IndexInfo  *indexInfo;
 
@@ -659,18 +620,11 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 	buildstate.centers->length = buildstate.centers->maxlen;
 	ivfspool->sortstate = tuplesort_begin_heap(buildstate.tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, sortmem, coordinate, false);
 	buildstate.sortstate = ivfspool->sortstate;
-#if PG_VERSION_NUM >= 120000
 	scan = table_beginscan_parallel(ivfspool->heap,
 									ParallelTableScanFromIvfflatShared(ivfshared));
 	reltuples = table_index_build_scan(ivfspool->heap, ivfspool->index, indexInfo,
 									   true, progress, BuildCallback,
 									   (void *) &buildstate, scan);
-#else
-	scan = heap_beginscan_parallel(ivfspool->heap, &ivfshared->heapdesc);
-	reltuples = IndexBuildHeapScan(ivfspool->heap, ivfspool->index, indexInfo,
-								   true, BuildCallback,
-								   (void *) &buildstate, scan);
-#endif
 
 	/* Execute this worker's part of the sort */
 	tuplesort_performsort(ivfspool->sortstate);
@@ -740,11 +694,7 @@ IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 	}
 
 	/* Open relations within worker */
-#if PG_VERSION_NUM >= 120000
 	heapRel = table_open(ivfshared->heaprelid, heapLockmode);
-#else
-	heapRel = heap_open(ivfshared->heaprelid, heapLockmode);
-#endif
 	indexRel = index_open(ivfshared->indexrelid, indexLockmode);
 
 	/* Initialize worker's own spool */
@@ -764,11 +714,7 @@ IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 
 	/* Close relations within worker */
 	index_close(indexRel, indexLockmode);
-#if PG_VERSION_NUM >= 120000
 	table_close(heapRel, heapLockmode);
-#else
-	heap_close(heapRel, heapLockmode);
-#endif
 }
 
 /*
@@ -793,19 +739,7 @@ IvfflatEndParallel(IvfflatLeader * ivfleader)
 static Size
 ParallelEstimateShared(Relation heap, Snapshot snapshot)
 {
-#if PG_VERSION_NUM >= 120000
 	return add_size(BUFFERALIGN(sizeof(IvfflatShared)), table_parallelscan_estimate(heap, snapshot));
-#else
-	if (!IsMVCCSnapshot(snapshot))
-	{
-		Assert(snapshot == SnapshotAny);
-		return sizeof(IvfflatShared);
-	}
-
-	return add_size(offsetof(IvfflatShared, heapdesc) +
-					offsetof(ParallelHeapScanDescData, phs_snapshot_data),
-					EstimateSnapshotSpace(snapshot));
-#endif
 }
 
 /*
@@ -856,11 +790,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	/* Enter parallel mode and create context */
 	EnterParallelMode();
 	Assert(request > 0);
-#if PG_VERSION_NUM >= 120000
 	pcxt = CreateParallelContext("vector", "IvfflatParallelBuildMain", request);
-#else
-	pcxt = CreateParallelContext("vector", "IvfflatParallelBuildMain", request, true);
-#endif
 
 	scantuplesortstates = leaderparticipates ? request + 1 : request;
 
@@ -918,13 +848,9 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 #ifdef IVFFLAT_KMEANS_DEBUG
 	ivfshared->inertia = 0;
 #endif
-#if PG_VERSION_NUM >= 120000
 	table_parallelscan_initialize(buildstate->heap,
 								  ParallelTableScanFromIvfflatShared(ivfshared),
 								  snapshot);
-#else
-	heap_parallelscan_initialize(&ivfshared->heapdesc, buildstate->heap, snapshot);
-#endif
 
 	/* Store shared tuplesort-private state, for which we reserved space */
 	sharedsort = (Sharedsort *) shm_toc_allocate(pcxt->toc, estsort);
@@ -1023,15 +949,8 @@ AssignTuples(IvfflatBuildState * buildstate)
 		if (buildstate->ivfleader)
 			buildstate->reltuples = ParallelHeapScan(buildstate);
 		else
-		{
-#if PG_VERSION_NUM >= 120000
 			buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
 														   true, true, BuildCallback, (void *) buildstate, NULL);
-#else
-			buildstate->reltuples = IndexBuildHeapScan(buildstate->heap, buildstate->index, buildstate->indexInfo,
-													   true, BuildCallback, (void *) buildstate, NULL);
-#endif
-		}
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 		PrintKmeansMetrics(buildstate);

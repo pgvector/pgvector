@@ -12,12 +12,8 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM < 110000
-#error "Requires PostgreSQL 11+"
-#endif
-
 #if PG_VERSION_NUM < 120000
-#include "access/relscan.h"
+#error "Requires PostgreSQL 12+"
 #endif
 
 #define HNSW_MAX_DIM 2000
@@ -215,16 +211,10 @@ typedef struct HnswShared
 	int			nparticipantsdone;
 	double		reltuples;
 	HnswGraph	graphData;
-
-#if PG_VERSION_NUM < 120000
-	ParallelHeapScanDescData heapdesc;	/* must come last */
-#endif
 }			HnswShared;
 
-#if PG_VERSION_NUM >= 120000
 #define ParallelTableScanFromHnswShared(shared) \
 	(ParallelTableScanDesc) ((char *) (shared) + BUFFERALIGN(sizeof(HnswShared)))
-#endif
 
 typedef struct HnswLeader
 {

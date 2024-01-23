@@ -56,13 +56,6 @@ hash_tid(ItemPointerData tid)
 #define SH_DEFINE
 #include "lib/simplehash.h"
 
-/* Needed to include simplehash.h twice */
-#if PG_VERSION_NUM < 120000
-#undef SH_EQUAL
-#define sh_log2 pointerhash_sh_log2
-#define sh_pow2 pointerhash_sh_pow2
-#endif
-
 /* Pointer hash table */
 static uint32
 hash_pointer(uintptr_t ptr)
@@ -83,15 +76,6 @@ hash_pointer(uintptr_t ptr)
 #define	SH_SCOPE		extern
 #define SH_DEFINE
 #include "lib/simplehash.h"
-
-/* Needed to include simplehash.h again */
-#if PG_VERSION_NUM < 120000
-#undef SH_EQUAL
-#undef sh_log2
-#undef sh_pow2
-#define sh_log2 offsethash_sh_log2
-#define sh_pow2 offsethash_sh_pow2
-#endif
 
 /* Offset hash table */
 static uint32

@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "catalog/pg_type.h"
+#include "common/shortest_dec.h"
 #include "fmgr.h"
 #include "hnsw.h"
 #include "ivfflat.h"
@@ -11,19 +12,13 @@
 #include "port.h"				/* for strtof() */
 #include "utils/array.h"
 #include "utils/builtins.h"
+#include "utils/float.h"
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
-#endif
-
-#if PG_VERSION_NUM >= 120000
-#include "common/shortest_dec.h"
-#include "utils/float.h"
-#else
-#include <float.h>
 #endif
 
 #if PG_VERSION_NUM < 130000
@@ -293,15 +288,6 @@ vector_out(PG_FUNCTION_ARGS)
 	char	   *ptr;
 	int			n;
 
-#if PG_VERSION_NUM < 120000
-	int			ndig = FLT_DIG + extra_float_digits;
-
-	if (ndig < 1)
-		ndig = 1;
-
-#define FLOAT_SHORTEST_DECIMAL_LEN (ndig + 10)
-#endif
-
 	/*
 	 * Need:
 	 *
@@ -325,11 +311,7 @@ vector_out(PG_FUNCTION_ARGS)
 			ptr++;
 		}
 
-#if PG_VERSION_NUM >= 120000
 		n = float_to_shortest_decimal_bufn(vector->x[i], ptr);
-#else
-		n = sprintf(ptr, "%.*g", ndig, vector->x[i]);
-#endif
 		ptr += n;
 	}
 	*ptr = ']';
