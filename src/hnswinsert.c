@@ -539,10 +539,10 @@ HnswFindDuplicateOnDisk(Relation index, HnswElement element, bool building)
 }
 
 /*
- * Write changes to disk
+ * Apply changes on disk
  */
 static void
-WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, bool building)
+ApplyChangesOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, bool building)
 {
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
@@ -611,8 +611,8 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	/* Insert element in graph */
 	HnswInsertElement(base, element, entryPoint, index, procinfo, collation, m, efConstruction, false);
 
-	/* Write to disk */
-	WriteElement(index, procinfo, collation, element, m, efConstruction, entryPoint, building);
+	/* Apply changes on disk */
+	ApplyChangesOnDisk(index, procinfo, collation, element, m, efConstruction, entryPoint, building);
 
 	/* Release lock */
 	UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
