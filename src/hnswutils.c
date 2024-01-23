@@ -913,7 +913,7 @@ SelectNeighbors(List *c, int m, int lc, FmgrInfo *procinfo, Oid collation, HnswE
  * Add connections
  */
 static void
-AddConnections(HnswElement element, List *neighbors, int m, int lc)
+AddConnections(HnswElement element, List *neighbors, int lc)
 {
 	ListCell   *lc2;
 	HnswNeighborArray *a = HnswGetNeighbors(element, lc);
@@ -1092,7 +1092,7 @@ HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, F
 		 */
 		neighbors = SelectNeighbors(lw, lm, lc, procinfo, collation, element, NULL, NULL, false);
 
-		AddConnections(element, neighbors, lm, lc);
+		AddConnections(element, neighbors, lc);
 
 		ep = w;
 	}
