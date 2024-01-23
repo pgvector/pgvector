@@ -1149,7 +1149,7 @@ CheckByteLengths(unsigned long aLen, unsigned long bLen)
 }
 
 /*
- * Get the hamming distance between two binary strings
+ * Get the Hamming distance between two binary strings
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
 Datum
