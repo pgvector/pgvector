@@ -657,10 +657,24 @@ CreatePairingHeapNode(HnswCandidate * c)
 }
 
 /*
+ * Init visited
+ */
+static inline void
+InitVisited(visited_hash * v, char *base, Relation index, int ef, int m)
+{
+	if (index != NULL)
+		v->tids = tidhash_create(CurrentMemoryContext, ef * m * 2, NULL);
+	else if (base != NULL)
+		v->offsets = offsethash_create(CurrentMemoryContext, ef * m * 2, NULL);
+	else
+		v->pointers = pointerhash_create(CurrentMemoryContext, ef * m * 2, NULL);
+}
+
+/*
  * Add to visited
  */
 static inline void
-AddToVisited(char *base, visited_hash v, HnswCandidate * hc, Relation index, bool *found)
+AddToVisited(char *base, visited_hash * v, HnswCandidate * hc, Relation index, bool *found)
 {
 	if (index != NULL)
 	{
@@ -668,16 +682,16 @@ AddToVisited(char *base, visited_hash v, HnswCandidate * hc, Relation index, boo
 		ItemPointerData indextid;
 
 		ItemPointerSet(&indextid, element->blkno, element->offno);
-		tidhash_insert(v.tids, indextid, found);
+		tidhash_insert(v->tids, indextid, found);
 	}
 	else if (base != NULL)
 	{
 #if PG_VERSION_NUM >= 130000
 		HnswElement element = HnswPtrAccess(base, hc->element);
 
-		offsethash_insert_hash(v.offsets, HnswPtrOffset(hc->element), element->hash, found);
+		offsethash_insert_hash(v->offsets, HnswPtrOffset(hc->element), element->hash, found);
 #else
-		offsethash_insert(v.offsets, HnswPtrOffset(hc->element), found);
+		offsethash_insert(v->offsets, HnswPtrOffset(hc->element), found);
 #endif
 	}
 	else
@@ -685,9 +699,9 @@ AddToVisited(char *base, visited_hash v, HnswCandidate * hc, Relation index, boo
 #if PG_VERSION_NUM >= 130000
 		HnswElement element = HnswPtrAccess(base, hc->element);
 
-		pointerhash_insert_hash(v.pointers, (uintptr_t) HnswPtrPointer(hc->element), element->hash, found);
+		pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(hc->element), element->hash, found);
 #else
-		pointerhash_insert(v.pointers, (uintptr_t) HnswPtrPointer(hc->element), found);
+		pointerhash_insert(v->pointers, (uintptr_t) HnswPtrPointer(hc->element), found);
 #endif
 	}
 }
@@ -725,13 +739,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	HnswNeighborArray *neighborhoodData = NULL;
 	Size		neighborhoodSize;
 
-	/* Create hash table */
-	if (index != NULL)
-		v.tids = tidhash_create(CurrentMemoryContext, ef * m * 2, NULL);
-	else if (base != NULL)
-		v.offsets = offsethash_create(CurrentMemoryContext, ef * m * 2, NULL);
-	else
-		v.pointers = pointerhash_create(CurrentMemoryContext, ef * m * 2, NULL);
+	InitVisited(&v, base, index, ef, m);
 
 	/* Create local memory for neighborhood if needed */
 	if (index == NULL)
@@ -746,7 +754,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
 		bool		found;
 
-		AddToVisited(base, v, hc, index, &found);
+		AddToVisited(base, &v, hc, index, &found);
 
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
@@ -792,7 +800,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			HnswCandidate *e = &neighborhood->items[i];
 			bool		visited;
 
-			AddToVisited(base, v, e, index, &visited);
+			AddToVisited(base, &v, e, index, &visited);
 
 			if (!visited)
 			{
