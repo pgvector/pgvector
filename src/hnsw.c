@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "access/amapi.h"
+#include "access/reloptions.h"
 #include "commands/progress.h"
 #include "commands/vacuum.h"
 #include "hnsw.h"
