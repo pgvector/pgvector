@@ -10,6 +10,7 @@
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
+#include "port/pg_bitutils.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/float.h"
@@ -1133,4 +1134,44 @@ vector_avg(PG_FUNCTION_ARGS)
 	}
 
 	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Ensure same number of bytes
+ */
+static inline void
+CheckByteLengths(unsigned long aLen, unsigned long bLen)
+{
+	if (aLen != bLen)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("different byte lengths %lu and %lu", aLen, bLen)));
+}
+
+/*
+ * Get the hamming distance between two binary strings
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
+Datum
+hamming_distance(PG_FUNCTION_ARGS)
+{
+	bytea	   *a = PG_GETARG_BYTEA_PP(0);
+	bytea	   *b = PG_GETARG_BYTEA_PP(1);
+	char	   *ax = VARDATA_ANY(a);
+	char	   *bx = VARDATA_ANY(b);
+	unsigned long aLen = VARSIZE_ANY_EXHDR(a);
+	unsigned long bLen = VARSIZE_ANY_EXHDR(b);
+	uint64		distance = 0;
+
+	CheckByteLengths(aLen, bLen);
+
+	for (unsigned long i = 0; i < aLen; i++)
+	{
+		unsigned char diff = (unsigned char) (ax[i] ^ bx[i]);
+
+		distance += pg_number_of_ones[diff];
+	}
+
+	/* TODO Decide on return type */
+	PG_RETURN_FLOAT8((double) distance);
 }

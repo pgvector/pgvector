@@ -3,3 +3,6 @@
 
 -- remove this single line for Postgres < 13
 ALTER TYPE vector SET (STORAGE = external);
+
+CREATE FUNCTION hamming_distance(bytea, bytea) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;

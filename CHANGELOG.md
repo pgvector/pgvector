@@ -5,6 +5,7 @@ If upgrading with Postgres < 13, see [this note](https://github.com/pgvector/pgv
 - Changed storage for vector from `extended` to `external`
 - Improved performance of HNSW
 - Added support for parallel index builds for HNSW
+- Added `hamming_distance` function
 - Added validation for GUC parameters
 - Reduced memory usage for HNSW index builds
 - Reduced WAL generation for HNSW index builds

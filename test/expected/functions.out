@@ -158,6 +158,32 @@ SELECT l1_distance('[3e38]', '[-3e38]');
     Infinity
 (1 row)
 
+SELECT hamming_distance('\xFF', '\xFF');
+ hamming_distance 
+------------------
+                0
+(1 row)
+
+SELECT hamming_distance('\xFF', '\xFE');
+ hamming_distance 
+------------------
+                1
+(1 row)
+
+SELECT hamming_distance('\xFF', '\xFC');
+ hamming_distance 
+------------------
+                2
+(1 row)
+
+SELECT hamming_distance('\xFF', '\x00');
+ hamming_distance 
+------------------
+                8
+(1 row)
+
+SELECT hamming_distance('\xFF', '\x0000');
+ERROR:  different byte lengths 1 and 2
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
     avg    
 -----------
