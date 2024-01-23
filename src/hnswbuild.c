@@ -376,7 +376,7 @@ HnswFindDuplicateInMemory(char *base, HnswElement element)
 }
 
 /*
- * Add to element and neighbor pages
+ * Add to element list
  */
 static void
 HnswAddElementInMemory(char *base, HnswGraph * graph, HnswElement element)
