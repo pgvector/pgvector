@@ -199,21 +199,22 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
 	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
+	char	   *base = NULL;
 
 	/* Skip if element is entry point */
 	if (entryPoint != NULL && element->blkno == entryPoint->blkno && element->offno == entryPoint->offno)
 		return;
 
 	/* Init fields */
-	HnswInitNeighbors(element, m);
+	HnswInitNeighbors(base, element, m, NULL);
 	element->heaptidsLength = 0;
 
-	/* Add element to graph, skipping itself */
-	HnswInsertElement(element, entryPoint, index, procinfo, collation, m, efConstruction, true);
+	/* Find neighbors for element, skipping itself */
+	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
 
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */
-	HnswSetNeighborTuple(ntup, element, m);
+	HnswSetNeighborTuple(base, ntup, element, m);
 
 	/* Get neighbor page */
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
@@ -230,7 +231,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	UnlockReleaseBuffer(buf);
 
 	/* Update neighbors */
-	HnswUpdateNeighborPages(index, procinfo, collation, element, m, true, false);
+	HnswUpdateNeighborsOnDisk(index, procinfo, collation, element, m, true, false);
 }
 
 /*
@@ -301,7 +302,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			{
 				/* Reset neighbors from previous update */
 				if (highestPoint != NULL)
-					highestPoint->neighbors = NULL;
+					HnswPtrStore((char *) NULL, highestPoint->neighbors, (HnswNeighborArrayPtr *) NULL);
 
 				RepairGraphElement(vacuumstate, entryPoint, highestPoint);
 			}

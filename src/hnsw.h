@@ -6,9 +6,9 @@
 #include "access/generic_xlog.h"
 #include "access/parallel.h"
 #include "access/reloptions.h"
-#include "lib/ilist.h"
 #include "nodes/execnodes.h"
 #include "port.h"				/* for random() */
+#include "utils/relptr.h"
 #include "utils/sampling.h"
 #include "vector.h"
 
@@ -96,33 +96,62 @@
 /* Ensure fits on page and in uint8 */
 #define HnswGetMaxLevel(m) Min(((BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - offsetof(HnswNeighborTupleData, indextids) - sizeof(ItemIdData)) / (sizeof(ItemPointerData)) / (m)) - 2, 255)
 
-#define HnswGetNeighbors(element, lc) (AssertMacro((element)->level >= (lc)), &(element)->neighbors[lc])
+#define HnswGetValue(base, element) PointerGetDatum(HnswPtrAccess(base, (element)->value))
+
+#if PG_VERSION_NUM < 140005
+#define relptr_offset(rp) ((rp).relptr_off - 1)
+#endif
+
+/* Pointer macros */
+#define HnswPtrAccess(base, hp) ((base) == NULL ? (hp).ptr : relptr_access(base, (hp).relptr))
+#define HnswPtrStore(base, hp, value) ((base) == NULL ? (void) ((hp).ptr = (value)) : (void) relptr_store(base, (hp).relptr, value))
+#define HnswPtrIsNull(base, hp) ((base) == NULL ? (hp).ptr == NULL : relptr_is_null((hp).relptr))
+#define HnswPtrEqual(base, hp1, hp2) ((base) == NULL ? (hp1).ptr == (hp2).ptr : relptr_offset((hp1).relptr) == relptr_offset((hp2).relptr))
+
+/* For code paths dedicated to each type */
+#define HnswPtrPointer(hp) (hp).ptr
+#define HnswPtrOffset(hp) relptr_offset((hp).relptr)
 
 /* Variables */
 extern int	hnsw_ef_search;
-extern bool hnsw_enable_parallel_build;
+extern int	hnsw_lock_tranche_id;
+
+typedef struct HnswElementData HnswElementData;
+typedef struct HnswNeighborArray HnswNeighborArray;
+
+#define HnswPtrDeclare(type, relptrtype, ptrtype) \
+	relptr_declare(type, relptrtype); \
+	typedef union { type *ptr; relptrtype relptr; } ptrtype;
+
+/* Pointers that can be absolute or relative */
+/* Use char for DatumPtr so works with Pointer */
+HnswPtrDeclare(HnswElementData, HnswElementRelptr, HnswElementPtr);
+HnswPtrDeclare(HnswNeighborArray, HnswNeighborArrayRelptr, HnswNeighborArrayPtr);
+HnswPtrDeclare(HnswNeighborArrayPtr, HnswNeighborsRelptr, HnswNeighborsPtr);
+HnswPtrDeclare(char, DatumRelptr, DatumPtr);
 
 typedef struct HnswElementData
 {
-	slist_node	next;
+	HnswElementPtr next;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	uint8		heaptidsLength;
 	uint8		level;
 	uint8		deleted;
 	uint32		hash;
-	struct HnswNeighborArray *neighbors;
+	HnswNeighborsPtr neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
-	Datum		value;
+	DatumPtr	value;
+	LWLock		lock;
 }			HnswElementData;
 
 typedef HnswElementData * HnswElement;
 
 typedef struct HnswCandidate
 {
-	HnswElement element;
+	HnswElementPtr element;
 	float		distance;
 	bool		closer;
 }			HnswCandidate;
@@ -131,7 +160,7 @@ typedef struct HnswNeighborArray
 {
 	int			length;
 	bool		closerSet;
-	HnswCandidate *items;
+	HnswCandidate items[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborArray;
 
 typedef struct HnswPairingHeapNode
@@ -150,12 +179,23 @@ typedef struct HnswOptions
 
 typedef struct HnswGraph
 {
-	slist_head	elements;
-	HnswElement entryPoint;
+	/* Graph state */
+	slock_t		lock;
+	HnswElementPtr head;
+	double		indtuples;
+
+	/* Entry state */
+	LWLock		entryLock;
+	HnswElementPtr entryPoint;
+
+	/* Allocations state */
+	LWLock		allocatorLock;
 	long		memoryUsed;
 	long		memoryTotal;
+
+	/* Flushed state */
+	LWLock		flushLock;
 	bool		flushed;
-	double		indtuples;
 }			HnswGraph;
 
 typedef struct HnswShared
@@ -192,7 +232,14 @@ typedef struct HnswLeader
 	int			nparticipanttuplesorts;
 	HnswShared *hnswshared;
 	Snapshot	snapshot;
+	char	   *hnswarea;
 }			HnswLeader;
+
+typedef struct HnswAllocator
+{
+	void	   *(*alloc) (Size size, void *state);
+	void	   *state;
+}			HnswAllocator;
 
 typedef struct HnswBuildState
 {
@@ -226,10 +273,12 @@ typedef struct HnswBuildState
 	/* Memory */
 	MemoryContext graphCtx;
 	MemoryContext tmpCtx;
+	HnswAllocator allocator;
 
 	/* Parallel builds */
 	HnswLeader *hnswleader;
 	HnswShared *hnswshared;
+	char	   *hnswarea;
 }			HnswBuildState;
 
 typedef struct HnswMetaPageData
@@ -328,23 +377,24 @@ bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * re
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
+List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
-HnswElement HnswInitElement(ItemPointer tid, int m, double ml, int maxLevel);
+void	   *HnswAlloc(HnswAllocator * allocator, Size size);
+HnswElement HnswInitElement(char *base, ItemPointer tid, int m, double ml, int maxLevel, HnswAllocator * alloc);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
-void		HnswInsertElement(HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing);
-HnswCandidate *HnswEntryCandidate(HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadVec);
+void		HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing);
+HnswCandidate *HnswEntryCandidate(char *base, HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadVec);
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum, bool building);
-void		HnswSetNeighborTuple(HnswNeighborTuple ntup, HnswElement e, int m);
+void		HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
-void		HnswInitNeighbors(HnswElement element, int m);
-bool		HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel, bool building);
-void		HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting, bool building);
+void		HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * alloc);
+bool		HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel, bool building);
+void		HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting, bool building);
 void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec);
 void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec);
-void		HnswSetElementTuple(HnswElementTuple etup, HnswElement element);
-void		HnswUpdateConnection(HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
+void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element);
+void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
@@ -363,6 +413,16 @@ IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
 bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
+
+static inline HnswNeighborArray *
+HnswGetNeighbors(char *base, HnswElement element, int lc)
+{
+	HnswNeighborArrayPtr *neighborList = HnswPtrAccess(base, element->neighbors);
+
+	Assert(element->level >= lc);
+
+	return HnswPtrAccess(base, neighborList[lc]);
+}
 
 /* Hash tables */
 typedef struct TidHashEntry
@@ -387,6 +447,19 @@ typedef struct PointerHashEntry
 #define SH_PREFIX pointerhash
 #define SH_ELEMENT_TYPE PointerHashEntry
 #define SH_KEY_TYPE uintptr_t
+#define SH_SCOPE extern
+#define SH_DECLARE
+#include "lib/simplehash.h"
+
+typedef struct OffsetHashEntry
+{
+	Size		offset;
+	char		status;
+}			OffsetHashEntry;
+
+#define SH_PREFIX offsethash
+#define SH_ELEMENT_TYPE OffsetHashEntry
+#define SH_KEY_TYPE Size
 #define SH_SCOPE extern
 #define SH_DECLARE
 #include "lib/simplehash.h"

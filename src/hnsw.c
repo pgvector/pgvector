@@ -14,8 +14,36 @@
 #endif
 
 int			hnsw_ef_search;
-bool		hnsw_enable_parallel_build;
+int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
+
+/*
+ * Assign a tranche ID for our LWLocks. This only needs to be done by one
+ * backend, as the tranche ID is remembered in shared memory.
+ *
+ * This shared memory area is very small, so we just allocate it from the
+ * "slop" that PostgreSQL reserves for small allocations like this. If
+ * this grows bigger, we should use a shmem_request_hook and
+ * RequestAddinShmemSpace() to pre-reserve space for this.
+ */
+static void
+HnswInitLockTranche(void)
+{
+	int		   *tranche_ids;
+	bool		found;
+
+	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
+	tranche_ids = ShmemInitStruct("hnsw LWLock ids",
+								  sizeof(int) * 1,
+								  &found);
+	if (!found)
+		tranche_ids[0] = LWLockNewTrancheId();
+	hnsw_lock_tranche_id = tranche_ids[0];
+	LWLockRelease(AddinShmemInitLock);
+
+	/* Per-backend registration of the tranche ID */
+	LWLockRegisterTranche(hnsw_lock_tranche_id, "HnswBuild");
+}
 
 /*
  * Initialize index options and variables
@@ -23,6 +51,8 @@ static relopt_kind hnsw_relopt_kind;
 void
 HnswInit(void)
 {
+	HnswInitLockTranche();
+
 	hnsw_relopt_kind = add_reloption_kind();
 	add_int_reloption(hnsw_relopt_kind, "m", "Max number of connections",
 					  HNSW_DEFAULT_M, HNSW_MIN_M, HNSW_MAX_M
@@ -40,11 +70,6 @@ HnswInit(void)
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
-
-	/* Behind a variable for now since can be slower than building in memory */
-	DefineCustomBoolVariable("hnsw.enable_parallel_build", "Enables or disables building indexes in parallel",
-							 NULL, &hnsw_enable_parallel_build,
-							 false, PGC_USERSET, 0, NULL, NULL, NULL);
 }
 
 /*

@@ -1,7 +1,7 @@
 ## 0.5.2 (unreleased)
 
 - Improved performance of HNSW
-- Added support for on-disk parallel index builds for HNSW
+- Added support for parallel index builds for HNSW
 - Reduced memory usage for HNSW index builds
 - Reduced WAL generation for HNSW index builds
 - Fixed error with logical replication
