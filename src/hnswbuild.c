@@ -379,7 +379,7 @@ HnswFindDuplicateInMemory(char *base, HnswElement element)
  * Add to element and neighbor pages
  */
 static void
-WriteNewElementPagesInMemory(char *base, HnswGraph * graph, HnswElement element)
+HnswAddElementInMemory(char *base, HnswGraph * graph, HnswElement element)
 {
 	SpinLockAcquire(&graph->lock);
 	element->next = graph->head;
@@ -391,7 +391,7 @@ WriteNewElementPagesInMemory(char *base, HnswGraph * graph, HnswElement element)
  * Update neighbors
  */
 static void
-HnswUpdateNeighborPagesInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
+HnswUpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswElement e, int m)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -427,11 +427,11 @@ WriteElementInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int
 	if (HnswFindDuplicateInMemory(base, element))
 		return;
 
-	/* Write element and neighbor tuples */
-	WriteNewElementPagesInMemory(base, graph, element);
+	/* Add element */
+	HnswAddElementInMemory(base, graph, element);
 
 	/* Update neighbors */
-	HnswUpdateNeighborPagesInMemory(base, procinfo, collation, element, m);
+	HnswUpdateNeighborsInMemory(base, procinfo, collation, element, m);
 
 	/* Update entry point if needed (already have lock) */
 	if (updateEntryPoint)

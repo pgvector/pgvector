@@ -116,7 +116,7 @@ HnswInsertAppendPage(Relation index, Buffer *nbuf, Page *npage, GenericXLogState
  * Add to element and neighbor pages
  */
 static void
-WriteNewElementPages(Relation index, HnswElement e, int m, BlockNumber insertPage, BlockNumber *updatedInsertPage, bool building)
+AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, BlockNumber *updatedInsertPage, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -339,7 +339,7 @@ ConnectionExists(HnswElement e, HnswNeighborTuple ntup, int startIdx, int lm)
  * Update neighbors
  */
 void
-HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting, bool building)
+HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting, bool building)
 {
 	char	   *base = NULL;
 
@@ -451,7 +451,7 @@ HnswUpdateNeighborPages(Relation index, FmgrInfo *procinfo, Oid collation, HnswE
  * Add a heap TID to an existing element
  */
 static bool
-HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool building)
+HnswAddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -515,7 +515,7 @@ HnswAddDuplicate(Relation index, HnswElement element, HnswElement dup, bool buil
  * Find duplicate element
  */
 static bool
-HnswFindDuplicate(Relation index, HnswElement element, bool building)
+HnswFindDuplicateOnDisk(Relation index, HnswElement element, bool building)
 {
 	char	   *base = NULL;
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
@@ -531,7 +531,7 @@ HnswFindDuplicate(Relation index, HnswElement element, bool building)
 		if (!datumIsEqual(value, neighborValue, false, -1))
 			return false;
 
-		if (HnswAddDuplicate(index, element, neighborElement, building))
+		if (HnswAddDuplicateOnDisk(index, element, neighborElement, building))
 			return true;
 	}
 
@@ -547,18 +547,18 @@ WriteElement(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement elem
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Look for duplicate */
-	if (HnswFindDuplicate(index, element, building))
+	if (HnswFindDuplicateOnDisk(index, element, building))
 		return;
 
-	/* Write element and neighbor tuples */
-	WriteNewElementPages(index, element, m, GetInsertPage(index), &newInsertPage, building);
+	/* Add element */
+	AddElementOnDisk(index, element, m, GetInsertPage(index), &newInsertPage, building);
 
 	/* Update insert page if needed */
 	if (BlockNumberIsValid(newInsertPage))
 		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM, building);
 
 	/* Update neighbors */
-	HnswUpdateNeighborPages(index, procinfo, collation, element, m, false, building);
+	HnswUpdateNeighborsOnDisk(index, procinfo, collation, element, m, false, building);
 
 	/* Update entry point if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
