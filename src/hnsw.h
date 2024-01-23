@@ -4,7 +4,6 @@
 #include "postgres.h"
 
 #include "access/genam.h"
-#include "access/generic_xlog.h"
 #include "access/parallel.h"
 #include "lib/pairingheap.h"
 #include "nodes/execnodes.h"

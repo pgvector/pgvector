@@ -42,6 +42,7 @@
 #include "access/table.h"
 #include "access/tableam.h"
 #include "access/xact.h"
+#include "access/xloginsert.h"
 #include "catalog/index.h"
 #include "commands/progress.h"
 #include "hnsw.h"

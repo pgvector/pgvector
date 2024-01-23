@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "access/generic_xlog.h"
 #include "hnsw.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"

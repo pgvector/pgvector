@@ -2,10 +2,12 @@
 
 #include <math.h>
 
+#include "access/generic_xlog.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
+#include "utils/rel.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 130000

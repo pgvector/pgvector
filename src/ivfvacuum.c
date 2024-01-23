@@ -1,5 +1,6 @@
 #include "postgres.h"
 
+#include "access/generic_xlog.h"
 #include "commands/vacuum.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"

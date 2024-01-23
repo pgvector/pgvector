@@ -2,6 +2,7 @@
 
 #include <float.h>
 
+#include "access/generic_xlog.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
