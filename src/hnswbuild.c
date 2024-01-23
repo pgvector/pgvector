@@ -355,12 +355,12 @@ static bool
 HnswFindDuplicateInMemory(char *base, HnswElement element)
 {
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
+	Datum		value = HnswGetValue(base, element);
 
 	for (int i = 0; i < neighbors->length; i++)
 	{
 		HnswCandidate *neighbor = &neighbors->items[i];
 		HnswElement neighborElement = HnswPtrAccess(base, neighbor->element);
-		Datum		value = HnswGetValue(base, element);
 		Datum		neighborValue = HnswGetValue(base, neighborElement);
 
 		/* Exit early since ordered by distance */
