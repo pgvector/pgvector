@@ -1,5 +1,8 @@
 ## 0.6.0 (unreleased)
 
+If upgrading with Postgres < 13, see [this note](https://github.com/pgvector/pgvector#060).
+
+- Changed storage for vector from `extended` to `external`
 - Improved performance of HNSW
 - Added support for parallel index builds for HNSW
 - Added validation for GUC parameters

@@ -729,6 +729,16 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 
 ## Upgrade Notes
 
+### 0.6.0 [unreleased]
+
+If upgrading with Postgres < 13, remove this line from `sql/vector--0.5.1--0.6.0.sql`:
+
+```sql
+ALTER TYPE vector SET (STORAGE = external);
+```
+
+Then run `make install` and `ALTER EXTENSION vector UPDATE;`.
+
 ### 0.4.0
 
 If upgrading with Postgres < 13, remove this line from `sql/vector--0.3.2--0.4.0.sql`:
