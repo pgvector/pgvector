@@ -114,8 +114,6 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
-
-/* This is initialized when the module is loaded */
 extern int	hnsw_lock_tranche_id;
 
 typedef struct HnswElementData HnswElementData;

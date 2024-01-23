@@ -971,7 +971,6 @@ CheckElementCloser(char *base, HnswCandidate * e, List *r, int lc, FmgrInfo *pro
 	{
 		HnswCandidate *ri = lfirst(lc2);
 		HnswElement riElement = HnswPtrAccess(base, ri->element);
-
 		float		distance = HnswGetDistance(base, eElement, riElement, lc, procinfo, collation);
 
 		if (distance <= e->distance)
