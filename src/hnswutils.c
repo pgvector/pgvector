@@ -660,7 +660,7 @@ CreatePairingHeapNode(HnswCandidate * c)
  * Init visited
  */
 static inline void
-InitVisited(visited_hash * v, char *base, Relation index, int ef, int m)
+InitVisited(char *base, visited_hash * v, Relation index, int ef, int m)
 {
 	if (index != NULL)
 		v->tids = tidhash_create(CurrentMemoryContext, ef * m * 2, NULL);
@@ -739,7 +739,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	HnswNeighborArray *neighborhoodData = NULL;
 	Size		neighborhoodSize;
 
-	InitVisited(&v, base, index, ef, m);
+	InitVisited(base, &v, index, ef, m);
 
 	/* Create local memory for neighborhood if needed */
 	if (index == NULL)
