@@ -418,7 +418,7 @@ HnswUpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswE
  * Update graph in memory
  */
 static void
-UpdateGraphInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate, bool updateEntryPoint)
+UpdateGraphInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate)
 {
 	HnswGraph  *graph = buildstate->graph;
 	char	   *base = buildstate->hnswarea;
@@ -434,7 +434,7 @@ UpdateGraphInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int 
 	HnswUpdateNeighborsInMemory(base, procinfo, collation, element, m);
 
 	/* Update entry point if needed (already have lock) */
-	if (updateEntryPoint)
+	if (entryPoint == NULL || element->level > entryPoint->level)
 		HnswPtrStore(base, graph->entryPoint, element);
 }
 
@@ -449,7 +449,6 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement entryPoint;
 	LWLock	   *entryLock = &graph->entryLock;
-	bool		updateEntryPoint = false;
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
 	char	   *base = buildstate->hnswarea;
@@ -469,14 +468,13 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 
 		/* Get latest entry point after lock is acquired */
 		entryPoint = HnswPtrAccess(base, graph->entryPoint);
-		updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
 	}
 
 	/* Find neighbors for element */
 	HnswFindElementNeighbors(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
 
 	/* Update graph in memory */
-	UpdateGraphInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate, updateEntryPoint);
+	UpdateGraphInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate);
 
 	/* Release entry lock */
 	LWLockRelease(entryLock);
