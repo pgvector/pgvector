@@ -751,6 +751,12 @@ docker pull pgvector/pgvector:pg16
 docker pull pgvector/pgvector:0.6.0-pg16
 ```
 
+Also, if you’ve increased `maintenance_work_mem`, make sure `--shm-size` is at least that size to avoid an error with parallel HNSW index builds.
+
+```sh
+docker run --shm-size=1g ...
+```
+
 ## Thanks
 
 Thanks to:
