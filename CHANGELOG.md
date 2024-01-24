@@ -9,7 +9,7 @@ If upgrading with Postgres 12 or Docker, see [these notes](https://github.com/pg
 - Reduced memory usage for HNSW index builds
 - Reduced WAL generation for HNSW index builds
 - Fixed error with logical replication
-- Fixed `invalid memory alloc request size` error with HNSW index build
+- Fixed `invalid memory alloc request size` error with HNSW index builds
 - Moved Docker image to `pgvector` org
 - Added Docker tags for each supported version of Postgres
 - Dropped support for Postgres 11
