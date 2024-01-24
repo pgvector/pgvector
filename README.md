@@ -731,13 +731,25 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 
 ### 0.6.0 [unreleased]
 
-If upgrading with Postgres < 13, remove this line from `sql/vector--0.5.1--0.6.0.sql`:
+#### Postgres 12
+
+If upgrading with Postgres 12, remove this line from `sql/vector--0.5.1--0.6.0.sql`:
 
 ```sql
 ALTER TYPE vector SET (STORAGE = external);
 ```
 
 Then run `make install` and `ALTER EXTENSION vector UPDATE;`.
+
+#### Docker
+
+The Docker image is now published in the `pgvector` org, and there are tags for each supported version of Postgres (rather than a `latest` tag).
+
+```sh
+docker pull pgvector/pgvector:pg16
+# or
+docker pull pgvector/pgvector:0.6.0-pg16
+```
 
 ### 0.4.0
 

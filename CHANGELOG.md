@@ -1,6 +1,6 @@
 ## 0.6.0 (unreleased)
 
-If upgrading with Postgres < 13, see [this note](https://github.com/pgvector/pgvector#060).
+If upgrading with Postgres 12 or Docker, see [these notes](https://github.com/pgvector/pgvector#060-unreleased).
 
 - Changed storage for vector from `extended` to `external`
 - Improved performance of HNSW
@@ -10,6 +10,8 @@ If upgrading with Postgres < 13, see [this note](https://github.com/pgvector/pgv
 - Reduced WAL generation for HNSW index builds
 - Fixed error with logical replication
 - Fixed `invalid memory alloc request size` error with HNSW index build
+- Moved Docker image to `pgvector` org
+- Added Docker tags for each supported version of Postgres
 - Dropped support for Postgres 11
 
 ## 0.5.1 (2023-10-10)
