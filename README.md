@@ -751,30 +751,6 @@ docker pull pgvector/pgvector:pg16
 docker pull pgvector/pgvector:0.6.0-pg16
 ```
 
-### 0.4.0
-
-If upgrading with Postgres < 13, remove this line from `sql/vector--0.3.2--0.4.0.sql`:
-
-```sql
-ALTER TYPE vector SET (STORAGE = extended);
-```
-
-Then run `make install` and `ALTER EXTENSION vector UPDATE;`.
-
-### 0.3.1
-
-If upgrading from 0.2.7 or 0.3.0, recreate all `ivfflat` indexes after upgrading to ensure all data is indexed.
-
-```sql
--- Postgres 12+
-REINDEX INDEX CONCURRENTLY index_name;
-
--- Postgres < 12
-CREATE INDEX CONCURRENTLY temp_name ON table USING ivfflat (column opclass);
-DROP INDEX CONCURRENTLY index_name;
-ALTER INDEX temp_name RENAME TO index_name;
-```
-
 ## Thanks
 
 Thanks to:
