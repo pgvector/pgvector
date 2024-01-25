@@ -65,8 +65,6 @@
 #define CALLBACK_ITEM_POINTER HeapTuple hup
 #endif
 
-#define UpdateProgress(index, val) pgstat_progress_update_param(index, val)
-
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
 #include "utils/wait_event.h"
@@ -587,7 +585,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	{
 		/* Update progress */
 		SpinLockAcquire(&graph->lock);
-		UpdateProgress(PROGRESS_CREATEIDX_TUPLES_DONE, ++graph->indtuples);
+		pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE, ++graph->indtuples);
 		SpinLockRelease(&graph->lock);
 	}
 
@@ -1048,7 +1046,7 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 {
 	int			parallel_workers = 0;
 
-	UpdateProgress(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_HNSW_PHASE_LOAD);
+	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_HNSW_PHASE_LOAD);
 
 	/* Calculate parallel workers */
 	if (buildstate->heap != NULL)
