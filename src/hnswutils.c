@@ -913,13 +913,22 @@ CompareCandidateDistancesOffset(const void *a, const void *b)
  * Calculate the distance between elements
  */
 static float
-HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid collation)
+HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid collation, HnswElement newElem)
 {
 	Datum		aValue;
 	Datum		bValue;
 
-	/* Look for cached distance */
-	if (!HnswPtrIsNull(base, a->neighbors))
+	/*
+	 * Look for cached distance.
+	 *
+	 * As an optimization, don't bother to check for cached distance from
+	 * other elements to an element we're just inserting to the graph. There
+	 * cannot be any connections to the new element yet, except in the case of
+	 * a parallel HNSW build, if another backend concurrently added a
+	 * connection to it before we had finished updating its connections in the
+	 * original insert.
+	 */
+	if (b != newElem && !HnswPtrIsNull(base, a->neighbors))
 	{
 		HnswNeighborArray *neighbors = HnswGetNeighbors(base, a, lc);
 
@@ -932,7 +941,7 @@ HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *proc
 		}
 	}
 
-	if (!HnswPtrIsNull(base, b->neighbors))
+	if (a != newElem && !HnswPtrIsNull(base, b->neighbors))
 	{
 		HnswNeighborArray *neighbors = HnswGetNeighbors(base, b, lc);
 
@@ -955,7 +964,7 @@ HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *proc
  * Check if an element is closer to q than any element from R
  */
 static bool
-CheckElementCloser(char *base, HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid collation)
+CheckElementCloser(char *base, HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid collation, HnswElement newElem)
 {
 	HnswElement eElement = HnswPtrAccess(base, e->element);
 	ListCell   *lc2;
@@ -964,7 +973,7 @@ CheckElementCloser(char *base, HnswCandidate * e, List *r, int lc, FmgrInfo *pro
 	{
 		HnswCandidate *ri = lfirst(lc2);
 		HnswElement riElement = HnswPtrAccess(base, ri->element);
-		float		distance = HnswGetDistance(base, eElement, riElement, lc, procinfo, collation);
+		float		distance = HnswGetDistance(base, eElement, riElement, lc, procinfo, collation, newElem);
 
 		if (distance <= e->distance)
 			return false;
@@ -986,6 +995,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 	bool		mustCalculate = !neighbors->closerSet;
 	List	   *added = NIL;
 	bool		removedAny = false;
+	HnswElement newElement = newCandidate ? HnswPtrAccess(base, newCandidate->element) : NULL;
 
 	if (list_length(w) <= lm)
 		return w;
@@ -1010,7 +1020,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 
 		/* Use previous state of r and wd to skip work when possible */
 		if (mustCalculate)
-			e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation);
+			e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation, newElement);
 		else if (list_length(added) > 0)
 		{
 			/*
@@ -1019,7 +1029,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 			 */
 			if (e->closer)
 			{
-				e->closer = CheckElementCloser(base, e, added, lc, procinfo, collation);
+				e->closer = CheckElementCloser(base, e, added, lc, procinfo, collation, newElement);
 
 				if (!e->closer)
 					removedAny = true;
@@ -1032,7 +1042,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 				 */
 				if (removedAny)
 				{
-					e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation);
+					e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation, newElement);
 					if (e->closer)
 						added = lappend(added, e);
 				}
@@ -1040,7 +1050,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 		}
 		else if (e == newCandidate)
 		{
-			e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation);
+			e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation, newElement);
 			if (e->closer)
 				added = lappend(added, e);
 		}
