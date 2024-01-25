@@ -264,6 +264,14 @@ HINT:  Increase maintenance_work_mem to speed up builds.
 
 Note: Do not set `maintenance_work_mem` so high that it exhausts the memory on the server
 
+Starting with 0.6.0 [unreleased], you can also speed up index creation by increasing the number of parallel workers (2 by default)
+
+```sql
+SET max_parallel_maintenance_workers = 7; -- plus leader
+```
+
+For a large number of workers, you may also need to increase `max_parallel_workers` (8 by default)
+
 ### Indexing Progress
 
 Check [indexing progress](https://www.postgresql.org/docs/current/progress-reporting.html#CREATE-INDEX-PROGRESS-REPORTING) with Postgres 12+
