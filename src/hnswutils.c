@@ -222,17 +222,12 @@ void
 HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * allocator)
 {
 	int			level = element->level;
-
 	HnswNeighborArrayPtr *neighborList = (HnswNeighborArrayPtr *) HnswAlloc(allocator, sizeof(HnswNeighborArrayPtr) * (level + 1));
 
 	HnswPtrStore(base, element->neighbors, neighborList);
 
 	for (int lc = 0; lc <= level; lc++)
-	{
-		int			lm = HnswGetLayerM(m, lc);
-
-		HnswPtrStore(base, neighborList[lc], HnswInitNeighborArray(lm, allocator));
-	}
+		HnswPtrStore(base, neighborList[lc], HnswInitNeighborArray(HnswGetLayerM(m, lc), allocator));
 }
 
 /*
