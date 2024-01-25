@@ -203,6 +203,19 @@ HnswInitPage(Buffer buf, Page page)
 }
 
 /*
+ * Allocate a neighbor array
+ */
+static HnswNeighborArray *
+HnswInitNeighborArray(int lm, HnswAllocator * allocator)
+{
+	HnswNeighborArray *a = HnswAlloc(allocator, offsetof(HnswNeighborArray, items) + sizeof(HnswCandidate) * lm);
+
+	a->length = 0;
+	a->closerSet = false;
+	return a;
+}
+
+/*
  * Allocate neighbors
  */
 void
@@ -216,14 +229,9 @@ HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * alloca
 
 	for (int lc = 0; lc <= level; lc++)
 	{
-		HnswNeighborArray *a;
 		int			lm = HnswGetLayerM(m, lc);
 
-		HnswPtrStore(base, neighborList[lc], (HnswNeighborArray *) HnswAlloc(allocator, offsetof(HnswNeighborArray, items) + sizeof(HnswCandidate) * lm));
-
-		a = HnswGetNeighbors(base, element, lc);
-		a->length = 0;
-		a->closerSet = false;
+		HnswPtrStore(base, neighborList[lc], HnswInitNeighborArray(lm, allocator));
 	}
 }
 
