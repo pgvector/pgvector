@@ -14,6 +14,8 @@ Plus [ACID](https://en.wikipedia.org/wiki/ACID) compliance, point-in-time recove
 
 ## Installation
 
+### Linux and Mac
+
 Compile and install the extension (supports Postgres 11+)
 
 ```sh
@@ -27,6 +29,28 @@ make install # may need sudo
 See the [installation notes](#installation-notes) if you run into issues
 
 You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres). There are also instructions for [GitHub Actions](https://github.com/pgvector/setup-pgvector).
+
+### Windows
+
+Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed, and run:
+
+```cmd
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+```
+
+Note: The exact path will vary depending on your Visual Studio version and edition
+
+Then use `nmake` to build:
+
+```cmd
+set "PGROOT=C:\Program Files\PostgreSQL\16"
+git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git
+cd pgvector
+nmake /F Makefile.win
+nmake /F Makefile.win install
+```
+
+You can also install it with [Docker](#docker) or [conda-forge](#conda-forge).
 
 ## Getting Started
 
@@ -614,26 +638,6 @@ Note: Replace `16` with your Postgres server version
 ### Missing SDK
 
 If compilation fails and the output includes `warning: no such sysroot directory` on Mac, reinstall Xcode Command Line Tools.
-
-### Windows
-
-Support for Windows is currently experimental. Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed, and run:
-
-```cmd
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-```
-
-Note: The exact path will vary depending on your Visual Studio version and edition
-
-Then use `nmake` to build:
-
-```cmd
-set "PGROOT=C:\Program Files\PostgreSQL\16"
-git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git
-cd pgvector
-nmake /F Makefile.win
-nmake /F Makefile.win install
-```
 
 ## Additional Installation Methods
 
