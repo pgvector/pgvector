@@ -208,7 +208,7 @@ HnswInitPage(Buffer buf, Page page)
 static HnswNeighborArray *
 HnswInitNeighborArray(int lm, HnswAllocator * allocator)
 {
-	HnswNeighborArray *a = HnswAlloc(allocator, offsetof(HnswNeighborArray, items) + sizeof(HnswCandidate) * lm);
+	HnswNeighborArray *a = HnswAlloc(allocator, HNSW_NEIGHBOR_ARRAY_SIZE(lm));
 
 	a->length = 0;
 	a->closerSet = false;
@@ -734,7 +734,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	/* Create local memory for neighborhood if needed */
 	if (index == NULL)
 	{
-		neighborhoodSize = offsetof(HnswNeighborArray, items) + sizeof(HnswCandidate) * HnswGetLayerM(m, lc);
+		neighborhoodSize = HNSW_NEIGHBOR_ARRAY_SIZE(HnswGetLayerM(m, lc));
 		neighborhoodData = palloc(neighborhoodSize);
 	}
 
