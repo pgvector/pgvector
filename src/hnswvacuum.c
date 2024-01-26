@@ -30,7 +30,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 	HnswElement highestPoint = &vacuumstate->highestPoint;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
-	HnswElement entryPoint = HnswGetEntryPoint(vacuumstate->index);
+	HnswElement entryPoint = HnswGetEntryPoint(vacuumstate->index, NULL);
 	IndexBulkDeleteResult *stats = vacuumstate->stats;
 
 	/* Store separately since highestPoint.level is uint8 */
@@ -263,7 +263,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
-			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index));
+			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index, NULL));
 
 		/* Release lock */
 		UnlockPage(index, HNSW_UPDATE_LOCK, ShareLock);
@@ -273,7 +273,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
 	/* Get latest entry point */
-	entryPoint = HnswGetEntryPoint(index);
+	entryPoint = HnswGetEntryPoint(index, NULL);
 
 	if (entryPoint != NULL)
 	{
@@ -387,6 +387,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		{
 			HnswElement element = (HnswElement) lfirst(lc2);
 			HnswElement entryPoint;
+			int			entryLevel;
 			LOCKMODE	lockmode = ShareLock;
 
 			/* Check if any neighbors point to deleted values */
@@ -397,10 +398,10 @@ RepairGraph(HnswVacuumState * vacuumstate)
 			LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 			/* Refresh entry point for each element */
-			entryPoint = HnswGetEntryPoint(index);
+			entryPoint = HnswGetEntryPoint(index, &entryLevel);
 
 			/* Prevent concurrent inserts when likely updating entry point */
-			if (entryPoint == NULL || element->level > entryPoint->level)
+			if (entryPoint == NULL || element->level > entryLevel)
 			{
 				/* Release shared lock */
 				UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
@@ -410,7 +411,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 				LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 				/* Get latest entry point after lock is acquired */
-				entryPoint = HnswGetEntryPoint(index);
+				entryPoint = HnswGetEntryPoint(index, &entryLevel);
 			}
 
 			/* Repair connections */
@@ -420,7 +421,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 			 * Update metapage if needed. Should only happen if entry point
 			 * was replaced and highest point was outdated.
 			 */
-			if (entryPoint == NULL || element->level > entryPoint->level)
+			if (entryPoint == NULL || element->level > entryLevel)
 				HnswUpdateMetaPage(index, HNSW_UPDATE_ENTRY_GREATER, element, InvalidBlockNumber, MAIN_FORKNUM, false);
 
 			/* Release lock */
@@ -594,7 +595,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 												ALLOCSET_DEFAULT_SIZES);
 
 	/* Get m from metapage */
-	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
+	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL, NULL);
 
 	/* Create hash table */
 	vacuumstate->deleted = tidhash_create(CurrentMemoryContext, 256, NULL);

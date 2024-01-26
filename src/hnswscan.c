@@ -21,10 +21,11 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	List	   *w;
 	int			m;
 	HnswElement entryPoint;
+	int			entryLevel;
 	char	   *base = NULL;
 
 	/* Get m and entry point */
-	HnswGetMetaPageInfo(index, &m, &entryPoint);
+	HnswGetMetaPageInfo(index, &m, &entryPoint, &entryLevel);
 
 	if (entryPoint == NULL)
 		return NIL;

@@ -573,6 +573,7 @@ bool
 HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel, bool building)
 {
 	HnswElement entryPoint;
+	int			entryLevel;
 	HnswElement element;
 	int			m;
 	int			efConstruction = HnswGetEfConstruction(index);
@@ -589,14 +590,14 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
 	/* Get m and entry point */
-	HnswGetMetaPageInfo(index, &m, &entryPoint);
+	HnswGetMetaPageInfo(index, &m, &entryPoint, &entryLevel);
 
 	/* Create an element */
 	element = HnswInitElement(base, heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
 	HnswPtrStore(base, element->value, DatumGetPointer(value));
 
 	/* Prevent concurrent inserts when likely updating entry point */
-	if (entryPoint == NULL || element->level > entryPoint->level)
+	if (entryPoint == NULL || element->level > entryLevel)
 	{
 		/* Release shared lock */
 		UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
@@ -605,8 +606,8 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 		lockmode = ExclusiveLock;
 		LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
-		/* Get latest entry point after lock is acquired */
-		entryPoint = HnswGetEntryPoint(index);
+		/* Re-fetch the latest entry point after lock is acquired */
+		HnswGetMetaPageInfo(index, NULL, &entryPoint, &entryLevel);
 	}
 
 	/* Find neighbors for element */

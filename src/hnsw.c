@@ -121,7 +121,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	MemSet(&costs, 0, sizeof(costs));
 
 	index = index_open(path->indexinfo->indexoid, NoLock);
-	HnswGetMetaPageInfo(index, &m, NULL);
+	HnswGetMetaPageInfo(index, &m, NULL, NULL);
 	index_close(index, NoLock);
 
 	/* Approximate entry level */

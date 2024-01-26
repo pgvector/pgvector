@@ -298,7 +298,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
  * Get the metapage info
  */
 void
-HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
+HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint, int *entryLevel)
 {
 	Buffer		buf;
 	Page		page;
@@ -320,6 +320,8 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 			*entryPoint = NULL;
 	}
 
+	if (entryLevel)
+		*entryLevel = metap->entryLevel;
 	UnlockReleaseBuffer(buf);
 }
 
@@ -327,11 +329,11 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
  * Get the entry point
  */
 HnswElement
-HnswGetEntryPoint(Relation index)
+HnswGetEntryPoint(Relation index, int *level)
 {
 	HnswElement entryPoint;
 
-	HnswGetMetaPageInfo(index, NULL, &entryPoint);
+	HnswGetMetaPageInfo(index, NULL, &entryPoint, level);
 
 	return entryPoint;
 }
