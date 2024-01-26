@@ -390,6 +390,10 @@ void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, 
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
+
+extern void HnswResetStats(void);
+extern void HnswPrintStats(void);
+
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);
 void		hnswbuildempty(Relation index);

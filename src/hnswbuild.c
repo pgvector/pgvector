@@ -1052,6 +1052,8 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 	if (buildstate->heap != NULL)
 		parallel_workers = ComputeParallelWorkers(buildstate->heap, buildstate->index);
 
+	HnswResetStats();
+
 	/* Attempt to launch parallel worker scan when required */
 	if (parallel_workers > 0)
 		HnswBeginParallel(buildstate, buildstate->indexInfo->ii_Concurrent, parallel_workers);
@@ -1068,6 +1070,8 @@ BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
 		buildstate->indtuples = buildstate->graph->indtuples;
 	}
 
+	HnswPrintStats();
+	
 	/* Flush pages */
 	if (!buildstate->graph->flushed)
 		FlushPages(buildstate);

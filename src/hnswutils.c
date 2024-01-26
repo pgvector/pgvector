@@ -16,6 +16,38 @@
 #include "utils/hashutils.h"
 #endif
 
+
+struct {
+	int			cache_miss_a;
+	int			cache_miss_b;
+	int			cache_hit_a;
+	int			cache_hit_b;
+	int			cache_miss;
+
+	int distance_calcs_gcd; /* # of distance calcs in GetCandidateDistance */
+	int distance_calcs_cec; /* # of distance calcs in CheckElementCloser */
+} hnsw_stats;
+
+void
+HnswResetStats(void)
+{
+	elog(NOTICE, "stats reset");
+	memset(&hnsw_stats, 0, sizeof(hnsw_stats));
+}
+
+void
+HnswPrintStats(void)
+{
+	elog(NOTICE, "distance_calcs GetCandidateDistance: %10d", hnsw_stats.distance_calcs_gcd);
+	elog(NOTICE, "distance_calcs CheckElementCloser:   %10d", hnsw_stats.distance_calcs_cec);
+
+	elog(NOTICE, "   cache_hit_a: %10d", hnsw_stats.cache_hit_a);
+	elog(NOTICE, "  cache_miss_a: %10d", hnsw_stats.cache_miss_a);
+	elog(NOTICE, "   cache_hit_b: %10d", hnsw_stats.cache_hit_b);
+	elog(NOTICE, "  cache_miss_b: %10d", hnsw_stats.cache_miss_b);
+	elog(NOTICE, "   cache_miss:  %10d", hnsw_stats.cache_miss);
+}
+
 #if PG_VERSION_NUM < 170000
 static inline uint64
 murmurhash64(uint64 data)
@@ -588,6 +620,7 @@ GetCandidateDistance(char *base, HnswCandidate * hc, Datum q, FmgrInfo *procinfo
 	HnswElement hce = HnswPtrAccess(base, hc->element);
 	Datum		value = HnswGetValue(base, hce);
 
+	hnsw_stats.distance_calcs_gcd++;
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, value));
 }
 
@@ -937,8 +970,12 @@ HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *proc
 			HnswElement element = HnswPtrAccess(base, neighbors->items[i].element);
 
 			if (element == b)
+			{
+				hnsw_stats.cache_hit_a++;
 				return neighbors->items[i].distance;
+			}
 		}
+		hnsw_stats.cache_miss_a++;
 	}
 
 	if (a != newElem && !HnswPtrIsNull(base, b->neighbors))
@@ -950,12 +987,19 @@ HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *proc
 			HnswElement element = HnswPtrAccess(base, neighbors->items[i].element);
 
 			if (element == a)
+			{
+				hnsw_stats.cache_hit_b++;
 				return neighbors->items[i].distance;
+			}
 		}
+		hnsw_stats.cache_miss_b++;
 	}
 
 	aValue = HnswGetValue(base, a);
 	bValue = HnswGetValue(base, b);
+
+	hnsw_stats.cache_miss++;
+	hnsw_stats.distance_calcs_cec++;
 
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, aValue, bValue));
 }
