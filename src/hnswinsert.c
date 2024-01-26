@@ -570,7 +570,7 @@ UpdateGraphOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel, bool building)
+HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
@@ -625,7 +625,7 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
  * Insert a tuple into the index
  */
 static void
-HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel)
+HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 {
 	Datum		value;
 	FmgrInfo   *normprocinfo;
@@ -642,7 +642,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 			return;
 	}
 
-	HnswInsertTupleOnDisk(index, value, values, isnull, heap_tid, heapRel, false);
+	HnswInsertTupleOnDisk(index, value, values, isnull, heap_tid, false);
 }
 
 /*
@@ -671,7 +671,7 @@ hnswinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
 	oldCtx = MemoryContextSwitchTo(insertCtx);
 
 	/* Insert tuple */
-	HnswInsertTuple(index, values, isnull, heap_tid, heap);
+	HnswInsertTuple(index, values, isnull, heap_tid);
 
 	/* Delete memory context */
 	MemoryContextSwitchTo(oldCtx);
