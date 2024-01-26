@@ -429,6 +429,15 @@ To speed up queries with an IVFFlat index, increase the number of inverted lists
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
 ```
+### Storing vector data inline
+
+To speed up access to vector data in the table by avoiding TOASTing and compression, inefficient for vector data but done for rows more than 2Kb. 
+
+```sql
+ALTER TABLE items SET (toast_tuple_target = 8160);
+```
+
+TOASTing and compression will be done only for rows that don't fit 8Kb page otherwise. This speeds up selects and updates of data, and indices build time.
 
 ## Languages
 
