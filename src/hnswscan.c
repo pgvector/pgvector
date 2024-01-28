@@ -202,6 +202,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		MemoryContextSwitchTo(oldCtx);
 
 		scan->xs_heaptid = *heaptid;
+		scan->xs_recheck = false;
 		scan->xs_recheckorderby = false;
 		return true;
 	}

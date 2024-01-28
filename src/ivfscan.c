@@ -310,6 +310,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
 
 		scan->xs_heaptid = *heaptid;
+		scan->xs_recheck = false;
 		scan->xs_recheckorderby = false;
 		return true;
 	}
