@@ -812,8 +812,8 @@ make prove_installcheck  # TAP tests
 To run single tests:
 
 ```sh
-make installcheck REGRESS=functions                    # regression test
-make prove_installcheck PROVE_TESTS=test/t/001_wal.pl  # TAP test
+make installcheck REGRESS=functions                            # regression test
+make prove_installcheck PROVE_TESTS=test/t/001_ivfflat_wal.pl  # TAP test
 ```
 
 To enable benchmarking:
