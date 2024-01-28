@@ -473,7 +473,7 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	IvfflatList list;
 
 	listSize = MAXALIGN(IVFFLAT_LIST_SIZE(dimensions));
-	list = palloc(listSize);
+	list = palloc0(listSize);
 
 	buf = IvfflatNewBuffer(index, forkNum);
 	IvfflatInitRegisterPage(index, &buf, &page, &state);
