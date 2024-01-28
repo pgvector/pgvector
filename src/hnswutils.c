@@ -913,40 +913,10 @@ CompareCandidateDistancesOffset(const void *a, const void *b)
  * Calculate the distance between elements
  */
 static float
-HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *procinfo, Oid collation)
+HnswGetDistance(char *base, HnswElement a, HnswElement b, FmgrInfo *procinfo, Oid collation)
 {
-	Datum		aValue;
-	Datum		bValue;
-
-	/* Look for cached distance */
-	if (!HnswPtrIsNull(base, a->neighbors))
-	{
-		HnswNeighborArray *neighbors = HnswGetNeighbors(base, a, lc);
-
-		for (int i = 0; i < neighbors->length; i++)
-		{
-			HnswElement element = HnswPtrAccess(base, neighbors->items[i].element);
-
-			if (element == b)
-				return neighbors->items[i].distance;
-		}
-	}
-
-	if (!HnswPtrIsNull(base, b->neighbors))
-	{
-		HnswNeighborArray *neighbors = HnswGetNeighbors(base, b, lc);
-
-		for (int i = 0; i < neighbors->length; i++)
-		{
-			HnswElement element = HnswPtrAccess(base, neighbors->items[i].element);
-
-			if (element == a)
-				return neighbors->items[i].distance;
-		}
-	}
-
-	aValue = HnswGetValue(base, a);
-	bValue = HnswGetValue(base, b);
+	Datum		aValue = HnswGetValue(base, a);
+	Datum		bValue = HnswGetValue(base, b);
 
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, aValue, bValue));
 }
@@ -955,7 +925,7 @@ HnswGetDistance(char *base, HnswElement a, HnswElement b, int lc, FmgrInfo *proc
  * Check if an element is closer to q than any element from R
  */
 static bool
-CheckElementCloser(char *base, HnswCandidate * e, List *r, int lc, FmgrInfo *procinfo, Oid collation)
+CheckElementCloser(char *base, HnswCandidate * e, List *r, FmgrInfo *procinfo, Oid collation)
 {
 	HnswElement eElement = HnswPtrAccess(base, e->element);
 	ListCell   *lc2;
@@ -964,7 +934,7 @@ CheckElementCloser(char *base, HnswCandidate * e, List *r, int lc, FmgrInfo *pro
 	{
 		HnswCandidate *ri = lfirst(lc2);
 		HnswElement riElement = HnswPtrAccess(base, ri->element);
-		float		distance = HnswGetDistance(base, eElement, riElement, lc, procinfo, collation);
+		float		distance = HnswGetDistance(base, eElement, riElement, procinfo, collation);
 
 		if (distance <= e->distance)
 			return false;
@@ -1010,7 +980,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 
 		/* Use previous state of r and wd to skip work when possible */
 		if (mustCalculate)
-			e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation);
+			e->closer = CheckElementCloser(base, e, r, procinfo, collation);
 		else if (list_length(added) > 0)
 		{
 			/*
@@ -1019,7 +989,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 			 */
 			if (e->closer)
 			{
-				e->closer = CheckElementCloser(base, e, added, lc, procinfo, collation);
+				e->closer = CheckElementCloser(base, e, added, procinfo, collation);
 
 				if (!e->closer)
 					removedAny = true;
@@ -1032,7 +1002,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 				 */
 				if (removedAny)
 				{
-					e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation);
+					e->closer = CheckElementCloser(base, e, r, procinfo, collation);
 					if (e->closer)
 						added = lappend(added, e);
 				}
@@ -1040,7 +1010,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 		}
 		else if (e == newCandidate)
 		{
-			e->closer = CheckElementCloser(base, e, r, lc, procinfo, collation);
+			e->closer = CheckElementCloser(base, e, r, procinfo, collation);
 			if (e->closer)
 				added = lappend(added, e);
 		}
