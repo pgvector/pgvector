@@ -315,7 +315,10 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 	if (entryPoint != NULL)
 	{
 		if (BlockNumberIsValid(metap->entryBlkno))
+		{
 			*entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
+			(*entryPoint)->level = metap->entryLevel;
+		}
 		else
 			*entryPoint = NULL;
 	}
