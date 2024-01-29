@@ -3,9 +3,9 @@
 If upgrading with Postgres 12 or Docker, see [these notes](https://github.com/pgvector/pgvector#060-unreleased).
 
 - Changed storage for vector from `extended` to `external`
-- Improved performance of HNSW
 - Added support for parallel index builds for HNSW
 - Added validation for GUC parameters
+- Improved performance of HNSW
 - Reduced memory usage for HNSW index builds
 - Reduced WAL generation for HNSW index builds
 - Fixed error with logical replication
