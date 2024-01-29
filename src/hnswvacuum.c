@@ -529,7 +529,10 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			for (int i = 0; i < ntup->count; i++)
 				ItemPointerSetInvalid(&ntup->indextids[i]);
 
-			/* We modified the tuples in place, no need to call PageIndexTupleOverwrite */
+			/*
+			 * We modified the tuples in place, no need to call
+			 * PageIndexTupleOverwrite
+			 */
 
 			/* Commit */
 			GenericXLogFinish(state);
