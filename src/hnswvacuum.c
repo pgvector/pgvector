@@ -224,7 +224,8 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
 
 	/* Check expected size */
-	Assert(ItemIdGetLength(itemid) == HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m));
+	if (ItemIdGetLength(itemid) != HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m))
+		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	/* Update page in-place */
 	HnswSetNeighborTuple(base, ntup, element, m);
