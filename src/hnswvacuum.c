@@ -198,8 +198,8 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	FmgrInfo   *procinfo = vacuumstate->procinfo;
 	Oid			collation = vacuumstate->collation;
 	BufferAccessStrategy bas = vacuumstate->bas;
-	HnswNeighborTuple ntup = vacuumstate->ntup;
-	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
+	ItemId		itemid;
+	HnswNeighborTuple ntup;
 	char	   *base = NULL;
 
 	/* Skip if element is entry point */
@@ -213,19 +213,19 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	/* Find neighbors for element, skipping itself */
 	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
 
-	/* Update neighbor tuple */
-	/* Do this before getting page to minimize locking */
-	HnswSetNeighborTuple(base, ntup, element, m);
-
 	/* Get neighbor page */
 	buf = ReadBufferExtended(index, MAIN_FORKNUM, element->neighborPage, RBM_NORMAL, bas);
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	state = GenericXLogStart(index);
 	page = GenericXLogRegisterBuffer(state, buf, 0);
+	itemid = PageGetItemId(page, element->neighborOffno);
+	ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
 
-	/* Overwrite tuple */
-	if (!PageIndexTupleOverwrite(page, element->neighborOffno, (Item) ntup, ntupSize))
-		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+	/* Check expected size */
+	Assert(ItemIdGetLength(itemid) == HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m));
+
+	/* Update page in-place */
+	HnswSetNeighborTuple(base, ntup, element, m);
 
 	/* Commit */
 	GenericXLogFinish(state);
@@ -588,7 +588,6 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
 	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	vacuumstate->collation = index->rd_indcollation[0];
-	vacuumstate->ntup = palloc0(BLCKSZ);
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
 												ALLOCSET_DEFAULT_SIZES);
@@ -608,7 +607,6 @@ FreeVacuumState(HnswVacuumState * vacuumstate)
 {
 	tidhash_destroy(vacuumstate->deleted);
 	FreeAccessStrategy(vacuumstate->bas);
-	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);
 }
 
