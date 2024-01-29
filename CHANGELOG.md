@@ -1,6 +1,6 @@
-## 0.6.0 (unreleased)
+## 0.6.0 (2024-01-29)
 
-If upgrading with Postgres 12 or Docker, see [these notes](https://github.com/pgvector/pgvector#060-unreleased).
+If upgrading with Postgres 12 or Docker, see [these notes](https://github.com/pgvector/pgvector#060).
 
 - Changed storage for vector from `extended` to `external`
 - Added support for parallel index builds for HNSW

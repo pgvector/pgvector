@@ -20,7 +20,7 @@ Compile and install the extension (supports Postgres 11+)
 
 ```sh
 cd /tmp
-git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git
+git clone --branch v0.6.0 https://github.com/pgvector/pgvector.git
 cd pgvector
 make
 make install # may need sudo
@@ -44,7 +44,7 @@ Then use `nmake` to build:
 
 ```cmd
 set "PGROOT=C:\Program Files\PostgreSQL\16"
-git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git
+git clone --branch v0.6.0 https://github.com/pgvector/pgvector.git
 cd pgvector
 nmake /F Makefile.win
 nmake /F Makefile.win install
@@ -264,7 +264,7 @@ HINT:  Increase maintenance_work_mem to speed up builds.
 
 Note: Do not set `maintenance_work_mem` so high that it exhausts the memory on the server
 
-Starting with 0.6.0 [unreleased], you can also speed up index creation by increasing the number of parallel workers (2 by default)
+Starting with 0.6.0, you can also speed up index creation by increasing the number of parallel workers (2 by default)
 
 ```sql
 SET max_parallel_maintenance_workers = 7; -- plus leader
@@ -651,10 +651,10 @@ If compilation fails and the output includes `warning: no such sysroot directory
 
 ### Docker
 
-Get the [Docker image](https://hub.docker.com/r/ankane/pgvector) with:
+Get the [Docker image](https://hub.docker.com/r/pgvector/pgvector) with:
 
 ```sh
-docker pull ankane/pgvector
+docker pull pgvector/pgvector:pg16
 ```
 
 This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (run it the same way).
@@ -662,9 +662,9 @@ This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (r
 You can also build the image manually:
 
 ```sh
-git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git
+git clone --branch v0.6.0 https://github.com/pgvector/pgvector.git
 cd pgvector
-docker build --build-arg PG_MAJOR=15 -t myuser/pgvector .
+docker build --build-arg PG_MAJOR=16 -t myuser/pgvector .
 ```
 
 ### Homebrew
@@ -741,7 +741,7 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 
 ## Upgrade Notes
 
-### 0.6.0 [unreleased]
+### 0.6.0
 
 #### Postgres 12
 
