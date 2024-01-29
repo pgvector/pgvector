@@ -357,7 +357,6 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			GenericXLogState *state;
 			ItemId		itemid;
 			HnswNeighborTuple ntup;
-			Size		ntupSize;
 			int			idx = -1;
 			int			startIdx;
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
@@ -398,7 +397,6 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			/* Get tuple */
 			itemid = PageGetItemId(page, offno);
 			ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
-			ntupSize = ItemIdGetLength(itemid);
 
 			/* Calculate index for update */
 			startIdx = (neighborElement->level - lc) * m;
@@ -427,12 +425,8 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			{
 				ItemPointer indextid = &ntup->indextids[idx];
 
-				/* Update neighbor */
+				/* Update neighbor on the buffer */
 				ItemPointerSet(indextid, e->blkno, e->offno);
-
-				/* Overwrite tuple */
-				if (!PageIndexTupleOverwrite(page, offno, (Item) ntup, ntupSize))
-					elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 				/* Commit */
 				if (building)
@@ -459,7 +453,6 @@ AddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool bu
 	GenericXLogState *state;
 	ItemId		itemid;
 	HnswElementTuple etup;
-	Size		etupSize;
 	int			i;
 
 	/* Read page */
@@ -479,7 +472,6 @@ AddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool bu
 	/* Find space */
 	itemid = PageGetItemId(page, dup->offno);
 	etup = (HnswElementTuple) PageGetItem(page, itemid);
-	etupSize = ItemIdGetLength(itemid);
 	for (i = 0; i < HNSW_HEAPTIDS; i++)
 	{
 		if (!ItemPointerIsValid(&etup->heaptids[i]))
@@ -495,12 +487,8 @@ AddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool bu
 		return false;
 	}
 
-	/* Add heap TID */
+	/* Add heap TID, modifying the tuple on the page directly */
 	etup->heaptids[i] = element->heaptids[0];
-
-	/* Overwrite tuple */
-	if (!PageIndexTupleOverwrite(page, dup->offno, (Item) etup, etupSize))
-		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	/* Commit */
 	if (building)

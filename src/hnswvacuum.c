@@ -92,14 +92,9 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				if (itemUpdated)
 				{
-					Size		etupSize = ItemIdGetLength(itemid);
-
 					/* Mark rest as invalid */
 					for (int i = idx; i < HNSW_HEAPTIDS; i++)
 						ItemPointerSetInvalid(&etup->heaptids[i]);
-
-					if (!PageIndexTupleOverwrite(page, offno, (Item) etup, etupSize))
-						elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 					updated = true;
 				}
@@ -482,8 +477,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			ItemId		itemid = PageGetItemId(page, offno);
 			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, itemid);
 			HnswNeighborTuple ntup;
-			Size		etupSize;
-			Size		ntupSize;
 			Buffer		nbuf;
 			Page		npage;
 			BlockNumber neighborPage;
@@ -506,10 +499,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			/* Skip live tuples */
 			if (ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
-
-			/* Calculate sizes */
-			etupSize = ItemIdGetLength(itemid);
-			ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(etup->level, vacuumstate->m);
 
 			/* Get neighbor page */
 			neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
@@ -537,13 +526,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			for (int i = 0; i < ntup->count; i++)
 				ItemPointerSetInvalid(&ntup->indextids[i]);
 
-			/* Overwrite element tuple */
-			if (!PageIndexTupleOverwrite(page, offno, (Item) etup, etupSize))
-				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
-
-			/* Overwrite neighbor tuple */
-			if (!PageIndexTupleOverwrite(npage, neighborOffno, (Item) ntup, ntupSize))
-				elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+			/* We modified the tuples in place, no need to call PageIndexTupleOverwrite */
 
 			/* Commit */
 			GenericXLogFinish(state);
