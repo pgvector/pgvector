@@ -259,13 +259,13 @@ WriteNeighborTuples(HnswBuildState * buildstate)
 
 	while (!HnswPtrIsNull(base, iter))
 	{
-		HnswElement e = HnswPtrAccess(base, iter);
+		HnswElement element = HnswPtrAccess(base, iter);
 		Buffer		buf;
 		Page		page;
-		Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
+		Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
 
 		/* Update iterator */
-		iter = e->next;
+		iter = element->next;
 
 		/* Zero memory for each element */
 		MemSet(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
@@ -274,13 +274,13 @@ WriteNeighborTuples(HnswBuildState * buildstate)
 		/* Needs to be called when no buffer locks are held */
 		CHECK_FOR_INTERRUPTS();
 
-		buf = ReadBufferExtended(index, forkNum, e->neighborPage, RBM_NORMAL, NULL);
+		buf = ReadBufferExtended(index, forkNum, element->neighborPage, RBM_NORMAL, NULL);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 		page = BufferGetPage(buf);
 
-		HnswSetNeighborTuple(base, ntup, e, m);
+		HnswSetNeighborTuple(base, ntup, element, m);
 
-		if (!PageIndexTupleOverwrite(page, e->neighborOffno, (Item) ntup, ntupSize))
+		if (!PageIndexTupleOverwrite(page, element->neighborOffno, (Item) ntup, ntupSize))
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 		/* Commit */
