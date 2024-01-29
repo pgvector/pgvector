@@ -657,7 +657,7 @@ Get the [Docker image](https://hub.docker.com/r/pgvector/pgvector) with:
 docker pull pgvector/pgvector:pg16
 ```
 
-This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (run it the same way).
+This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `16` with your Postgres server version, and run it the same way).
 
 You can also build the image manually:
 
