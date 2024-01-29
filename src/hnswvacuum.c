@@ -60,8 +60,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 		/* Iterate over nodes */
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			ItemId		itemid = PageGetItemId(page, offno);
-			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, itemid);
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
 			int			idx = 0;
 			bool		itemUpdated = false;
 
@@ -477,8 +476,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 		/* Update element and neighbors together */
 		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
-			ItemId		itemid = PageGetItemId(page, offno);
-			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, itemid);
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
 			HnswNeighborTuple ntup;
 			Buffer		nbuf;
 			Page		npage;

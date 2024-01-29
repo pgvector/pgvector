@@ -355,7 +355,6 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			Buffer		buf;
 			Page		page;
 			GenericXLogState *state;
-			ItemId		itemid;
 			HnswNeighborTuple ntup;
 			int			idx = -1;
 			int			startIdx;
@@ -395,8 +394,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			}
 
 			/* Get tuple */
-			itemid = PageGetItemId(page, offno);
-			ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
+			ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, offno));
 
 			/* Calculate index for update */
 			startIdx = (neighborElement->level - lc) * m;
@@ -451,7 +449,6 @@ AddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool bu
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
-	ItemId		itemid;
 	HnswElementTuple etup;
 	int			i;
 
@@ -470,8 +467,7 @@ AddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool bu
 	}
 
 	/* Find space */
-	itemid = PageGetItemId(page, dup->offno);
-	etup = (HnswElementTuple) PageGetItem(page, itemid);
+	etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, dup->offno));
 	for (i = 0; i < HNSW_HEAPTIDS; i++)
 	{
 		if (!ItemPointerIsValid(&etup->heaptids[i]))
