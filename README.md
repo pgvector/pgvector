@@ -16,7 +16,7 @@ Plus [ACID](https://en.wikipedia.org/wiki/ACID) compliance, point-in-time recove
 
 ### Linux and Mac
 
-Compile and install the extension (supports Postgres 11+)
+Compile and install the extension (supports Postgres 12+)
 
 ```sh
 cd /tmp
