@@ -141,10 +141,10 @@ HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, ForkNumber forkNum)
 }
 
 /*
- * Create element pages
+ * Create graph pages
  */
 static void
-CreateElementPages(HnswBuildState * buildstate)
+CreateGraphPages(HnswBuildState * buildstate)
 {
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
@@ -244,10 +244,10 @@ CreateElementPages(HnswBuildState * buildstate)
 }
 
 /*
- * Create neighbor pages
+ * Write neighbor tuples
  */
 static void
-CreateNeighborPages(HnswBuildState * buildstate)
+WriteNeighborTuples(HnswBuildState * buildstate)
 {
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
@@ -299,8 +299,8 @@ FlushPages(HnswBuildState * buildstate)
 #endif
 
 	CreateMetaPage(buildstate);
-	CreateElementPages(buildstate);
-	CreateNeighborPages(buildstate);
+	CreateGraphPages(buildstate);
+	WriteNeighborTuples(buildstate);
 
 	buildstate->graph->flushed = true;
 	MemoryContextReset(buildstate->graphCtx);
