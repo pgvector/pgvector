@@ -571,7 +571,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
 	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	vacuumstate->collation = index->rd_indcollation[0];
-	vacuumstate->ntup = palloc0(BLCKSZ);
+	vacuumstate->ntup = palloc0(HNSW_TUPLE_ALLOC_SIZE);
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
 												ALLOCSET_DEFAULT_SIZES);

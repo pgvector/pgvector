@@ -148,7 +148,6 @@ CreateGraphPages(HnswBuildState * buildstate)
 {
 	Relation	index = buildstate->index;
 	ForkNumber	forkNum = buildstate->forkNum;
-	Size		etupAllocSize;
 	Size		maxSize;
 	HnswElementTuple etup;
 	HnswNeighborTuple ntup;
@@ -160,12 +159,11 @@ CreateGraphPages(HnswBuildState * buildstate)
 	char	   *base = buildstate->hnswarea;
 
 	/* Calculate sizes */
-	etupAllocSize = BLCKSZ;
 	maxSize = HNSW_MAX_SIZE;
 
 	/* Allocate once */
-	etup = palloc0(etupAllocSize);
-	ntup = palloc0(BLCKSZ);
+	etup = palloc0(HNSW_TUPLE_ALLOC_SIZE);
+	ntup = palloc0(HNSW_TUPLE_ALLOC_SIZE);
 
 	/* Prepare first page */
 	buf = HnswNewBuffer(index, forkNum);
@@ -184,7 +182,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		iter = element->next;
 
 		/* Zero memory for each element */
-		MemSet(etup, 0, etupAllocSize);
+		MemSet(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
 
 		/* Calculate sizes */
 		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(valuePtr));
@@ -192,7 +190,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 
 		/* Initial size check */
-		if (etupSize > etupAllocSize)
+		if (etupSize > HNSW_TUPLE_ALLOC_SIZE)
 			elog(ERROR, "index tuple too large");
 
 		HnswSetElementTuple(base, etup, element);
@@ -257,7 +255,7 @@ WriteNeighborTuples(HnswBuildState * buildstate)
 	HnswNeighborTuple ntup;
 
 	/* Allocate once */
-	ntup = palloc0(BLCKSZ);
+	ntup = palloc0(HNSW_TUPLE_ALLOC_SIZE);
 
 	while (!HnswPtrIsNull(base, iter))
 	{
