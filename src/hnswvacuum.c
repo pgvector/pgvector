@@ -208,6 +208,9 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	/* Find neighbors for element, skipping itself */
 	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
 
+	/* Zero memory for each element */
+	MemSet(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
+
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */
 	HnswSetNeighborTuple(base, ntup, element, m);
