@@ -218,6 +218,8 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	state = GenericXLogStart(index);
 	page = GenericXLogRegisterBuffer(state, buf, 0);
+
+	/* Get neighbor tuple */
 	itemid = PageGetItemId(page, element->neighborOffno);
 	ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
 
