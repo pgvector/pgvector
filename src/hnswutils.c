@@ -7,6 +7,7 @@
 #include "lib/pairingheap.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
+#include "utils/memdebug.h"
 #include "utils/rel.h"
 #include "vector.h"
 
@@ -983,6 +984,10 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 			e->closer = CheckElementCloser(base, e, r, procinfo, collation);
 		else if (list_length(added) > 0)
 		{
+			/* Keep Valgrind happy for in-memory, parallel builds */
+			if (base != NULL)
+				VALGRIND_MAKE_MEM_DEFINED(&e->closer, 1);
+
 			/*
 			 * If the current candidate was closer, we only need to compare it
 			 * with the other candidates that we have added.
@@ -1014,6 +1019,10 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 			if (e->closer)
 				added = lappend(added, e);
 		}
+
+		/* Keep Valgrind happy for in-memory, parallel builds */
+		if (base != NULL)
+			VALGRIND_MAKE_MEM_DEFINED(&e->closer, 1);
 
 		if (e->closer)
 			r = lappend(r, e);
