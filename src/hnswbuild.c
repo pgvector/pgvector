@@ -254,14 +254,17 @@ WriteNeighborTuples(HnswBuildState * buildstate)
 	int			m = buildstate->m;
 	HnswElementPtr iter = buildstate->graph->head;
 	char	   *base = buildstate->hnswarea;
+	HnswNeighborTuple ntup;
+
+	/* Allocate once */
+	ntup = palloc0(BLCKSZ);
 
 	while (!HnswPtrIsNull(base, iter))
 	{
 		HnswElement e = HnswPtrAccess(base, iter);
 		Buffer		buf;
 		Page		page;
-		ItemId		itemid;
-		HnswNeighborTuple ntup;
+		Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 
 		/* Update iterator */
 		iter = e->next;
@@ -273,19 +276,18 @@ WriteNeighborTuples(HnswBuildState * buildstate)
 		buf = ReadBufferExtended(index, forkNum, e->neighborPage, RBM_NORMAL, NULL);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 		page = BufferGetPage(buf);
-		itemid = PageGetItemId(page, e->neighborOffno);
-		ntup = (HnswNeighborTuple) PageGetItem(page, itemid);
 
-		/* Check expected size */
-		Assert(ItemIdGetLength(itemid) == HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m));
-
-		/* Update page in-place */
 		HnswSetNeighborTuple(base, ntup, e, m);
+
+		if (!PageIndexTupleOverwrite(page, e->neighborOffno, (Item) ntup, ntupSize))
+			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 		/* Commit */
 		MarkBufferDirty(buf);
 		UnlockReleaseBuffer(buf);
 	}
+
+	pfree(ntup);
 }
 
 /*
