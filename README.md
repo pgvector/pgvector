@@ -430,6 +430,15 @@ To speed up queries with an IVFFlat index, increase the number of inverted lists
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
 ```
 
+## Vacuuming
+
+Vacuuming can take a while for HNSW indexes. Speed it up by reindexing first.
+
+```sql
+REINDEX INDEX CONCURRENTLY index_name;
+VACUUM table_name;
+```
+
 ## Languages
 
 Use pgvector from any language with a Postgres client. You can even generate and store vectors in one language and query them in another.
