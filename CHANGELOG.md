@@ -1,3 +1,7 @@
+## 0.6.1 (unreleased)
+
+- Fixed error with `ANALYZE` and vectors with different dimensions
+
 ## 0.6.0 (2024-01-29)
 
 If upgrading with Postgres 12 or Docker, see [these notes](https://github.com/pgvector/pgvector#060).

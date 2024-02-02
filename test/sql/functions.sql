@@ -6,6 +6,17 @@ SELECT '[1,2,3]'::vector * '[4,5,6]';
 SELECT '[1e37]'::vector * '[1e37]';
 SELECT '[1e-37]'::vector * '[1e-37]';
 
+SELECT '[1,2,3]'::vector = '[1,2,3]';
+SELECT '[1,2,3]'::vector = '[1,2]';
+
+SELECT vector_cmp('[1,2,3]', '[1,2,3]');
+SELECT vector_cmp('[1,2,3]', '[0,0,0]');
+SELECT vector_cmp('[0,0,0]', '[1,2,3]');
+SELECT vector_cmp('[1,2]', '[1,2,3]');
+SELECT vector_cmp('[1,2,3]', '[1,2]');
+SELECT vector_cmp('[1,2]', '[2,3,4]');
+SELECT vector_cmp('[2,3]', '[1,2,3]');
+
 SELECT vector_dims('[1,2,3]');
 
 SELECT round(vector_norm('[1,1]')::numeric, 5);

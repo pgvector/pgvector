@@ -24,6 +24,56 @@ SELECT '[1e37]'::vector * '[1e37]';
 ERROR:  value out of range: overflow
 SELECT '[1e-37]'::vector * '[1e-37]';
 ERROR:  value out of range: underflow
+SELECT '[1,2,3]'::vector = '[1,2,3]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::vector = '[1,2]';
+ERROR:  different vector dimensions 3 and 2
+SELECT vector_cmp('[1,2,3]', '[1,2,3]');
+ vector_cmp 
+------------
+          0
+(1 row)
+
+SELECT vector_cmp('[1,2,3]', '[0,0,0]');
+ vector_cmp 
+------------
+          1
+(1 row)
+
+SELECT vector_cmp('[0,0,0]', '[1,2,3]');
+ vector_cmp 
+------------
+         -1
+(1 row)
+
+SELECT vector_cmp('[1,2]', '[1,2,3]');
+ vector_cmp 
+------------
+         -1
+(1 row)
+
+SELECT vector_cmp('[1,2,3]', '[1,2]');
+ vector_cmp 
+------------
+          1
+(1 row)
+
+SELECT vector_cmp('[1,2]', '[2,3,4]');
+ vector_cmp 
+------------
+         -1
+(1 row)
+
+SELECT vector_cmp('[2,3]', '[1,2,3]');
+ vector_cmp 
+------------
+          1
+(1 row)
+
 SELECT vector_dims('[1,2,3]');
  vector_dims 
 -------------
