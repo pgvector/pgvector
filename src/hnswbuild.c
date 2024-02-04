@@ -669,10 +669,6 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
-	/* Require column to have dimensions to be indexed */
-	if (buildstate->dimensions < 0)
-		elog(ERROR, "column does not have dimensions");
-
 	if (buildstate->dimensions > HNSW_MAX_DIM)
 		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", HNSW_MAX_DIM);
 
