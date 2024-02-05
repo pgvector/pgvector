@@ -555,7 +555,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
  * Load an element and optionally get its distance from q
  */
 void
-HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
+HnswLoadElement(HnswElement element, float *distance, HnswQuery * q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
 {
 	Buffer		buf;
 	Page		page;
@@ -575,7 +575,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 
 	/* Calculate distance */
 	if (distance != NULL)
-		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
+		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q->value, PointerGetDatum(&etup->data)));
 
 	UnlockReleaseBuffer(buf);
 }
@@ -584,19 +584,19 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
  * Get the distance for a candidate
  */
 static float
-GetCandidateDistance(char *base, HnswCandidate * hc, Datum q, FmgrInfo *procinfo, Oid collation)
+GetCandidateDistance(char *base, HnswCandidate * hc, HnswQuery * q, FmgrInfo *procinfo, Oid collation)
 {
 	HnswElement hce = HnswPtrAccess(base, hc->element);
 	Datum		value = HnswGetValue(base, hce);
 
-	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, value));
+	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q->value, value));
 }
 
 /*
  * Create a candidate for the entry point
  */
 HnswCandidate *
-HnswEntryCandidate(char *base, HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
+HnswEntryCandidate(char *base, HnswElement entryPoint, HnswQuery * q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
 {
 	HnswCandidate *hc = palloc(sizeof(HnswCandidate));
 
@@ -604,7 +604,7 @@ HnswEntryCandidate(char *base, HnswElement entryPoint, Datum q, Relation index, 
 	if (index == NULL)
 		hc->distance = GetCandidateDistance(base, hc, q, procinfo, collation);
 	else
-		HnswLoadElement(entryPoint, &hc->distance, &q, index, procinfo, collation, loadVec);
+		HnswLoadElement(entryPoint, &hc->distance, q, index, procinfo, collation, loadVec);
 	return hc;
 }
 
@@ -722,7 +722,7 @@ CountElement(char *base, HnswElement skipElement, HnswCandidate * hc)
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement)
+HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -806,7 +806,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
 				else
-					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting);
+					HnswLoadElement(eElement, &eDistance, q, index, procinfo, collation, inserting);
 
 				Assert(!eElement->deleted);
 
@@ -1091,7 +1091,9 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm
 		/* Load elements on insert */
 		if (index != NULL)
 		{
-			Datum		q = HnswGetValue(base, hce);
+			HnswQuery	q;
+
+			q.value = HnswGetValue(base, hce);
 
 			for (int i = 0; i < currentNeighbors->length; i++)
 			{
@@ -1101,7 +1103,7 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm
 				if (HnswPtrIsNull(base, hc3Element->value))
 					HnswLoadElement(hc3Element, &hc3->distance, &q, index, procinfo, collation, true);
 				else
-					hc3->distance = GetCandidateDistance(base, hc3, q, procinfo, collation);
+					hc3->distance = GetCandidateDistance(base, hc3, &q, procinfo, collation);
 
 				/* Prune element if being deleted */
 				if (hc3Element->heaptidsLength == 0)
@@ -1201,8 +1203,10 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	List	   *w;
 	int			level = element->level;
 	int			entryLevel;
-	Datum		q = HnswGetValue(base, element);
+	HnswQuery	q;
 	HnswElement skipElement = existing ? element : NULL;
+
+	q.value = HnswGetValue(base, element);
 
 #if PG_VERSION_NUM >= 130000
 	/* Precompute hash */
@@ -1215,13 +1219,13 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		return;
 
 	/* Get entry point and level */
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, true));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, &q, index, procinfo, collation, true));
 	entryLevel = entryPoint->level;
 
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, procinfo, collation, m, true, skipElement);
 		ep = w;
 	}
 
@@ -1239,7 +1243,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *neighbors;
 		List	   *lw;
 
-		w = HnswSearchLayer(base, q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement);
 
 		/* Elements being deleted or skipped can help with search */
 		/* but should be removed before selecting neighbors */

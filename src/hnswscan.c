@@ -11,7 +11,7 @@
  * Algorithm 5 from paper
  */
 static List *
-GetScanItems(IndexScanDesc scan, Datum q)
+GetScanItems(IndexScanDesc scan, Datum value)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
@@ -22,6 +22,9 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	int			m;
 	HnswElement entryPoint;
 	char	   *base = NULL;
+	HnswQuery	q;
+
+	q.value = value;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
@@ -29,15 +32,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, &q, index, procinfo, collation, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, &q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
 }
 
 /*
