@@ -189,8 +189,6 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	GenericXLogState *state;
 	int			m = vacuumstate->m;
 	int			efConstruction = vacuumstate->efConstruction;
-	FmgrInfo   *procinfo = vacuumstate->procinfo;
-	Oid			collation = vacuumstate->collation;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
 	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
@@ -205,7 +203,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	element->heaptidsLength = 0;
 
 	/* Find neighbors for element, skipping itself */
-	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, true);
+	HnswFindElementNeighbors(base, element, entryPoint, index, &vacuumstate->support, m, efConstruction, true);
 
 	/* Zero memory for each element */
 	MemSet(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
@@ -229,7 +227,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	UnlockReleaseBuffer(buf);
 
 	/* Update neighbors */
-	HnswUpdateNeighborsOnDisk(index, procinfo, collation, element, m, true, false);
+	HnswUpdateNeighborsOnDisk(index, &vacuumstate->support, element, m, true, false);
 }
 
 /*
@@ -256,7 +254,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
 		/* Load element */
-		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
+		HnswLoadElement(highestPoint, NULL, NULL, index, &vacuumstate->support, true);
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
@@ -294,7 +292,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			 * is outdated, this can remove connections at higher levels in
 			 * the graph until they are repaired, but this should be fine.
 			 */
-			HnswLoadElement(entryPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
+			HnswLoadElement(entryPoint, NULL, NULL, index, &vacuumstate->support, true);
 
 			if (NeedsUpdated(vacuumstate, entryPoint))
 			{
@@ -573,8 +571,8 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->callback_state = callback_state;
 	vacuumstate->efConstruction = HnswGetEfConstruction(index);
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
-	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	vacuumstate->collation = index->rd_indcollation[0];
+	vacuumstate->support.procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	vacuumstate->support.collation = index->rd_indcollation[0];
 	vacuumstate->ntup = palloc0(HNSW_TUPLE_ALLOC_SIZE);
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
