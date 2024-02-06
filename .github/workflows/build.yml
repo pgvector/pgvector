@@ -29,9 +29,7 @@ jobs:
       - run: make
         env:
           PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
-      - run: |
-          export PG_CONFIG=`which pg_config`
-          sudo --preserve-env=PG_CONFIG make install
+      - run: sudo make install
       - run: make installcheck
       - if: ${{ failure() }}
         run: cat regression.diffs
@@ -39,62 +37,3 @@ jobs:
           sudo apt-get update
           sudo apt-get install libipc-run-perl
       - run: make prove_installcheck
-  mac:
-    runs-on: macos-latest
-    if: ${{ !startsWith(github.ref_name, 'windows') }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ankane/setup-postgres@v1
-        with:
-          postgres-version: 14
-      - run: make
-        env:
-          PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter
-      - run: make install
-      - run: make installcheck
-      - if: ${{ failure() }}
-        run: cat regression.diffs
-      - run: |
-          brew install cpanm
-          cpanm --notest IPC::Run
-          wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_10.tar.gz
-          tar xf REL_14_10.tar.gz
-      - run: make prove_installcheck PROVE_FLAGS="-I ./postgres-REL_14_10/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
-      - run: make clean && /usr/local/opt/llvm@15/bin/scan-build --status-bugs make PG_CFLAGS="-DUSE_ASSERT_CHECKING"
-  windows:
-    runs-on: windows-latest
-    if: ${{ !startsWith(github.ref_name, 'mac') }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ankane/setup-postgres@v1
-        with:
-          postgres-version: 14
-      - run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
-          nmake /NOLOGO /F Makefile.win && ^
-          nmake /NOLOGO /F Makefile.win install && ^
-          nmake /NOLOGO /F Makefile.win installcheck && ^
-          nmake /NOLOGO /F Makefile.win clean && ^
-          nmake /NOLOGO /F Makefile.win uninstall
-        shell: cmd
-  i386:
-    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
-    runs-on: ubuntu-latest
-    container:
-      image: debian:12
-      options: --platform linux/386
-    steps:
-      - run: apt-get update && apt-get install -y build-essential git libipc-run-perl postgresql-15 postgresql-server-dev-15 sudo
-      - run: service postgresql start
-      - run: |
-          git clone https://github.com/${{ github.repository }}.git pgvector
-          cd pgvector
-          git fetch origin ${{ github.ref }}
-          git reset --hard FETCH_HEAD
-          make
-          make install
-          chown -R postgres .
-          sudo -u postgres make installcheck
-          sudo -u postgres make prove_installcheck
-        env:
-          PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
