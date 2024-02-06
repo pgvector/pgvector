@@ -12,6 +12,10 @@
 #include "utils/rel.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM < 130000
+#define TYPSTORAGE_PLAIN 'p'
+#endif
+
 #if PG_VERSION_NUM >= 130000
 #include "common/hashfn.h"
 #else
