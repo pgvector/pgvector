@@ -916,7 +916,10 @@ HnswSearchLayer(char *base, Datum q, IndexScanDesc scan, List *ep, int ef, int l
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 
 				if (index == NULL)
+				{
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
+					eMatches = true;
+				}
 				else
 					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, scan, &eMatches);
 
