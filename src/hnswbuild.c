@@ -176,7 +176,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
-		void	   *valuePtr = HnswPtrAccess(base, element->value);
+		Pointer		valuePtr = HnswPtrAccess(base, element->value);
 
 		/* Update iterator */
 		iter = element->next;
