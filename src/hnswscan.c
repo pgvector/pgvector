@@ -33,11 +33,12 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, q, NULL, ep, 1, lc, index, procinfo, collation, m, false, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	/* Only pass scan to check matches for layer 0 */
+	return HnswSearchLayer(base, q, scan, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
 }
 
 /*
@@ -202,7 +203,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		MemoryContextSwitchTo(oldCtx);
 
 		scan->xs_heaptid = *heaptid;
-		scan->xs_recheck = false;
+		scan->xs_recheck = scan->numberOfKeys > 0;
 		scan->xs_recheckorderby = false;
 		return true;
 	}

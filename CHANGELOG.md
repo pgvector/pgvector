@@ -1,3 +1,7 @@
+## 0.7.0 (unreleased)
+
+- Added support for inline filtering with HNSW
+
 ## 0.6.1 (unreleased)
 
 - Fixed error with `ANALYZE` and vectors with different dimensions

@@ -136,9 +136,12 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
 	BlockNumber newInsertPage = InvalidBlockNumber;
 	char	   *base = NULL;
+	bool		useIndexTuple = IndexRelationGetNumberOfAttributes(index) > 1;
+	Pointer		valuePtr = HnswPtrAccess(base, e->value);
+	IndexTuple	itup = HnswPtrAccess(base, e->itup);
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(useIndexTuple ? IndexTupleSize(itup) : VARSIZE_ANY(valuePtr));
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;
@@ -146,7 +149,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 
 	/* Prepare element tuple */
 	etup = palloc0(etupSize);
-	HnswSetElementTuple(base, etup, e);
+	HnswSetElementTuple(base, etup, e, useIndexTuple);
 
 	/* Prepare neighbor tuple */
 	ntup = palloc0(ntupSize);
@@ -564,6 +567,10 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	Oid			collation = index->rd_indcollation[0];
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
+	TupleDesc	tupdesc = HnswTupleDesc(index);
+	bool		unused;
+	IndexTuple	itup;
+	Pointer		valuePtr;
 
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts
@@ -577,7 +584,10 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 
 	/* Create an element */
 	element = HnswInitElement(base, heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
-	HnswPtrStore(base, element->value, DatumGetPointer(value));
+	itup = HnswFormIndexTuple(index, tupdesc, value, values, isnull);
+	HnswPtrStore(base, element->itup, itup);
+	valuePtr = DatumGetPointer(index_getattr(itup, 1, tupdesc, &unused));
+	HnswPtrStore(base, element->value, valuePtr);
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)

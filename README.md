@@ -377,6 +377,12 @@ Create an index on one [or more](https://www.postgresql.org/docs/current/indexes
 CREATE INDEX ON items (category_id);
 ```
 
+Or a composite HNSW index for approximate search (added in 0.7.0)
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops, category_id);
+```
+
 Or a [partial index](https://www.postgresql.org/docs/current/indexes-partial.html) on the vector column for approximate search
 
 ```sql

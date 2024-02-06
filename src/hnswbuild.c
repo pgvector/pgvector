@@ -157,6 +157,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 	Page		page;
 	HnswElementPtr iter = buildstate->graph->head;
 	char	   *base = buildstate->hnswarea;
+	bool		useIndexTuple = IndexRelationGetNumberOfAttributes(index) > 1;
 
 	/* Calculate sizes */
 	maxSize = HNSW_MAX_SIZE;
@@ -176,7 +177,8 @@ CreateGraphPages(HnswBuildState * buildstate)
 		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
-		void	   *valuePtr = HnswPtrAccess(base, element->value);
+		Pointer		valuePtr = HnswPtrAccess(base, element->value);
+		IndexTuple	itup = HnswPtrAccess(base, element->itup);
 
 		/* Update iterator */
 		iter = element->next;
@@ -185,7 +187,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		MemSet(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
 
 		/* Calculate sizes */
-		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(valuePtr));
+		etupSize = HNSW_ELEMENT_TUPLE_SIZE(useIndexTuple ? IndexTupleSize(itup) : VARSIZE_ANY(valuePtr));
 		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
 		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 
@@ -193,7 +195,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		if (etupSize > HNSW_TUPLE_ALLOC_SIZE)
 			elog(ERROR, "index tuple too large");
 
-		HnswSetElementTuple(base, etup, element);
+		HnswSetElementTuple(base, etup, element, useIndexTuple);
 
 		/* Keep element and neighbors on the same page if possible */
 		if (PageGetFreeSpace(page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(page) < combinedSize))
@@ -471,10 +473,14 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
-	Size		valueSize;
+	IndexTuple	itup;
+	Size		itupSize;
+	IndexTuple	itupPtr;
 	Pointer		valuePtr;
 	LWLock	   *flushLock = &graph->flushLock;
 	char	   *base = buildstate->hnswarea;
+	TupleDesc	tupdesc = HnswTupleDesc(index);
+	bool		unused;
 
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
@@ -487,7 +493,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	}
 
 	/* Get datum size */
-	valueSize = VARSIZE_ANY(DatumGetPointer(value));
+	itup = HnswFormIndexTuple(index, tupdesc, value, values, isnull);
+	itupSize = IndexTupleSize(itup);
 
 	/* Ensure graph not flushed when inserting */
 	LWLockAcquire(flushLock, LW_SHARED);
@@ -534,7 +541,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 	/* Ok, we can proceed to allocate the element */
 	element = HnswInitElement(base, heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel, allocator);
-	valuePtr = HnswAlloc(allocator, valueSize);
+	itupPtr = HnswAlloc(allocator, itupSize);
 
 	/*
 	 * We have now allocated the space needed for the element, so we don't
@@ -543,8 +550,10 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	 */
 	LWLockRelease(&graph->allocatorLock);
 
-	/* Copy the datum */
-	memcpy(valuePtr, DatumGetPointer(value), valueSize);
+	/* Copy the index tuple */
+	memcpy(itupPtr, itup, itupSize);
+	HnswPtrStore(base, element->itup, itupPtr);
+	valuePtr = DatumGetPointer(index_getattr(itupPtr, 1, tupdesc, &unused));
 	HnswPtrStore(base, element->value, valuePtr);
 
 	/* Create a lock for the element */
@@ -668,6 +677,19 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+
+	/* For now */
+	if (IndexRelationGetNumberOfKeyAttributes(index) > 2)
+		elog(ERROR, "index cannot have more than two columns");
+
+	if (!OidIsValid(index_getprocid(index, 1, HNSW_DISTANCE_PROC)))
+		elog(ERROR, "first column must be a vector");
+
+	for (int i = 1; i < IndexRelationGetNumberOfKeyAttributes(index); i++)
+	{
+		if (OidIsValid(index_getprocid(index, i + 1, HNSW_DISTANCE_PROC)))
+			elog(ERROR, "column %d cannot be a vector", i + 1);
+	}
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)

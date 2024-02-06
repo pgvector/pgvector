@@ -256,7 +256,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
 		/* Load element */
-		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
+		HnswLoadElement(highestPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true, NULL, NULL);
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
@@ -294,7 +294,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			 * is outdated, this can remove connections at higher levels in
 			 * the graph until they are repaired, but this should be fine.
 			 */
-			HnswLoadElement(entryPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true);
+			HnswLoadElement(entryPoint, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true, NULL, NULL);
 
 			if (NeedsUpdated(vacuumstate, entryPoint))
 			{
@@ -370,7 +370,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 
 			/* Create an element */
 			element = HnswInitElementFromBlock(blkno, offno);
-			HnswLoadElementFromTuple(element, etup, false, true);
+			HnswLoadElementFromTuple(element, etup, false, true, index);
 
 			elements = lappend(elements, element);
 		}
@@ -440,6 +440,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
+	bool		useIndexTuple = IndexRelationGetNumberOfAttributes(index);
 
 	/*
 	 * Wait for index scans to complete. Scans before this point may contain
@@ -521,7 +522,18 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Overwrite element */
 			etup->deleted = 1;
-			MemSet(&etup->data, 0, VARSIZE_ANY(&etup->data));
+			if (useIndexTuple)
+			{
+				IndexTuple	itup = (IndexTuple) &etup->data;
+
+				MemSet(itup, 0, IndexTupleSize(itup));
+			}
+			else
+			{
+				Vector	   *vec = (Vector *) (&etup->data);
+
+				MemSet(vec, 0, VARSIZE_ANY(vec));
+			}
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < ntup->count; i++)
