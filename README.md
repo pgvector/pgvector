@@ -28,7 +28,7 @@ make install # may need sudo
 
 See the [installation notes](#installation-notes) if you run into issues
 
-You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres). There are also instructions for [GitHub Actions](https://github.com/pgvector/setup-pgvector).
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), [pkg](#pkg), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres). There are also instructions for [GitHub Actions](https://github.com/pgvector/setup-pgvector).
 
 ### Windows
 
@@ -715,6 +715,21 @@ sudo dnf install pgvector_16
 ```
 
 Note: Replace `16` with your Postgres server version
+
+### pkg
+
+Install the FreeBSD package with:
+
+```sh
+pkg install postgresql15-pg_vector
+```
+
+or the port with:
+
+```sh
+cd /usr/ports/databases/pg_vector
+make install
+```
 
 ### conda-forge
 
