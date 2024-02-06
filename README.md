@@ -727,7 +727,7 @@ pkg install postgresql15-pg_vector
 or the port with:
 
 ```sh
-cd /usr/ports/databases/pg_vector
+cd /usr/ports/databases/pgvector
 make install
 ```
 
