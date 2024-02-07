@@ -336,19 +336,17 @@ AddDuplicateInMemory(HnswElement element, HnswElement dup)
  * Find duplicate element
  */
 static bool
-FindDuplicateInMemory(char *base, HnswElement element)
+FindDuplicateInMemory(char *base, HnswElement element, Relation index)
 {
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
-	Datum		value = HnswGetValue(base, element);
 
 	for (int i = 0; i < neighbors->length; i++)
 	{
 		HnswCandidate *neighbor = &neighbors->items[i];
 		HnswElement neighborElement = HnswPtrAccess(base, neighbor->element);
-		Datum		neighborValue = HnswGetValue(base, neighborElement);
 
 		/* Exit early since ordered by distance */
-		if (!datumIsEqual(value, neighborValue, false, -1))
+		if (!HnswElementIsDuplicate(base, element, neighborElement, index))
 			return false;
 
 		/* Check for space */
@@ -408,7 +406,7 @@ UpdateGraphInMemory(FmgrInfo *procinfo, Oid collation, HnswElement element, int 
 	char	   *base = buildstate->hnswarea;
 
 	/* Look for duplicate */
-	if (FindDuplicateInMemory(base, element))
+	if (FindDuplicateInMemory(base, element, buildstate->index))
 		return;
 
 	/* Add element */

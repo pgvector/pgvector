@@ -330,6 +330,53 @@ HnswFormIndexTuple(Relation index, TupleDesc tupdesc, Datum value, Datum *values
 }
 
 /*
+ * Check if elements are duplicates
+ */
+bool
+HnswElementIsDuplicate(char *base, HnswElement a, HnswElement b, Relation index)
+{
+	if (IndexRelationGetNumberOfAttributes(index) == 1)
+	{
+		Datum		value = HnswGetValue(base, a);
+		Datum		value2 = HnswGetValue(base, b);
+
+		return datumIsEqual(value, value2, false, -1);
+	}
+	else
+	{
+		TupleDesc	tupdesc = RelationGetDescr(index);
+		IndexTuple	itup = HnswPtrAccess(base, a->itup);
+		IndexTuple	itup2 = HnswPtrAccess(base, b->itup);
+
+		for (int i = 0; i < tupdesc->natts; i++)
+		{
+			Datum		value;
+			Datum		value2;
+			bool		isnull;
+			bool		isnull2;
+
+			value = index_getattr(itup, i + 1, tupdesc, &isnull);
+			value2 = index_getattr(itup2, i + 1, tupdesc, &isnull2);
+
+			if (isnull || isnull2)
+			{
+				if (isnull != isnull2)
+					return false;
+			}
+			else
+			{
+				Form_pg_attribute att = TupleDescAttr(tupdesc, i);
+
+				if (!datumIsEqual(value, value2, att->attbyval, att->attlen))
+					return false;
+			}
+		}
+
+		return true;
+	}
+}
+
+/*
  * Get the metapage info
  */
 void

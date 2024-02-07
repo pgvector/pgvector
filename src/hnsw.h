@@ -393,6 +393,7 @@ void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, 
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 TupleDesc	HnswTupleDesc(Relation index);
 IndexTuple	HnswFormIndexTuple(Relation index, TupleDesc tupdesc, Datum value, Datum *values, bool *isnull);
+bool		HnswElementIsDuplicate(char *base, HnswElement a, HnswElement b, Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */
