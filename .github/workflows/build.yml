@@ -98,3 +98,12 @@ jobs:
           sudo -u postgres make prove_installcheck
         env:
           PG_CFLAGS: -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+  valgrind:
+    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ankane/setup-postgres-valgrind@v1
+      - run: make
+      - run: sudo --preserve-env=PG_CONFIG make install
+      - run: make installcheck
