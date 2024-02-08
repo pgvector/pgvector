@@ -1,129 +1,129 @@
-SELECT '[1,2,3]'::vector;
- vector  
+SELECT '[1,2,3]'::svector;
+ svector 
 ---------
  [1,2,3]
 (1 row)
 
-SELECT '[-1,-2,-3]'::vector;
-   vector   
+SELECT '[-1,-2,-3]'::svector;
+  svector   
 ------------
  [-1,-2,-3]
 (1 row)
 
-SELECT '[1.,2.,3.]'::vector;
- vector  
+SELECT '[1.,2.,3.]'::svector;
+ svector 
 ---------
  [1,2,3]
 (1 row)
 
-SELECT ' [ 1,  2 ,    3  ] '::vector;
- vector  
+SELECT ' [ 1,  2 ,    3  ] '::svector;
+ svector 
 ---------
  [1,2,3]
 (1 row)
 
-SELECT '[1.23456]'::vector;
-  vector   
+SELECT '[1.23456]'::svector;
+  svector  
 -----------
  [1.23456]
 (1 row)
 
-SELECT '[hello,1]'::vector;
-ERROR:  invalid input syntax for type vector: "[hello,1]"
-LINE 1: SELECT '[hello,1]'::vector;
+SELECT '[hello,1]'::svector;
+ERROR:  invalid input syntax for type svector: "[hello,1]"
+LINE 1: SELECT '[hello,1]'::svector;
                ^
-SELECT '[NaN,1]'::vector;
-ERROR:  NaN not allowed in vector
-LINE 1: SELECT '[NaN,1]'::vector;
+SELECT '[NaN,1]'::svector;
+ERROR:  NaN not allowed in svector
+LINE 1: SELECT '[NaN,1]'::svector;
                ^
-SELECT '[Infinity,1]'::vector;
-ERROR:  infinite value not allowed in vector
-LINE 1: SELECT '[Infinity,1]'::vector;
+SELECT '[Infinity,1]'::svector;
+ERROR:  infinite value not allowed in svector
+LINE 1: SELECT '[Infinity,1]'::svector;
                ^
-SELECT '[-Infinity,1]'::vector;
-ERROR:  infinite value not allowed in vector
-LINE 1: SELECT '[-Infinity,1]'::vector;
+SELECT '[-Infinity,1]'::svector;
+ERROR:  infinite value not allowed in svector
+LINE 1: SELECT '[-Infinity,1]'::svector;
                ^
-SELECT '[1.5e38,-1.5e38]'::vector;
-       vector       
+SELECT '[1.5e38,-1.5e38]'::svector;
+      svector       
 --------------------
  [1.5e+38,-1.5e+38]
 (1 row)
 
-SELECT '[1.5e+38,-1.5e+38]'::vector;
-       vector       
+SELECT '[1.5e+38,-1.5e+38]'::svector;
+      svector       
 --------------------
  [1.5e+38,-1.5e+38]
 (1 row)
 
-SELECT '[1.5e-38,-1.5e-38]'::vector;
-       vector       
+SELECT '[1.5e-38,-1.5e-38]'::svector;
+      svector       
 --------------------
  [1.5e-38,-1.5e-38]
 (1 row)
 
-SELECT '[4e38,1]'::vector;
-ERROR:  infinite value not allowed in vector
-LINE 1: SELECT '[4e38,1]'::vector;
+SELECT '[4e38,1]'::svector;
+ERROR:  infinite value not allowed in svector
+LINE 1: SELECT '[4e38,1]'::svector;
                ^
-SELECT '[1,2,3'::vector;
-ERROR:  malformed vector literal: "[1,2,3"
-LINE 1: SELECT '[1,2,3'::vector;
+SELECT '[1,2,3'::svector;
+ERROR:  malformed svector literal: "[1,2,3"
+LINE 1: SELECT '[1,2,3'::svector;
                ^
 DETAIL:  Unexpected end of input.
-SELECT '[1,2,3]9'::vector;
-ERROR:  malformed vector literal: "[1,2,3]9"
-LINE 1: SELECT '[1,2,3]9'::vector;
+SELECT '[1,2,3]9'::svector;
+ERROR:  malformed svector literal: "[1,2,3]9"
+LINE 1: SELECT '[1,2,3]9'::svector;
                ^
 DETAIL:  Junk after closing right brace.
-SELECT '1,2,3'::vector;
-ERROR:  malformed vector literal: "1,2,3"
-LINE 1: SELECT '1,2,3'::vector;
+SELECT '1,2,3'::svector;
+ERROR:  malformed svector literal: "1,2,3"
+LINE 1: SELECT '1,2,3'::svector;
                ^
 DETAIL:  Vector contents must start with "[".
-SELECT ''::vector;
-ERROR:  malformed vector literal: ""
-LINE 1: SELECT ''::vector;
+SELECT ''::svector;
+ERROR:  malformed svector literal: ""
+LINE 1: SELECT ''::svector;
                ^
 DETAIL:  Vector contents must start with "[".
-SELECT '['::vector;
-ERROR:  malformed vector literal: "["
-LINE 1: SELECT '['::vector;
+SELECT '['::svector;
+ERROR:  malformed svector literal: "["
+LINE 1: SELECT '['::svector;
                ^
 DETAIL:  Unexpected end of input.
-SELECT '[,'::vector;
-ERROR:  malformed vector literal: "[,"
-LINE 1: SELECT '[,'::vector;
+SELECT '[,'::svector;
+ERROR:  malformed svector literal: "[,"
+LINE 1: SELECT '[,'::svector;
                ^
 DETAIL:  Unexpected end of input.
-SELECT '[]'::vector;
-ERROR:  vector must have at least 1 dimension
-LINE 1: SELECT '[]'::vector;
+SELECT '[]'::svector;
+ERROR:  svector must have at least 1 dimension
+LINE 1: SELECT '[]'::svector;
                ^
-SELECT '[1,]'::vector;
-ERROR:  invalid input syntax for type vector: "[1,]"
-LINE 1: SELECT '[1,]'::vector;
+SELECT '[1,]'::svector;
+ERROR:  invalid input syntax for type svector: "[1,]"
+LINE 1: SELECT '[1,]'::svector;
                ^
-SELECT '[1a]'::vector;
-ERROR:  invalid input syntax for type vector: "[1a]"
-LINE 1: SELECT '[1a]'::vector;
+SELECT '[1a]'::svector;
+ERROR:  invalid input syntax for type svector: "[1a]"
+LINE 1: SELECT '[1a]'::svector;
                ^
-SELECT '[1,,3]'::vector;
-ERROR:  malformed vector literal: "[1,,3]"
-LINE 1: SELECT '[1,,3]'::vector;
+SELECT '[1,,3]'::svector;
+ERROR:  malformed svector literal: "[1,,3]"
+LINE 1: SELECT '[1,,3]'::svector;
                ^
-SELECT '[1, ,3]'::vector;
-ERROR:  invalid input syntax for type vector: "[1, ,3]"
-LINE 1: SELECT '[1, ,3]'::vector;
+SELECT '[1, ,3]'::svector;
+ERROR:  invalid input syntax for type svector: "[1, ,3]"
+LINE 1: SELECT '[1, ,3]'::svector;
                ^
-SELECT '[1,2,3]'::vector(2);
+SELECT '[1,2,3]'::svector(2);
 ERROR:  expected 2 dimensions, not 3
-SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::vector[]);
+SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::svector[]);
  unnest  
 ---------
  [1,2,3]
  [4,5,6]
 (2 rows)
 
-SELECT '{"[1,2,3]"}'::vector(2)[];
+SELECT '{"[1,2,3]"}'::svector(2)[];
 ERROR:  expected 2 dimensions, not 3

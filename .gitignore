@@ -1,9 +1,8 @@
-/dist/
-/log/
-/results/
-/tmp_check/
-/sql/vector--?.?.?.sql
-regression.*
+# PostgreSQL
+dist/
+sql/svector--?.?.?.sql
+
+# Libraries
 *.o
 *.so
 *.bc
@@ -12,3 +11,8 @@ regression.*
 *.obj
 *.lib
 *.exp
+
+# pg_regress
+results/
+test/test_logs.log
+regression.*

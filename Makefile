@@ -1,10 +1,10 @@
-EXTENSION = vector
-EXTVERSION = 0.6.0
+EXTENSION = svector
+EXTVERSION = 0.5.4
 
-MODULE_big = vector
+MODULE_big = svector
 DATA = $(wildcard sql/*--*.sql)
-OBJS = src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/vector.o
-HEADERS = src/vector.h
+OBJS = src/shnsw.o src/shnswbuild.o src/shnswinsert.o src/shnswscan.o src/shnswutils.o src/shnswvacuum.o src/svector.o
+HEADERS = src/svector.h
 
 TESTS = $(wildcard test/sql/*.sql)
 REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
@@ -58,22 +58,3 @@ PROVE_FLAGS += -I ./test/perl
 prove_installcheck:
 	rm -rf $(CURDIR)/tmp_check
 	cd $(srcdir) && TESTDIR='$(CURDIR)' PATH="$(bindir):$$PATH" PGPORT='6$(DEF_PGPORT)' PG_REGRESS='$(top_builddir)/src/test/regress/pg_regress' $(PROVE) $(PG_PROVE_FLAGS) $(PROVE_FLAGS) $(if $(PROVE_TESTS),$(PROVE_TESTS),test/t/*.pl)
-
-.PHONY: dist
-
-dist:
-	mkdir -p dist
-	git archive --format zip --prefix=$(EXTENSION)-$(EXTVERSION)/ --output dist/$(EXTENSION)-$(EXTVERSION).zip master
-
-# for Docker
-PG_MAJOR ?= 16
-
-.PHONY: docker
-
-docker:
-	docker build --pull --no-cache --build-arg PG_MAJOR=$(PG_MAJOR) -t pgvector/pgvector:pg$(PG_MAJOR) -t pgvector/pgvector:$(EXTVERSION)-pg$(PG_MAJOR) .
-
-.PHONY: docker-release
-
-docker-release:
-	docker buildx build --push --pull --no-cache --platform linux/amd64,linux/arm64 --build-arg PG_MAJOR=$(PG_MAJOR) -t pgvector/pgvector:pg$(PG_MAJOR) -t pgvector/pgvector:$(EXTVERSION)-pg$(PG_MAJOR) .
