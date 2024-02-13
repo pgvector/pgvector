@@ -4,3 +4,7 @@
 CREATE OPERATOR CLASS vector_integer_ops
 	DEFAULT FOR TYPE integer USING hnsw AS
 	OPERATOR 2 = (integer, integer);
+
+CREATE OPERATOR CLASS vector_bigint_ops
+	DEFAULT FOR TYPE bigint USING hnsw AS
+	OPERATOR 2 = (bigint, bigint);

@@ -561,8 +561,8 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	HnswElement element;
 	int			m;
 	int			efConstruction = HnswGetEfConstruction(index);
-	FmgrInfo   *procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	Oid			collation = index->rd_indcollation[0];
+	FmgrInfo   *procinfo = index_getprocinfo(index, IndexRelationGetNumberOfKeyAttributes(index), HNSW_DISTANCE_PROC);
+	Oid			collation = index->rd_indcollation[IndexRelationGetNumberOfKeyAttributes(index) - 1];
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
 	TupleDesc	tupdesc = HnswTupleDesc(index);
@@ -584,7 +584,7 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	element = HnswInitElement(base, heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
 	itup = HnswFormIndexTuple(index, tupdesc, value, values, isnull);
 	HnswPtrStore(base, element->itup, itup);
-	valuePtr = DatumGetPointer(index_getattr(itup, 1, tupdesc, &unused));
+	valuePtr = DatumGetPointer(index_getattr(itup, IndexRelationGetNumberOfKeyAttributes(index), tupdesc, &unused));
 	HnswPtrStore(base, element->value, valuePtr);
 
 	/* Prevent concurrent inserts when likely updating entry point */
@@ -621,10 +621,10 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 {
 	Datum		value;
 	FmgrInfo   *normprocinfo;
-	Oid			collation = index->rd_indcollation[0];
+	Oid			collation = index->rd_indcollation[IndexRelationGetNumberOfKeyAttributes(index) - 1];
 
 	/* Detoast once for all calls */
-	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	value = PointerGetDatum(PG_DETOAST_DATUM(values[IndexRelationGetNumberOfKeyAttributes(index) - 1]));
 
 	/* Normalize if needed */
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
@@ -653,7 +653,7 @@ hnswinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
 	MemoryContext insertCtx;
 
 	/* Skip nulls */
-	if (isnull[0])
+	if (isnull[IndexRelationGetNumberOfKeyAttributes(index) - 1])
 		return false;
 
 	/* Create memory context */

@@ -109,9 +109,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
-	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	so->procinfo = index_getprocinfo(index, IndexRelationGetNumberOfKeyAttributes(index), HNSW_DISTANCE_PROC);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->collation = index->rd_indcollation[0];
+	so->collation = index->rd_indcollation[IndexRelationGetNumberOfKeyAttributes(index) - 1];
 
 	scan->opaque = so;
 

@@ -58,11 +58,11 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4);");
+$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int8);");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
 );
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c);");
+$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (c, v vector_l2_ops);");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
 );
@@ -99,15 +99,15 @@ $node->safe_psql("postgres", "VACUUM tst;");
 
 # Test columns
 my ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c);");
-like($stderr, qr/first column must be a vector/);
+like($stderr, qr/last column must be a vector/);
 
-($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c, v vector_l2_ops);");
-like($stderr, qr/first column must be a vector/);
+($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c, c);");
+like($stderr, qr/last column must be a vector/);
 
-($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c, c);");
+($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c, c, v vector_l2_ops);");
 like($stderr, qr/index cannot have more than two columns/);
 
 ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, v vector_l2_ops);");
-like($stderr, qr/column 2 cannot be a vector/);
+like($stderr, qr/column 1 cannot be a vector/);
 
 done_testing();

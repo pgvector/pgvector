@@ -481,7 +481,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	bool		unused;
 
 	/* Detoast once for all calls */
-	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[IndexRelationGetNumberOfKeyAttributes(index) - 1]));
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -551,7 +551,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Copy the index tuple */
 	memcpy(itupPtr, itup, itupSize);
 	HnswPtrStore(base, element->itup, itupPtr);
-	valuePtr = DatumGetPointer(index_getattr(itupPtr, 1, tupdesc, &unused));
+	valuePtr = DatumGetPointer(index_getattr(itupPtr, IndexRelationGetNumberOfKeyAttributes(index), tupdesc, &unused));
 	HnswPtrStore(base, element->value, valuePtr);
 
 	/* Create a lock for the element */
@@ -582,7 +582,7 @@ BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 #endif
 
 	/* Skip nulls */
-	if (isnull[0])
+	if (isnull[IndexRelationGetNumberOfKeyAttributes(index) - 1])
 		return;
 
 	/* Use memory context */
@@ -674,16 +674,16 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
-	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+	buildstate->dimensions = TupleDescAttr(index->rd_att, IndexRelationGetNumberOfKeyAttributes(index) - 1)->atttypmod;
 
 	/* For now */
 	if (IndexRelationGetNumberOfKeyAttributes(index) > 2)
 		elog(ERROR, "index cannot have more than two columns");
 
-	if (!OidIsValid(index_getprocid(index, 1, HNSW_DISTANCE_PROC)))
-		elog(ERROR, "first column must be a vector");
+	if (!OidIsValid(index_getprocid(index, IndexRelationGetNumberOfKeyAttributes(index), HNSW_DISTANCE_PROC)))
+		elog(ERROR, "last column must be a vector");
 
-	for (int i = 1; i < IndexRelationGetNumberOfKeyAttributes(index); i++)
+	for (int i = 0; i < IndexRelationGetNumberOfKeyAttributes(index) - 1; i++)
 	{
 		if (OidIsValid(index_getprocid(index, i + 1, HNSW_DISTANCE_PROC)))
 			elog(ERROR, "column %d cannot be a vector", i + 1);
@@ -703,9 +703,9 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->indtuples = 0;
 
 	/* Get support functions */
-	buildstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	buildstate->procinfo = index_getprocinfo(index, IndexRelationGetNumberOfKeyAttributes(index), HNSW_DISTANCE_PROC);
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	buildstate->collation = index->rd_indcollation[0];
+	buildstate->collation = index->rd_indcollation[IndexRelationGetNumberOfKeyAttributes(index) - 1];
 
 	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * 1024L);
 	buildstate->graph = &buildstate->graphData;

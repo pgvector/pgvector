@@ -148,10 +148,10 @@ HnswGetEfConstruction(Relation index)
 FmgrInfo *
 HnswOptionalProcInfo(Relation index, uint16 procnum)
 {
-	if (!OidIsValid(index_getprocid(index, 1, procnum)))
+	if (!OidIsValid(index_getprocid(index, IndexRelationGetNumberOfKeyAttributes(index), procnum)))
 		return NULL;
 
-	return index_getprocinfo(index, 1, procnum);
+	return index_getprocinfo(index, IndexRelationGetNumberOfKeyAttributes(index), procnum);
 }
 
 /*
@@ -324,7 +324,7 @@ HnswFormIndexTuple(Relation index, TupleDesc tupdesc, Datum value, Datum *values
 	Datum	   *newValues = palloc(size);
 
 	memcpy(newValues, values, size);
-	newValues[0] = value;
+	newValues[IndexRelationGetNumberOfKeyAttributes(index) - 1] = value;
 
 	return index_form_tuple(tupdesc, newValues, isnull);
 }
@@ -642,7 +642,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 			TupleDesc	tupdesc = RelationGetDescr(index);
 			bool		unused;
 			IndexTuple	itup = CopyIndexTuple((IndexTuple) &etup->data);
-			Datum		value = index_getattr(itup, 1, tupdesc, &unused);
+			Datum		value = index_getattr(itup, IndexRelationGetNumberOfKeyAttributes(index), tupdesc, &unused);
 
 			HnswPtrStore(base, element->itup, itup);
 			HnswPtrStore(base, element->value, DatumGetPointer(value));
@@ -722,7 +722,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 			TupleDesc	tupdesc = RelationGetDescr(index);
 			bool		unused;
 
-			value = index_getattr(itup, 1, tupdesc, &unused);
+			value = index_getattr(itup, IndexRelationGetNumberOfKeyAttributes(index), tupdesc, &unused);
 		}
 		else
 			value = PointerGetDatum(&etup->data);
