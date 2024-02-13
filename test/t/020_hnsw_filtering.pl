@@ -21,7 +21,7 @@ sub test_recall
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
-		EXPLAIN ANALYZE SELECT i FROM tst WHERE c = $cs[0] ORDER BY v $operator '$queries[0]' LIMIT $limit;
+		EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' ORDER BY v $operator '$queries[0]' LIMIT $limit;
 	));
 	like($explain, qr/Index Cond/);
 
@@ -29,7 +29,7 @@ sub test_recall
 	{
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
-			SELECT i FROM tst WHERE c = $cs[$i] ORDER BY v $operator '$queries[$i]' LIMIT $limit;
+			SELECT i FROM tst WHERE c = '$cs[$i]' ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
 		my %actual_set = map { $_ => 1 } @actual_ids;
@@ -58,13 +58,13 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4);");
+$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c text);");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
 );
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c);");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql], (i % $nc)::text FROM generate_series(1, 10000) i;"
 );
 
 # Generate queries
@@ -85,7 +85,7 @@ for my $i (0 .. $#queries)
 {
 	my $res = $node->safe_psql("postgres", qq(
 		SET enable_indexscan = off;
-		SELECT i FROM tst WHERE c = $cs[$i] ORDER BY v <-> '$queries[$i]' LIMIT $limit;
+		SELECT i FROM tst WHERE c = '$cs[$i]' ORDER BY v <-> '$queries[$i]' LIMIT $limit;
 	));
 	push(@expected, $res);
 }
@@ -94,7 +94,7 @@ for my $i (0 .. $#queries)
 test_recall(0.99, '<->');
 
 # Test vacuum
-$node->safe_psql("postgres", "DELETE FROM tst WHERE c > 5;");
+$node->safe_psql("postgres", "DELETE FROM tst WHERE c > '5';");
 $node->safe_psql("postgres", "VACUUM tst;");
 
 # Test columns

@@ -4,3 +4,7 @@
 CREATE OPERATOR CLASS vector_integer_ops
 	DEFAULT FOR TYPE integer USING hnsw AS
 	OPERATOR 2 = (integer, integer);
+
+CREATE OPERATOR CLASS vector_text_ops
+	DEFAULT FOR TYPE text USING hnsw AS
+	OPERATOR 2 = (text, text);
