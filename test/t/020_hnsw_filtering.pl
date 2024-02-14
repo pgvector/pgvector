@@ -12,7 +12,8 @@ my $limit = 20;
 my $dim = 3;
 my $array_sql = join(",", ('random()') x $dim);
 my $nc = 50;
-my $type = "int4"; # int4, int8, text, varchar
+my @types = ("int4", "int8", "text", "varchar");
+my $type = $types[rand(@types)];
 
 sub test_recall
 {
@@ -68,6 +69,7 @@ $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, i % $nc FROM generate_series(1, 10000) i;"
 );
+$node->safe_psql("postgres", "ANALYZE tst;");
 
 # Generate queries
 for (1 .. 20)
