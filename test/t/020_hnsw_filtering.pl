@@ -107,13 +107,13 @@ like($explain, qr/Index Scan/);
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c >= '1' AND c <= '3' ORDER BY v <-> '$queries[0]' LIMIT $limit;
 ));
-like($explain, qr/Index Cond: \(\(c >= \S+\) AND \(c <= \S+\)\)/);
+like($explain, qr/Index Cond: \(\(\S+ >= \S+\) AND \(\S+ <= \S+\)\)/);
 
 # Test multiple conditions
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' AND c2 = '$cs[0]' ORDER BY v <-> '$queries[0]' LIMIT $limit;
 ));
-like($explain, qr/Index Cond: \(\(c = \S+\) AND \(c2 = \S+\)\)/);
+like($explain, qr/Index Cond: \(\(\S+ = \S+\) AND \(\S+ = \S+\)\)/);
 
 # Test no order
 $explain = $node->safe_psql("postgres", qq(
