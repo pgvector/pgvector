@@ -99,6 +99,13 @@ test_recall(0.99, '<->');
 $node->safe_psql("postgres", "DELETE FROM tst WHERE c > '5';");
 $node->safe_psql("postgres", "VACUUM tst;");
 
+# Test not used
+my $explain = $node->safe_psql("postgres", qq(
+	SET enable_seqscan = off;
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' LIMIT $limit;
+));
+like($explain, qr/Seq Scan/);
+
 # Test columns
 my ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c);");
 like($stderr, qr/first column must be a vector/);
