@@ -101,6 +101,12 @@ my $explain = $node->safe_psql("postgres", qq(
 ));
 like($explain, qr/Index Scan/);
 
+# Test range
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c >= '1' AND c <= '3' ORDER BY v <-> '$queries[0]' LIMIT $limit;
+));
+like($explain, qr/Index Cond: \(\(c >= \S+\) AND \(c <= \S+\)\)/);
+
 # Test multiple conditions
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' AND c2 = '$cs[0]' ORDER BY v <-> '$queries[0]' LIMIT $limit;

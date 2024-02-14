@@ -295,12 +295,24 @@ CREATE OPERATOR CLASS vector_cosine_ops
 
 CREATE OPERATOR CLASS vector_bigint_ops
 	DEFAULT FOR TYPE bigint USING hnsw AS
-	OPERATOR 2 = (bigint, bigint);
+	OPERATOR 2 < ,
+	OPERATOR 3 <= ,
+	OPERATOR 4 = ,
+	OPERATOR 5 >= ,
+	OPERATOR 6 > ;
 
 CREATE OPERATOR CLASS vector_integer_ops
 	DEFAULT FOR TYPE integer USING hnsw AS
-	OPERATOR 2 = (integer, integer);
+	OPERATOR 2 < ,
+	OPERATOR 3 <= ,
+	OPERATOR 4 = ,
+	OPERATOR 5 >= ,
+	OPERATOR 6 > ;
 
 CREATE OPERATOR CLASS vector_text_ops
 	DEFAULT FOR TYPE text USING hnsw AS
-	OPERATOR 2 = (text, text);
+	OPERATOR 2 < ,
+	OPERATOR 3 <= ,
+	OPERATOR 4 = ,
+	OPERATOR 5 >= ,
+	OPERATOR 6 > ;
