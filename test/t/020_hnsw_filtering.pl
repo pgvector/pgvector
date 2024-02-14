@@ -95,12 +95,15 @@ for my $i (0 .. $#queries)
 # Test recall
 test_recall(0.99, '<->');
 
-# Test vacuum
-$node->safe_psql("postgres", "DELETE FROM tst WHERE c > '5';");
-$node->safe_psql("postgres", "VACUUM tst;");
+# Test no conditions
+my $explain = $node->safe_psql("postgres", qq(
+	SET enable_seqscan = off;
+	EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v <-> '$queries[0]' LIMIT $limit;
+));
+like($explain, qr/Index Scan/);
 
 # Test multiple conditions
-my $explain = $node->safe_psql("postgres", qq(
+$explain = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' AND c2 = '$cs[0]' ORDER BY v <-> '$queries[0]' LIMIT $limit;
 ));
@@ -112,6 +115,10 @@ $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' LIMIT $limit;
 ));
 like($explain, qr/Seq Scan/);
+
+# Test vacuum
+$node->safe_psql("postgres", "DELETE FROM tst WHERE c > '5';");
+$node->safe_psql("postgres", "VACUUM tst;");
 
 # Test columns
 my ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c);");
