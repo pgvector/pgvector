@@ -677,8 +677,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
 	/* For now */
-	if (IndexRelationGetNumberOfKeyAttributes(index) > 2)
-		elog(ERROR, "index cannot have more than two columns");
+	if (IndexRelationGetNumberOfKeyAttributes(index) > 3)
+		elog(ERROR, "index cannot have more than three columns");
 
 	if (!OidIsValid(index_getprocid(index, 1, HNSW_DISTANCE_PROC)))
 		elog(ERROR, "first column must be a vector");

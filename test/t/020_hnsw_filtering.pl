@@ -60,13 +60,13 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c $type);");
+$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c $type, c2 $type);");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, i % $nc FROM generate_series(1, 10000) i;"
 );
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c);");
+$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c, c2);");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, i % $nc FROM generate_series(1, 10000) i;"
 );
 
 # Generate queries
@@ -99,8 +99,15 @@ test_recall(0.99, '<->');
 $node->safe_psql("postgres", "DELETE FROM tst WHERE c > '5';");
 $node->safe_psql("postgres", "VACUUM tst;");
 
-# Test not used
+# Test multiple conditions
 my $explain = $node->safe_psql("postgres", qq(
+	SET enable_seqscan = off;
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' AND c2 = '$cs[0]' ORDER BY v <-> '$queries[0]' LIMIT $limit;
+));
+like($explain, qr/Index Cond: \(\(c = \S+\) AND \(c2 = \S+\)\)/);
+
+# Test no order
+$explain = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' LIMIT $limit;
 ));
@@ -113,8 +120,8 @@ like($stderr, qr/first column must be a vector/);
 ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c, v vector_l2_ops);");
 like($stderr, qr/first column must be a vector/);
 
-($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c, c);");
-like($stderr, qr/index cannot have more than two columns/);
+($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c, c, c);");
+like($stderr, qr/index cannot have more than three columns/);
 
 ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, v vector_l2_ops);");
 like($stderr, qr/column 2 cannot be a vector/);
