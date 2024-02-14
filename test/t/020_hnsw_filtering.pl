@@ -97,21 +97,18 @@ test_recall(0.99, '<->');
 
 # Test no conditions
 my $explain = $node->safe_psql("postgres", qq(
-	SET enable_seqscan = off;
 	EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v <-> '$queries[0]' LIMIT $limit;
 ));
 like($explain, qr/Index Scan/);
 
 # Test multiple conditions
 $explain = $node->safe_psql("postgres", qq(
-	SET enable_seqscan = off;
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' AND c2 = '$cs[0]' ORDER BY v <-> '$queries[0]' LIMIT $limit;
 ));
 like($explain, qr/Index Cond: \(\(c = \S+\) AND \(c2 = \S+\)\)/);
 
 # Test no order
 $explain = $node->safe_psql("postgres", qq(
-	SET enable_seqscan = off;
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' LIMIT $limit;
 ));
 like($explain, qr/Seq Scan/);
