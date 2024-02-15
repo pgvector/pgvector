@@ -12,19 +12,32 @@ my $limit = 20;
 my $dim = 3;
 my $array_sql = join(",", ('random()') x $dim);
 my $nc = 50;
-my @types = ("int4", "int8", "text", "varchar");
+my @types = ("int4", "int8", "text", "uuid", "varchar");
 my $type = $types[rand(@types)];
+
+sub cast_c
+{
+	my ($c) = @_;
+
+	if ($type eq "uuid")
+	{
+		return "('00000000-0000-0000-0000-0000000000' || LPAD(($c)::text, 2, '0'))::uuid";
+	}
+	else
+	{
+		return "($c)::$type";
+	}
+}
 
 sub test_recall
 {
 	my ($min, $operator) = @_;
 	my $correct = 0;
 	my $total = 0;
-	my $cast = $type eq "int8" ? "::int8" : "";
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
-		EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]'$cast ORDER BY v $operator '$queries[0]' LIMIT $limit;
+		EXPLAIN ANALYZE SELECT i FROM tst WHERE c = @{[cast_c($cs[0])]} ORDER BY v $operator '$queries[0]' LIMIT $limit;
 	));
 	like($explain, qr/Index Cond/);
 
@@ -32,7 +45,7 @@ sub test_recall
 	{
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
-			SELECT i FROM tst WHERE c = '$cs[$i]'$cast ORDER BY v $operator '$queries[$i]' LIMIT $limit;
+			SELECT i FROM tst WHERE c = @{[cast_c($cs[$i])]} ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
 		my %actual_set = map { $_ => 1 } @actual_ids;
@@ -62,13 +75,13 @@ $node->start;
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c $type, c2 $type);");
-$node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, i % $nc FROM generate_series(1, 10000) i;"
-);
+$node->safe_psql("postgres", qq(
+	INSERT INTO tst SELECT i, ARRAY[$array_sql], @{[cast_c("i % $nc")]}, @{[cast_c("i % $nc")]} FROM generate_series(1, 10000) i;
+));
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c, c2);");
-$node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, i % $nc FROM generate_series(1, 10000) i;"
-);
+$node->safe_psql("postgres", qq(
+	INSERT INTO tst SELECT i, ARRAY[$array_sql], @{[cast_c("i % $nc")]}, @{[cast_c("i % $nc")]} FROM generate_series(1, 10000) i;
+));
 $node->safe_psql("postgres", "ANALYZE tst;");
 
 # Generate queries
@@ -89,7 +102,7 @@ for my $i (0 .. $#queries)
 {
 	my $res = $node->safe_psql("postgres", qq(
 		SET enable_indexscan = off;
-		SELECT i FROM tst WHERE c = '$cs[$i]' ORDER BY v <-> '$queries[$i]' LIMIT $limit;
+		SELECT i FROM tst WHERE c = @{[cast_c($cs[$i])]} ORDER BY v <-> '$queries[$i]' LIMIT $limit;
 	));
 	push(@expected, $res);
 }
@@ -105,24 +118,24 @@ like($explain, qr/Index Scan/);
 
 # Test range
 $explain = $node->safe_psql("postgres", qq(
-	EXPLAIN ANALYZE SELECT i FROM tst WHERE c >= '1' AND c <= '3' ORDER BY v <-> '$queries[0]' LIMIT $limit;
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c >= @{[cast_c(1)]} AND c <= @{[cast_c(3)]} ORDER BY v <-> '$queries[0]' LIMIT $limit;
 ));
 like($explain, qr/Index Cond: \(\(\S+ >= \S+\) AND \(\S+ <= \S+\)\)/);
 
 # Test multiple conditions
 $explain = $node->safe_psql("postgres", qq(
-	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' AND c2 = '$cs[0]' ORDER BY v <-> '$queries[0]' LIMIT $limit;
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = @{[cast_c($cs[0])]} AND c2 = @{[cast_c($cs[0])]} ORDER BY v <-> '$queries[0]' LIMIT $limit;
 ));
 like($explain, qr/Index Cond: \(\(\S+ = \S+\) AND \(\S+ = \S+\)\)/);
 
 # Test no order
 $explain = $node->safe_psql("postgres", qq(
-	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = '$cs[0]' LIMIT $limit;
+	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = @{[cast_c($cs[0])]} LIMIT $limit;
 ));
 like($explain, qr/Seq Scan/);
 
 # Test vacuum
-$node->safe_psql("postgres", "DELETE FROM tst WHERE c > '5';");
+$node->safe_psql("postgres", "DELETE FROM tst WHERE c > @{[cast_c(5)]};");
 $node->safe_psql("postgres", "VACUUM tst;");
 
 # Test columns
