@@ -8,6 +8,7 @@
 #include "commands/progress.h"
 #include "commands/vacuum.h"
 #include "hnsw.h"
+#include "miscadmin.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
 
@@ -28,7 +29,7 @@ static relopt_kind hnsw_relopt_kind;
  * this grows bigger, we should use a shmem_request_hook and
  * RequestAddinShmemSpace() to pre-reserve space for this.
  */
-static void
+void
 HnswInitLockTranche(void)
 {
 	int		   *tranche_ids;
@@ -53,7 +54,8 @@ HnswInitLockTranche(void)
 void
 HnswInit(void)
 {
-	HnswInitLockTranche();
+	if (!process_shared_preload_libraries_in_progress)
+		HnswInitLockTranche();
 
 	hnsw_relopt_kind = add_reloption_kind();
 	add_int_reloption(hnsw_relopt_kind, "m", "Max number of connections",
