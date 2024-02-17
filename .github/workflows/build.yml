@@ -92,15 +92,6 @@ jobs:
           nmake /NOLOGO /F Makefile.win && ^
           nmake /NOLOGO /F Makefile.win install && ^
           nmake /NOLOGO /F Makefile.win installcheck
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: pgvector-14-windows
-          path: |
-            ./vector.so
-            ./vector.control
-            ./sql/vector--0.6.0.sql
-
       - run: |
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
