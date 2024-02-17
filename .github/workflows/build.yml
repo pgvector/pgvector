@@ -39,6 +39,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install libipc-run-perl
       - run: make prove_installcheck
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: my-artifact
+          path: |
+            ./vector.so
+            ./vector.control
+            ./sql/vector--0.6.0.sql
+
   mac:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref_name, 'windows') }}
