@@ -98,7 +98,7 @@ jobs:
         with:
           name: pgvector-14-windows
           path: |
-            ./vector.so
+            ./vector.dll
             ./vector.control
             ./sql/vector--0.6.0.sql
 
