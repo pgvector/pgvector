@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: my-artifact
+          name: pgvector-${{ matrix.postgres }}-${{ matrix.os }}
           path: |
             ./vector.so
             ./vector.control
