@@ -81,31 +81,9 @@ hash_pointer(uintptr_t ptr)
 #define SH_DEFINE
 #include "lib/simplehash.h"
 
-/* Offset hash table */
-static uint32
-hash_offset(Size offset)
-{
-#if SIZEOF_SIZE_T == 8
-	return murmurhash64((uint64) offset);
-#else
-	return murmurhash32((uint32) offset);
-#endif
-}
-
-#define SH_PREFIX		offsethash
-#define SH_ELEMENT_TYPE	OffsetHashEntry
-#define SH_KEY_TYPE		Size
-#define	SH_KEY			offset
-#define SH_HASH_KEY(tb, key)	hash_offset(key)
-#define SH_EQUAL(tb, a, b)		(a == b)
-#define	SH_SCOPE		extern
-#define SH_DEFINE
-#include "lib/simplehash.h"
-
 typedef union
 {
 	pointerhash_hash *pointers;
-	offsethash_hash *offsets;
 	tidhash_hash *tids;
 }			visited_hash;
 
@@ -658,8 +636,6 @@ InitVisited(char *base, visited_hash * v, Relation index, int ef, int m)
 {
 	if (index != NULL)
 		v->tids = tidhash_create(CurrentMemoryContext, ef * m * 2, NULL);
-	else if (base != NULL)
-		v->offsets = offsethash_create(CurrentMemoryContext, ef * m * 2, NULL);
 	else
 		v->pointers = pointerhash_create(CurrentMemoryContext, ef * m * 2, NULL);
 }
@@ -668,34 +644,21 @@ InitVisited(char *base, visited_hash * v, Relation index, int ef, int m)
  * Add to visited
  */
 static inline void
-AddToVisited(char *base, visited_hash * v, HnswCandidate * hc, Relation index, bool *found)
+AddToVisited(char *base, visited_hash * v, HnswElement element, Relation index, bool *found)
 {
 	if (index != NULL)
 	{
-		HnswElement element = HnswPtrAccess(base, hc->element);
 		ItemPointerData indextid;
 
 		ItemPointerSet(&indextid, element->blkno, element->offno);
 		tidhash_insert(v->tids, indextid, found);
 	}
-	else if (base != NULL)
-	{
-#if PG_VERSION_NUM >= 130000
-		HnswElement element = HnswPtrAccess(base, hc->element);
-
-		offsethash_insert_hash(v->offsets, HnswPtrOffset(hc->element), element->hash, found);
-#else
-		offsethash_insert(v->offsets, HnswPtrOffset(hc->element), found);
-#endif
-	}
 	else
 	{
 #if PG_VERSION_NUM >= 130000
-		HnswElement element = HnswPtrAccess(base, hc->element);
-
-		pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(hc->element), element->hash, found);
+		pointerhash_insert_hash(v->pointers, (uintptr_t) element, element->hash, found);
 #else
-		pointerhash_insert(v->pointers, (uintptr_t) HnswPtrPointer(hc->element), found);
+		pointerhash_insert(v->pointers, (uintptr_t) element, found);
 #endif
 	}
 }
@@ -748,7 +711,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
 		bool		found;
 
-		AddToVisited(base, &v, hc, index, &found);
+		AddToVisited(base, &v, HnswPtrAccess(base, hc->element), index, &found);
 
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
@@ -792,14 +755,14 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		for (int i = 0; i < neighborhood->length; i++)
 		{
 			HnswCandidate *e = &neighborhood->items[i];
+			HnswElement eElement = HnswPtrAccess(base, e->element);
 			bool		visited;
 
-			AddToVisited(base, &v, e, index, &visited);
+			AddToVisited(base, &v, eElement, index, &visited);
 
 			if (!visited)
 			{
 				float		eDistance;
-				HnswElement eElement = HnswPtrAccess(base, e->element);
 
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 
@@ -1180,14 +1143,7 @@ RemoveElements(char *base, List *w, HnswElement skipElement)
 static void
 PrecomputeHash(char *base, HnswElement element)
 {
-	HnswElementPtr ptr;
-
-	HnswPtrStore(base, ptr, element);
-
-	if (base == NULL)
-		element->hash = hash_pointer((uintptr_t) HnswPtrPointer(ptr));
-	else
-		element->hash = hash_offset(HnswPtrOffset(ptr));
+	element->hash = hash_pointer((uintptr_t) element);
 }
 #endif
 

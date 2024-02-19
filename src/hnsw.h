@@ -445,17 +445,4 @@ typedef struct PointerHashEntry
 #define SH_DECLARE
 #include "lib/simplehash.h"
 
-typedef struct OffsetHashEntry
-{
-	Size		offset;
-	char		status;
-}			OffsetHashEntry;
-
-#define SH_PREFIX offsethash
-#define SH_ELEMENT_TYPE OffsetHashEntry
-#define SH_KEY_TYPE Size
-#define SH_SCOPE extern
-#define SH_DECLARE
-#include "lib/simplehash.h"
-
 #endif
