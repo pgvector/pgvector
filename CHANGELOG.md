@@ -1,6 +1,7 @@
 ## 0.6.1 (unreleased)
 
 - Fixed error with `ANALYZE` and vectors with different dimensions
+- Fixed error with `shared_preload_libraries`
 
 ## 0.6.0 (2024-01-29)
 
