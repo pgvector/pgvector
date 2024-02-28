@@ -977,6 +977,14 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Report less than allocated so never fails */
 	InitGraph(&hnswshared->graphData, hnswarea, esthnswarea - 1024 * 1024);
 
+	/*
+	 * Avoid base address for relptr for Postgres < 14.5
+	 * https://github.com/postgres/postgres/commit/7201cd18627afc64850537806da7f22150d1a83b
+	 */
+#if PG_VERSION_NUM < 140005
+	hnswshared->graphData.memoryUsed += MAXALIGN(1);
+#endif
+
 	shm_toc_insert(pcxt->toc, PARALLEL_KEY_HNSW_SHARED, hnswshared);
 	shm_toc_insert(pcxt->toc, PARALLEL_KEY_HNSW_AREA, hnswarea);
 
