@@ -952,7 +952,9 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 {
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
-	pairingheap *wd;
+	HnswCandidate **wd;
+	int			wdlen = 0;
+	int			wdoff = 0;
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, e2, lc);
 	bool		mustCalculate = !neighbors->closerSet;
 	List	   *added = NIL;
@@ -961,7 +963,7 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 	if (list_length(w) <= lm)
 		return w;
 
-	wd = pairingheap_allocate(CompareNearestCandidates, NULL);
+	wd = palloc(sizeof(HnswCandidate *) * list_length(w));
 
 	/* Ensure order of candidates is deterministic for closer caching */
 	if (sortCandidates)
@@ -1027,21 +1029,21 @@ SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid col
 		if (e->closer)
 			r = lappend(r, e);
 		else
-			pairingheap_add(wd, &(CreatePairingHeapNode(e)->ph_node));
+			wd[wdlen++] = e;
 	}
 
 	/* Cached value can only be used in future if sorted deterministically */
 	neighbors->closerSet = sortCandidates;
 
 	/* Keep pruned connections */
-	while (!pairingheap_is_empty(wd) && list_length(r) < lm)
-		r = lappend(r, ((HnswPairingHeapNode *) pairingheap_remove_first(wd))->inner);
+	while (wdoff < wdlen && list_length(r) < lm)
+		r = lappend(r, wd[wdoff++]);
 
 	/* Return pruned for update connections */
 	if (pruned != NULL)
 	{
-		if (!pairingheap_is_empty(wd))
-			*pruned = ((HnswPairingHeapNode *) pairingheap_first(wd))->inner;
+		if (wdoff < wdlen)
+			*pruned = wd[wdoff];
 		else
 			*pruned = linitial(w);
 	}
