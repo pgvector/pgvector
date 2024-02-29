@@ -6,3 +6,11 @@ DROP OPERATOR - (vector, vector);
 CREATE OPERATOR - (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_sub
 );
+
+ALTER OPERATOR <= (vector, vector) SET (
+	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
+);
+
+ALTER OPERATOR >= (vector, vector) SET (
+	RESTRICT = scalargesel, JOIN = scalargejoinsel
+);

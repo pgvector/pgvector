@@ -194,11 +194,10 @@ CREATE OPERATOR < (
 	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
 );
 
--- should use scalarlesel and scalarlejoinsel, but not supported in Postgres < 11
 CREATE OPERATOR <= (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_le,
 	COMMUTATOR = >= , NEGATOR = > ,
-	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
+	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
 );
 
 CREATE OPERATOR = (
@@ -213,11 +212,10 @@ CREATE OPERATOR <> (
 	RESTRICT = eqsel, JOIN = eqjoinsel
 );
 
--- should use scalargesel and scalargejoinsel, but not supported in Postgres < 11
 CREATE OPERATOR >= (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_ge,
 	COMMUTATOR = <= , NEGATOR = < ,
-	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
+	RESTRICT = scalargesel, JOIN = scalargejoinsel
 );
 
 CREATE OPERATOR > (
