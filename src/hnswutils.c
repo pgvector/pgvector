@@ -860,12 +860,15 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 static int
 #if PG_VERSION_NUM >= 130000
 CompareCandidateDistances(const ListCell *a, const ListCell *b)
+{
+	HnswCandidate *hca = lfirst(a);
+	HnswCandidate *hcb = lfirst(b);
 #else
 CompareCandidateDistances(const void *a, const void *b)
-#endif
 {
-	HnswCandidate *hca = lfirst((ListCell *) a);
-	HnswCandidate *hcb = lfirst((ListCell *) b);
+	HnswCandidate *hca = lfirst(*(ListCell **) a);
+	HnswCandidate *hcb = lfirst(*(ListCell **) b);
+#endif
 
 	if (hca->distance < hcb->distance)
 		return 1;
@@ -888,12 +891,15 @@ CompareCandidateDistances(const void *a, const void *b)
 static int
 #if PG_VERSION_NUM >= 130000
 CompareCandidateDistancesOffset(const ListCell *a, const ListCell *b)
+{
+	HnswCandidate *hca = lfirst(a);
+	HnswCandidate *hcb = lfirst(b);
 #else
 CompareCandidateDistancesOffset(const void *a, const void *b)
-#endif
 {
-	HnswCandidate *hca = lfirst((ListCell *) a);
-	HnswCandidate *hcb = lfirst((ListCell *) b);
+	HnswCandidate *hca = lfirst(*(ListCell **) a);
+	HnswCandidate *hcb = lfirst(*(ListCell **) b);
+#endif
 
 	if (hca->distance < hcb->distance)
 		return 1;
