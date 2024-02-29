@@ -180,8 +180,7 @@ CREATE OPERATOR + (
 );
 
 CREATE OPERATOR - (
-	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_sub,
-	COMMUTATOR = -
+	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_sub
 );
 
 CREATE OPERATOR * (
