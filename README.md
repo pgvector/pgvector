@@ -109,6 +109,12 @@ INSERT INTO items (id, embedding) VALUES (1, '[1,2,3]'), (2, '[4,5,6]')
     ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding;
 ```
 
+Load vectors in bulk using Postgres `COPY`
+
+```sql
+COPY items (id, embedding) FROM STDIN;
+```
+
 Update vectors
 
 ```sql
