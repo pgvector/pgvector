@@ -102,7 +102,7 @@ Insert vectors
 INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
 ```
 
-Or load vectors in bulk using `COPY`
+Or load vectors in bulk using `COPY` ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/bulk_loading.py))
 
 ```sql
 COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
