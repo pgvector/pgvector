@@ -264,6 +264,8 @@ HINT:  Increase maintenance_work_mem to speed up builds.
 
 Note: Do not set `maintenance_work_mem` so high that it exhausts the memory on the server
 
+Like other index types, it’s faster to create an index after loading your initial data
+
 Starting with 0.6.0, you can also speed up index creation by increasing the number of parallel workers (2 by default)
 
 ```sql
