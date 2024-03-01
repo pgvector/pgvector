@@ -102,17 +102,17 @@ Insert vectors
 INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
 ```
 
+Or load vectors in bulk using `COPY`
+
+```sql
+COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
+```
+
 Upsert vectors
 
 ```sql
 INSERT INTO items (id, embedding) VALUES (1, '[1,2,3]'), (2, '[4,5,6]')
     ON CONFLICT (id) DO UPDATE SET embedding = EXCLUDED.embedding;
-```
-
-Load vectors in bulk using Postgres `COPY`
-
-```sql
-COPY items (id, embedding) FROM STDIN;
 ```
 
 Update vectors
