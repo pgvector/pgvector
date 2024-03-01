@@ -656,6 +656,14 @@ Note: Replace `16` with your Postgres server version
 
 If compilation fails and the output includes `warning: no such sysroot directory` on Mac, reinstall Xcode Command Line Tools.
 
+### Portability
+
+To compile for portability, use:
+
+```sh
+make OPTFLAGS=""
+```
+
 ## Additional Installation Methods
 
 ### Docker
