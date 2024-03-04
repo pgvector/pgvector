@@ -20,7 +20,7 @@ Compile and install the extension (supports Postgres 12+)
 
 ```sh
 cd /tmp
-git clone --branch v0.6.0 https://github.com/pgvector/pgvector.git
+git clone --branch v0.6.1 https://github.com/pgvector/pgvector.git
 cd pgvector
 make
 make install # may need sudo
@@ -44,7 +44,7 @@ Then use `nmake` to build:
 
 ```cmd
 set "PGROOT=C:\Program Files\PostgreSQL\16"
-git clone --branch v0.6.0 https://github.com/pgvector/pgvector.git
+git clone --branch v0.6.1 https://github.com/pgvector/pgvector.git
 cd pgvector
 nmake /F Makefile.win
 nmake /F Makefile.win install
@@ -687,7 +687,7 @@ This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (r
 You can also build the image manually:
 
 ```sh
-git clone --branch v0.6.0 https://github.com/pgvector/pgvector.git
+git clone --branch v0.6.1 https://github.com/pgvector/pgvector.git
 cd pgvector
 docker build --build-arg PG_MAJOR=16 -t myuser/pgvector .
 ```
