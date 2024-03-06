@@ -581,6 +581,10 @@ or choose to store vectors inline:
 ALTER TABLE items ALTER COLUMN embedding SET STORAGE PLAIN;
 ```
 
+#### Why are there less results for a query after adding an HNSW index?
+
+Results are limited by the size of the dynamic candidate list (`hnsw.ef_search`). There may be even less results due to dead tuples or filtering conditions in the query. We recommend setting `hnsw.ef_search` to at least twice the `LIMIT` of the query. If you need more than 500 results, use an IVFFlat index instead.
+
 #### Why are there less results for a query after adding an IVFFlat index?
 
 The index was likely created with too little data for the number of lists. Drop the index until the table has more data.
