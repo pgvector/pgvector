@@ -593,6 +593,8 @@ The index was likely created with too little data for the number of lists. Drop 
 DROP INDEX index_name;
 ```
 
+Results can also be limited by the number of probes (`ivfflat.probes`).
+
 ## Reference
 
 ### Vector Type
