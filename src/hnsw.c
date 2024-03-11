@@ -17,7 +17,10 @@
 #endif
 
 int			hnsw_ef_search;
-int			hnsw_lock_tranche_id;
+int			hnsw_entry_lock_tranche_id;
+int			hnsw_allocator_lock_tranche_id;
+int			hnsw_flush_lock_tranche_id;
+int			hnsw_element_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
 /*
@@ -36,16 +39,27 @@ HnswInitLockTranche(void)
 	bool		found;
 
 	LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
-	tranche_ids = ShmemInitStruct("hnsw LWLock ids",
-								  sizeof(int) * 1,
+	tranche_ids = ShmemInitStruct("hnsw LWLock ids v2",
+								  sizeof(int) * 4,
 								  &found);
 	if (!found)
+	{
 		tranche_ids[0] = LWLockNewTrancheId();
-	hnsw_lock_tranche_id = tranche_ids[0];
+		tranche_ids[1] = LWLockNewTrancheId();
+		tranche_ids[2] = LWLockNewTrancheId();
+		tranche_ids[3] = LWLockNewTrancheId();
+	}
+	hnsw_entry_lock_tranche_id = tranche_ids[0];
+	hnsw_allocator_lock_tranche_id = tranche_ids[1];
+	hnsw_flush_lock_tranche_id = tranche_ids[2];
+	hnsw_element_lock_tranche_id = tranche_ids[3];
 	LWLockRelease(AddinShmemInitLock);
 
 	/* Per-backend registration of the tranche ID */
-	LWLockRegisterTranche(hnsw_lock_tranche_id, "HnswBuild");
+	LWLockRegisterTranche(hnsw_entry_lock_tranche_id, "HnswEntry");
+	LWLockRegisterTranche(hnsw_allocator_lock_tranche_id, "HnswAllocator");
+	LWLockRegisterTranche(hnsw_flush_lock_tranche_id, "HnswFlush");
+	LWLockRegisterTranche(hnsw_element_lock_tranche_id, "HnswElement");
 }
 
 /*

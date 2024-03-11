@@ -548,7 +548,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswPtrStore(base, element->value, valuePtr);
 
 	/* Create a lock for the element */
-	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
+	LWLockInitialize(&element->lock, hnsw_element_lock_tranche_id);
 
 	/* Insert tuple */
 	InsertTupleInMemory(buildstate, element);
@@ -611,9 +611,9 @@ InitGraph(HnswGraph * graph, char *base, long memoryTotal)
 	graph->flushed = false;
 	graph->indtuples = 0;
 	SpinLockInit(&graph->lock);
-	LWLockInitialize(&graph->entryLock, hnsw_lock_tranche_id);
-	LWLockInitialize(&graph->allocatorLock, hnsw_lock_tranche_id);
-	LWLockInitialize(&graph->flushLock, hnsw_lock_tranche_id);
+	LWLockInitialize(&graph->entryLock, hnsw_entry_lock_tranche_id);
+	LWLockInitialize(&graph->allocatorLock, hnsw_allocator_lock_tranche_id);
+	LWLockInitialize(&graph->flushLock, hnsw_flush_lock_tranche_id);
 }
 
 /*

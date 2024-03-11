@@ -113,7 +113,10 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
-extern int	hnsw_lock_tranche_id;
+extern int	hnsw_entry_lock_tranche_id;
+extern int	hnsw_allocator_lock_tranche_id;
+extern int	hnsw_flush_lock_tranche_id;
+extern int	hnsw_element_lock_tranche_id;
 
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
