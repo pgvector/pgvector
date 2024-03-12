@@ -185,6 +185,7 @@ typedef struct HnswGraph
 
 	/* Entry state */
 	LWLock		entryLock;
+	LWLock		entryWaitLock;
 	HnswElementPtr entryPoint;
 
 	/* Allocations state */

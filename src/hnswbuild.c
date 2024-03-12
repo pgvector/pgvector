@@ -431,9 +431,14 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement entryPoint;
 	LWLock	   *entryLock = &graph->entryLock;
+	LWLock	   *entryWaitLock = &graph->entryWaitLock;
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
 	char	   *base = buildstate->hnswarea;
+
+	/* Wait if another process needs exclusive lock */
+	LWLockAcquire(entryWaitLock, LW_EXCLUSIVE);
+	LWLockRelease(entryWaitLock);
 
 	/* Get entry point */
 	LWLockAcquire(entryLock, LW_SHARED);
@@ -446,7 +451,9 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 		LWLockRelease(entryLock);
 
 		/* Get exclusive lock */
+		LWLockAcquire(entryWaitLock, LW_EXCLUSIVE);
 		LWLockAcquire(entryLock, LW_EXCLUSIVE);
+		LWLockRelease(entryWaitLock);
 
 		/* Get latest entry point after lock is acquired */
 		entryPoint = HnswPtrAccess(base, graph->entryPoint);
@@ -612,6 +619,7 @@ InitGraph(HnswGraph * graph, char *base, long memoryTotal)
 	graph->indtuples = 0;
 	SpinLockInit(&graph->lock);
 	LWLockInitialize(&graph->entryLock, hnsw_lock_tranche_id);
+	LWLockInitialize(&graph->entryWaitLock, hnsw_lock_tranche_id);
 	LWLockInitialize(&graph->allocatorLock, hnsw_lock_tranche_id);
 	LWLockInitialize(&graph->flushLock, hnsw_lock_tranche_id);
 }
