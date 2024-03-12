@@ -129,7 +129,7 @@ HnswPtrDeclare(HnswNeighborArray, HnswNeighborArrayRelptr, HnswNeighborArrayPtr)
 HnswPtrDeclare(HnswNeighborArrayPtr, HnswNeighborsRelptr, HnswNeighborsPtr);
 HnswPtrDeclare(char, DatumRelptr, DatumPtr);
 
-typedef struct HnswElementData
+struct HnswElementData
 {
 	HnswElementPtr next;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
@@ -144,7 +144,7 @@ typedef struct HnswElementData
 	BlockNumber neighborPage;
 	DatumPtr	value;
 	LWLock		lock;
-}			HnswElementData;
+};
 
 typedef HnswElementData * HnswElement;
 
@@ -155,12 +155,12 @@ typedef struct HnswCandidate
 	bool		closer;
 }			HnswCandidate;
 
-typedef struct HnswNeighborArray
+struct HnswNeighborArray
 {
 	int			length;
 	bool		closerSet;
 	HnswCandidate items[FLEXIBLE_ARRAY_MEMBER];
-}			HnswNeighborArray;
+};
 
 typedef struct HnswPairingHeapNode
 {
