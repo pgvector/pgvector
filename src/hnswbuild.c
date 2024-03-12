@@ -434,23 +434,19 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	int			efConstruction = buildstate->efConstruction;
 	int			m = buildstate->m;
 	char	   *base = buildstate->hnswarea;
+	bool		updateEntryPoint;
 
 	/* Get entry point */
-	LWLockAcquire(entryLock, LW_SHARED);
+	LWLockAcquire(entryLock, LW_EXCLUSIVE);
 	entryPoint = HnswPtrAccess(base, graph->entryPoint);
 
-	/* Prevent concurrent inserts when likely updating entry point */
-	if (entryPoint == NULL || element->level > entryPoint->level)
-	{
-		/* Release shared lock */
+	/* Pause new inserts when updating entry point */
+	/* May still be in-flight inserts */
+	updateEntryPoint = entryPoint == NULL || element->level > entryPoint->level;
+
+	/* Release entry lock */
+	if (!updateEntryPoint)
 		LWLockRelease(entryLock);
-
-		/* Get exclusive lock */
-		LWLockAcquire(entryLock, LW_EXCLUSIVE);
-
-		/* Get latest entry point after lock is acquired */
-		entryPoint = HnswPtrAccess(base, graph->entryPoint);
-	}
 
 	/* Find neighbors for element */
 	HnswFindElementNeighbors(base, element, entryPoint, NULL, procinfo, collation, m, efConstruction, false);
@@ -459,7 +455,8 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	UpdateGraphInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate);
 
 	/* Release entry lock */
-	LWLockRelease(entryLock);
+	if (updateEntryPoint)
+		LWLockRelease(entryLock);
 }
 
 /*

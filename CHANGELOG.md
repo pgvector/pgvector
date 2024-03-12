@@ -1,3 +1,7 @@
+## 0.6.2 (unreleased)
+
+- Improved performance of parallel HNSW index builds
+
 ## 0.6.1 (2024-03-04)
 
 - Fixed error with `ANALYZE` and vectors with different dimensions
