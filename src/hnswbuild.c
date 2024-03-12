@@ -437,8 +437,8 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	char	   *base = buildstate->hnswarea;
 
 	/* Wait if another process needs exclusive lock */
-	LWLockAcquire(entryWaitLock, LW_EXCLUSIVE);
-	LWLockRelease(entryWaitLock);
+	if (LWLockAcquireOrWait(entryWaitLock, LW_EXCLUSIVE))
+		LWLockRelease(entryWaitLock);
 
 	/* Get entry point */
 	LWLockAcquire(entryLock, LW_SHARED);
