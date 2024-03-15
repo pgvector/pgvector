@@ -552,7 +552,17 @@ SELECT pg_size_pretty(pg_relation_size('index_name'));
 
 #### Why isn’t a query using an index?
 
-The cost estimation in pgvector < 0.4.3 does not always work well with the planner. You can encourage the planner to use an index for a query with:
+The query needs to have an `ORDER BY` and `LIMIT`, and the `ORDER BY` must be the result of a distance operator, not an expression.
+
+```sql
+-- index
+ORDER BY embedding <=> '[3,1,2]' LIMIT 5;
+
+-- no index
+ORDER BY 1 - (embedding <=> '[3,1,2]') DESC LIMIT 5;
+```
+
+You can encourage the planner to use an index for a query with:
 
 ```sql
 BEGIN;
