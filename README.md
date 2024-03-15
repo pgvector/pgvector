@@ -682,7 +682,7 @@ If compilation fails and the output includes `warning: no such sysroot directory
 
 ### Portability
 
-To compile for portability, use:
+By default, pgvector compiles with `-march=native` on some platforms for best performance. However, this can lead to `Illegal instruction` errors if trying to run the compiled extension on a different machine. To compile for portability, use:
 
 ```sh
 make OPTFLAGS=""
