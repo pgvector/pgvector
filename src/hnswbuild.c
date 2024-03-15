@@ -450,7 +450,7 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 		/* Release shared lock */
 		LWLockRelease(entryLock);
 
-		/* Get exclusive lock */
+		/* Tell other processes to wait and get exclusive lock */
 		LWLockAcquire(entryWaitLock, LW_EXCLUSIVE);
 		LWLockAcquire(entryLock, LW_EXCLUSIVE);
 		LWLockRelease(entryWaitLock);
