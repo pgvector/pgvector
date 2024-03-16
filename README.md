@@ -948,6 +948,12 @@ make installcheck REGRESS=functions                            # regression test
 make prove_installcheck PROVE_TESTS=test/t/001_ivfflat_wal.pl  # TAP test
 ```
 
+To enable assertions:
+
+```sh
+make clean && PG_CFLAGS="-DUSE_ASSERT_CHECKING" make && make install
+```
+
 To enable benchmarking:
 
 ```sh
@@ -958,12 +964,6 @@ To show memory usage:
 
 ```sh
 make clean && PG_CFLAGS="-DHNSW_MEMORY -DIVFFLAT_MEMORY" make && make install
-```
-
-To enable assertions:
-
-```sh
-make clean && PG_CFLAGS="-DUSE_ASSERT_CHECKING" make && make install
 ```
 
 To get k-means metrics:
