@@ -50,6 +50,10 @@ nmake /F Makefile.win
 nmake /F Makefile.win install
 ```
 
+If compilation fails with `Cannot open include file: 'postgres.h': No such file or directory`, make sure `PGROOT` is correct.
+
+If installation fails with `Access is denied`, re-run the installation instructions as an administrator.
+
 You can also install it with [Docker](#docker) or [conda-forge](#conda-forge).
 
 ## Getting Started
