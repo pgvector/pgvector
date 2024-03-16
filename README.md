@@ -422,7 +422,7 @@ Use `COPY` for bulk loading data ([example](https://github.com/pgvector/pgvector
 COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
 ```
 
-Add any indexes *after* loading the data.
+Add any indexes *after* loading the initial data.
 
 ### Indexing
 
