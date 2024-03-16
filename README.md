@@ -410,6 +410,10 @@ You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python
 
 ## Performance
 
+### Tuning
+
+Use a tool like [PgTune](https://pgtune.leopard.in.ua/) to set initial values for parameters.
+
 ### Loading
 
 Use `COPY` for bulk loading data ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/bulk_loading.py)).
@@ -454,7 +458,7 @@ To speed up queries with an IVFFlat index, increase the number of inverted lists
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 1000);
 ```
 
-## Vacuuming
+### Vacuuming
 
 Vacuuming can take a while for HNSW indexes. Speed it up by reindexing first.
 
@@ -462,6 +466,41 @@ Vacuuming can take a while for HNSW indexes. Speed it up by reindexing first.
 REINDEX INDEX CONCURRENTLY index_name;
 VACUUM table_name;
 ```
+
+## Monitoring
+
+Monitor recall by comparing results from approximate search with exact search.
+
+```sql
+BEGIN;
+SET LOCAL enable_indexscan = off; -- use exact search
+SELECT ...
+COMMIT;
+```
+
+Monitor speed with [pg_stat_statements](https://www.postgresql.org/docs/current/pgstatstatements.html) (be sure to add it to `shared_preload_libraries`).
+
+```sql
+CREATE EXTENSION pg_stat_statements;
+```
+
+Get the most time-consuming queries with:
+
+```sql
+SELECT query, calls, ROUND((total_plan_time + total_exec_time) / calls) AS avg_time_ms,
+    ROUND((total_plan_time + total_exec_time) / 60000) AS total_time_min
+    FROM pg_stat_statements ORDER BY total_plan_time + total_exec_time DESC LIMIT 20;
+```
+
+Note: Replace `total_plan_time + total_exec_time` with `total_time` for Postgres < 13
+
+## Scaling
+
+Scale pgvector the same way you scale Postgres.
+
+Scale vertically by increasing memory, CPU, and storage on a single instance. Use existing tools to [tune parameters](#tuning) and [monitor performance](#monitoring).
+
+Scale horizontally with [replicas](https://www.postgresql.org/docs/current/hot-standby.html), or use [Citus](https://github.com/citusdata/citus) or another approach for sharding ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/citus.py)).
 
 ## Languages
 
