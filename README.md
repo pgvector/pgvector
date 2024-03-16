@@ -428,6 +428,12 @@ Add any indexes *after* loading the initial data for best performance.
 
 See index build time for [HNSW](#index-build-time) and [IVFFlat](#index-build-time-1).
 
+In production environments, create indexes concurrently to avoid blocking writes.
+
+```sql
+CREATE INDEX CONCURRENTLY ...
+```
+
 ### Querying
 
 Use `EXPLAIN ANALYZE` to debug performance.
