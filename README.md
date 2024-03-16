@@ -469,16 +469,7 @@ VACUUM table_name;
 
 ## Monitoring
 
-Monitor recall by comparing results from approximate search with exact search.
-
-```sql
-BEGIN;
-SET LOCAL enable_indexscan = off; -- use exact search
-SELECT ...
-COMMIT;
-```
-
-Monitor speed with [pg_stat_statements](https://www.postgresql.org/docs/current/pgstatstatements.html) (be sure to add it to `shared_preload_libraries`).
+Monitor performance with [pg_stat_statements](https://www.postgresql.org/docs/current/pgstatstatements.html) (be sure to add it to `shared_preload_libraries`).
 
 ```sql
 CREATE EXTENSION pg_stat_statements;
@@ -493,6 +484,15 @@ SELECT query, calls, ROUND((total_plan_time + total_exec_time) / calls) AS avg_t
 ```
 
 Note: Replace `total_plan_time + total_exec_time` with `total_time` for Postgres < 13
+
+Monitor recall by comparing results from approximate search with exact search.
+
+```sql
+BEGIN;
+SET LOCAL enable_indexscan = off; -- use exact search
+SELECT ...
+COMMIT;
+```
 
 ## Scaling
 
