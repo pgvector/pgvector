@@ -410,13 +410,29 @@ You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python
 
 ## Performance
 
+### Loading
+
+Use `COPY` for bulk loading data ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/bulk_loading.py)).
+
+```sql
+COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
+```
+
+Add any indexes *after* loading the data.
+
+### Indexing
+
+See index build time for [HNSW](#index-build-time) and [IVFFlat](#index-build-time-1).
+
+### Querying
+
 Use `EXPLAIN ANALYZE` to debug performance.
 
 ```sql
 EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
-### Exact Search
+#### Exact Search
 
 To speed up queries without an index, increase `max_parallel_workers_per_gather`.
 
@@ -430,7 +446,7 @@ If vectors are normalized to length 1 (like [OpenAI embeddings](https://platform
 SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
 ```
 
-### Approximate Search
+#### Approximate Search
 
 To speed up queries with an IVFFlat index, increase the number of inverted lists (at the expense of recall).
 
