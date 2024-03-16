@@ -26,7 +26,7 @@ make
 make install # may need sudo
 ```
 
-See the [installation notes](#installation-notes) if you run into issues
+See the [installation notes](#installation-notes---linux-and-mac) if you run into issues
 
 You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), [pkg](#pkg), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres). There are also instructions for [GitHub Actions](https://github.com/pgvector/setup-pgvector).
 
@@ -50,9 +50,7 @@ nmake /F Makefile.win
 nmake /F Makefile.win install
 ```
 
-If compilation fails with `Cannot open include file: 'postgres.h': No such file or directory`, make sure `PGROOT` is correct.
-
-If installation fails with `Access is denied`, re-run the installation instructions as an administrator.
+See the [installation notes](#installation-notes---windows) if you run into issues
 
 You can also install it with [Docker](#docker) or [conda-forge](#conda-forge).
 
@@ -705,7 +703,7 @@ Function | Description | Added
 avg(vector) → vector | average |
 sum(vector) → vector | sum | 0.5.0
 
-## Installation Notes
+## Installation Notes - Linux and Mac
 
 ### Postgres Location
 
@@ -754,6 +752,16 @@ To compile for portability, use:
 ```sh
 make OPTFLAGS=""
 ```
+
+## Installation Notes - Windows
+
+### Missing Header
+
+If compilation fails with `Cannot open include file: 'postgres.h': No such file or directory`, make sure `PGROOT` is correct.
+
+### Permissions
+
+If installation fails with `Access is denied`, re-run the installation instructions as an administrator.
 
 ## Additional Installation Methods
 
