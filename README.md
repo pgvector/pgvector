@@ -44,6 +44,7 @@ Then use `nmake` to build:
 
 ```cmd
 set "PGROOT=C:\Program Files\PostgreSQL\16"
+cd %TEMP%
 git clone --branch v0.6.1 https://github.com/pgvector/pgvector.git
 cd pgvector
 nmake /F Makefile.win
