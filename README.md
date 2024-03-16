@@ -412,7 +412,7 @@ You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python
 
 ### Tuning
 
-Use a tool like [PgTune](https://pgtune.leopard.in.ua/) to set initial values for parameters.
+Use a tool like [PgTune](https://pgtune.leopard.in.ua/) to set initial values for Postgres server parameters.
 
 ### Loading
 
@@ -422,7 +422,7 @@ Use `COPY` for bulk loading data ([example](https://github.com/pgvector/pgvector
 COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
 ```
 
-Add any indexes *after* loading the initial data.
+Add any indexes *after* loading the initial data for best performance.
 
 ### Indexing
 
