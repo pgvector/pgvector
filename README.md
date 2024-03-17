@@ -682,6 +682,7 @@ Operator | Description | Added
 \+ | element-wise addition |
 \- | element-wise subtraction |
 \* | element-wise multiplication | 0.5.0
+\|\| | concatenate | 0.7.0
 <-> | Euclidean distance |
 <#> | negative inner product |
 <=> | cosine distance |

@@ -24,6 +24,14 @@ SELECT '[1e37]'::vector * '[1e37]';
 ERROR:  value out of range: overflow
 SELECT '[1e-37]'::vector * '[1e-37]';
 ERROR:  value out of range: underflow
+SELECT '[1,2,3]'::vector || '[4,5]'::vector;
+  ?column?   
+-------------
+ [1,2,3,4,5]
+(1 row)
+
+SELECT array_fill(0, ARRAY[16000])::vector || '[1]'::vector;
+ERROR:  vector cannot have more than 16000 dimensions
 SELECT '[1,2,3]'::vector = '[1,2,3]';
  ?column? 
 ----------
