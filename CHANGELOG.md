@@ -5,7 +5,7 @@
 ## 0.6.1 (2024-03-04)
 
 - Fixed error with `ANALYZE` and vectors with different dimensions
-- Fixed error with `shared_preload_libraries`
+- Fixed segmentation fault with `shared_preload_libraries`
 - Fixed vector subtraction being marked as commutative
 
 ## 0.6.0 (2024-01-29)
