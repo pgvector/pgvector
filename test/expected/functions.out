@@ -24,6 +24,112 @@ SELECT '[1e37]'::vector * '[1e37]';
 ERROR:  value out of range: overflow
 SELECT '[1e-37]'::vector * '[1e-37]';
 ERROR:  value out of range: underflow
+SELECT ('[1,2,3]'::vector)[0];
+ vector 
+--------
+       
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[1];
+ vector 
+--------
+      1
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[2];
+ vector 
+--------
+      2
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[3];
+ vector 
+--------
+      3
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[4];
+ vector 
+--------
+       
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[1:1];
+ vector 
+--------
+ [1]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[1:2];
+ vector 
+--------
+ [1,2]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[2:4];
+ vector 
+--------
+ [2,3]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[-2:2];
+ vector 
+--------
+ [1,2]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[2:1];
+ERROR:  vector must have at least 1 dimension
+SELECT ('[1,2,3]'::vector)[:];
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[:2];
+ vector 
+--------
+ [1,2]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[2:];
+ vector 
+--------
+ [2,3]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[:4];
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[-2:];
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[NULL];
+ vector 
+--------
+       
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[NULL:2];
+ vector 
+--------
+ 
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[2:NULL];
+ vector 
+--------
+ 
+(1 row)
+
+SELECT ('[1,2,3]'::vector)[1][1];
+ERROR:  vector allows only one subscript
 SELECT '[1,2,3]'::vector = '[1,2,3]';
  ?column? 
 ----------

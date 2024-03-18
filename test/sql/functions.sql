@@ -6,6 +6,26 @@ SELECT '[1,2,3]'::vector * '[4,5,6]';
 SELECT '[1e37]'::vector * '[1e37]';
 SELECT '[1e-37]'::vector * '[1e-37]';
 
+SELECT ('[1,2,3]'::vector)[0];
+SELECT ('[1,2,3]'::vector)[1];
+SELECT ('[1,2,3]'::vector)[2];
+SELECT ('[1,2,3]'::vector)[3];
+SELECT ('[1,2,3]'::vector)[4];
+SELECT ('[1,2,3]'::vector)[1:1];
+SELECT ('[1,2,3]'::vector)[1:2];
+SELECT ('[1,2,3]'::vector)[2:4];
+SELECT ('[1,2,3]'::vector)[-2:2];
+SELECT ('[1,2,3]'::vector)[2:1];
+SELECT ('[1,2,3]'::vector)[:];
+SELECT ('[1,2,3]'::vector)[:2];
+SELECT ('[1,2,3]'::vector)[2:];
+SELECT ('[1,2,3]'::vector)[:4];
+SELECT ('[1,2,3]'::vector)[-2:];
+SELECT ('[1,2,3]'::vector)[NULL];
+SELECT ('[1,2,3]'::vector)[NULL:2];
+SELECT ('[1,2,3]'::vector)[2:NULL];
+SELECT ('[1,2,3]'::vector)[1][1];
+
 SELECT '[1,2,3]'::vector = '[1,2,3]';
 SELECT '[1,2,3]'::vector = '[1,2]';
 

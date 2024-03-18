@@ -4,11 +4,18 @@
 
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
+#include "executor/execExpr.h"
 #include "fmgr.h"
 #include "hnsw.h"
 #include "ivfflat.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
+#include "nodes/makefuncs.h"
+#include "nodes/nodeFuncs.h"
+#include "nodes/subscripting.h"
+#include "parser/parse_coerce.h"
+#include "parser/parse_expr.h"
+#include "parser/parse_node.h"
 #include "port.h"				/* for strtof() */
 #include "utils/array.h"
 #include "utils/builtins.h"
@@ -416,6 +423,180 @@ vector_send(PG_FUNCTION_ARGS)
 		pq_sendfloat4(&buf, vec->x[i]);
 
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
+}
+
+/*
+ * Transform the subscript expressions
+ */
+static void
+vector_subscript_transform(SubscriptingRef *sbsref, List *indirection, ParseState *pstate, bool isSlice, bool isAssignment)
+{
+	A_Indices  *ai;
+	Node	   *subexpr;
+
+	if (list_length(indirection) != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("vector allows only one subscript"),
+				 parser_errposition(pstate,
+									exprLocation((Node *) indirection))));
+
+	ai = linitial_node(A_Indices, indirection);
+
+	if (isSlice)
+	{
+		if (ai->lidx)
+		{
+			subexpr = transformExpr(pstate, ai->lidx, pstate->p_expr_kind);
+			/* If it's not int4 already, try to coerce */
+			subexpr = coerce_to_target_type(pstate,
+											subexpr, exprType(subexpr),
+											INT4OID, -1,
+											COERCION_ASSIGNMENT,
+											COERCE_IMPLICIT_CAST,
+											-1);
+			if (subexpr == NULL)
+				ereport(ERROR,
+						(errcode(ERRCODE_DATATYPE_MISMATCH),
+						 errmsg("vector subscript must have type integer"),
+						 parser_errposition(pstate, exprLocation(ai->lidx))));
+		}
+		else if (!ai->is_slice)
+		{
+			/* Make a constant 1 */
+			subexpr = (Node *) makeConst(INT4OID,
+										 -1,
+										 InvalidOid,
+										 sizeof(int32),
+										 Int32GetDatum(1),
+										 false,
+										 true); /* pass by value */
+		}
+		else
+		{
+			/* Slice with omitted lower bound, put NULL into the list */
+			subexpr = NULL;
+		}
+		sbsref->reflowerindexpr = list_make1(subexpr);
+	}
+	else
+		Assert(ai->lidx == NULL && !ai->is_slice);
+
+	if (ai->uidx)
+	{
+		subexpr = transformExpr(pstate, ai->uidx, pstate->p_expr_kind);
+		/* If it's not int4 already, try to coerce */
+		subexpr = coerce_to_target_type(pstate,
+										subexpr, exprType(subexpr),
+										INT4OID, -1,
+										COERCION_ASSIGNMENT,
+										COERCE_IMPLICIT_CAST,
+										-1);
+		if (subexpr == NULL)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATATYPE_MISMATCH),
+					 errmsg("array subscript must have type integer"),
+					 parser_errposition(pstate, exprLocation(ai->uidx))));
+	}
+	else
+	{
+		/* Slice with omitted upper bound, put NULL into the list */
+		Assert(isSlice && ai->is_slice);
+		subexpr = NULL;
+	}
+	sbsref->refupperindexpr = list_make1(subexpr);
+
+	if (isSlice)
+		sbsref->refrestype = sbsref->refcontainertype;
+	else
+		sbsref->refrestype = FLOAT4OID;
+}
+
+/*
+ * Fetch a vector element
+ */
+static void
+vector_subscript_fetch(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
+{
+	SubscriptingRefState *sbsrefstate = op->d.sbsref.state;
+	Vector	   *vec = DatumGetVector(*op->resvalue);
+	int			index = DatumGetInt32(sbsrefstate->upperindex[0]);
+
+	if (index < 1 || index > vec->dim)
+		*op->resnull = true;
+	else
+		*op->resvalue = Float4GetDatum(vec->x[index - 1]);
+}
+
+/*
+ * Fetch a vector slice
+ */
+static void
+vector_subscript_fetch_slice(ExprState *state, ExprEvalStep *op, ExprContext *econtext)
+{
+	SubscriptingRefState *sbsrefstate = op->d.sbsref.state;
+
+	if (sbsrefstate->upperprovided[0] && sbsrefstate->upperindexnull[0])
+		*op->resnull = true;
+	else if (sbsrefstate->lowerprovided[0] && sbsrefstate->lowerindexnull[0])
+		*op->resnull = true;
+	else
+	{
+		Vector	   *vec = DatumGetVector(*op->resvalue);
+		int			upperindex = sbsrefstate->upperprovided[0] ? DatumGetInt32(sbsrefstate->upperindex[0]) : vec->dim;
+		int			lowerindex = sbsrefstate->lowerprovided[0] ? DatumGetInt32(sbsrefstate->lowerindex[0]) : 1;
+		int			dim;
+		Vector	   *result;
+
+		if (upperindex > vec->dim)
+			upperindex = vec->dim;
+
+		if (lowerindex < 1)
+			lowerindex = 1;
+
+		dim = upperindex - lowerindex + 1;
+
+		CheckDim(dim);
+
+		result = InitVector(dim);
+		for (int i = 0; i < dim; i++)
+			result->x[i] = vec->x[lowerindex + i - 1];
+
+		*op->resvalue = PointerGetDatum(result);
+	}
+}
+
+/*
+ * Set up execution state for a vector subscript operation
+ */
+static void
+vector_exec_setup(const SubscriptingRef *sbsref, SubscriptingRefState *sbsrefstate, SubscriptExecSteps *methods)
+{
+	methods->sbs_check_subscripts = NULL;
+	if (sbsrefstate->numlower != 0)
+		methods->sbs_fetch = vector_subscript_fetch_slice;
+	else
+		methods->sbs_fetch = vector_subscript_fetch;
+	methods->sbs_assign = NULL;
+	methods->sbs_fetch_old = NULL;
+}
+
+/*
+ * Subscript handler
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_subscript);
+Datum
+vector_subscript(PG_FUNCTION_ARGS)
+{
+	static const SubscriptRoutines sbsroutines = {
+		.transform = vector_subscript_transform,
+		.exec_setup = vector_exec_setup,
+		.fetch_strict = true,	/* fetch returns NULL for NULL inputs */
+		.fetch_leakproof = true,	/* fetch returns NULL for bad subscript */
+		.store_leakproof = false	/* ... but assignment throws error */
+	};
+
+	PG_RETURN_POINTER(&sbsroutines);
 }
 
 /*

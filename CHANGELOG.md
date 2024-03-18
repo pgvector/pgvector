@@ -1,3 +1,7 @@
+## 0.7.0 (unreleased)
+
+- Added subscript function for vectors
+
 ## 0.6.2 (unreleased)
 
 - Reduced lock contention with parallel HNSW index builds

@@ -20,12 +20,16 @@ CREATE FUNCTION vector_recv(internal, oid, integer) RETURNS vector
 CREATE FUNCTION vector_send(vector) RETURNS bytea
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION vector_subscript(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE TYPE vector (
 	INPUT     = vector_in,
 	OUTPUT    = vector_out,
 	TYPMOD_IN = vector_typmod_in,
 	RECEIVE   = vector_recv,
 	SEND      = vector_send,
+	SUBSCRIPT = vector_subscript,
 	STORAGE   = external
 );
 
