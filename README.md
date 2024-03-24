@@ -604,6 +604,18 @@ and query with:
 SELECT * FROM items ORDER BY embedding::vector(3) <-> '[3,1,2]' LIMIT 5;
 ```
 
+#### Are binary vectors supported?
+
+You can store binary vectors and perform exact nearest neighbor search by Hamming distance in Postgres without an extension ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/hash_image_search.py)).
+
+```tsql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
+INSERT INTO items (embedding) VALUES (B'000'), (B'111');
+SELECT * FROM items ORDER BY bit_count(embedding # B'101') LIMIT 5;
+```
+
+Indexing is not currently supported.
+
 #### Do indexes need to fit into memory?
 
 No, but like other index types, you’ll likely see better performance if they do. You can get the size of an index with:
