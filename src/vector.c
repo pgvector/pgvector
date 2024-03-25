@@ -1190,7 +1190,7 @@ hamming_distance(PG_FUNCTION_ARGS)
 
 	CheckBitLengths(VARBITLEN(a), VARBITLEN(b));
 
-	for (int i = 0; i < VARBITBYTES(a); i++)
+	for (uint32 i = 0; i < VARBITBYTES(a); i++)
 		distance += pg_number_of_ones[ax[i] ^ bx[i]];
 
 	/* TODO Decide on return type */
