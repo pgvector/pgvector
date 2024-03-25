@@ -240,10 +240,10 @@ SELECT quantize_binary('[1,0,-1]');
  100
 (1 row)
 
-SELECT quantize_binary('[0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,-1]');
+SELECT quantize_binary('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]');
  quantize_binary 
 -----------------
- 1001110100
+ 01001110101
 (1 row)
 
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
