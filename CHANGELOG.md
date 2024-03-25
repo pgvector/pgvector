@@ -1,3 +1,7 @@
+## 0.7.0 (unreleased)
+
+- Added `hamming_distance` function
+
 ## 0.6.2 (2024-03-18)
 
 - Reduced lock contention with parallel HNSW index builds

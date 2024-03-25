@@ -720,13 +720,13 @@ sum(vector) → vector | sum | 0.5.0
 
 Operator | Description | Added
 --- | --- | ---
-<~> | Hamming distance | 0.6.3
+<~> | Hamming distance | 0.7.0
 
 ### Bit Functions
 
 Function | Description | Added
 --- | --- | ---
-hamming_distance(bit, bit) → double precision | Hamming distance | 0.6.3
+hamming_distance(bit, bit) → double precision | Hamming distance | 0.7.0
 
 ## Installation Notes - Linux and Mac
 
