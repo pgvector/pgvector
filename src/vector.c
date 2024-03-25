@@ -1164,6 +1164,42 @@ vector_avg(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Allocate and initialize a new bit vector
+ */
+VarBit *
+InitBitVector(int dim)
+{
+	VarBit	   *result;
+	int			size;
+
+	size = VARBITTOTALLEN(dim);
+	result = (VarBit *) palloc0(size);
+	SET_VARSIZE(result, size);
+	VARBITLEN(result) = dim;
+
+	return result;
+}
+
+/*
+ * Quantize a vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(quantize_binary);
+Datum
+quantize_binary(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	float	   *ax = a->x;
+	VarBit	   *result = InitBitVector(a->dim);
+	unsigned char *rx = VARBITS(result);
+
+	/* TODO Improve */
+	for (int i = 0; i < a->dim; i++)
+		rx[i / 8] |= (ax[i] > 0) << (7 - (i % 8));
+
+	PG_RETURN_VARBIT_P(result);
+}
+
+/*
  * Ensure same number of bits
  */
 static inline void

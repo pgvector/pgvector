@@ -234,6 +234,12 @@ SELECT hamming_distance(B'111', B'000');
 
 SELECT hamming_distance(B'111', B'00');
 ERROR:  different bit lengths 3 and 2
+SELECT quantize_binary('[1,0,-1]');
+ quantize_binary 
+-----------------
+ 100
+(1 row)
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
     avg    
 -----------

@@ -1,6 +1,7 @@
 ## 0.7.0 (unreleased)
 
 - Added `hamming_distance` function
+- Added `quantize_binary` function
 
 ## 0.6.2 (2024-03-18)
 

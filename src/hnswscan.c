@@ -80,14 +80,7 @@ GetScanValue(IndexScanDesc scan)
 		int			dimensions = GetDimensions(scan->indexRelation);
 
 		if (typid == BITOID || typid == VARBITOID)
-		{
-			int			len = VARBITTOTALLEN(dimensions);
-			VarBit	   *v = (VarBit *) palloc0(len);
-
-			SET_VARSIZE(v, len);
-			VARBITLEN(v) = dimensions;
-			value = PointerGetDatum(v);
-		}
+			value = PointerGetDatum(InitBitVector(dimensions));
 		else
 			value = PointerGetDatum(InitVector(dimensions));
 	}

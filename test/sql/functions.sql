@@ -54,6 +54,8 @@ SELECT hamming_distance(B'111', B'100');
 SELECT hamming_distance(B'111', B'000');
 SELECT hamming_distance(B'111', B'00');
 
+SELECT quantize_binary('[1,0,-1]');
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
 SELECT avg(v) FROM unnest(ARRAY[]::vector[]) v;

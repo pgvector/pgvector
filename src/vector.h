@@ -1,6 +1,8 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#include "utils/varbit.h"
+
 #define VECTOR_MAX_DIM 16000
 
 #define VECTOR_SIZE(_dim)		(offsetof(Vector, x) + sizeof(float)*(_dim))
@@ -17,6 +19,7 @@ typedef struct Vector
 }			Vector;
 
 Vector	   *InitVector(int dim);
+VarBit	   *InitBitVector(int dim);
 void		PrintVector(char *msg, Vector * vector);
 int			vector_cmp_internal(Vector * a, Vector * b);
 
