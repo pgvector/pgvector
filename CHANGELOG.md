@@ -1,5 +1,6 @@
 ## 0.7.0 (unreleased)
 
+- Added support for binary vectors to HNSW
 - Added `hamming_distance` function
 - Added `quantize_binary` function
 
