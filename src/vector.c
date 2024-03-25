@@ -10,11 +10,13 @@
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
+#include "port/pg_bitutils.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/float.h"
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
+#include "utils/varbit.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 160000
@@ -1159,4 +1161,38 @@ vector_avg(PG_FUNCTION_ARGS)
 	}
 
 	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Ensure same number of bits
+ */
+static inline void
+CheckBitLengths(uint32 aLen, uint32 bLen)
+{
+	if (aLen != bLen)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("different bit lengths %u and %u", aLen, bLen)));
+}
+
+/*
+ * Get the Hamming distance between two bit strings
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
+Datum
+hamming_distance(PG_FUNCTION_ARGS)
+{
+	VarBit	   *a = PG_GETARG_VARBIT_P(0);
+	VarBit	   *b = PG_GETARG_VARBIT_P(1);
+	unsigned char *ax = VARBITS(a);
+	unsigned char *bx = VARBITS(b);
+	uint64		distance = 0;
+
+	CheckBitLengths(VARBITLEN(a), VARBITLEN(b));
+
+	for (int i = 0; i < VARBITBYTES(a); i++)
+		distance += pg_number_of_ones[ax[i] ^ bx[i]];
+
+	/* TODO Decide on return type */
+	PG_RETURN_FLOAT8((double) distance);
 }

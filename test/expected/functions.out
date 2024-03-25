@@ -208,6 +208,32 @@ SELECT l1_distance('[3e38]', '[-3e38]');
     Infinity
 (1 row)
 
+SELECT hamming_distance(B'111', B'111');
+ hamming_distance 
+------------------
+                0
+(1 row)
+
+SELECT hamming_distance(B'111', B'110');
+ hamming_distance 
+------------------
+                1
+(1 row)
+
+SELECT hamming_distance(B'111', B'100');
+ hamming_distance 
+------------------
+                2
+(1 row)
+
+SELECT hamming_distance(B'111', B'000');
+ hamming_distance 
+------------------
+                3
+(1 row)
+
+SELECT hamming_distance(B'111', B'00');
+ERROR:  different bit lengths 3 and 2
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
     avg    
 -----------
