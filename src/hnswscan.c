@@ -6,6 +6,7 @@
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
+#include "utils/varbit.h"
 
 /*
  * Algorithm 5 from paper
@@ -73,7 +74,22 @@ GetScanValue(IndexScanDesc scan)
 	Datum		value;
 
 	if (scan->orderByData->sk_flags & SK_ISNULL)
-		value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
+	{
+		Oid			typid = TupleDescAttr(scan->indexRelation->rd_att, 0)->atttypid;
+		int			dimensions = GetDimensions(scan->indexRelation);
+
+		if (typid == BITOID || typid == VARBITOID)
+		{
+			int			len = VARBITTOTALLEN(dimensions);
+			VarBit	   *v = (VarBit *) palloc0(len);
+
+			SET_VARSIZE(v, len);
+			VARBITLEN(v) = dimensions;
+			value = PointerGetDatum(v);
+		}
+		else
+			value = PointerGetDatum(InitVector(dimensions));
+	}
 	else
 	{
 		value = scan->orderByData->sk_argument;
