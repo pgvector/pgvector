@@ -1,6 +1,7 @@
 #include "postgres.h"
 
 #include "access/relscan.h"
+#include "catalog/pg_type_d.h"
 #include "hnsw.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
