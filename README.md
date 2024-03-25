@@ -716,6 +716,18 @@ Function | Description | Added
 avg(vector) → vector | average |
 sum(vector) → vector | sum | 0.5.0
 
+### Bit Operators
+
+Operator | Description | Added
+--- | --- | ---
+<~> | Hamming distance | 0.6.3
+
+### Bit Functions
+
+Function | Description | Added
+--- | --- | ---
+hamming_distance(bit, bit) → double precision | Hamming distance | 0.6.3
+
 ## Installation Notes - Linux and Mac
 
 ### Postgres Location
