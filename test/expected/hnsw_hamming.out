@@ -1,0 +1,21 @@
+SET enable_seqscan = off;
+CREATE TABLE t (val bit(3));
+INSERT INTO t (val) VALUES (B'000'), (B'100'), (B'111'), (NULL);
+CREATE INDEX ON t USING hnsw (val bit_hamming_ops);
+INSERT INTO t (val) VALUES ('110');
+SELECT * FROM t ORDER BY val <~> '111';
+ val 
+-----
+ 111
+ 110
+ 100
+ 000
+(4 rows)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <~> (SELECT NULL::bit)) t2;
+ count 
+-------
+     4
+(1 row)
+
+DROP TABLE t;
