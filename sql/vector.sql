@@ -304,7 +304,17 @@ CREATE OPERATOR <~> (
 	COMMUTATOR = '<~>'
 );
 
+CREATE OPERATOR <%> (
+	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = jaccard_distance,
+	COMMUTATOR = '<%>'
+);
+
 CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING hnsw AS
 	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
 	FUNCTION 1 hamming_distance(bit, bit);
+
+CREATE OPERATOR CLASS bit_jaccard_ops
+	FOR TYPE bit USING hnsw AS
+	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 jaccard_distance(bit, bit);

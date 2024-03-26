@@ -722,6 +722,7 @@ sum(vector) → vector | sum | 0.5.0
 Operator | Description | Added
 --- | --- | ---
 <~> | Hamming distance | 0.7.0
+<%> | Jaccard distance | 0.7.0
 
 ### Bit Functions
 
