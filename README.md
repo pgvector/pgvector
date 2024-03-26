@@ -728,6 +728,7 @@ Operator | Description | Added
 Function | Description | Added
 --- | --- | ---
 hamming_distance(bit, bit) → double precision | Hamming distance | 0.7.0
+jaccard_distance(bit, bit) → double precision | Jaccard distance | 0.7.0
 
 ## Installation Notes - Linux and Mac
 

@@ -234,6 +234,38 @@ SELECT hamming_distance(B'111', B'000');
 
 SELECT hamming_distance(B'111', B'00');
 ERROR:  different bit lengths 3 and 2
+SELECT jaccard_distance(B'1111', B'1111');
+ jaccard_distance 
+------------------
+                0
+(1 row)
+
+SELECT jaccard_distance(B'1111', B'1110');
+ jaccard_distance 
+------------------
+             0.25
+(1 row)
+
+SELECT jaccard_distance(B'1111', B'1100');
+ jaccard_distance 
+------------------
+              0.5
+(1 row)
+
+SELECT jaccard_distance(B'1111', B'1000');
+ jaccard_distance 
+------------------
+             0.75
+(1 row)
+
+SELECT jaccard_distance(B'1111', B'0000');
+ jaccard_distance 
+------------------
+                1
+(1 row)
+
+SELECT jaccard_distance(B'1111', B'000');
+ERROR:  different bit lengths 4 and 3
 SELECT quantize_binary('[1,0,-1]');
  quantize_binary 
 -----------------
