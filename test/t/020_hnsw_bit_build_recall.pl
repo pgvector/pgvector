@@ -64,7 +64,7 @@ $node->safe_psql("postgres",
 for (1 .. 20)
 {
 	my $r = int(rand() * $max);
-	push(@queries, "${r}::bit($dim)");
+	push(@queries, "${r}::bigint::bit($dim)");
 }
 
 # Check each index type
