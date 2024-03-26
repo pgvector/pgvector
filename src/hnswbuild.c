@@ -44,6 +44,7 @@
 #include "access/xact.h"
 #include "access/xloginsert.h"
 #include "catalog/index.h"
+#include "catalog/pg_type_d.h"
 #include "commands/progress.h"
 #include "hnsw.h"
 #include "miscadmin.h"
