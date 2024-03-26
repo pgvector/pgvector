@@ -264,6 +264,12 @@ SELECT jaccard_distance(B'1111', B'0000');
                 1
 (1 row)
 
+SELECT jaccard_distance(B'1100', B'1000');
+ jaccard_distance 
+------------------
+              0.5
+(1 row)
+
 SELECT jaccard_distance(B'1111', B'000');
 ERROR:  different bit lengths 4 and 3
 SELECT quantize_binary('[1,0,-1]');
