@@ -48,6 +48,13 @@ SELECT l1_distance('[0,0]', '[0,1]');
 SELECT l1_distance('[1,2]', '[3]');
 SELECT l1_distance('[3e38]', '[-3e38]');
 
+SELECT subvector('[1,2,3,4,5]', 1, 3);
+SELECT subvector('[1,2,3,4,5]', 3, 2);
+SELECT subvector('[1,2,3,4,5]', -1, 3);
+SELECT subvector('[1,2,3,4,5]', 3, 9);
+SELECT subvector('[1,2,3,4,5]', 1, 0);
+SELECT subvector('[1,2,3,4,5]', -1, 2);
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
 SELECT avg(v) FROM unnest(ARRAY[]::vector[]) v;

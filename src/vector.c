@@ -861,6 +861,37 @@ vector_mul(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get a subset of a vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(subvector);
+Datum
+subvector(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	int32		start = PG_GETARG_INT32(1);
+	int32		count = PG_GETARG_INT32(2);
+	int32		end = start + count;
+	float	   *ax = a->x;
+	Vector	   *result;
+	int			dim;
+
+	if (start < 1)
+		start = 1;
+
+	if (end > a->dim)
+		end = a->dim + 1;
+
+	dim = end - start;
+	CheckDim(dim);
+	result = InitVector(dim);
+
+	for (int i = 0; i < dim; i++)
+		result->x[i] = ax[start - 1 + i];
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Internal helper to compare vectors
  */
 int
