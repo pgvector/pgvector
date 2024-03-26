@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "bitvector.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -10,13 +11,11 @@
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
-#include "port/pg_bitutils.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/float.h"
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
-#include "utils/varbit.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 160000
@@ -863,6 +862,26 @@ vector_mul(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Quantize a vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(quantize_binary);
+Datum
+quantize_binary(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	float	   *ax = a->x;
+	VarBit	   *result = InitBitVector(a->dim);
+	unsigned char *rx = VARBITS(result);
+
+	/* TODO Improve */
+	for (int i = 0; i < a->dim; i++)
+		rx[i / 8] |= (ax[i] > 0) << (7 - (i % 8));
+
+	PG_RETURN_VARBIT_P(result);
+}
+
+
+/*
  * Internal helper to compare vectors
  */
 int
@@ -1161,74 +1180,4 @@ vector_avg(PG_FUNCTION_ARGS)
 	}
 
 	PG_RETURN_POINTER(result);
-}
-
-/*
- * Allocate and initialize a new bit vector
- */
-VarBit *
-InitBitVector(int dim)
-{
-	VarBit	   *result;
-	int			size;
-
-	size = VARBITTOTALLEN(dim);
-	result = (VarBit *) palloc0(size);
-	SET_VARSIZE(result, size);
-	VARBITLEN(result) = dim;
-
-	return result;
-}
-
-/*
- * Quantize a vector
- */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(quantize_binary);
-Datum
-quantize_binary(PG_FUNCTION_ARGS)
-{
-	Vector	   *a = PG_GETARG_VECTOR_P(0);
-	float	   *ax = a->x;
-	VarBit	   *result = InitBitVector(a->dim);
-	unsigned char *rx = VARBITS(result);
-
-	/* TODO Improve */
-	for (int i = 0; i < a->dim; i++)
-		rx[i / 8] |= (ax[i] > 0) << (7 - (i % 8));
-
-	PG_RETURN_VARBIT_P(result);
-}
-
-/*
- * Ensure same number of bits
- */
-static inline void
-CheckBitLengths(uint32 aLen, uint32 bLen)
-{
-	if (aLen != bLen)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("different bit lengths %u and %u", aLen, bLen)));
-}
-
-/*
- * Get the Hamming distance between two bit strings
- */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
-Datum
-hamming_distance(PG_FUNCTION_ARGS)
-{
-	VarBit	   *a = PG_GETARG_VARBIT_P(0);
-	VarBit	   *b = PG_GETARG_VARBIT_P(1);
-	unsigned char *ax = VARBITS(a);
-	unsigned char *bx = VARBITS(b);
-	uint64		distance = 0;
-
-	CheckBitLengths(VARBITLEN(a), VARBITLEN(b));
-
-	/* TODO Improve performance */
-	for (uint32 i = 0; i < VARBITBYTES(a); i++)
-		distance += pg_number_of_ones[ax[i] ^ bx[i]];
-
-	PG_RETURN_FLOAT8((double) distance);
 }
