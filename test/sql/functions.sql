@@ -59,6 +59,7 @@ SELECT jaccard_distance(B'1111', B'1110');
 SELECT jaccard_distance(B'1111', B'1100');
 SELECT jaccard_distance(B'1111', B'1000');
 SELECT jaccard_distance(B'1111', B'0000');
+SELECT jaccard_distance(B'1100', B'1000');
 SELECT jaccard_distance(B'1111', B'000');
 
 SELECT quantize_binary('[1,0,-1]');
