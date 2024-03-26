@@ -68,8 +68,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<~>");
-my @opclasses = ("bit_hamming_ops");
+my @operators = ("<~>", "<\%>");
+my @opclasses = ("bit_hamming_ops", "bit_jaccard_ops");
 
 for my $i (0 .. $#operators)
 {
@@ -97,7 +97,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	my $min = 0.93;
+	my $min = $operator eq "<\%>" ? 0.87 : 0.93;
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
