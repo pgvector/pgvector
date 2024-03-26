@@ -5,7 +5,7 @@ Open-source vector similarity search for Postgres
 Store your vectors with the rest of your data. Supports:
 
 - exact and approximate nearest neighbor search
-- L2 distance, inner product, and cosine distance
+- L2 distance, inner product, cosine distance, and more
 - any [language](#languages) with a Postgres client
 
 Plus [ACID](https://en.wikipedia.org/wiki/ACID) compliance, point-in-time recovery, JOINs, and all of the other [great features](https://www.postgresql.org/about/) of Postgres
@@ -221,7 +221,19 @@ Cosine distance
 CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
 ```
 
-Vectors with up to 2,000 dimensions can be indexed.
+Hamming distance - added in 0.7.0
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding bit_hamming_ops);
+```
+
+Jaccard distance - added in 0.7.0
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
+```
+
+Vectors with up to 2,000 dimensions can be indexed, or bit vectors with up to 64,000 dimensions.
 
 ### Index Options
 
