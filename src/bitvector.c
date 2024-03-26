@@ -70,20 +70,21 @@ jaccard_distance(PG_FUNCTION_ARGS)
 	VarBit	   *b = PG_GETARG_VARBIT_P(1);
 	unsigned char *ax = VARBITS(a);
 	unsigned char *bx = VARBITS(b);
+	uint64		ab = 0;
 	uint64		aa;
 	uint64		bb;
-	uint64		ab = 0;
 
 	CheckBitLengths(VARBITLEN(a), VARBITLEN(b));
 
 	/* TODO Improve performance */
-	aa = pg_popcount((char *) ax, VARBITBYTES(a));
-	bb = pg_popcount((char *) bx, VARBITBYTES(b));
 	for (uint32 i = 0; i < VARBITBYTES(a); i++)
 		ab += pg_number_of_ones[ax[i] & bx[i]];
 
 	if (ab == 0)
 		PG_RETURN_FLOAT8(1);
+
+	aa = pg_popcount((char *) ax, VARBITBYTES(a));
+	bb = pg_popcount((char *) bx, VARBITBYTES(b));
 
 	PG_RETURN_FLOAT8(1 - (ab / ((double) (aa + bb - ab))));
 }
