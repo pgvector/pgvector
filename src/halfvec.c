@@ -15,6 +15,11 @@
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
 
+#if PG_VERSION_NUM < 130000
+#define TYPALIGN_DOUBLE 'd'
+#define TYPALIGN_INT 'i'
+#endif
+
 /*
  * Check if half is NaN
  */
