@@ -720,6 +720,27 @@ Function | Description | Added
 avg(vector) → vector | average |
 sum(vector) → vector | sum | 0.5.0
 
+### Halfvec Type
+
+Each half vector takes `2 * dimensions + 8` bytes of storage. Each element is a half-precision floating-point number, and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Half vectors can have up to 32,000 dimensions.
+
+### Halfvec Operators
+
+Operator | Description | Added
+--- | --- | ---
+<-> | Euclidean distance | 0.7.0
+<#> | negative inner product | 0.7.0
+<=> | cosine distance | 0.7.0
+
+### Halfvec Functions
+
+Function | Description | Added
+--- | --- | ---
+cosine_distance(halfvec, halfvec) → double precision | cosine distance | 0.7.0
+inner_product(halfvec, halfvec) → double precision | inner product | 0.7.0
+l2_distance(halfvec, halfvec) → double precision | Euclidean distance | 0.7.0
+l1_distance(halfvec, halfvec) → double precision | taxicab distance | 0.7.0
+
 ## Installation Notes - Linux and Mac
 
 ### Postgres Location
