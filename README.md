@@ -713,7 +713,7 @@ l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
 
-### Vector Aggregates
+### Vector Aggregate Functions
 
 Function | Description | Added
 --- | --- | ---
