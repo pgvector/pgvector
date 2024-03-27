@@ -1,6 +1,7 @@
 #include "postgres.h"
 
 #include "access/relscan.h"
+#include "halfvec.h"
 #include "hnsw.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
@@ -73,7 +74,14 @@ GetScanValue(IndexScanDesc scan)
 	Datum		value;
 
 	if (scan->orderByData->sk_flags & SK_ISNULL)
-		value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
+	{
+		int			dimensions = GetDimensions(scan->indexRelation);
+
+		if (HnswGetType(scan->indexRelation) == HNSW_TYPE_HALFVEC)
+			value = PointerGetDatum(InitHalfVector(dimensions));
+		else
+			value = PointerGetDatum(InitVector(dimensions));
+	}
 	else
 	{
 		value = scan->orderByData->sk_argument;
@@ -84,7 +92,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Fine if normalization fails */
 		if (so->normprocinfo != NULL)
-			HnswNormValue(so->normprocinfo, so->collation, &value, NULL);
+			HnswNormValue(so->normprocinfo, so->collation, &value, HnswGetType(scan->indexRelation));
 	}
 
 	return value;

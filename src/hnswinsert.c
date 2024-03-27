@@ -622,7 +622,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		if (!HnswNormValue(normprocinfo, collation, &value, NULL))
+		if (!HnswNormValue(normprocinfo, collation, &value, HnswGetType(index)))
 			return;
 	}
 

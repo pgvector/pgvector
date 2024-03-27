@@ -3,12 +3,15 @@
 #include <math.h>
 
 #include "access/generic_xlog.h"
+#include "catalog/pg_type.h"
+#include "halfvec.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
+#include "utils/syscache.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 130000
@@ -150,6 +153,32 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
+ * Get type
+ */
+int
+HnswGetType(Relation index)
+{
+	Oid			typeOid = TupleDescAttr(index->rd_att, 0)->atttypid;
+	HeapTuple	tuple;
+	Form_pg_type type;
+	int			result;
+
+	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typeOid));
+	if (!HeapTupleIsValid(tuple))
+		elog(ERROR, "cache lookup failed for type %u", typeOid);
+
+	type = (Form_pg_type) GETSTRUCT(tuple);
+	if (strcmp(NameStr(type->typname), "halfvec") == 0)
+		result = HNSW_TYPE_HALFVEC;
+	else
+		result = HNSW_TYPE_VECTOR;
+
+	ReleaseSysCache(tuple);
+
+	return result;
+}
+
+/*
  * Divide by the norm
  *
  * Returns false if value should not be indexed
@@ -158,21 +187,34 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
  * if it's different than the original value
  */
 bool
-HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
+HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, int type)
 {
 	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
 	if (norm > 0)
 	{
-		Vector	   *v = DatumGetVector(*value);
+		if (type == HNSW_TYPE_HALFVEC)
+		{
+			HalfVector *v = DatumGetHalfVector(*value);
+			HalfVector *result = InitHalfVector(v->dim);
 
-		if (result == NULL)
-			result = InitVector(v->dim);
+			for (int i = 0; i < v->dim; i++)
+				result->x[i] = v->x[i] / norm;
 
-		for (int i = 0; i < v->dim; i++)
-			result->x[i] = v->x[i] / norm;
+			*value = PointerGetDatum(result);
+		}
+		else if (type == HNSW_TYPE_VECTOR)
+		{
+			Vector	   *v = DatumGetVector(*value);
+			Vector	   *result = InitVector(v->dim);
 
-		*value = PointerGetDatum(result);
+			for (int i = 0; i < v->dim; i++)
+				result->x[i] = v->x[i] / norm;
+
+			*value = PointerGetDatum(result);
+		}
+		else
+			elog(ERROR, "Unsupported type");
 
 		return true;
 	}

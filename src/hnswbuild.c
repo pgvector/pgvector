@@ -489,7 +489,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
-		if (!HnswNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->normvec))
+		if (!HnswNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->type))
 			return false;
 	}
 
@@ -671,21 +671,27 @@ HnswSharedMemoryAlloc(Size size, void *state)
 static void
 InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo, ForkNumber forkNum)
 {
+	int			maxDimensions = HNSW_MAX_DIM;
+
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
 	buildstate->forkNum = forkNum;
+	buildstate->type = HnswGetType(index);
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
+	if (buildstate->type == HNSW_TYPE_HALFVEC)
+		maxDimensions *= 2;
+
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
-	if (buildstate->dimensions > HNSW_MAX_DIM)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", HNSW_MAX_DIM);
+	if (buildstate->dimensions > maxDimensions)
+		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", maxDimensions);
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
 		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");
@@ -702,9 +708,6 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->graph = &buildstate->graphData;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
-
-	/* Reuse for each tuple */
-	buildstate->normvec = InitVector(buildstate->dimensions);
 
 	buildstate->graphCtx = GenerationContextCreate(CurrentMemoryContext,
 												   "Hnsw build graph context",
@@ -729,7 +732,6 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 static void
 FreeBuildState(HnswBuildState * buildstate)
 {
-	pfree(buildstate->normvec);
 	MemoryContextDelete(buildstate->graphCtx);
 	MemoryContextDelete(buildstate->tmpCtx);
 }
