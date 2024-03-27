@@ -158,16 +158,14 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
  * if it's different than the original value
  */
 bool
-HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
+HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value)
 {
 	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
 	if (norm > 0)
 	{
 		Vector	   *v = DatumGetVector(*value);
-
-		if (result == NULL)
-			result = InitVector(v->dim);
+		Vector	   *result = InitVector(v->dim);
 
 		for (int i = 0; i < v->dim; i++)
 			result->x[i] = v->x[i] / norm;

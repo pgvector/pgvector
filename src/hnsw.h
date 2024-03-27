@@ -262,7 +262,6 @@ typedef struct HnswBuildState
 	HnswGraph  *graph;
 	double		ml;
 	int			maxLevel;
-	Vector	   *normvec;
 
 	/* Memory */
 	MemoryContext graphCtx;
@@ -367,7 +366,7 @@ typedef struct HnswVacuumState
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
-bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
+bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
