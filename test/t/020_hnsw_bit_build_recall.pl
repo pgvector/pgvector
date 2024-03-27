@@ -19,6 +19,7 @@ sub test_recall
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
+		SET hnsw.ef_search = 100;
 		EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v $operator $queries[0] LIMIT $limit;
 	));
 	like($explain, qr/Index Scan/);
@@ -27,6 +28,7 @@ sub test_recall
 	{
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
+			SET hnsw.ef_search = 100;
 			SELECT i FROM tst ORDER BY v $operator $queries[$i] LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
@@ -97,7 +99,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	my $min = $operator eq "<\%>" ? 0.84 : 0.93;
+	my $min = $operator eq "<\%>" ? 0.96 : 0.99;
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
