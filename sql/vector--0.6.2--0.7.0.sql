@@ -39,6 +39,9 @@ CREATE FUNCTION cosine_distance(halfvec, halfvec) RETURNS float8
 CREATE FUNCTION l1_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION halfvec_norm(halfvec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION halfvec_l2_squared_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -100,3 +103,14 @@ CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec);
+
+CREATE OPERATOR CLASS halfvec_ip_ops
+	FOR TYPE halfvec USING hnsw AS
+	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
+	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec);
+
+CREATE OPERATOR CLASS halfvec_cosine_ops
+	FOR TYPE halfvec USING hnsw AS
+	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
+	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
+	FUNCTION 2 halfvec_norm(halfvec);
