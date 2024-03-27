@@ -671,6 +671,8 @@ ALTER TABLE items ALTER COLUMN embedding SET STORAGE PLAIN;
 
 Results are limited by the size of the dynamic candidate list (`hnsw.ef_search`). There may be even less results due to dead tuples or filtering conditions in the query. We recommend setting `hnsw.ef_search` to at least twice the `LIMIT` of the query. If you need more than 500 results, use an IVFFlat index instead.
 
+Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosine distance).
+
 #### Why are there less results for a query after adding an IVFFlat index?
 
 The index was likely created with too little data for the number of lists. Drop the index until the table has more data.
@@ -680,6 +682,8 @@ DROP INDEX index_name;
 ```
 
 Results can also be limited by the number of probes (`ivfflat.probes`).
+
+Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosine distance).
 
 ## Reference
 
