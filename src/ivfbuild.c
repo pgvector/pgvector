@@ -57,7 +57,7 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 	 */
 	if (buildstate->kmeansnormprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(buildstate->kmeansnormprocinfo, buildstate->collation, &value, buildstate->normvec))
+		if (!IvfflatNormValue(buildstate->kmeansnormprocinfo, buildstate->collation, &value))
 			return;
 	}
 
@@ -153,7 +153,7 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->normvec))
+		if (!IvfflatNormValue(buildstate->normprocinfo, buildstate->collation, &value))
 			return;
 	}
 
@@ -356,9 +356,6 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions);
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
-	/* Reuse for each tuple */
-	buildstate->normvec = InitVector(buildstate->dimensions);
-
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Ivfflat build temporary context",
 											   ALLOCSET_DEFAULT_SIZES);
@@ -380,7 +377,6 @@ FreeBuildState(IvfflatBuildState * buildstate)
 {
 	VectorArrayFree(buildstate->centers);
 	pfree(buildstate->listInfo);
-	pfree(buildstate->normvec);
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	pfree(buildstate->listSums);

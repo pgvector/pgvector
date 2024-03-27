@@ -172,7 +172,6 @@ typedef struct IvfflatBuildState
 	VectorArray samples;
 	VectorArray centers;
 	ListInfo   *listInfo;
-	Vector	   *normvec;
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	double		inertia;
@@ -267,7 +266,7 @@ void		VectorArrayFree(VectorArray arr);
 void		PrintVectorArray(char *msg, VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
-bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result);
+bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value);
 int			IvfflatGetLists(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);
 void		IvfflatUpdateList(Relation index, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);

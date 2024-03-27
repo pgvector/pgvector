@@ -293,7 +293,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 			/* Fine if normalization fails */
 			if (so->normprocinfo != NULL)
-				IvfflatNormValue(so->normprocinfo, so->collation, &value, NULL);
+				IvfflatNormValue(so->normprocinfo, so->collation, &value);
 		}
 
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));
