@@ -689,7 +689,7 @@ Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosi
 
 ### Vector Type
 
-Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single precision floating-point number (like the `real` type in Postgres), and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Vectors can have up to 16,000 dimensions.
+Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single-precision floating-point number (like the `real` type in Postgres), and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Vectors can have up to 16,000 dimensions.
 
 ### Vector Operators
 
@@ -713,7 +713,7 @@ l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
 
-### Aggregate Functions
+### Vector Aggregates
 
 Function | Description | Added
 --- | --- | ---
