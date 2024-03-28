@@ -544,6 +544,7 @@ l2_squared_distance_impl(int16 dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
 
+	/* Auto-vectorized */
 	for (int16 i = 0; i < dim; i++)
 	{
 		float		diff = ax[i] - bx[i];
