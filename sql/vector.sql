@@ -415,3 +415,17 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 2 halfvec_norm(halfvec);
+
+-- extension casts
+
+CREATE FUNCTION halfvec_to_vector(halfvec, integer, boolean) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_to_halfvec(vector, integer, boolean) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE CAST (halfvec AS vector)
+	WITH FUNCTION halfvec_to_vector(halfvec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (vector AS halfvec)
+	WITH FUNCTION vector_to_halfvec(vector, integer, boolean) AS ASSIGNMENT;

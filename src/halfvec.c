@@ -14,6 +14,7 @@
 #include "utils/float.h"
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
+#include "vector.h"
 
 #if PG_VERSION_NUM < 130000
 #define TYPALIGN_DOUBLE 'd'
@@ -718,6 +719,24 @@ halfvec_to_float4(PG_FUNCTION_ARGS)
 	result = construct_array(datums, vec->dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
 
 	pfree(datums);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert half vector to vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_vector);
+Datum
+halfvec_to_vector(PG_FUNCTION_ARGS)
+{
+	HalfVector *vec = PG_GETARG_HALFVEC_P(0);
+
+	/* TODO Check vector dims in InitVector */
+	Vector	   *result = InitVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = HalfToFloat4(vec->x[i]);
 
 	PG_RETURN_POINTER(result);
 }
