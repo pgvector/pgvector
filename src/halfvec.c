@@ -94,7 +94,7 @@ pq_sendhalf(StringInfo buf, half h)
 /*
  * Convert a half to a float4
  */
-static float
+float
 HalfToFloat4(half num)
 {
 #ifdef FLT16_SUPPORT
@@ -245,7 +245,7 @@ Float4ToHalfUnchecked(float num)
 /*
  * Convert a float4 to a half
  */
-static half
+half
 Float4ToHalf(float num)
 {
 	half		result = Float4ToHalfUnchecked(num);

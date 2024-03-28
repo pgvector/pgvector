@@ -34,5 +34,7 @@ typedef struct HalfVector
 }			HalfVector;
 
 HalfVector *InitHalfVector(int dim);
+float		HalfToFloat4(half num);
+half		Float4ToHalf(float num);
 
 #endif
