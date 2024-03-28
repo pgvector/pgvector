@@ -67,8 +67,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<->", "<#>"); #, "<=>");
-my @opclasses = ("halfvec_l2_ops", "halfvec_ip_ops"); #, "halfvec_cosine_ops");
+my @operators = ("<->", "<#>", "<=>");
+my @opclasses = ("halfvec_l2_ops", "halfvec_ip_ops", "halfvec_cosine_ops");
 
 for my $i (0 .. $#operators)
 {
@@ -90,7 +90,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	my $min = $operator eq "<#>" ? 0.80 : 0.99;
+	my $min = $operator eq "<#>" ? 0.80 : ($operator eq "<=>" ? 0.85 : 0.99);
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
