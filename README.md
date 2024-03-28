@@ -722,7 +722,7 @@ sum(vector) → vector | sum | 0.5.0
 
 ### Halfvec Type
 
-Each half vector takes `2 * dimensions + 8` bytes of storage. Each element is a half-precision floating-point number, and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Half vectors can have up to 32,000 dimensions.
+Each half vector takes `2 * dimensions + 8` bytes of storage. Each element is a half-precision floating-point number, and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Half vectors can have up to 16,000 dimensions.
 
 ### Halfvec Operators
 

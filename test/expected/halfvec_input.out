@@ -133,7 +133,9 @@ ERROR:  dimensions for type halfvec must be at least 1
 LINE 1: SELECT '[1,2,3]'::halfvec(0);
                           ^
 SELECT '[1,2,3]'::halfvec(16001);
-ERROR:  expected 16001 dimensions, not 3
+ERROR:  dimensions for type halfvec cannot exceed 16000
+LINE 1: SELECT '[1,2,3]'::halfvec(16001);
+                          ^
 SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::halfvec[]);
  unnest  
 ---------

@@ -18,7 +18,7 @@
 #define HALF_MAX 65504
 #endif
 
-#define HALFVEC_MAX_DIM 32000
+#define HALFVEC_MAX_DIM 16000
 
 #define HALFVEC_SIZE(_dim)		(offsetof(HalfVector, x) + sizeof(half)*(_dim))
 #define DatumGetHalfVector(x)	((HalfVector *) PG_DETOAST_DATUM(x))
