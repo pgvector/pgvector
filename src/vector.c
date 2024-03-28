@@ -29,7 +29,7 @@
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
-#if defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones)
+#if defined(__x86_64__) && defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones)
 #define RUNTIME_DISPATCH __attribute__((target_clones("default", "avx", "fma", "avx512f")))
 #else
 #define RUNTIME_DISPATCH
