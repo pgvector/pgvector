@@ -900,7 +900,11 @@ halfvec_norm(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		norm += (double) HalfToFloat4(ax[i]) * (double) HalfToFloat4(ax[i]);
+	{
+		double		axi = (double) HalfToFloat4(ax[i]);
+
+		norm += axi * axi;
+	}
 
 	PG_RETURN_FLOAT8(sqrt(norm));
 }
