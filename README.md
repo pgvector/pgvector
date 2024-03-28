@@ -706,6 +706,7 @@ cosine_distance(vector, vector) → double precision | cosine distance |
 inner_product(vector, vector) → double precision | inner product |
 l2_distance(vector, vector) → double precision | Euclidean distance |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
+subvector(vector, integer, integer) → vector | subvector | 0.7.0 [unreleased]
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
 
