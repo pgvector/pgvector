@@ -105,7 +105,7 @@ SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Add sample */
-	AddSample(values, state);
+	AddSample(values, buildstate);
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
