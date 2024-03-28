@@ -29,6 +29,12 @@
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
+#if defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones)
+#define RUNTIME_DISPATCH __attribute__((target_clones("default", "avx", "fma", "avx512f")))
+#else
+#define RUNTIME_DISPATCH
+#endif
+
 PG_MODULE_MAGIC;
 
 /*
@@ -532,6 +538,22 @@ vector_to_float4(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
+RUNTIME_DISPATCH
+static float
+l2_squared_distance_impl(int16 dim, float *ax, float *bx)
+{
+	float		distance = 0.0;
+
+	for (int16 i = 0; i < dim; i++)
+	{
+		float		diff = ax[i] - bx[i];
+
+		distance += diff * diff;
+	}
+
+	return distance;
+}
+
 /*
  * Get the L2 distance between vectors
  */
@@ -541,19 +563,11 @@ l2_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
-	float		distance = 0.0;
-	float		diff;
+	float		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		diff = ax[i] - bx[i];
-		distance += diff * diff;
-	}
+	distance = l2_squared_distance_impl(a->dim, a->x, b->x);
 
 	PG_RETURN_FLOAT8(sqrt((double) distance));
 }
@@ -568,19 +582,11 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
-	float		distance = 0.0;
-	float		diff;
+	float		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		diff = ax[i] - bx[i];
-		distance += diff * diff;
-	}
+	distance = l2_squared_distance_impl(a->dim, a->x, b->x);
 
 	PG_RETURN_FLOAT8((double) distance);
 }
