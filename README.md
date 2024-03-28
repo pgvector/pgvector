@@ -415,7 +415,19 @@ You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python
 
 ### Tuning
 
-Use a tool like [PgTune](https://pgtune.leopard.in.ua/) to set initial values for Postgres server parameters.
+Use a tool like [PgTune](https://pgtune.leopard.in.ua/) to set initial values for Postgres server parameters. For instance, `shared_buffers` should typically be 25% of the server’s memory. You can find the config file with:
+
+```sql
+SHOW config_file;
+```
+
+And check individual settings with:
+
+```sql
+SHOW shared_buffers;
+```
+
+Be sure to restart Postgres for changes to take effect.
 
 ### Loading
 
