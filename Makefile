@@ -12,6 +12,13 @@ REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
 OPTFLAGS =
 
+# Since runtime dispatch not supported
+ifeq ($(shell uname -s), Darwin)
+	ifeq ($(shell uname -m), x86_64)
+		OPTFLAGS = -march=native
+	endif
+endif
+
 # For auto-vectorization:
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html
