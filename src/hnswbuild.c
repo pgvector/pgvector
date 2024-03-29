@@ -489,7 +489,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
-		if (!HnswNormValue(buildstate->normprocinfo, buildstate->collation, &value))
+		if (!HnswNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->type))
 			return false;
 	}
 
@@ -677,6 +677,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
 	buildstate->forkNum = forkNum;
+	buildstate->type = HnswGetType(index);
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);

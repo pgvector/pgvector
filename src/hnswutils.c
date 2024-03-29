@@ -150,6 +150,15 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
+ * Get vector type
+ */
+HnswType
+HnswGetType(Relation index)
+{
+	return HNSW_TYPE_VECTOR;
+}
+
+/*
  * Divide by the norm
  *
  * Returns false if value should not be indexed
@@ -158,20 +167,25 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
  * if it's different than the original value
  */
 bool
-HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value)
+HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 {
 	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
 	if (norm > 0)
 	{
 		/* TODO Remove vector-specific code */
-		Vector	   *v = DatumGetVector(*value);
-		Vector	   *result = InitVector(v->dim);
+		if (type == HNSW_TYPE_VECTOR)
+		{
+			Vector	   *v = DatumGetVector(*value);
+			Vector	   *result = InitVector(v->dim);
 
-		for (int i = 0; i < v->dim; i++)
-			result->x[i] = v->x[i] / norm;
+			for (int i = 0; i < v->dim; i++)
+				result->x[i] = v->x[i] / norm;
 
-		*value = PointerGetDatum(result);
+			*value = PointerGetDatum(result);
+		}
+		else
+			elog(ERROR, "Unsupported type");
 
 		return true;
 	}

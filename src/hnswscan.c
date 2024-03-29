@@ -61,7 +61,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Fine if normalization fails */
 		if (so->normprocinfo != NULL)
-			HnswNormValue(so->normprocinfo, so->collation, &value);
+			HnswNormValue(so->normprocinfo, so->collation, &value, HnswGetType(scan->indexRelation));
 	}
 
 	return value;

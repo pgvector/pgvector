@@ -55,6 +55,11 @@
 #define HNSW_UPDATE_ENTRY_GREATER 1
 #define HNSW_UPDATE_ENTRY_ALWAYS 2
 
+typedef enum HnswType
+{
+	HNSW_TYPE_VECTOR
+}			HnswType;
+
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
 #define PROGRESS_HNSW_PHASE_LOAD		2
@@ -242,6 +247,7 @@ typedef struct HnswBuildState
 	Relation	index;
 	IndexInfo  *indexInfo;
 	ForkNumber	forkNum;
+	HnswType	type;
 
 	/* Settings */
 	int			dimensions;
@@ -366,7 +372,8 @@ typedef struct HnswVacuumState
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
-bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value);
+HnswType	HnswGetType(Relation index);
+bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
