@@ -16,7 +16,7 @@
 #error "Requires PostgreSQL 12+"
 #endif
 
-#define HNSW_MAX_DIM 2000
+#define HNSW_MAX_DIM 4096
 
 /* Support functions */
 #define HNSW_DISTANCE_PROC 1
