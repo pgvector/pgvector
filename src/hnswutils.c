@@ -164,6 +164,7 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value)
 
 	if (norm > 0)
 	{
+		/* TODO Remove vector-specific code */
 		Vector	   *v = DatumGetVector(*value);
 		Vector	   *result = InitVector(v->dim);
 
