@@ -573,7 +573,12 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 
 	/* Calculate distance */
 	if (distance != NULL)
-		*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
+	{
+		if (DatumGetPointer(*q) == NULL)
+			*distance = 0;
+		else
+			*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
+	}
 
 	UnlockReleaseBuffer(buf);
 }

@@ -41,29 +41,6 @@ GetScanItems(IndexScanDesc scan, Datum q)
 }
 
 /*
- * Get dimensions from metapage
- */
-static int
-GetDimensions(Relation index)
-{
-	Buffer		buf;
-	Page		page;
-	HnswMetaPage metap;
-	int			dimensions;
-
-	buf = ReadBuffer(index, HNSW_METAPAGE_BLKNO);
-	LockBuffer(buf, BUFFER_LOCK_SHARE);
-	page = BufferGetPage(buf);
-	metap = HnswPageGetMeta(page);
-
-	dimensions = metap->dimensions;
-
-	UnlockReleaseBuffer(buf);
-
-	return dimensions;
-}
-
-/*
  * Get scan value
  */
 static Datum
@@ -73,7 +50,7 @@ GetScanValue(IndexScanDesc scan)
 	Datum		value;
 
 	if (scan->orderByData->sk_flags & SK_ISNULL)
-		value = PointerGetDatum(InitVector(GetDimensions(scan->indexRelation)));
+		value = PointerGetDatum(NULL);
 	else
 	{
 		value = scan->orderByData->sk_argument;
