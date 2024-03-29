@@ -671,6 +671,8 @@ HnswSharedMemoryAlloc(Size size, void *state)
 static void
 InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo, ForkNumber forkNum)
 {
+	int			maxDimensions = HNSW_MAX_DIM;
+
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
@@ -684,8 +686,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
-	if (buildstate->dimensions > HNSW_MAX_DIM)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", HNSW_MAX_DIM);
+	if (buildstate->dimensions > maxDimensions)
+		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", maxDimensions);
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
 		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");
