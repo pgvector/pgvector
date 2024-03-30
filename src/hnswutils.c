@@ -204,6 +204,10 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 
 			*value = PointerGetDatum(result);
 		}
+		else if (type == HNSW_TYPE_INTVEC)
+		{
+			/* Do nothing */
+		}
 		else
 			elog(ERROR, "Unsupported type");
 

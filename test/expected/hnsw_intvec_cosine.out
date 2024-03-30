@@ -9,19 +9,18 @@ SELECT * FROM t ORDER BY val <=> '[3,3,3]';
  [1,1,1]
  [1,2,3]
  [1,2,4]
- [0,0,0]
-(4 rows)
+(3 rows)
 
 SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> '[0,0,0]') t2;
  count 
 -------
-     4
+     3
 (1 row)
 
 SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::intvec)) t2;
  count 
 -------
-     4
+     3
 (1 row)
 
 DROP TABLE t;

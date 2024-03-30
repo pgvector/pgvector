@@ -588,3 +588,21 @@ intvec_l1_distance(PG_FUNCTION_ARGS)
 
 	PG_RETURN_FLOAT8((double) distance);
 }
+
+/*
+ * Get the L2 norm of an int vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(intvec_l2_norm);
+Datum
+intvec_l2_norm(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	int8	   *ax = a->x;
+	int			norm = 0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < a->dim; i++)
+		norm += ax[i] * ax[i];
+
+	PG_RETURN_FLOAT8(sqrt((double) norm));
+}
