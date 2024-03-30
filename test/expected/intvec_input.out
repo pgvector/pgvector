@@ -1,0 +1,119 @@
+SELECT '[1,2,3]'::intvec;
+ intvec  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[-1,-2,-3]'::intvec;
+   intvec   
+------------
+ [-1,-2,-3]
+(1 row)
+
+SELECT ' [ 1,  2 ,    3  ] '::intvec;
+ intvec  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1.23456]'::intvec;
+ERROR:  invalid input syntax for type intvec: "[1.23456]"
+LINE 1: SELECT '[1.23456]'::intvec;
+               ^
+SELECT '[hello,1]'::intvec;
+ERROR:  invalid input syntax for type intvec: "[hello,1]"
+LINE 1: SELECT '[hello,1]'::intvec;
+               ^
+SELECT '[127,-128]'::intvec;
+   intvec   
+------------
+ [127,-128]
+(1 row)
+
+SELECT '[128,-129]'::intvec;
+ERROR:  value "128" is out of range for type intvec
+LINE 1: SELECT '[128,-129]'::intvec;
+               ^
+SELECT '[1,2,3'::intvec;
+ERROR:  malformed intvec literal: "[1,2,3"
+LINE 1: SELECT '[1,2,3'::intvec;
+               ^
+DETAIL:  Unexpected end of input.
+SELECT '[1,2,3]9'::intvec;
+ERROR:  malformed intvec literal: "[1,2,3]9"
+LINE 1: SELECT '[1,2,3]9'::intvec;
+               ^
+DETAIL:  Junk after closing right brace.
+SELECT '1,2,3'::intvec;
+ERROR:  malformed intvec literal: "1,2,3"
+LINE 1: SELECT '1,2,3'::intvec;
+               ^
+DETAIL:  Vector contents must start with "[".
+SELECT ''::intvec;
+ERROR:  malformed intvec literal: ""
+LINE 1: SELECT ''::intvec;
+               ^
+DETAIL:  Vector contents must start with "[".
+SELECT '['::intvec;
+ERROR:  malformed intvec literal: "["
+LINE 1: SELECT '['::intvec;
+               ^
+DETAIL:  Unexpected end of input.
+SELECT '[,'::intvec;
+ERROR:  malformed intvec literal: "[,"
+LINE 1: SELECT '[,'::intvec;
+               ^
+DETAIL:  Unexpected end of input.
+SELECT '[]'::intvec;
+ERROR:  intvec must have at least 1 dimension
+LINE 1: SELECT '[]'::intvec;
+               ^
+SELECT '[1,]'::intvec;
+ERROR:  invalid input syntax for type intvec: "[1,]"
+LINE 1: SELECT '[1,]'::intvec;
+               ^
+SELECT '[1a]'::intvec;
+ERROR:  invalid input syntax for type intvec: "[1a]"
+LINE 1: SELECT '[1a]'::intvec;
+               ^
+SELECT '[1,,3]'::intvec;
+ERROR:  malformed intvec literal: "[1,,3]"
+LINE 1: SELECT '[1,,3]'::intvec;
+               ^
+SELECT '[1, ,3]'::intvec;
+ERROR:  invalid input syntax for type intvec: "[1, ,3]"
+LINE 1: SELECT '[1, ,3]'::intvec;
+               ^
+SELECT '[1,2,3]'::intvec(3);
+ intvec  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::intvec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '[1,2,3]'::intvec(3, 2);
+ERROR:  invalid type modifier
+LINE 1: SELECT '[1,2,3]'::intvec(3, 2);
+                          ^
+SELECT '[1,2,3]'::intvec('a');
+ERROR:  invalid input syntax for type integer: "a"
+LINE 1: SELECT '[1,2,3]'::intvec('a');
+                          ^
+SELECT '[1,2,3]'::intvec(0);
+ERROR:  dimensions for type intvec must be at least 1
+LINE 1: SELECT '[1,2,3]'::intvec(0);
+                          ^
+SELECT '[1,2,3]'::intvec(16001);
+ERROR:  dimensions for type intvec cannot exceed 16000
+LINE 1: SELECT '[1,2,3]'::intvec(16001);
+                          ^
+SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::intvec[]);
+ unnest  
+---------
+ [1,2,3]
+ [4,5,6]
+(2 rows)
+
+SELECT '{"[1,2,3]"}'::intvec(2)[];
+ERROR:  expected 2 dimensions, not 3

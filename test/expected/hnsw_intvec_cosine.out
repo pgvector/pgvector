@@ -1,0 +1,27 @@
+SET enable_seqscan = off;
+CREATE TABLE t (val intvec(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t USING hnsw (val intvec_cosine_ops);
+INSERT INTO t (val) VALUES ('[1,2,4]');
+SELECT * FROM t ORDER BY val <=> '[3,3,3]';
+   val   
+---------
+ [1,1,1]
+ [1,2,3]
+ [1,2,4]
+ [0,0,0]
+(4 rows)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> '[0,0,0]') t2;
+ count 
+-------
+     4
+(1 row)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::intvec)) t2;
+ count 
+-------
+     4
+(1 row)
+
+DROP TABLE t;

@@ -1,14 +1,17 @@
 #include "postgres.h"
 
+#include <float.h>
 #include <math.h>
 
 #include "access/generic_xlog.h"
+#include "catalog/pg_type.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
+#include "utils/syscache.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 130000
@@ -155,7 +158,24 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 HnswType
 HnswGetType(Relation index)
 {
-	return HNSW_TYPE_VECTOR;
+	Oid			typeOid = TupleDescAttr(index->rd_att, 0)->atttypid;
+	HeapTuple	tuple;
+	Form_pg_type type;
+	int			result;
+
+	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typeOid));
+	if (!HeapTupleIsValid(tuple))
+		elog(ERROR, "cache lookup failed for type %u", typeOid);
+
+	type = (Form_pg_type) GETSTRUCT(tuple);
+	if (strcmp(NameStr(type->typname), "intvec") == 0)
+		result = HNSW_TYPE_INTVEC;
+	else
+		result = HNSW_TYPE_VECTOR;
+
+	ReleaseSysCache(tuple);
+
+	return result;
 }
 
 /*
@@ -592,7 +612,14 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 		if (DatumGetPointer(*q) == NULL)
 			*distance = 0;
 		else
+		{
 			*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
+
+			/* Needed for intvec cosine distance */
+			/* TODO Improve */
+			if (isnan(*distance))
+				*distance = FLT_MAX;
+		}
 	}
 
 	UnlockReleaseBuffer(buf);
