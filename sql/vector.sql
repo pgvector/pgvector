@@ -1,7 +1,7 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "CREATE EXTENSION vector" to load this file. \quit
 
--- type
+-- vector type
 
 CREATE TYPE vector;
 
@@ -29,7 +29,7 @@ CREATE TYPE vector (
 	STORAGE   = external
 );
 
--- functions
+-- vector functions
 
 CREATE FUNCTION l2_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -58,7 +58,7 @@ CREATE FUNCTION vector_sub(vector, vector) RETURNS vector
 CREATE FUNCTION vector_mul(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
--- private functions
+-- vector private functions
 
 CREATE FUNCTION vector_lt(vector, vector) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -99,7 +99,7 @@ CREATE FUNCTION vector_avg(double precision[]) RETURNS vector
 CREATE FUNCTION vector_combine(double precision[], double precision[]) RETURNS double precision[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
--- aggregates
+-- vector aggregates
 
 CREATE AGGREGATE avg(vector) (
 	SFUNC = vector_accum,
@@ -117,7 +117,7 @@ CREATE AGGREGATE sum(vector) (
 	PARALLEL = SAFE
 );
 
--- cast functions
+-- vector cast functions
 
 CREATE FUNCTION vector(vector, integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -137,7 +137,7 @@ CREATE FUNCTION array_to_vector(numeric[], integer, boolean) RETURNS vector
 CREATE FUNCTION vector_to_float4(vector, integer, boolean) RETURNS real[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
--- casts
+-- vector casts
 
 CREATE CAST (vector AS vector)
 	WITH FUNCTION vector(vector, integer, boolean) AS IMPLICIT;
@@ -157,7 +157,7 @@ CREATE CAST (double precision[] AS vector)
 CREATE CAST (numeric[] AS vector)
 	WITH FUNCTION array_to_vector(numeric[], integer, boolean) AS ASSIGNMENT;
 
--- operators
+-- vector operators
 
 CREATE OPERATOR <-> (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = l2_distance,
@@ -240,7 +240,7 @@ CREATE ACCESS METHOD hnsw TYPE INDEX HANDLER hnswhandler;
 
 COMMENT ON ACCESS METHOD hnsw IS 'hnsw index access method';
 
--- opclasses
+-- vector opclasses
 
 CREATE OPERATOR CLASS vector_ops
 	DEFAULT FOR TYPE vector USING btree AS
