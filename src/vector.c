@@ -534,6 +534,26 @@ vector_to_float4(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Convert half vector to vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_vector);
+Datum
+halfvec_to_vector(PG_FUNCTION_ARGS)
+{
+	HalfVector *vec = PG_GETARG_HALFVEC_P(0);
+	Vector	   *result;
+
+	CheckDim(vec->dim);
+
+	result = InitVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = HalfToFloat4(vec->x[i]);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Get the L2 distance between vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(l2_distance);
