@@ -742,6 +742,27 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Convert vector to half vec
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_to_halfvec);
+Datum
+vector_to_halfvec(PG_FUNCTION_ARGS)
+{
+	Vector	   *vec = PG_GETARG_VECTOR_P(0);
+
+	/* TODO Check halfvec dims in InitHalfVector */
+	HalfVector *result = InitHalfVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+	{
+		result->x[i] = Float4ToHalfUnchecked(vec->x[i]);
+		CheckElement(result->x[i]);
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Get the L2 distance between half vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_distance);
