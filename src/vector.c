@@ -197,6 +197,8 @@ vector_in(PG_FUNCTION_ARGS)
 
 	while (pt != NULL && *stringEnd != ']')
 	{
+		float		val;
+
 		if (dim == VECTOR_MAX_DIM)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -212,14 +214,22 @@ vector_in(PG_FUNCTION_ARGS)
 					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
 
 		/* Use strtof like float4in to avoid a double-rounding problem */
-		x[dim] = strtof(pt, &stringEnd);
-		CheckElement(x[dim]);
-		dim++;
+		errno = 0;
+		val = strtof(pt, &stringEnd);
 
 		if (stringEnd == pt)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
+
+		/* Check for range error like float4in */
+		if (errno == ERANGE && (val == 0 || isinf(val)))
+			ereport(ERROR,
+					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+					 errmsg("\"%s\" is out of range for type vector", pt)));
+
+		CheckElement(val);
+		x[dim++] = val;
 
 		while (vector_isspace(*stringEnd))
 			stringEnd++;
