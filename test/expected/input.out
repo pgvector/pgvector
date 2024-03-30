@@ -66,6 +66,22 @@ SELECT '[4e38,1]'::vector;
 ERROR:  infinite value not allowed in vector
 LINE 1: SELECT '[4e38,1]'::vector;
                ^
+SELECT '[-4e38,1]'::vector;
+ERROR:  infinite value not allowed in vector
+LINE 1: SELECT '[-4e38,1]'::vector;
+               ^
+SELECT '[1e-46,1]'::vector;
+ vector 
+--------
+ [0,1]
+(1 row)
+
+SELECT '[-1e-46,1]'::vector;
+ vector 
+--------
+ [-0,1]
+(1 row)
+
 SELECT '[1,2,3'::vector;
 ERROR:  malformed vector literal: "[1,2,3"
 LINE 1: SELECT '[1,2,3'::vector;
