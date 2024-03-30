@@ -227,7 +227,6 @@ intvec_out(PG_FUNCTION_ARGS)
 	int			dim = vector->dim;
 	char	   *buf;
 	char	   *ptr;
-	int			n;
 
 	/*
 	 * Need:
@@ -251,8 +250,13 @@ intvec_out(PG_FUNCTION_ARGS)
 			ptr++;
 		}
 
-		n = pg_ltoa(vector->x[i], ptr);
-		ptr += n;
+#if PG_VERSION_NUM >= 140000
+		ptr += pg_ltoa(vector->x[i], ptr);
+#else
+		pg_ltoa(vector->x[i], ptr);
+		while (*ptr != '\0')
+			ptr++;
+#endif
 	}
 	*ptr = ']';
 	ptr++;
