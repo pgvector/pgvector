@@ -31,6 +31,9 @@
 
 #if defined(__x86_64__) && defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones)
 #define RUNTIME_DISPATCH __attribute__((target_clones("default", "avx", "fma", "avx512f")))
+#elif defined(__aarch64__) && defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones)
+/* TODO Fix error: target does not support function version dispatcher */
+#define RUNTIME_DISPATCH __attribute__((target_clones("default", "arch=armv8.5-a")))
 #else
 #define RUNTIME_DISPATCH
 #endif
