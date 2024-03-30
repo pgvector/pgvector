@@ -425,7 +425,7 @@ CREATE FUNCTION vector_to_halfvec(vector, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE CAST (halfvec AS vector)
-	WITH FUNCTION halfvec_to_vector(halfvec, integer, boolean) AS ASSIGNMENT;
+	WITH FUNCTION halfvec_to_vector(halfvec, integer, boolean) AS IMPLICIT;
 
 CREATE CAST (vector AS halfvec)
-	WITH FUNCTION vector_to_halfvec(vector, integer, boolean) AS ASSIGNMENT;
+	WITH FUNCTION vector_to_halfvec(vector, integer, boolean) AS IMPLICIT;
