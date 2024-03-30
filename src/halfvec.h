@@ -36,5 +36,6 @@ typedef struct HalfVector
 HalfVector *InitHalfVector(int dim);
 float		HalfToFloat4(half num);
 half		Float4ToHalf(float num);
+half		Float4ToHalfUnchecked(float num);
 
 #endif

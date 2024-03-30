@@ -164,7 +164,7 @@ HalfToFloat4(half num)
 /*
  * Convert a float4 to a half
  */
-static half
+half
 Float4ToHalfUnchecked(float num)
 {
 #ifdef FLT16_SUPPORT
