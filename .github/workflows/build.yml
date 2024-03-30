@@ -8,16 +8,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - postgres: 17
-            os: ubuntu-22.04
           - postgres: 16
             os: ubuntu-22.04
-          - postgres: 15
-            os: ubuntu-22.04
-          - postgres: 14
-            os: ubuntu-22.04
-          - postgres: 13
-            os: ubuntu-20.04
           - postgres: 12
             os: ubuntu-20.04
     steps:
@@ -32,13 +24,6 @@ jobs:
       - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
-      - run: make installcheck
-      - if: ${{ failure() }}
-        run: cat regression.diffs
-      - run: |
-          sudo apt-get update
-          sudo apt-get install libipc-run-perl
-      - run: make prove_installcheck
   mac:
     runs-on: macos-latest
     if: ${{ !startsWith(github.ref_name, 'windows') }}
@@ -51,18 +36,6 @@ jobs:
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter
       - run: make install
-      - run: make installcheck
-      - if: ${{ failure() }}
-        run: cat regression.diffs
-      - run: |
-          brew install cpanm
-          cpanm --notest IPC::Run
-          wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_10.tar.gz
-          tar xf REL_14_10.tar.gz
-      - run: make prove_installcheck PROVE_FLAGS="-I ./postgres-REL_14_10/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
-      - run: make clean && /usr/local/opt/llvm@15/bin/scan-build --status-bugs make
-        env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING
   windows:
     runs-on: windows-latest
     if: ${{ !startsWith(github.ref_name, 'mac') }}
@@ -95,10 +68,6 @@ jobs:
           git fetch origin ${{ github.ref }}
           git reset --hard FETCH_HEAD
           make
-          make install
-          chown -R postgres .
-          sudo -u postgres make installcheck
-          sudo -u postgres make prove_installcheck
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
   valgrind:

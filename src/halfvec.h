@@ -7,6 +7,8 @@
 
 #ifdef __FLT16_MAX__
 #define FLT16_SUPPORT
+#else
+#error "_Float16 not supported"
 #endif
 
 #ifdef FLT16_SUPPORT
