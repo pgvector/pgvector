@@ -7,8 +7,6 @@
 
 #ifdef __FLT16_MAX__
 #define FLT16_SUPPORT
-#else
-#error "_Float16 not supported"
 #endif
 
 #ifdef FLT16_SUPPORT
@@ -16,7 +14,7 @@
 #define HALF_MAX FLT16_MAX
 #else
 /* TODO #pragma message("")? */
-#define half uint16
+#define half __fp16
 #define HALF_MAX 65504
 #endif
 

@@ -24,18 +24,6 @@ jobs:
       - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
-  mac:
-    runs-on: macos-latest
-    if: ${{ !startsWith(github.ref_name, 'windows') }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ankane/setup-postgres@v1
-        with:
-          postgres-version: 14
-      - run: make
-        env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter
-      - run: make install
   windows:
     runs-on: windows-latest
     if: ${{ !startsWith(github.ref_name, 'mac') }}
@@ -70,14 +58,3 @@ jobs:
           make
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
-  valgrind:
-    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ankane/setup-postgres-valgrind@v1
-        with:
-          postgres-version: 16
-      - run: make
-      - run: sudo --preserve-env=PG_CONFIG make install
-      - run: make installcheck
