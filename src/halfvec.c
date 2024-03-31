@@ -478,6 +478,9 @@ halfvec_in(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
+#define AppendChar(ptr, c) (*(ptr)++ = (c))
+#define AppendFloat(ptr, f) ((ptr) += float_to_shortest_decimal_bufn((f), (ptr)))
+
 /*
  * Convert internal representation to textual representation
  */
@@ -489,7 +492,6 @@ halfvec_out(PG_FUNCTION_ARGS)
 	int			dim = vector->dim;
 	char	   *buf;
 	char	   *ptr;
-	int			n;
 
 	/*
 	 * Need:
@@ -504,21 +506,17 @@ halfvec_out(PG_FUNCTION_ARGS)
 	buf = (char *) palloc(FLOAT_SHORTEST_DECIMAL_LEN * dim + 2);
 	ptr = buf;
 
-	*ptr = '[';
-	ptr++;
+	AppendChar(ptr, '[');
+
 	for (int i = 0; i < dim; i++)
 	{
 		if (i > 0)
-		{
-			*ptr = ',';
-			ptr++;
-		}
+			AppendChar(ptr, ',');
 
-		n = float_to_shortest_decimal_bufn(HalfToFloat4(vector->x[i]), ptr);
-		ptr += n;
+		AppendFloat(ptr, HalfToFloat4(vector->x[i]));
 	}
-	*ptr = ']';
-	ptr++;
+
+	AppendChar(ptr, ']');
 	*ptr = '\0';
 
 	PG_FREE_IF_COPY(vector, 0);
