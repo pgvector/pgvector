@@ -58,6 +58,10 @@ SELECT '[1,2,3]'::halfvec::vector;
  [1,2,3]
 (1 row)
 
+SELECT '[1,2,3]'::vector::halfvec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '[1,2,3]'::halfvec::vector(2);
+ERROR:  expected 2 dimensions, not 3
 SELECT '[1e-8]'::vector::halfvec;
  halfvec 
 ---------

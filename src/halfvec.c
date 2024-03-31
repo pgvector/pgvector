@@ -731,9 +731,11 @@ Datum
 vector_to_halfvec(PG_FUNCTION_ARGS)
 {
 	Vector	   *vec = PG_GETARG_VECTOR_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
 	HalfVector *result;
 
 	CheckDim(vec->dim);
+	CheckExpectedDim(typmod, vec->dim);
 
 	result = InitHalfVector(vec->dim);
 
