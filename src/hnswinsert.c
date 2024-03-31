@@ -614,15 +614,19 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	Datum		value;
 	FmgrInfo   *normprocinfo;
 	Oid			collation = index->rd_indcollation[0];
+	HnswType	type = HnswGetType(index);
 
 	/* Detoast once for all calls */
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+	/* Check value */
+	HnswCheckValue(value, type);
 
 	/* Normalize if needed */
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		if (!HnswNormValue(normprocinfo, collation, &value, HnswGetType(index)))
+		if (!HnswNormValue(normprocinfo, collation, &value, type))
 			return;
 	}
 

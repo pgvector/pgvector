@@ -3,12 +3,15 @@
 #include <math.h>
 
 #include "access/generic_xlog.h"
+#include "catalog/pg_type.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
+#include "sparsevec.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
+#include "utils/syscache.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 130000
@@ -155,7 +158,24 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 HnswType
 HnswGetType(Relation index)
 {
-	return HNSW_TYPE_VECTOR;
+	Oid			typeOid = TupleDescAttr(index->rd_att, 0)->atttypid;
+	HeapTuple	tuple;
+	Form_pg_type type;
+	int			result;
+
+	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typeOid));
+	if (!HeapTupleIsValid(tuple))
+		elog(ERROR, "cache lookup failed for type %u", typeOid);
+
+	type = (Form_pg_type) GETSTRUCT(tuple);
+	if (strcmp(NameStr(type->typname), "sparsevec") == 0)
+		result = HNSW_TYPE_SPARSEVEC;
+	else
+		result = HNSW_TYPE_VECTOR;
+
+	ReleaseSysCache(tuple);
+
+	return result;
 }
 
 /*
@@ -184,6 +204,21 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 
 			*value = PointerGetDatum(result);
 		}
+		else if (type == HNSW_TYPE_SPARSEVEC)
+		{
+			SparseVector *v = DatumGetSparseVector(*value);
+			SparseVector *result = InitSparseVector(v->dim, v->nnz);
+			float	   *vx = SPARSEVEC_VALUES(v);
+			float	   *rx = SPARSEVEC_VALUES(result);
+
+			for (int i = 0; i < v->nnz; i++)
+			{
+				result->indices[i] = v->indices[i];
+				rx[i] = vx[i] / norm;
+			}
+
+			*value = PointerGetDatum(result);
+		}
 		else
 			elog(ERROR, "Unsupported type");
 
@@ -191,6 +226,21 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 	}
 
 	return false;
+}
+
+/*
+ * Check if a value can be indexed
+ */
+void
+HnswCheckValue(Datum value, HnswType type)
+{
+	if (type == HNSW_TYPE_SPARSEVEC)
+	{
+		SparseVector *vec = DatumGetSparseVector(value);
+
+		if (vec->nnz > HNSW_MAX_NNZ)
+			elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
+	}
 }
 
 /*

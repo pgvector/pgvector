@@ -523,6 +523,26 @@ Scale vertically by increasing memory, CPU, and storage on a single instance. Us
 
 Scale horizontally with [replicas](https://www.postgresql.org/docs/current/hot-standby.html), or use [Citus](https://github.com/citusdata/citus) or another approach for sharding ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/citus.py)).
 
+## Sparse Vectors
+
+Create a sparse vector column with 10 dimensions
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding sparsevec(10));
+```
+
+Insert vectors
+
+```sql
+INSERT INTO items (embedding) VALUES ('{0:1,1:2,2:3}/10'), ('{0:4,1:5,2:6}/10');
+```
+
+Get the nearest neighbors by L2 distance
+
+```sql
+SELECT * FROM items ORDER BY embedding <-> '{0:3,1:1,2:2}/10' LIMIT 5;
+```
+
 ## Languages
 
 Use pgvector from any language with a Postgres client. You can even generate and store vectors in one language and query them in another.

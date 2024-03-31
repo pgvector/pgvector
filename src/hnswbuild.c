@@ -486,6 +486,9 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
+	/* Check value */
+	HnswCheckValue(value, buildstate->type);
+
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
@@ -682,6 +685,10 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+
+	/* No limit on sparse vector dimensions */
+	if (buildstate->type == HNSW_TYPE_SPARSEVEC)
+		maxDimensions = INT_MAX;
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
