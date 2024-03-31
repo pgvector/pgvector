@@ -3,8 +3,8 @@
 
 #define SPARSEVEC_MAX_DIM 100000
 
-#define SPARSEVEC_SIZE(_nnz)		(offsetof(SparseVector, indices) + (_nnz) * sizeof(int32) + (_nnz * sizeof(float)))
-#define SPARSEVEC_VALUES(x)		((float *) (((char *) (x)) + offsetof(SparseVector, indices) + (x)->nnz * sizeof(int32)))
+#define SPARSEVEC_SIZE(_nnz)		(offsetof(SparseVector, indices) + MAXALIGN((_nnz) * sizeof(int32)) + (_nnz * sizeof(float)))
+#define SPARSEVEC_VALUES(x)		((float *) (((char *) (x)) + offsetof(SparseVector, indices) + MAXALIGN((x)->nnz * sizeof(int32))))
 #define DatumGetSparseVector(x)		((SparseVector *) PG_DETOAST_DATUM(x))
 #define PG_GETARG_SPARSEVEC_P(x)	DatumGetSparseVector(PG_GETARG_DATUM(x))
 #define PG_RETURN_SPARSEVEC_P(x)	PG_RETURN_POINTER(x)
