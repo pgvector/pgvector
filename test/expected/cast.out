@@ -62,6 +62,8 @@ SELECT '[1,2,3]'::vector::halfvec(2);
 ERROR:  expected 2 dimensions, not 3
 SELECT '[1,2,3]'::halfvec::vector(2);
 ERROR:  expected 2 dimensions, not 3
+SELECT '[65520]'::vector::halfvec;
+ERROR:  infinite value not allowed in halfvec
 SELECT '[1e-8]'::vector::halfvec;
  halfvec 
 ---------
