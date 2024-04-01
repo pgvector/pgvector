@@ -740,6 +740,7 @@ vector_to_halfvec(PG_FUNCTION_ARGS)
 	for (int i = 0; i < vec->dim; i++)
 	{
 		result->x[i] = Float4ToHalfUnchecked(vec->x[i]);
+		/* TODO Better error for overflow */
 		CheckElement(result->x[i]);
 	}
 
