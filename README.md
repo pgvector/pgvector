@@ -400,6 +400,29 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
+## Types
+
+- `vector`
+- `halfvec`
+
+## Half-Precision
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding halfvec(3));
+INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
+CREATE INDEX ON items USING hnsw ((embedding::halfvec(3)) halfvec_l2_ops);
+```
+
+```sql
+SELECT id FROM items ORDER BY embedding::halfvec(3) <-> '[1,2,3]' LIMIT 5;
+```
+
+```sql
+SELECT id FROM (
+    SELECT * FROM items ORDER BY embedding::halfvec(3) <-> '[1,2,3]' LIMIT 20
+) ORDER BY embedding <-> '[1,2,3]' LIMIT 5;
+```
+
 ## Hybrid Search
 
 Use together with Postgres [full-text search](https://www.postgresql.org/docs/current/textsearch-intro.html) for hybrid search.
