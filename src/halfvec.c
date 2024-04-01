@@ -104,13 +104,30 @@ HalfToFloat4(half num)
 	/* TODO Improve performance */
 
 	/* Assumes same endianness for floats and integers */
-	/* TODO Use union to swap */
-	uint16		bin = *((uint16 *) &num);
-	uint32		exponent = (bin & 0x7C00) >> 10;
-	uint32		mantissa = bin & 0x03FF;
+	union
+	{
+		float		f;
+		uint32		i;
+	}			swapfloat;
+
+	union
+	{
+		half		h;
+		uint16		i;
+	}			swaphalf;
+
+	uint16		bin;
+	uint32		exponent;
+	uint32		mantissa;
+	uint32		result;
+
+	swaphalf.h = num;
+	bin = swaphalf.i;
+	exponent = (bin & 0x7C00) >> 10;
+	mantissa = bin & 0x03FF;
 
 	/* Sign */
-	uint32		result = (bin & 0x8000) << 16;
+	result = (bin & 0x8000) << 16;
 
 	if (exponent == 31)
 	{
@@ -156,8 +173,8 @@ HalfToFloat4(half num)
 		result |= mantissa << 13;
 	}
 
-	/* TODO Use union to swap */
-	return *((float *) &result);
+	swapfloat.i = result;
+	return swapfloat.f;
 #endif
 }
 
@@ -173,13 +190,30 @@ Float4ToHalfUnchecked(float num)
 	/* TODO Improve performance */
 
 	/* Assumes same endianness for floats and integers */
-	/* TODO Use union to swap */
-	uint32		bin = *((uint32 *) &num);
-	int			exponent = (bin & 0x7F800000) >> 23;
-	int			mantissa = bin & 0x007FFFFF;
+	union
+	{
+		float		f;
+		uint32		i;
+	}			swapfloat;
+
+	union
+	{
+		half		h;
+		uint16		i;
+	}			swaphalf;
+
+	uint32		bin;
+	int			exponent;
+	int			mantissa;
+	uint16		result;
+
+	swapfloat.f = num;
+	bin = swapfloat.i;
+	exponent = (bin & 0x7F800000) >> 23;
+	mantissa = bin & 0x007FFFFF;
 
 	/* Sign */
-	uint16		result = (bin & 0x80000000) >> 16;
+	result = (bin & 0x80000000) >> 16;
 
 	if (isinf(num))
 	{
@@ -238,8 +272,8 @@ Float4ToHalfUnchecked(float num)
 		}
 	}
 
-	/* TODO Use union to swap */
-	return *((half *) & result);
+	swaphalf.i = result;
+	return swaphalf.h;
 #endif
 }
 
