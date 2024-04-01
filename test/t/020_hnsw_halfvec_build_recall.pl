@@ -8,6 +8,8 @@ my $node;
 my @queries = ();
 my @expected;
 my $limit = 20;
+my $dim = 10;
+my $array_sql = join(",", ('random()') x $dim);
 
 sub test_recall
 {
@@ -52,18 +54,20 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v halfvec(3));");
+$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v halfvec($dim));");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[random(), random(), random()] FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 10000) i;"
 );
 
 # Generate queries
 for (1 .. 20)
 {
-	my $r1 = rand();
-	my $r2 = rand();
-	my $r3 = rand();
-	push(@queries, "[$r1,$r2,$r3]");
+	my @r = ();
+	for (1 .. $dim)
+	{
+		push(@r, rand());
+	}
+	push(@queries, "[" . join(",", @r) . "]");
 }
 
 # Check each index type
@@ -90,7 +94,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	my $min = $operator eq "<#>" ? 0.80 : ($operator eq "<=>" ? 0.80 : 0.99);
+	my $min = $operator eq "<#>" ? 0.80 : 0.99;
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
