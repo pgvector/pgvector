@@ -12,7 +12,7 @@ REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
 OPTFLAGS = -march=native
 
-# Mac ARM doesn't support -march=native
+# Mac ARM doesn't always support -march=native
 ifeq ($(shell uname -s), Darwin)
 	ifeq ($(shell uname -p), arm)
 		# no difference with -march=armv8.5-a
