@@ -44,6 +44,7 @@
 #include "access/xact.h"
 #include "access/xloginsert.h"
 #include "catalog/index.h"
+#include "catalog/pg_type_d.h"
 #include "commands/progress.h"
 #include "hnsw.h"
 #include "miscadmin.h"
@@ -666,12 +667,26 @@ HnswSharedMemoryAlloc(Size size, void *state)
 }
 
 /*
+ * Get max dimensions
+ */
+static int
+GetMaxDimensions(HnswType type)
+{
+	int			maxDimensions = HNSW_MAX_DIM;
+
+	if (type == HNSW_TYPE_BIT)
+		maxDimensions *= 32;
+
+	return maxDimensions;
+}
+
+/*
  * Initialize the build state
  */
 static void
 InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo, ForkNumber forkNum)
 {
-	int			maxDimensions = HNSW_MAX_DIM;
+	int			maxDimensions;
 
 	buildstate->heap = heap;
 	buildstate->index = index;
@@ -682,6 +697,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+
+	maxDimensions = GetMaxDimensions(buildstate->type);
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)

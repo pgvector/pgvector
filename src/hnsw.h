@@ -57,7 +57,8 @@
 
 typedef enum HnswType
 {
-	HNSW_TYPE_VECTOR
+	HNSW_TYPE_VECTOR,
+	HNSW_TYPE_BIT
 }			HnswType;
 
 /* Build phases */

@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "bitvector.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -857,6 +858,25 @@ vector_mul(PG_FUNCTION_ARGS)
 
 	PG_RETURN_POINTER(result);
 }
+
+/*
+ * Quantize a vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(quantize_binary);
+Datum
+quantize_binary(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	float	   *ax = a->x;
+	VarBit	   *result = InitBitVector(a->dim);
+	unsigned char *rx = VARBITS(result);
+
+	for (int i = 0; i < a->dim; i++)
+		rx[i / 8] |= (ax[i] > 0) << (7 - (i % 8));
+
+	PG_RETURN_VARBIT_P(result);
+}
+
 
 /*
  * Internal helper to compare vectors

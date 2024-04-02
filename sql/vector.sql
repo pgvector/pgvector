@@ -58,6 +58,9 @@ CREATE FUNCTION vector_sub(vector, vector) RETURNS vector
 CREATE FUNCTION vector_mul(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION quantize_binary(vector) RETURNS bit
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- vector private functions
 
 CREATE FUNCTION vector_lt(vector, vector) RETURNS bool
@@ -287,3 +290,31 @@ CREATE OPERATOR CLASS vector_cosine_ops
 	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector),
 	FUNCTION 2 vector_norm(vector);
+
+-- bit functions
+
+CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION jaccard_distance(bit, bit) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE OPERATOR <~> (
+	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = hamming_distance,
+	COMMUTATOR = '<~>'
+);
+
+CREATE OPERATOR <%> (
+	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = jaccard_distance,
+	COMMUTATOR = '<%>'
+);
+
+CREATE OPERATOR CLASS bit_hamming_ops
+	FOR TYPE bit USING hnsw AS
+	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 hamming_distance(bit, bit);
+
+CREATE OPERATOR CLASS bit_jaccard_ops
+	FOR TYPE bit USING hnsw AS
+	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 jaccard_distance(bit, bit);

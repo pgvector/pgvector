@@ -221,7 +221,19 @@ Cosine distance
 CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
 ```
 
-Vectors with up to 2,000 dimensions can be indexed.
+Hamming distance - unreleased
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding bit_hamming_ops);
+```
+
+Jaccard distance - unreleased
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
+```
+
+Vectors with up to 2,000 dimensions can be indexed, or bit vectors with up to 64,000 dimensions.
 
 ### Index Options
 
@@ -699,6 +711,9 @@ Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosi
 
 ## Reference
 
+- [Vector](#vector-type)
+- [Bit](#bit-type)
+
 ### Vector Type
 
 Each vector takes `4 * dimensions + 8` bytes of storage. Each element is a single-precision floating-point number (like the `real` type in Postgres), and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Vectors can have up to 16,000 dimensions.
@@ -722,6 +737,7 @@ cosine_distance(vector, vector) → double precision | cosine distance |
 inner_product(vector, vector) → double precision | inner product |
 l2_distance(vector, vector) → double precision | Euclidean distance |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
+quantize_binary(vector) → bit | quantize | unreleased
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
 
@@ -731,6 +747,24 @@ Function | Description | Added
 --- | --- | ---
 avg(vector) → vector | average |
 sum(vector) → vector | sum | 0.5.0
+
+### Bit Type
+
+Each bit vector takes `dimensions / 8 + (5 or 8)` bytes of storage. See the [Postgres docs](https://www.postgresql.org/docs/current/datatype-bit.html) for more info.
+
+### Bit Operators
+
+Operator | Description | Added
+--- | --- | ---
+<~> | Hamming distance | unreleased
+<%> | Jaccard distance | unreleased
+
+### Bit Functions
+
+Function | Description | Added
+--- | --- | ---
+hamming_distance(bit, bit) → double precision | Hamming distance | unreleased
+jaccard_distance(bit, bit) → double precision | Jaccard distance | unreleased
 
 ## Installation Notes - Linux and Mac
 
