@@ -40,13 +40,21 @@ jobs:
           sudo apt-get install libipc-run-perl
       - run: make prove_installcheck
   mac:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.os }}
     if: ${{ !startsWith(github.ref_name, 'windows') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - postgres: 16
+            os: macos-14
+          - postgres: 14
+            os: macos-12
     steps:
       - uses: actions/checkout@v4
       - uses: ankane/setup-postgres@v1
         with:
-          postgres-version: 14
+          postgres-version: ${{ matrix.postgres }}
       - run: make
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter
@@ -54,13 +62,19 @@ jobs:
       - run: make installcheck
       - if: ${{ failure() }}
         run: cat regression.diffs
+      # Homebrew Postgres does not enable TAP tests, so need to download
       - run: |
           brew install cpanm
           cpanm --notest IPC::Run
-          wget -q https://github.com/postgres/postgres/archive/refs/tags/REL_14_10.tar.gz
-          tar xf REL_14_10.tar.gz
-      - run: make prove_installcheck PROVE_FLAGS="-I ./postgres-REL_14_10/src/test/perl" PERL5LIB="/Users/runner/perl5/lib/perl5"
-      - run: make clean && /usr/local/opt/llvm@15/bin/scan-build --status-bugs make
+          wget -q https://github.com/postgres/postgres/archive/refs/tags/$TAG.tar.gz
+          tar xf $TAG.tar.gz
+          mv postgres-$TAG postgres
+        env:
+          TAG: ${{ matrix.postgres == 16 && 'REL_16_2' || 'REL_14_11' }}
+      - run: make prove_installcheck PROVE_FLAGS="-I ./postgres/src/test/perl -I ./test/perl"
+        env:
+          PERL5LIB: /Users/runner/perl5/lib/perl5
+      - run: make clean && $(brew --prefix llvm@15)/bin/scan-build --status-bugs make
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING
   windows:
