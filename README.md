@@ -774,7 +774,7 @@ l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleas
 
 ### Bit Type
 
-Each bit vector takes `dimensions / 8 + (5 or 8)` bytes of storage. See the [Postgres docs](https://www.postgresql.org/docs/current/datatype-bit.html) for more info.
+Each bit vector takes `dimensions / 8 + 8` bytes of storage. See the [Postgres docs](https://www.postgresql.org/docs/current/datatype-bit.html) for more info.
 
 ### Bit Operators
 
