@@ -5,6 +5,7 @@
 - Added `jaccard_distance` function
 - Added `quantize_binary` function
 - Added `subvector` function
+- Added concatenate operator for vectors
 - Updated comparison operators to support vectors with different dimensions
 
 ## 0.6.2 (2024-03-18)
