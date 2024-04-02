@@ -6,8 +6,18 @@ SELECT '[1,2,3]'::vector * '[4,5,6]';
 SELECT '[1e37]'::vector * '[1e37]';
 SELECT '[1e-37]'::vector * '[1e-37]';
 
+SELECT '[1,2,3]'::vector < '[1,2,3]';
+SELECT '[1,2,3]'::vector < '[1,2]';
+SELECT '[1,2,3]'::vector <= '[1,2,3]';
+SELECT '[1,2,3]'::vector <= '[1,2]';
 SELECT '[1,2,3]'::vector = '[1,2,3]';
 SELECT '[1,2,3]'::vector = '[1,2]';
+SELECT '[1,2,3]'::vector != '[1,2,3]';
+SELECT '[1,2,3]'::vector != '[1,2]';
+SELECT '[1,2,3]'::vector >= '[1,2,3]';
+SELECT '[1,2,3]'::vector >= '[1,2]';
+SELECT '[1,2,3]'::vector > '[1,2,3]';
+SELECT '[1,2,3]'::vector > '[1,2]';
 
 SELECT vector_cmp('[1,2,3]', '[1,2,3]');
 SELECT vector_cmp('[1,2,3]', '[0,0,0]');

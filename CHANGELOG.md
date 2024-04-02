@@ -4,6 +4,7 @@
 - Added `hamming_distance` function
 - Added `jaccard_distance` function
 - Added `quantize_binary` function
+- Updated comparison operators to support vectors with different dimensions
 
 ## 0.6.2 (2024-03-18)
 
