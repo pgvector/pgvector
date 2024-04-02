@@ -10,6 +10,12 @@ SELECT '{-Infinity}'::real[]::vector;
 SELECT '{}'::real[]::vector;
 SELECT '{{1}}'::real[]::vector;
 SELECT '[1,2,3]'::vector::real[];
+SELECT '[1,2,3]'::vector::halfvec;
+SELECT '[1,2,3]'::halfvec::vector;
+SELECT '[1,2,3]'::vector::halfvec(2);
+SELECT '[1,2,3]'::halfvec::vector(2);
+SELECT '[65520]'::vector::halfvec;
+SELECT '[1e-8]'::vector::halfvec;
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
 

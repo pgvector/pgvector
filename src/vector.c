@@ -6,6 +6,7 @@
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
+#include "halfvec.h"
 #include "hnsw.h"
 #include "ivfflat.h"
 #include "lib/stringinfo.h"
@@ -527,6 +528,28 @@ vector_to_float4(PG_FUNCTION_ARGS)
 	result = construct_array(datums, vec->dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
 
 	pfree(datums);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert half vector to vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_vector);
+Datum
+halfvec_to_vector(PG_FUNCTION_ARGS)
+{
+	HalfVector *vec = PG_GETARG_HALFVEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	Vector	   *result;
+
+	CheckDim(vec->dim);
+	CheckExpectedDim(typmod, vec->dim);
+
+	result = InitVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = HalfToFloat4(vec->x[i]);
 
 	PG_RETURN_POINTER(result);
 }

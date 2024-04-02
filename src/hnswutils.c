@@ -3,13 +3,16 @@
 #include <math.h>
 
 #include "access/generic_xlog.h"
+#include "catalog/pg_type.h"
 #include "catalog/pg_type_d.h"
+#include "halfvec.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
+#include "utils/syscache.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 130000
@@ -157,11 +160,28 @@ HnswType
 HnswGetType(Relation index)
 {
 	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
+	HeapTuple	tuple;
+	Form_pg_type type;
+	int			result;
 
 	if (typid == BITOID || typid == VARBITOID)
 		return HNSW_TYPE_BIT;
 
-	return HNSW_TYPE_VECTOR;
+	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typid));
+	if (!HeapTupleIsValid(tuple))
+		elog(ERROR, "cache lookup failed for type %u", typid);
+
+	type = (Form_pg_type) GETSTRUCT(tuple);
+	if (strcmp(NameStr(type->typname), "vector") == 0)
+		result = HNSW_TYPE_VECTOR;
+	else if (strcmp(NameStr(type->typname), "halfvec") == 0)
+		result = HNSW_TYPE_HALFVEC;
+	else
+		elog(ERROR, "Unsupported type");
+
+	ReleaseSysCache(tuple);
+
+	return result;
 }
 
 /*
@@ -187,6 +207,19 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 
 			for (int i = 0; i < v->dim; i++)
 				result->x[i] = v->x[i] / norm;
+
+			*value = PointerGetDatum(result);
+		}
+		else if (type == HNSW_TYPE_HALFVEC)
+		{
+			HalfVector *v = DatumGetHalfVector(*value);
+			HalfVector *result = InitHalfVector(v->dim);
+
+			for (int i = 0; i < v->dim; i++)
+			{
+				/* TODO Fix */
+				result->x[i] = Float4ToHalfUnchecked(HalfToFloat4(v->x[i]) / norm);
+			}
 
 			*value = PointerGetDatum(result);
 		}

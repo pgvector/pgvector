@@ -674,7 +674,9 @@ GetMaxDimensions(HnswType type)
 {
 	int			maxDimensions = HNSW_MAX_DIM;
 
-	if (type == HNSW_TYPE_BIT)
+	if (type == HNSW_TYPE_HALFVEC)
+		maxDimensions *= 2;
+	else if (type == HNSW_TYPE_BIT)
 		maxDimensions *= 32;
 
 	return maxDimensions;

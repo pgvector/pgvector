@@ -58,6 +58,7 @@
 typedef enum HnswType
 {
 	HNSW_TYPE_VECTOR,
+	HNSW_TYPE_HALFVEC,
 	HNSW_TYPE_BIT
 }			HnswType;
 

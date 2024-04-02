@@ -712,6 +712,7 @@ Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosi
 ## Reference
 
 - [Vector](#vector-type)
+- [Halfvec](#halfvec-type)
 - [Bit](#bit-type)
 
 ### Vector Type
@@ -748,6 +749,27 @@ Function | Description | Added
 --- | --- | ---
 avg(vector) → vector | average |
 sum(vector) → vector | sum | 0.5.0
+
+### Halfvec Type
+
+Each half vector takes `2 * dimensions + 8` bytes of storage. Each element is a half-precision floating-point number, and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Half vectors can have up to 16,000 dimensions.
+
+### Halfvec Operators
+
+Operator | Description | Added
+--- | --- | ---
+<-> | Euclidean distance | unreleased
+<#> | negative inner product | unreleased
+<=> | cosine distance | unreleased
+
+### Halfvec Functions
+
+Function | Description | Added
+--- | --- | ---
+cosine_distance(halfvec, halfvec) → double precision | cosine distance | unreleased
+inner_product(halfvec, halfvec) → double precision | inner product | unreleased
+l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
+l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
 
 ### Bit Type
 
