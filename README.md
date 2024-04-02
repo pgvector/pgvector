@@ -738,6 +738,7 @@ inner_product(vector, vector) → double precision | inner product |
 l2_distance(vector, vector) → double precision | Euclidean distance |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
 quantize_binary(vector) → bit | quantize | unreleased
+subvector(vector, integer, integer) → vector | subvector | unreleased
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
 

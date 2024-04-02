@@ -61,6 +61,9 @@ CREATE FUNCTION vector_mul(vector, vector) RETURNS vector
 CREATE FUNCTION quantize_binary(vector) RETURNS bit
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION subvector(vector, int, int) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- vector private functions
 
 CREATE FUNCTION vector_lt(vector, vector) RETURNS bool

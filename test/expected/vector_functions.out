@@ -284,6 +284,36 @@ SELECT quantize_binary('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]');
  01001110101
 (1 row)
 
+SELECT subvector('[1,2,3,4,5]', 1, 3);
+ subvector 
+-----------
+ [1,2,3]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]', 3, 2);
+ subvector 
+-----------
+ [3,4]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]', -1, 3);
+ subvector 
+-----------
+ [1]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]', 3, 9);
+ subvector 
+-----------
+ [3,4,5]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]', 1, 0);
+ERROR:  vector must have at least 1 dimension
+SELECT subvector('[1,2,3,4,5]', 3, -1);
+ERROR:  vector must have at least 1 dimension
+SELECT subvector('[1,2,3,4,5]', -1, 2);
+ERROR:  vector must have at least 1 dimension
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
     avg    
 -----------
