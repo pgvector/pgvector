@@ -150,11 +150,16 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
- * Get vector type
+ * Get type
  */
 HnswType
 HnswGetType(Relation index)
 {
+	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
+
+	if (typid == BITOID || typid == VARBITOID)
+		return HNSW_TYPE_BIT;
+
 	return HNSW_TYPE_VECTOR;
 }
 
