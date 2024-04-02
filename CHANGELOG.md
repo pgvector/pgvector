@@ -1,6 +1,7 @@
 ## 0.7.0 (unreleased)
 
 - Added `halfvec` type
+- Added `sparsevec` type
 - Added support for bit vectors to HNSW
 - Added `hamming_distance` function
 - Added `jaccard_distance` function

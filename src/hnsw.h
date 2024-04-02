@@ -17,6 +17,7 @@
 #endif
 
 #define HNSW_MAX_DIM 2000
+#define HNSW_MAX_NNZ 1000
 
 /* Support functions */
 #define HNSW_DISTANCE_PROC 1
@@ -59,7 +60,8 @@ typedef enum HnswType
 {
 	HNSW_TYPE_VECTOR,
 	HNSW_TYPE_HALFVEC,
-	HNSW_TYPE_BIT
+	HNSW_TYPE_BIT,
+	HNSW_TYPE_SPARSEVEC
 }			HnswType;
 
 /* Build phases */
@@ -376,6 +378,7 @@ int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
 HnswType	HnswGetType(Relation index);
 bool		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type);
+void		HnswCheckValue(Datum value, HnswType type);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);

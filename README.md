@@ -714,6 +714,7 @@ Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosi
 - [Vector](#vector-type)
 - [Halfvec](#halfvec-type)
 - [Bit](#bit-type)
+- [Sparsevec](#sparsevec-type)
 
 ### Vector Type
 
@@ -788,6 +789,27 @@ Function | Description | Added
 --- | --- | ---
 hamming_distance(bit, bit) → double precision | Hamming distance | unreleased
 jaccard_distance(bit, bit) → double precision | Jaccard distance | unreleased
+
+### Sparsevec Type
+
+Each sparse vector takes `8 * nnz + 16` bytes of storage. Each element is a single-precision floating-point number, and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`).
+
+### Sparsevec Operators
+
+Operator | Description | Added
+--- | --- | ---
+<-> | Euclidean distance | unreleased
+<#> | negative inner product | unreleased
+<=> | cosine distance | unreleased
+
+### Sparsevec Functions
+
+Function | Description | Added
+--- | --- | ---
+cosine_distance(sparsevec, sparsevec) → double precision | cosine distance | unreleased
+inner_product(sparsevec, sparsevec) → double precision | inner product | unreleased
+l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | unreleased
+l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | unreleased
 
 ## Installation Notes - Linux and Mac
 

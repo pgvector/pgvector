@@ -487,6 +487,9 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
+	/* Check value */
+	HnswCheckValue(value, buildstate->type);
+
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
@@ -678,6 +681,8 @@ GetMaxDimensions(HnswType type)
 		maxDimensions *= 2;
 	else if (type == HNSW_TYPE_BIT)
 		maxDimensions *= 32;
+	else if (type == HNSW_TYPE_SPARSEVEC)
+		maxDimensions = INT_MAX;
 
 	return maxDimensions;
 }

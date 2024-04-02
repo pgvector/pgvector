@@ -8,6 +8,7 @@
 #include "halfvec.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
+#include "sparsevec.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "utils/memdebug.h"
@@ -176,6 +177,8 @@ HnswGetType(Relation index)
 		result = HNSW_TYPE_VECTOR;
 	else if (strcmp(NameStr(type->typname), "halfvec") == 0)
 		result = HNSW_TYPE_HALFVEC;
+	else if (strcmp(NameStr(type->typname), "sparsevec") == 0)
+		result = HNSW_TYPE_SPARSEVEC;
 	else
 		elog(ERROR, "Unsupported type");
 
@@ -223,6 +226,21 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 
 			*value = PointerGetDatum(result);
 		}
+		else if (type == HNSW_TYPE_SPARSEVEC)
+		{
+			SparseVector *v = DatumGetSparseVector(*value);
+			SparseVector *result = InitSparseVector(v->dim, v->nnz);
+			float	   *vx = SPARSEVEC_VALUES(v);
+			float	   *rx = SPARSEVEC_VALUES(result);
+
+			for (int i = 0; i < v->nnz; i++)
+			{
+				result->indices[i] = v->indices[i];
+				rx[i] = vx[i] / norm;
+			}
+
+			*value = PointerGetDatum(result);
+		}
 		else
 			elog(ERROR, "Unsupported type");
 
@@ -230,6 +248,21 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 	}
 
 	return false;
+}
+
+/*
+ * Check if a value can be indexed
+ */
+void
+HnswCheckValue(Datum value, HnswType type)
+{
+	if (type == HNSW_TYPE_SPARSEVEC)
+	{
+		SparseVector *vec = DatumGetSparseVector(value);
+
+		if (vec->nnz > HNSW_MAX_NNZ)
+			elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
+	}
 }
 
 /*
