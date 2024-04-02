@@ -26,7 +26,7 @@ InitBitVector(int dim)
 }
 
 /*
- * Ensure same number of bits
+ * Ensure same dimensions
  */
 static inline void
 CheckDims(VarBit *a, VarBit *b)
@@ -38,7 +38,7 @@ CheckDims(VarBit *a, VarBit *b)
 }
 
 /*
- * Get the Hamming distance between two bit strings
+ * Get the Hamming distance between two bit vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
 Datum
@@ -60,7 +60,7 @@ hamming_distance(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the Jaccard distance between two bit strings
+ * Get the Jaccard distance between two bit vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(jaccard_distance);
 Datum
