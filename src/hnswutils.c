@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "access/generic_xlog.h"
+#include "catalog/pg_type_d.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
 #include "storage/bufmgr.h"
