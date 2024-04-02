@@ -792,7 +792,7 @@ jaccard_distance(bit, bit) → double precision | Jaccard distance | unreleased
 
 ### Sparsevec Type
 
-Each sparse vector takes `8 * nnz + 16` bytes of storage. Each element is a single-precision floating-point number, and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`).
+Each sparse vector takes `8 * non-zero elements + 16` bytes of storage. Each element is a single-precision floating-point number, and all elements must be finite (no `NaN`, `Infinity` or `-Infinity`). Sparse vectors can have up to 100,000 dimensions.
 
 ### Sparsevec Operators
 
