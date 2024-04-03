@@ -804,7 +804,6 @@ sparsevec_subvector(PG_FUNCTION_ARGS)
 
 	dim = end - start;
 	CheckDim(dim);
-	startIndex = dim;
 
 	for (startIndex = 0; startIndex < a->nnz; startIndex++)
 	{
