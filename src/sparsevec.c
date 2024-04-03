@@ -776,3 +776,56 @@ sparsevec_norm(PG_FUNCTION_ARGS)
 
 	PG_RETURN_FLOAT8(sqrt(norm));
 }
+
+/*
+ * Get a subvector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_subvector);
+Datum
+sparsevec_subvector(PG_FUNCTION_ARGS)
+{
+	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
+	int32		start = PG_GETARG_INT32(1);
+	int32		count = PG_GETARG_INT32(2);
+	int32		end = start + count;
+	float	   *ax = SPARSEVEC_VALUES(a);
+	SparseVector *result;
+	float	   *rx;
+	int			dim;
+	int			nnz = 0;
+	int			startIndex;
+
+	/* Indexing starts at 1, like substring */
+	if (start < 1)
+		start = 1;
+
+	if (end > a->dim)
+		end = a->dim + 1;
+
+	dim = end - start;
+	CheckDim(dim);
+	startIndex = dim;
+
+	for (startIndex = 0; startIndex < a->nnz; startIndex++)
+	{
+		if (a->indices[startIndex] >= start - 1)
+			break;
+	}
+
+	for (int i = startIndex; i < a->nnz; i++)
+	{
+		if (a->indices[i] < end - 1)
+			nnz++;
+	}
+
+	result = InitSparseVector(dim, nnz);
+	rx = SPARSEVEC_VALUES(result);
+
+	for (int i = 0; i < nnz; i++)
+	{
+		result->indices[i] = a->indices[startIndex + i];
+		rx[i] = ax[startIndex + i];
+	}
+
+	PG_RETURN_POINTER(result);
+}

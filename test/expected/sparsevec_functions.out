@@ -60,3 +60,33 @@ SELECT cosine_distance('{}/1'::sparsevec, '{}/1');
 
 SELECT cosine_distance('{0:1}/2'::sparsevec, '{0:1}/3');
 ERROR:  different sparsevec dimensions 2 and 3
+SELECT subvector('{0:1,1:2,2:3,3:4,4:5}/5'::sparsevec, 1, 3);
+    subvector    
+-----------------
+ {0:1,1:2,2:3}/3
+(1 row)
+
+SELECT subvector('{0:1,1:2,2:3,3:4,4:5}/5'::sparsevec, 3, 2);
+  subvector  
+-------------
+ {2:3,3:4}/2
+(1 row)
+
+SELECT subvector('{0:1,1:2,2:3,3:4,4:5}/5'::sparsevec, -1, 3);
+ subvector 
+-----------
+ {0:1}/1
+(1 row)
+
+SELECT subvector('{0:1,1:2,2:3,3:4,4:5}/5'::sparsevec, 3, 9);
+    subvector    
+-----------------
+ {2:3,3:4,4:5}/3
+(1 row)
+
+SELECT subvector('{0:1,1:2,2:3,3:4,4:5}/5'::sparsevec, 1, 0);
+ERROR:  sparsevec must have at least 1 dimension
+SELECT subvector('{0:1,1:2,2:3,3:4,4:5}/5'::sparsevec, 3, -1);
+ERROR:  sparsevec must have at least 1 dimension
+SELECT subvector('{0:1,1:2,2:3,3:4,4:5}/5'::sparsevec, -1, 2);
+ERROR:  sparsevec must have at least 1 dimension

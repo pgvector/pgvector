@@ -512,6 +512,9 @@ CREATE FUNCTION cosine_distance(sparsevec, sparsevec) RETURNS float8
 CREATE FUNCTION sparsevec_norm(sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION subvector(sparsevec, int, int) RETURNS sparsevec
+	AS 'MODULE_PATHNAME', 'sparsevec_subvector' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- sparsevec private functions
 
 CREATE FUNCTION sparsevec_l2_squared_distance(sparsevec, sparsevec) RETURNS float8
