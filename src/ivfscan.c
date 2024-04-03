@@ -268,6 +268,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (so->first)
 	{
 		Datum		value;
+		IvfflatType type = IvfflatGetType(scan->indexRelation);
 
 		/* Count index scan for stats */
 		pgstat_count_index_scan(scan->indexRelation);
@@ -282,7 +283,12 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 			elog(ERROR, "non-MVCC snapshots are not supported with ivfflat");
 
 		if (scan->orderByData->sk_flags & SK_ISNULL)
-			value = PointerGetDatum(InitVector(so->dimensions));
+		{
+			if (type == IVFFLAT_TYPE_VECTOR)
+				value = PointerGetDatum(InitVector(so->dimensions));
+			else
+				elog(ERROR, "Unsupported type");
+		}
 		else
 		{
 			value = scan->orderByData->sk_argument;
@@ -293,7 +299,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 			/* Fine if normalization fails */
 			if (so->normprocinfo != NULL)
-				IvfflatNormValue(so->normprocinfo, so->collation, &value);
+				IvfflatNormValue(so->normprocinfo, so->collation, &value, type);
 		}
 
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));

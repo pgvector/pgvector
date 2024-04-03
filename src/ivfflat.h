@@ -43,6 +43,11 @@
 #define IVFFLAT_MAX_LISTS		32768
 #define IVFFLAT_DEFAULT_PROBES	1
 
+typedef enum IvfflatType
+{
+	IVFFLAT_TYPE_VECTOR
+}			IvfflatType;
+
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
 #define PROGRESS_IVFFLAT_PHASE_KMEANS	2
@@ -153,6 +158,7 @@ typedef struct IvfflatBuildState
 	Relation	heap;
 	Relation	index;
 	IndexInfo  *indexInfo;
+	IvfflatType type;
 
 	/* Settings */
 	int			dimensions;
@@ -266,7 +272,8 @@ void		VectorArrayFree(VectorArray arr);
 void		PrintVectorArray(char *msg, VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
-bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value);
+IvfflatType IvfflatGetType(Relation index);
+bool		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, IvfflatType type);
 int			IvfflatGetLists(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);
 void		IvfflatUpdateList(Relation index, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);

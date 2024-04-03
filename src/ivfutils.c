@@ -67,6 +67,15 @@ IvfflatOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
+ * Get type
+ */
+IvfflatType
+IvfflatGetType(Relation index)
+{
+	return IVFFLAT_TYPE_VECTOR;
+}
+
+/*
  * Divide by the norm
  *
  * Returns false if value should not be indexed
@@ -75,19 +84,24 @@ IvfflatOptionalProcInfo(Relation index, uint16 procnum)
  * if it's different than the original value
  */
 bool
-IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value)
+IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, IvfflatType type)
 {
 	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
 
 	if (norm > 0)
 	{
-		Vector	   *v = DatumGetVector(*value);
-		Vector	   *result = InitVector(v->dim);
+		if (type == IVFFLAT_TYPE_VECTOR)
+		{
+			Vector	   *v = DatumGetVector(*value);
+			Vector	   *result = InitVector(v->dim);
 
-		for (int i = 0; i < v->dim; i++)
-			result->x[i] = v->x[i] / norm;
+			for (int i = 0; i < v->dim; i++)
+				result->x[i] = v->x[i] / norm;
 
-		*value = PointerGetDatum(result);
+			*value = PointerGetDatum(result);
+		}
+		else
+			elog(ERROR, "Unsupported type");
 
 		return true;
 	}

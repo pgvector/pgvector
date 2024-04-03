@@ -85,7 +85,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(normprocinfo, index->rd_indcollation[0], &value))
+		if (!IvfflatNormValue(normprocinfo, index->rd_indcollation[0], &value, IvfflatGetType(index)))
 			return;
 	}
 

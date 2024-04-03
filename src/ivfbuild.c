@@ -57,7 +57,7 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 	 */
 	if (buildstate->kmeansnormprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(buildstate->kmeansnormprocinfo, buildstate->collation, &value))
+		if (!IvfflatNormValue(buildstate->kmeansnormprocinfo, buildstate->collation, &value, buildstate->type))
 			return;
 	}
 
@@ -153,7 +153,7 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(buildstate->normprocinfo, buildstate->collation, &value))
+		if (!IvfflatNormValue(buildstate->normprocinfo, buildstate->collation, &value, buildstate->type))
 			return;
 	}
 
@@ -313,24 +313,38 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 }
 
 /*
+ * Get max dimensions
+ */
+static int
+GetMaxDimensions(IvfflatType type)
+{
+	return IVFFLAT_MAX_DIM;
+}
+
+/*
  * Initialize the build state
  */
 static void
 InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo)
 {
+	int			maxDimensions;
+
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
+	buildstate->type = IvfflatGetType(index);
 
 	buildstate->lists = IvfflatGetLists(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+
+	maxDimensions = GetMaxDimensions(buildstate->type);
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
-	if (buildstate->dimensions > IVFFLAT_MAX_DIM)
-		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", IVFFLAT_MAX_DIM);
+	if (buildstate->dimensions > maxDimensions)
+		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", maxDimensions);
 
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;
