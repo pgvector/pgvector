@@ -778,6 +778,8 @@ cosine_distance(halfvec, halfvec) → double precision | cosine distance | unrel
 inner_product(halfvec, halfvec) → double precision | inner product | unreleased
 l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
+quantize_binary(halfvec) → bit | quantize | unreleased
+subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
 
 ### Bit Type
 

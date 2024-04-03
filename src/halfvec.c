@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "bitvector.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -966,4 +967,54 @@ halfvec_norm(PG_FUNCTION_ARGS)
 	}
 
 	PG_RETURN_FLOAT8(sqrt(norm));
+}
+
+/*
+ * Quantize a half vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_quantize_binary);
+Datum
+halfvec_quantize_binary(PG_FUNCTION_ARGS)
+{
+	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	half	   *ax = a->x;
+	VarBit	   *result = InitBitVector(a->dim);
+	unsigned char *rx = VARBITS(result);
+
+	for (int i = 0; i < a->dim; i++)
+		rx[i / 8] |= (HalfToFloat4(ax[i]) > 0) << (7 - (i % 8));
+
+	PG_RETURN_VARBIT_P(result);
+}
+
+/*
+ * Get a subvector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_subvector);
+Datum
+halfvec_subvector(PG_FUNCTION_ARGS)
+{
+	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	int32		start = PG_GETARG_INT32(1);
+	int32		count = PG_GETARG_INT32(2);
+	int32		end = start + count;
+	half	   *ax = a->x;
+	HalfVector *result;
+	int			dim;
+
+	/* Indexing starts at 1, like substring */
+	if (start < 1)
+		start = 1;
+
+	if (end > a->dim)
+		end = a->dim + 1;
+
+	dim = end - start;
+	CheckDim(dim);
+	result = InitHalfVector(dim);
+
+	for (int i = 0; i < dim; i++)
+		result->x[i] = ax[start - 1 + i];
+
+	PG_RETURN_POINTER(result);
 }

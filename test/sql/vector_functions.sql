@@ -58,16 +58,16 @@ SELECT l1_distance('[0,0]'::vector, '[0,1]');
 SELECT l1_distance('[1,2]'::vector, '[3]');
 SELECT l1_distance('[3e38]'::vector, '[-3e38]');
 
-SELECT quantize_binary('[1,0,-1]');
-SELECT quantize_binary('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]');
+SELECT quantize_binary('[1,0,-1]'::vector);
+SELECT quantize_binary('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]'::vector);
 
-SELECT subvector('[1,2,3,4,5]', 1, 3);
-SELECT subvector('[1,2,3,4,5]', 3, 2);
-SELECT subvector('[1,2,3,4,5]', -1, 3);
-SELECT subvector('[1,2,3,4,5]', 3, 9);
-SELECT subvector('[1,2,3,4,5]', 1, 0);
-SELECT subvector('[1,2,3,4,5]', 3, -1);
-SELECT subvector('[1,2,3,4,5]', -1, 2);
+SELECT subvector('[1,2,3,4,5]'::vector, 1, 3);
+SELECT subvector('[1,2,3,4,5]'::vector, 3, 2);
+SELECT subvector('[1,2,3,4,5]'::vector, -1, 3);
+SELECT subvector('[1,2,3,4,5]'::vector, 3, 9);
+SELECT subvector('[1,2,3,4,5]'::vector, 1, 0);
+SELECT subvector('[1,2,3,4,5]'::vector, 3, -1);
+SELECT subvector('[1,2,3,4,5]'::vector, -1, 2);
 
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
