@@ -950,9 +950,9 @@ halfvec_l1_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L2 norm of a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_norm);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_norm);
 Datum
-halfvec_norm(PG_FUNCTION_ARGS)
+halfvec_l2_norm(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	half	   *ax = a->x;

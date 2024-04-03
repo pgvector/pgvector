@@ -762,9 +762,9 @@ sparsevec_cosine_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L2 norm of a sparse vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_norm);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l2_norm);
 Datum
-sparsevec_norm(PG_FUNCTION_ARGS)
+sparsevec_l2_norm(PG_FUNCTION_ARGS)
 {
 	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
 	float	   *ax = SPARSEVEC_VALUES(a);
