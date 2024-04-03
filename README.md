@@ -233,7 +233,12 @@ Jaccard distance - unreleased
 CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
 ```
 
-Vectors with up to 2,000 dimensions can be indexed, or bit vectors with up to 64,000 dimensions.
+Supported types are:
+
+- `vector` - up to 2,000 dimensions
+- `halfvec` - up to 4,000 dimensions (unreleased)
+- `bit` - up to 64,000 dimensions (unreleased)
+- `sparsevec` - up to 1,000 non-zero elements (unreleased)
 
 ### Index Options
 
@@ -338,7 +343,9 @@ Cosine distance
 CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
 
-Vectors with up to 2,000 dimensions can be indexed.
+Supported types are:
+
+- `vector` - up to 2,000 dimensions
 
 ### Query Options
 
