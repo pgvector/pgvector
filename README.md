@@ -419,6 +419,28 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
+## Binary Quantization [unreleased]
+
+Use expression indexing for binary quantization
+
+```sql
+CREATE INDEX ON items USING hnsw ((quantize_binary(embedding)::bit(3)) bit_hamming_ops);
+```
+
+Get the nearest neighbors by Hamming distance
+
+```sql
+SELECT * FROM items ORDER BY quantize_binary(embedding)::bit(3) <~> quantize_binary('[1,-2,3]') LIMIT 5;
+```
+
+Re-rank by the original vectors for better recall
+
+```sql
+SELECT * FROM (
+    SELECT * FROM items ORDER BY quantize_binary(embedding)::bit(3) <~> quantize_binary('[1,-2,3]') LIMIT 20
+) ORDER BY embedding <=> '[1,-2,3]' LIMIT 5;
+```
+
 ## Hybrid Search
 
 Use together with Postgres [full-text search](https://www.postgresql.org/docs/current/textsearch-intro.html) for hybrid search.
