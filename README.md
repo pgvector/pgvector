@@ -494,6 +494,28 @@ SELECT * FROM (
 ) ORDER BY embedding <=> '[1,-2,3]' LIMIT 5;
 ```
 
+## Sparse Vectors
+
+*Unreleased*
+
+Use the `sparsevec` type to store sparse vectors
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding sparsevec(10));
+```
+
+Insert vectors
+
+```sql
+INSERT INTO items (embedding) VALUES ('{0:1,1:2,2:3}/10'), ('{0:4,1:5,2:6}/10');
+```
+
+Get the nearest neighbors by L2 distance
+
+```sql
+SELECT * FROM items ORDER BY embedding <-> '{0:3,1:1,2:2}/10' LIMIT 5;
+```
+
 ## Hybrid Search
 
 Use together with Postgres [full-text search](https://www.postgresql.org/docs/current/textsearch-intro.html) for hybrid search.
