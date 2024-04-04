@@ -462,7 +462,7 @@ halfvec_in(PG_FUNCTION_ARGS)
 
 		x[dim] = Float4ToHalfUnchecked(val);
 
-		if ((errno == ERANGE && isinf(val)) || (HalfIsInf(x[dim]) && !isinf(val)) || (HalfIsZero(x[dim]) && val != 0))
+		if ((errno == ERANGE && (isinf(val) || val == 0)) || (HalfIsInf(x[dim]) && !isinf(val)) || (HalfIsZero(x[dim]) && val != 0))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 					 errmsg("\"%s\" is out of range for type halfvec", pt)));

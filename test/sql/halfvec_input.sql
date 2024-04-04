@@ -11,6 +11,7 @@ SELECT '[65519,-65519]'::halfvec;
 SELECT '[65520,-65520]'::halfvec;
 SELECT '[1e-8,-1e-8]'::halfvec;
 SELECT '[4e38,1]'::halfvec;
+SELECT '[1e-46,1]'::halfvec;
 SELECT '[1,2,3'::halfvec;
 SELECT '[1,2,3]9'::halfvec;
 SELECT '1,2,3'::halfvec;
