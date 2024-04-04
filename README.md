@@ -419,6 +419,25 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
+## Binary Vectors
+
+*Unreleased*
+
+Use the `bit` type to store binary vectors
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
+INSERT INTO items (embedding) VALUES ('000'), ('111');
+```
+
+Get the nearest neighbors by Hamming distance
+
+```sql
+SELECT * FROM items ORDER BY embedding <~> '101' LIMIT 5;
+```
+
+Also supports Jaccard distance (`<%>`)
+
 ## Binary Quantization
 
 *Unreleased*
