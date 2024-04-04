@@ -421,9 +421,7 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 ## Binary Vectors
 
-*Unreleased*
-
-Use the `bit` type to store binary vectors
+Use the `bit` type to store binary vectors ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/hash_image_search.py))
 
 ```sql
 CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
@@ -431,6 +429,12 @@ INSERT INTO items (embedding) VALUES ('000'), ('111');
 ```
 
 Get the nearest neighbors by Hamming distance
+
+```sql
+SELECT * FROM items ORDER BY bit_count(embedding # '101') LIMIT 5;
+```
+
+Or (unreleased)
 
 ```sql
 SELECT * FROM items ORDER BY embedding <~> '101' LIMIT 5;
@@ -677,18 +681,6 @@ and query with:
 ```sql
 SELECT * FROM items ORDER BY embedding::vector(3) <-> '[3,1,2]' LIMIT 5;
 ```
-
-#### Are binary vectors supported?
-
-You can store binary vectors and perform exact nearest neighbor search by Hamming distance in Postgres without an extension ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/hash_image_search.py)).
-
-```tsql
-CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
-INSERT INTO items (embedding) VALUES ('000'), ('111');
-SELECT * FROM items ORDER BY bit_count(embedding # '101') LIMIT 5;
-```
-
-Indexing is not currently supported.
 
 #### Do indexes need to fit into memory?
 
