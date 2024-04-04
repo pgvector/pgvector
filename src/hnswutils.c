@@ -163,9 +163,9 @@ HnswGetType(Relation index)
 	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
 	HeapTuple	tuple;
 	Form_pg_type type;
-	int			result;
+	HnswType	result;
 
-	if (typid == BITOID || typid == VARBITOID)
+	if (typid == BITOID)
 		return HNSW_TYPE_BIT;
 
 	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typid));
@@ -180,7 +180,10 @@ HnswGetType(Relation index)
 	else if (strcmp(NameStr(type->typname), "sparsevec") == 0)
 		result = HNSW_TYPE_SPARSEVEC;
 	else
-		elog(ERROR, "Unsupported type");
+	{
+		ReleaseSysCache(tuple);
+		elog(ERROR, "type not supported for hnsw index");
+	}
 
 	ReleaseSysCache(tuple);
 
