@@ -2,6 +2,7 @@
 #define SPARSEVEC_H
 
 #define SPARSEVEC_MAX_DIM 100000
+#define SPARSEVEC_MAX_NNZ 16000
 
 /* Ensure values are aligned */
 #define SPARSEVEC_SIZE(_nnz)		(offsetof(SparseVector, indices) + MAXALIGN((_nnz) * sizeof(int32)) + (_nnz * sizeof(float)))

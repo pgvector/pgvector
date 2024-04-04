@@ -70,6 +70,11 @@ CheckNnz(int nnz, int dim)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("sparsevec must have at least one element")));
 
+	if (nnz > SPARSEVEC_MAX_NNZ)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("sparsevec cannot have more than %d non-zero elements", SPARSEVEC_MAX_NNZ)));
+
 	if (nnz > dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -189,6 +194,11 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 		pt++;
 	}
+
+	if (maxNnz > SPARSEVEC_MAX_NNZ)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("sparsevec cannot have more than %d non-zero elements", SPARSEVEC_MAX_NNZ)));
 
 	indices = palloc(maxNnz * sizeof(int32));
 	values = palloc(maxNnz * sizeof(float));
