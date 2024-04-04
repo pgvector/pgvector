@@ -684,8 +684,8 @@ You can store binary vectors and perform exact nearest neighbor search by Hammin
 
 ```tsql
 CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
-INSERT INTO items (embedding) VALUES (B'000'), (B'111');
-SELECT * FROM items ORDER BY bit_count(embedding # B'101') LIMIT 5;
+INSERT INTO items (embedding) VALUES ('000'), ('111');
+SELECT * FROM items ORDER BY bit_count(embedding # '101') LIMIT 5;
 ```
 
 Indexing is not currently supported.
