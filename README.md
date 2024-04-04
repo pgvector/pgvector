@@ -419,6 +419,34 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
+## Half Vectors
+
+*Unreleased*
+
+Note: Half vectors require compiler support to be performant
+
+Use the `halfvec` type to store half-precision vectors
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding halfvec(3));
+```
+
+## Half Indexing
+
+*Unreleased*
+
+Index vectors at half precision for smaller indexes and faster build times
+
+```sql
+CREATE INDEX ON items USING hnsw ((embedding::halfvec(3)) halfvec_l2_ops);
+```
+
+Get the nearest neighbors
+
+```sql
+SELECT * FROM items ORDER BY embedding::halfvec(3) <-> '[1,2,3]' LIMIT 5;
+```
+
 ## Binary Vectors
 
 Use the `bit` type to store binary vectors ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/hash_image_search.py))
