@@ -51,15 +51,15 @@ SELECT '[65519,-65519]'::halfvec;
 (1 row)
 
 SELECT '[65520,-65520]'::halfvec;
-ERROR:  value out of range: overflow
+ERROR:  "65520" is out of range for type halfvec
 LINE 1: SELECT '[65520,-65520]'::halfvec;
                ^
 SELECT '[1e-8,-1e-8]'::halfvec;
-ERROR:  value out of range: underflow
+ERROR:  "1e-8" is out of range for type halfvec
 LINE 1: SELECT '[1e-8,-1e-8]'::halfvec;
                ^
 SELECT '[4e38,1]'::halfvec;
-ERROR:  infinite value not allowed in halfvec
+ERROR:  "4e38" is out of range for type halfvec
 LINE 1: SELECT '[4e38,1]'::halfvec;
                ^
 SELECT '[1,2,3'::halfvec;
