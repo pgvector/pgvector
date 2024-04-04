@@ -158,6 +158,10 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 		so->first = false;
+
+#if defined(HNSW_MEMORY) && PG_VERSION_NUM >= 130000
+		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(so->tmpCtx, false) / (1024 * 1024));
+#endif
 	}
 
 	while (list_length(so->w) > 0)
