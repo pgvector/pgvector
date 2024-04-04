@@ -419,7 +419,9 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
-## Binary Quantization [unreleased]
+## Binary Quantization
+
+*Unreleased*
 
 Use expression indexing for binary quantization
 
