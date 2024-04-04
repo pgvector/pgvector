@@ -1,62 +1,64 @@
-SELECT '{0:1.5,2:3.5}/5'::sparsevec;
-    sparsevec    
------------------
- {0:1.5,2:3.5}/5
+SELECT '{0:1.5,2:3.5}'::sparsevec;
+   sparsevec   
+---------------
+ {0:1.5,2:3.5}
 (1 row)
 
-SELECT '{0:1.5,2:3.5}/5'::sparsevec::vector;
+SELECT '{0:1.5,2:3.5}'::sparsevec::vector;
+   vector    
+-------------
+ [1.5,0,3.5]
+(1 row)
+
+SELECT '{0:1.5,2:3.5}'::sparsevec::vector(5);
      vector      
 -----------------
  [1.5,0,3.5,0,0]
 (1 row)
 
-SELECT '{0:1.5,2:3.5}/5'::sparsevec::vector(5);
-     vector      
------------------
- [1.5,0,3.5,0,0]
+SELECT '{0:1.5,2:3.5}'::sparsevec::vector(4);
+    vector     
+---------------
+ [1.5,0,3.5,0]
 (1 row)
 
-SELECT '{0:1.5,2:3.5}/5'::sparsevec::vector(4);
-ERROR:  expected 4 dimensions, not 5
+SELECT '{0:1.5,2:3.5}'::sparsevec::vector(2);
+ERROR:  Vector must have at least 3 dimensions
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
-    sparsevec    
------------------
- {1:1.5,3:3.5}/5
+   sparsevec   
+---------------
+ {1:1.5,3:3.5}
 (1 row)
 
-SELECT '{0:0,1:1,2:0}/3'::sparsevec;
+SELECT '{0:0,1:1,2:0}'::sparsevec;
  sparsevec 
 -----------
- {1:1}/3
+ {1:1}
 (1 row)
 
-SELECT '{1:1,0:1}/2'::sparsevec;
+SELECT '{1:1,0:1}'::sparsevec;
 ERROR:  indexes must be in ascending order
-LINE 1: SELECT '{1:1,0:1}/2'::sparsevec;
+LINE 1: SELECT '{1:1,0:1}'::sparsevec;
                ^
-SELECT '{}/5'::sparsevec;
+SELECT '{}'::sparsevec;
  sparsevec 
 -----------
- {}/5
+ {}
 (1 row)
 
-SELECT '{}/-1'::sparsevec;
-ERROR:  sparsevec must have at least 1 dimension
-LINE 1: SELECT '{}/-1'::sparsevec;
-               ^
-SELECT '{}/100001'::sparsevec;
-ERROR:  sparsevec cannot have more than 100000 dimensions
-LINE 1: SELECT '{}/100001'::sparsevec;
-               ^
-SELECT '{}/16001'::sparsevec::vector;
-ERROR:  vector cannot have more than 16000 dimensions
-SELECT '{-1:1}/1'::sparsevec;
+SELECT '{}'::sparsevec::vector;
+ERROR:  vector must have at least 1 dimension
+SELECT '{-1:1}'::sparsevec;
 ERROR:  index "-1" is out of range for type sparsevec
-LINE 1: SELECT '{-1:1}/1'::sparsevec;
+LINE 1: SELECT '{-1:1}'::sparsevec;
                ^
-SELECT '{1:1}/1'::sparsevec;
-ERROR:  index must be less than dimensions
-LINE 1: SELECT '{1:1}/1'::sparsevec;
-               ^
-SELECT '{}/1'::sparsevec(2);
-ERROR:  expected 2 dimensions, not 1
+SELECT '{1:1}'::sparsevec;
+ sparsevec 
+-----------
+ {1:1}
+(1 row)
+
+SELECT '{}'::sparsevec(2);
+ERROR:  type modifier is not allowed for type "sparsevec"
+LINE 1: SELECT '{}'::sparsevec(2);
+                     ^

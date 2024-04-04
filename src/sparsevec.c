@@ -19,68 +19,27 @@
 #endif
 
 /*
- * Ensure same dimensions
- */
-static inline void
-CheckDims(SparseVector * a, SparseVector * b)
-{
-	if (a->dim != b->dim)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("different sparsevec dimensions %d and %d", a->dim, b->dim)));
-}
-
-/*
- * Ensure expected dimensions
- */
-static inline void
-CheckExpectedDim(int32 typmod, int dim)
-{
-	if (typmod != -1 && typmod != dim)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("expected %d dimensions, not %d", typmod, dim)));
-}
-
-/*
- * Ensure valid dimensions
- */
-static inline void
-CheckDim(int dim)
-{
-	if (dim < 1)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("sparsevec must have at least 1 dimension")));
-
-	if (dim > SPARSEVEC_MAX_DIM)
-		ereport(ERROR,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("sparsevec cannot have more than %d dimensions", SPARSEVEC_MAX_DIM)));
-}
-
-/*
  * Ensure valid nnz
  */
 static inline void
-CheckNnz(int nnz, int dim)
+CheckNnz(int nnz)
 {
 	if (nnz < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("sparsevec must have at least one element")));
 
-	if (nnz > dim)
+	if (nnz > SPARSEVEC_MAX_NNZ)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("sparsevec cannot have more elements than dimensions")));
+				 errmsg("sparsevec cannot have more elements than non-zero elements")));
 }
 
 /*
  * Ensure valid index
  */
 static inline void
-CheckIndex(int32 *indices, int i, int dim)
+CheckIndex(int32 *indices, int i)
 {
 	int32		index = indices[i];
 
@@ -88,11 +47,6 @@ CheckIndex(int32 *indices, int i, int dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("index must not be negative")));
-
-	if (index >= dim)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("index must be less than dimensions")));
 
 	if (i > 0)
 	{
@@ -129,7 +83,7 @@ CheckElement(float value)
  * Allocate and initialize a new sparse vector
  */
 SparseVector *
-InitSparseVector(int dim, int nnz)
+InitSparseVector(int nnz)
 {
 	SparseVector *result;
 	int			size;
@@ -137,7 +91,6 @@ InitSparseVector(int dim, int nnz)
 	size = SPARSEVEC_SIZE(nnz);
 	result = (SparseVector *) palloc0(size);
 	SET_VARSIZE(result, size);
-	result->dim = dim;
 	result->nnz = nnz;
 
 	return result;
@@ -167,8 +120,6 @@ Datum
 sparsevec_in(PG_FUNCTION_ARGS)
 {
 	char	   *lit = PG_GETARG_CSTRING(0);
-	int32		typmod = PG_GETARG_INT32(2);
-	int			dim;
 	char	   *pt;
 	char	   *stringEnd;
 	SparseVector *result;
@@ -189,6 +140,11 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 		pt++;
 	}
+
+	if (maxNnz > SPARSEVEC_MAX_NNZ)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("sparsevec cannot have more than %d non-zero elements", SPARSEVEC_MAX_NNZ)));
 
 	indices = palloc(maxNnz * sizeof(int32));
 	values = palloc(maxNnz * sizeof(float));
@@ -297,24 +253,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 	stringEnd++;
 
-	if (*stringEnd != '/')
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed sparsevec literal: \"%s\"", lit),
-				 errdetail("Unexpected end of input.")));
-
-	stringEnd++;
-
-	/* Use similar logic as int2vectorin */
-	errno = 0;
-	pt = stringEnd;
-	dim = strtol(pt, &stringEnd, 10);
-
-	if (stringEnd == pt)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
-
 	/* Only whitespace is allowed after the closing brace */
 	while (sparsevec_isspace(*stringEnd))
 		stringEnd++;
@@ -323,21 +261,18 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("malformed sparsevec literal: \"%s\"", lit),
-				 errdetail("Junk after closing.")));
+				 errdetail("Junk after closing right brace.")));
 
 	pfree(litcopy);
 
-	CheckDim(dim);
-	CheckExpectedDim(typmod, dim);
-
-	result = InitSparseVector(dim, nnz);
+	result = InitSparseVector(nnz);
 	rvalues = SPARSEVEC_VALUES(result);
 	for (int i = 0; i < nnz; i++)
 	{
 		result->indices[i] = indices[i];
 		rvalues[i] = values[i];
 
-		CheckIndex(result->indices, i, dim);
+		CheckIndex(result->indices, i);
 		CheckElement(rvalues[i]);
 	}
 
@@ -382,11 +317,9 @@ sparsevec_out(PG_FUNCTION_ARGS)
 	 *
 	 * nnz - 1 bytes for ,
 	 *
-	 * 10 bytes for dimensions
-	 *
-	 * 4 bytes for {, }, /, and \0
+	 * 3 bytes for {, }, and \0
 	 */
-	buf = (char *) palloc((11 + FLOAT_SHORTEST_DECIMAL_LEN) * sparsevec->nnz + 13);
+	buf = (char *) palloc((11 + FLOAT_SHORTEST_DECIMAL_LEN) * sparsevec->nnz + 2);
 	ptr = buf;
 
 	AppendChar(ptr, '{');
@@ -402,43 +335,10 @@ sparsevec_out(PG_FUNCTION_ARGS)
 	}
 
 	AppendChar(ptr, '}');
-	AppendChar(ptr, '/');
-	AppendInt(ptr, sparsevec->dim);
 	*ptr = '\0';
 
 	PG_FREE_IF_COPY(sparsevec, 0);
 	PG_RETURN_CSTRING(buf);
-}
-
-/*
- * Convert type modifier
- */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_typmod_in);
-Datum
-sparsevec_typmod_in(PG_FUNCTION_ARGS)
-{
-	ArrayType  *ta = PG_GETARG_ARRAYTYPE_P(0);
-	int32	   *tl;
-	int			n;
-
-	tl = ArrayGetIntegerTypmods(ta, &n);
-
-	if (n != 1)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("invalid type modifier")));
-
-	if (*tl < 1)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("dimensions for type sparsevec must be at least 1")));
-
-	if (*tl > SPARSEVEC_MAX_DIM)
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("dimensions for type sparsevec cannot exceed %d", SPARSEVEC_MAX_DIM)));
-
-	PG_RETURN_INT32(*tl);
 }
 
 /*
@@ -449,33 +349,30 @@ Datum
 sparsevec_recv(PG_FUNCTION_ARGS)
 {
 	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
-	int32		typmod = PG_GETARG_INT32(2);
 	SparseVector *result;
-	int32		dim;
 	int32		nnz;
 	int32		unused;
+	int32		unused2;
 	float	   *values;
 
-	dim = pq_getmsgint(buf, sizeof(int32));
 	nnz = pq_getmsgint(buf, sizeof(int32));
 	unused = pq_getmsgint(buf, sizeof(int32));
+	unused2 = pq_getmsgint(buf, sizeof(int32));
 
-	CheckDim(dim);
-	CheckNnz(nnz, dim);
-	CheckExpectedDim(typmod, dim);
+	CheckNnz(nnz);
 
-	if (unused != 0)
+	if (unused != 0 || unused2 != 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("expected unused to be 0, not %d", unused)));
 
-	result = InitSparseVector(dim, nnz);
+	result = InitSparseVector(nnz);
 	values = SPARSEVEC_VALUES(result);
 
 	for (int i = 0; i < nnz; i++)
 	{
 		result->indices[i] = pq_getmsgint(buf, sizeof(int32));
-		CheckIndex(result->indices, i, dim);
+		CheckIndex(result->indices, i);
 	}
 
 	for (int i = 0; i < nnz; i++)
@@ -499,9 +396,9 @@ sparsevec_send(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint(&buf, svec->dim, sizeof(int32));
 	pq_sendint(&buf, svec->nnz, sizeof(int32));
 	pq_sendint(&buf, svec->unused, sizeof(int32));
+	pq_sendint(&buf, svec->unused2, sizeof(int32));
 	for (int i = 0; i < svec->nnz; i++)
 		pq_sendint(&buf, svec->indices[i], sizeof(int32));
 	for (int i = 0; i < svec->nnz; i++)
@@ -512,16 +409,12 @@ sparsevec_send(PG_FUNCTION_ARGS)
 
 /*
  * Convert sparse vector to sparse vector
- * This is needed to check the type modifier
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec);
 Datum
 sparsevec(PG_FUNCTION_ARGS)
 {
 	SparseVector *svec = PG_GETARG_SPARSEVEC_P(0);
-	int32		typmod = PG_GETARG_INT32(1);
-
-	CheckExpectedDim(typmod, svec->dim);
 
 	PG_RETURN_POINTER(svec);
 }
@@ -534,15 +427,11 @@ Datum
 vector_to_sparsevec(PG_FUNCTION_ARGS)
 {
 	Vector	   *vec = PG_GETARG_VECTOR_P(0);
-	int32		typmod = PG_GETARG_INT32(1);
 	SparseVector *result;
 	int			dim = vec->dim;
 	int			nnz = 0;
 	float	   *values;
 	int			j = 0;
-
-	CheckDim(dim);
-	CheckExpectedDim(typmod, dim);
 
 	for (int i = 0; i < dim; i++)
 	{
@@ -550,7 +439,8 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 			nnz++;
 	}
 
-	result = InitSparseVector(dim, nnz);
+	CheckNnz(nnz);
+	result = InitSparseVector(nnz);
 	values = SPARSEVEC_VALUES(result);
 	for (int i = 0; i < dim; i++)
 	{
@@ -627,8 +517,6 @@ sparsevec_l2_distance(PG_FUNCTION_ARGS)
 	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
 	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
 
-	CheckDims(a, b);
-
 	PG_RETURN_FLOAT8(sqrt(l2_distance_squared_internal(a, b)));
 }
 
@@ -642,8 +530,6 @@ sparsevec_l2_squared_distance(PG_FUNCTION_ARGS)
 {
 	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
 	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
-
-	CheckDims(a, b);
 
 	PG_RETURN_FLOAT8(l2_distance_squared_internal(a, b));
 }
@@ -694,8 +580,6 @@ sparsevec_inner_product(PG_FUNCTION_ARGS)
 	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
 	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
 
-	CheckDims(a, b);
-
 	PG_RETURN_FLOAT8(inner_product_internal(a, b));
 }
 
@@ -708,8 +592,6 @@ sparsevec_negative_inner_product(PG_FUNCTION_ARGS)
 {
 	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
 	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
-
-	CheckDims(a, b);
 
 	PG_RETURN_FLOAT8(-inner_product_internal(a, b));
 }
@@ -728,8 +610,6 @@ sparsevec_cosine_distance(PG_FUNCTION_ARGS)
 	float		norma = 0.0;
 	float		normb = 0.0;
 	double		similarity;
-
-	CheckDims(a, b);
 
 	similarity = inner_product_internal(a, b);
 

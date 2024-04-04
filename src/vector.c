@@ -1236,11 +1236,19 @@ sparsevec_to_vector(PG_FUNCTION_ARGS)
 	SparseVector *svec = PG_GETARG_SPARSEVEC_P(0);
 	int32		typmod = PG_GETARG_INT32(1);
 	Vector	   *result;
-	int			dim = svec->dim;
+	int			dim;
 	float	   *values = SPARSEVEC_VALUES(svec);
+	int			maxIndex = svec->nnz == 0 ? -1 : svec->indices[svec->nnz - 1];
+
+	if (typmod == -1)
+		dim = maxIndex + 1;
+	else
+		dim = typmod;
 
 	CheckDim(dim);
-	CheckExpectedDim(typmod, dim);
+
+	if (dim < maxIndex + 1)
+		elog(ERROR, "Vector must have at least %d dimensions", maxIndex + 1);
 
 	result = InitVector(dim);
 	for (int i = 0; i < svec->nnz; i++)

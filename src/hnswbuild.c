@@ -681,8 +681,6 @@ GetMaxDimensions(HnswType type)
 		maxDimensions *= 2;
 	else if (type == HNSW_TYPE_BIT)
 		maxDimensions *= 32;
-	else if (type == HNSW_TYPE_SPARSEVEC)
-		maxDimensions = INT_MAX;
 
 	return maxDimensions;
 }
@@ -693,8 +691,6 @@ GetMaxDimensions(HnswType type)
 static void
 InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo, ForkNumber forkNum)
 {
-	int			maxDimensions;
-
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
@@ -705,14 +701,17 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
-	maxDimensions = GetMaxDimensions(buildstate->type);
 
-	/* Require column to have dimensions to be indexed */
-	if (buildstate->dimensions < 0)
-		elog(ERROR, "column does not have dimensions");
+	if (buildstate->type != HNSW_TYPE_SPARSEVEC)
+	{
+		int			maxDimensions = GetMaxDimensions(buildstate->type);
 
-	if (buildstate->dimensions > maxDimensions)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", maxDimensions);
+		if (buildstate->dimensions < 0)
+			elog(ERROR, "column does not have dimensions");
+
+		if (buildstate->dimensions > maxDimensions)
+			elog(ERROR, "column cannot have more than %d dimensions for hnsw index", maxDimensions);
+	}
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
 		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");

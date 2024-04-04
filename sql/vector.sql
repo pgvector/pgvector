@@ -480,9 +480,6 @@ CREATE FUNCTION sparsevec_in(cstring, oid, integer) RETURNS sparsevec
 CREATE FUNCTION sparsevec_out(sparsevec) RETURNS cstring
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
-CREATE FUNCTION sparsevec_typmod_in(cstring[]) RETURNS integer
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
 CREATE FUNCTION sparsevec_recv(internal, oid, integer) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -492,7 +489,6 @@ CREATE FUNCTION sparsevec_send(sparsevec) RETURNS bytea
 CREATE TYPE sparsevec (
 	INPUT     = sparsevec_in,
 	OUTPUT    = sparsevec_out,
-	TYPMOD_IN = sparsevec_typmod_in,
 	RECEIVE   = sparsevec_recv,
 	SEND      = sparsevec_send,
 	STORAGE   = external

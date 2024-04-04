@@ -1,7 +1,7 @@
 #ifndef SPARSEVEC_H
 #define SPARSEVEC_H
 
-#define SPARSEVEC_MAX_DIM 100000
+#define SPARSEVEC_MAX_NNZ 100000
 
 /* Ensure values are aligned */
 #define SPARSEVEC_SIZE(_nnz)		(offsetof(SparseVector, indices) + MAXALIGN((_nnz) * sizeof(int32)) + (_nnz * sizeof(float)))
@@ -13,12 +13,12 @@
 typedef struct SparseVector
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int32		dim;			/* number of dimensions */
 	int32		nnz;
 	int32		unused;
+	int32		unused2;
 	int32		indices[FLEXIBLE_ARRAY_MEMBER];
 }			SparseVector;
 
-SparseVector *InitSparseVector(int dim, int nnz);
+SparseVector *InitSparseVector(int nnz);
 
 #endif

@@ -229,7 +229,7 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 		else if (type == HNSW_TYPE_SPARSEVEC)
 		{
 			SparseVector *v = DatumGetSparseVector(*value);
-			SparseVector *result = InitSparseVector(v->dim, v->nnz);
+			SparseVector *result = InitSparseVector(v->nnz);
 			float	   *vx = SPARSEVEC_VALUES(v);
 			float	   *rx = SPARSEVEC_VALUES(result);
 
