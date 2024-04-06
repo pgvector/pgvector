@@ -68,7 +68,7 @@ CheckNnz(int nnz, int dim)
 	if (nnz < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("sparsevec must have at least one element")));
+				 errmsg("sparsevec cannot have negative number of elements")));
 
 	if (nnz > SPARSEVEC_MAX_NNZ)
 		ereport(ERROR,
