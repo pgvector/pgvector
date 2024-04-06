@@ -89,15 +89,15 @@ CheckIndex(int32 *indices, int i, int dim)
 {
 	int32		index = indices[i];
 
-	if (index < 0)
+	if (index < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("index must not be negative")));
+				 errmsg("index must be greater than zero")));
 
-	if (index >= dim)
+	if (index > dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("index must be less than dimensions")));
+				 errmsg("index must be less than or equal to dimensions")));
 
 	if (i > 0)
 	{
@@ -245,7 +245,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
-		if (errno == ERANGE || index < 0 || index > INT_MAX)
+		if (errno == ERANGE || index < 1 || index > INT_MAX)
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 					 errmsg("index \"%ld\" is out of range for type sparsevec", index)));

@@ -1244,7 +1244,7 @@ sparsevec_to_vector(PG_FUNCTION_ARGS)
 
 	result = InitVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
-		result->x[svec->indices[i]] = values[i];
+		result->x[svec->indices[i] - 1] = values[i];
 
 	PG_RETURN_POINTER(result);
 }
