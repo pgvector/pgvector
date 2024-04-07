@@ -957,6 +957,16 @@ To compile for portability, use:
 make OPTFLAGS=""
 ```
 
+### Halfvec Performance
+
+For best performance, make sure Postgres was compiled with a compiler that supports the `_Float16` type (since the same compiler will be used for extensions).
+
+Compiler | x86-64 | aarch64
+--- | --- | ---
+GCC | 12+ | 7+
+Clang | 15+ | 6+
+Apple Clang | 14.3+ | 10+
+
 ## Installation Notes - Windows
 
 ### Missing Header
