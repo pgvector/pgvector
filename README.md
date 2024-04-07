@@ -423,7 +423,7 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 *Unreleased*
 
-Note: Half vectors require [compiler support](#halfvec-performance) to be performant
+Note: Half vectors currently require AArch64 to be performant
 
 Use the `halfvec` type to store half-precision vectors
 
@@ -956,16 +956,6 @@ To compile for portability, use:
 ```sh
 make OPTFLAGS=""
 ```
-
-### Halfvec Performance
-
-For best performance, make sure Postgres was compiled with a compiler that supports the `_Float16` type (since the same compiler will be used for extensions).
-
-Compiler | x86-64 | aarch64
---- | --- | ---
-GCC | 12+ | 7+
-Clang | 15+ | 6+
-Apple Clang | 14.3+ | 10+
 
 ## Installation Notes - Windows
 
