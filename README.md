@@ -423,7 +423,7 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 *Unreleased*
 
-Note: Half vectors require compiler support to be performant
+Note: Half vectors require [compiler support](#halfvec-performance) to be performant
 
 Use the `halfvec` type to store half-precision vectors
 
