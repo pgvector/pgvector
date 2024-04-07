@@ -130,7 +130,7 @@ HalfToFloat4(half num)
 	/* Sign */
 	result = (bin & 0x8000) << 16;
 
-	if (exponent == 31)
+	if (unlikely(exponent == 31))
 	{
 		if (mantissa == 0)
 		{
@@ -141,10 +141,9 @@ HalfToFloat4(half num)
 		{
 			/* NaN */
 			result |= 0x7FC00000;
-			result |= mantissa << 13;
 		}
 	}
-	else if (exponent == 0)
+	else if (unlikely(exponent == 0))
 	{
 		/* Subnormal */
 		if (mantissa != 0)
@@ -164,15 +163,15 @@ HalfToFloat4(half num)
 			}
 
 			result |= (exponent + 127) << 23;
-			result |= mantissa << 13;
 		}
 	}
 	else
 	{
 		/* Normal */
 		result |= (exponent - 15 + 127) << 23;
-		result |= mantissa << 13;
 	}
+
+	result |= mantissa << 13;
 
 	swapfloat.i = result;
 	return swapfloat.f;
