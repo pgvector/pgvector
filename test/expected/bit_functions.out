@@ -22,6 +22,18 @@ SELECT hamming_distance('111', '000');
                 3
 (1 row)
 
+SELECT hamming_distance('10101010101010101010', '01010101010101010101');
+ hamming_distance 
+------------------
+               20
+(1 row)
+
+SELECT hamming_distance('', '');
+ hamming_distance 
+------------------
+                0
+(1 row)
+
 SELECT hamming_distance('111', '00');
 ERROR:  different bit lengths 3 and 2
 SELECT hamming_distance('111', '000'::varbit(4));
@@ -66,6 +78,18 @@ SELECT jaccard_distance('1100', '1000');
  jaccard_distance 
 ------------------
               0.5
+(1 row)
+
+SELECT jaccard_distance('10101010101010101010', '01010101010101010101');
+ jaccard_distance 
+------------------
+                1
+(1 row)
+
+SELECT jaccard_distance('', '');
+ jaccard_distance 
+------------------
+                1
 (1 row)
 
 SELECT jaccard_distance('1111', '000');
