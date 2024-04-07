@@ -570,7 +570,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 			if (j == nnz)
 				elog(ERROR, "safety check failed");
 
-			result->indices[j] = i;
+			result->indices[j] = i + 1;
 			values[j] = vec->x[i];
 			j++;
 		}
