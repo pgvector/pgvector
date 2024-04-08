@@ -423,8 +423,6 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 *Unreleased*
 
-Note: Half vectors currently require AArch64 to be performant
-
 Use the `halfvec` type to store half-precision vectors
 
 ```sql
