@@ -583,7 +583,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
  * Get the L2 squared distance between sparse vectors
  */
 static double
-l2_distance_squared_internal(SparseVector * a, SparseVector * b)
+SparsevecL2SquaredDistance(SparseVector * a, SparseVector * b)
 {
 	float	   *ax = SPARSEVEC_VALUES(a);
 	float	   *bx = SPARSEVEC_VALUES(b);
@@ -639,7 +639,7 @@ sparsevec_l2_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(sqrt(l2_distance_squared_internal(a, b)));
+	PG_RETURN_FLOAT8(sqrt(SparsevecL2SquaredDistance(a, b)));
 }
 
 /*
@@ -655,14 +655,14 @@ sparsevec_l2_squared_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(l2_distance_squared_internal(a, b));
+	PG_RETURN_FLOAT8(SparsevecL2SquaredDistance(a, b));
 }
 
 /*
  * Get the inner product of two sparse vectors
  */
 static double
-inner_product_internal(SparseVector * a, SparseVector * b)
+SparsevecInnerProduct(SparseVector * a, SparseVector * b)
 {
 	float	   *ax = SPARSEVEC_VALUES(a);
 	float	   *bx = SPARSEVEC_VALUES(b);
@@ -706,7 +706,7 @@ sparsevec_inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(inner_product_internal(a, b));
+	PG_RETURN_FLOAT8(SparsevecInnerProduct(a, b));
 }
 
 /*
@@ -721,7 +721,7 @@ sparsevec_negative_inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(-inner_product_internal(a, b));
+	PG_RETURN_FLOAT8(-SparsevecInnerProduct(a, b));
 }
 
 /*
@@ -741,7 +741,7 @@ sparsevec_cosine_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	similarity = inner_product_internal(a, b);
+	similarity = SparsevecInnerProduct(a, b);
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->nnz; i++)
