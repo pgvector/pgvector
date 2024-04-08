@@ -827,7 +827,7 @@ l2_distance_squared_internal(HalfVector * a, HalfVector * b)
 		dist = _mm256_fmadd_ps(diff, diff, dist);
 	}
 
-	_mm256_store_ps(s, dist);
+	_mm256_storeu_ps(s, dist);
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
@@ -906,7 +906,7 @@ inner_product_internal(HalfVector * a, HalfVector * b)
 		dist = _mm256_fmadd_ps(axs, bxs, dist);
 	}
 
-	_mm256_store_ps(s, dist);
+	_mm256_storeu_ps(s, dist);
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
