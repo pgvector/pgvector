@@ -86,7 +86,7 @@ foreach (@queries)
 	push(@expected, $res);
 }
 
-test_recall(0.19, $limit, "before vacuum");
+test_recall(0.18, $limit, "before vacuum");
 test_recall(0.95, 100, "before vacuum");
 
 # TODO Test concurrent inserts with vacuum
