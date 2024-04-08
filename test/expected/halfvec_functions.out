@@ -12,6 +12,12 @@ SELECT l2_distance('[0,0]'::halfvec, '[0,1]');
 
 SELECT l2_distance('[1,2]'::halfvec, '[3]');
 ERROR:  different halfvec dimensions 2 and 1
+SELECT l2_distance('[1,1,1,1,1,1,1,1,1]'::halfvec, '[1,1,1,1,1,1,1,4,5]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
 SELECT '[0,0]'::halfvec <-> '[3,4]';
  ?column? 
 ----------
@@ -30,6 +36,12 @@ SELECT inner_product('[65504]'::halfvec, '[65504]');
  inner_product 
 ---------------
     4290774016
+(1 row)
+
+SELECT inner_product('[1,1,1,1,1,1,1,1,1]'::halfvec, '[1,2,3,4,5,6,7,8,9]');
+ inner_product 
+---------------
+            45
 (1 row)
 
 SELECT '[1,2]'::halfvec <#> '[3,4]';

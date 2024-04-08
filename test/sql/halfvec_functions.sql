@@ -1,11 +1,13 @@
 SELECT l2_distance('[0,0]'::halfvec, '[3,4]');
 SELECT l2_distance('[0,0]'::halfvec, '[0,1]');
 SELECT l2_distance('[1,2]'::halfvec, '[3]');
+SELECT l2_distance('[1,1,1,1,1,1,1,1,1]'::halfvec, '[1,1,1,1,1,1,1,4,5]');
 SELECT '[0,0]'::halfvec <-> '[3,4]';
 
 SELECT inner_product('[1,2]'::halfvec, '[3,4]');
 SELECT inner_product('[1,2]'::halfvec, '[3]');
 SELECT inner_product('[65504]'::halfvec, '[65504]');
+SELECT inner_product('[1,1,1,1,1,1,1,1,1]'::halfvec, '[1,2,3,4,5,6,7,8,9]');
 SELECT '[1,2]'::halfvec <#> '[3,4]';
 
 SELECT cosine_distance('[1,2]'::halfvec, '[2,4]');
