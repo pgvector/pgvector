@@ -7,6 +7,7 @@
 
 #include "vector.h"
 
+/* F16C has better performance than _Float16 (on x86-64) */
 #if defined(__F16C__)
 #define F16C_SUPPORT
 #elif defined(__FLT16_MAX__)
@@ -17,7 +18,6 @@
 #define half _Float16
 #define HALF_MAX FLT16_MAX
 #else
-/* TODO #pragma message("")? */
 #define half uint16
 #define HALF_MAX 65504
 #endif
