@@ -3,7 +3,9 @@
 
 #include "halfvec.h"
 
-double		HalfvecL2DistanceSquared(HalfVector * a, HalfVector * b);
-double		HalfvecInnerProduct(HalfVector * a, HalfVector * b);
+extern float (*HalfvecL2DistanceSquared) (int dim, half * ax, half * bx);
+extern float (*HalfvecInnerProduct) (int dim, half * ax, half * bx);
+
+void		HalfvecInit(void);
 
 #endif

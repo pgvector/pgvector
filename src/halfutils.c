@@ -3,24 +3,49 @@
 #include "halfutils.h"
 #include "halfvec.h"
 
-#ifdef F16C_SUPPORT
+#ifdef HALFVEC_DISPATCH
 #include <immintrin.h>
+
+#if defined(HAVE__GET_CPUID)
+#include <cpuid.h>
+#elif defined(HAVE__CPUID)
+#include <intrin.h>
 #endif
 
-/*
- * Get the L2 squared distance between half vectors
- */
-double
-HalfvecL2DistanceSquared(HalfVector * a, HalfVector * b)
+#ifdef _MSC_VER
+#define TARGET_F16C_FMA
+#else
+#define TARGET_F16C_FMA __attribute__((target("f16c,fma")))
+#endif
+#endif
+
+float		(*HalfvecL2DistanceSquared) (int dim, half * ax, half * bx);
+float		(*HalfvecInnerProduct) (int dim, half * ax, half * bx);
+
+static float
+HalfvecL2DistanceSquaredDefault(int dim, half * ax, half * bx)
 {
-	half	   *ax = a->x;
-	half	   *bx = b->x;
 	float		distance = 0.0;
 
-#if defined(F16C_SUPPORT) && defined(__FMA__)
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+	{
+		float		diff = HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]);
+
+		distance += diff * diff;
+	}
+
+	return distance;
+}
+
+#ifdef HALFVEC_DISPATCH
+TARGET_F16C_FMA static float
+HalfvecL2DistanceSquaredF16cFma(int dim, half * ax, half * bx)
+{
+	float		distance = 0.0;
 	int			i;
 	float		s[8];
-	int			count = (a->dim / 8) * 8;
+	int			count = (dim / 8) * 8;
 	__m256		dist = _mm256_setzero_ps();
 
 	for (i = 0; i < count; i += 8)
@@ -38,39 +63,37 @@ HalfvecL2DistanceSquared(HalfVector * a, HalfVector * b)
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
-	for (; i < a->dim; i++)
+	for (; i < dim; i++)
 	{
 		float		diff = HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]);
 
 		distance += diff * diff;
 	}
-#else
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		float		diff = HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]);
 
-		distance += diff * diff;
-	}
+	return distance;
+}
 #endif
 
-	return (double) distance;
-}
-
-/*
- * Get the inner product of two half vectors
- */
-double
-HalfvecInnerProduct(HalfVector * a, HalfVector * b)
+static float
+HalfvecInnerProductDefault(int dim, half * ax, half * bx)
 {
-	half	   *ax = a->x;
-	half	   *bx = b->x;
 	float		distance = 0.0;
 
-#if defined(F16C_SUPPORT) && defined(__FMA__)
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
+
+	return distance;
+}
+
+#ifdef HALFVEC_DISPATCH
+TARGET_F16C_FMA static float
+HalfvecInnerProductF16cFma(int dim, half * ax, half * bx)
+{
+	float		distance = 0.0;
 	int			i;
 	float		s[8];
-	int			count = (a->dim / 8) * 8;
+	int			count = (dim / 8) * 8;
 	__m256		dist = _mm256_setzero_ps();
 
 	for (i = 0; i < count; i += 8)
@@ -87,13 +110,45 @@ HalfvecInnerProduct(HalfVector * a, HalfVector * b)
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
-	for (; i < a->dim; i++)
+	for (; i < dim; i++)
 		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
-#else
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
+
+	return distance;
+}
 #endif
 
-	return (double) distance;
+#ifdef HALFVEC_DISPATCH
+static bool
+F16cFmaAvailable()
+{
+	unsigned int exx[4] = {0, 0, 0, 0};
+
+#if defined(HAVE__GET_CPUID)
+	__get_cpuid(1, &exx[0], &exx[1], &exx[2], &exx[3]);
+#elif defined(HAVE__CPUID)
+	__cpuid(exx, 1);
+#endif
+
+	/* FMA = 12, F16C = 29 */
+	return (exx[2] & (1 << 12)) != 0 && (exx[2] & (1 << 29)) != 0;
+}
+#endif
+
+void
+HalfvecInit(void)
+{
+	/*
+	 * Could skip pointer when single function, but no difference in
+	 * performance
+	 */
+	HalfvecL2DistanceSquared = HalfvecL2DistanceSquaredDefault;
+	HalfvecInnerProduct = HalfvecInnerProductDefault;
+
+#ifdef HALFVEC_DISPATCH
+	if (F16cFmaAvailable())
+	{
+		HalfvecL2DistanceSquared = HalfvecL2DistanceSquaredF16cFma;
+		HalfvecInnerProduct = HalfvecInnerProductF16cFma;
+	}
+#endif
 }

@@ -7,10 +7,14 @@
 
 #include "vector.h"
 
+#if defined(__x86_64__) || defined(_M_AMD64)
+#define HALFVEC_DISPATCH
+#endif
+
 /* F16C has better performance than _Float16 (on x86-64) */
 #if defined(__F16C__)
 #define F16C_SUPPORT
-#elif defined(__FLT16_MAX__)
+#elif defined(__FLT16_MAX__) && !defined(HALFVEC_DISPATCH)
 #define FLT16_SUPPORT
 #endif
 
