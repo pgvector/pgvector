@@ -9,7 +9,7 @@ REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
 # For /arch flags
 # https://learn.microsoft.com/en-us/cpp/build/reference/arch-minimum-cpu-architecture
-OPTFLAGS = /arch:AVX2
+OPTFLAGS =
 
 # For auto-vectorization:
 # - MSVC (needs /O2 /fp:fast) - https://learn.microsoft.com/en-us/cpp/parallel/auto-parallelization-and-auto-vectorization?#auto-vectorizer

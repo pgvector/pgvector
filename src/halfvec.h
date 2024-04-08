@@ -15,6 +15,8 @@
 #define F16C_SUPPORT
 #elif defined(__FLT16_MAX__)
 #define FLT16_SUPPORT
+#else
+#error "Not supported"
 #endif
 
 #ifdef FLT16_SUPPORT
