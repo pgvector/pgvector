@@ -711,18 +711,11 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
-	float		dp = 0.0;
 	double		distance;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		dp += ax[i] * bx[i];
-
-	distance = (double) dp;
+	distance = (double) VectorInnerProduct(a->dim, a->x, b->x);
 
 	/* Prevent NaN with acos with loss of precision */
 	if (distance > 1)
