@@ -42,7 +42,7 @@ HalfvecL2DistanceSquaredDefault(int dim, half * ax, half * bx)
 TARGET_F16C_FMA static float
 HalfvecL2DistanceSquaredF16cFma(int dim, half * ax, half * bx)
 {
-	float		distance = 0.0;
+	float		distance;
 	int			i;
 	float		s[8];
 	int			count = (dim / 8) * 8;
@@ -90,7 +90,7 @@ HalfvecInnerProductDefault(int dim, half * ax, half * bx)
 TARGET_F16C_FMA static float
 HalfvecInnerProductF16cFma(int dim, half * ax, half * bx)
 {
-	float		distance = 0.0;
+	float		distance;
 	int			i;
 	float		s[8];
 	int			count = (dim / 8) * 8;
