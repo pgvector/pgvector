@@ -103,7 +103,8 @@ pq_sendhalf(StringInfo buf, half h)
 float
 HalfToFloat4(half num)
 {
-#if defined(F16C_SUPPORT)
+#if defined(F16C_SUPPORT) && !defined(_MSC_VER)
+	/* TODO Use instrinsics for Windows */
 	return _cvtsh_ss(num);
 #elif defined(FLT16_SUPPORT)
 	return (float) num;
@@ -190,7 +191,8 @@ HalfToFloat4(half num)
 half
 Float4ToHalfUnchecked(float num)
 {
-#if defined(F16C_SUPPORT)
+#if defined(F16C_SUPPORT) && !defined(_MSC_VER)
+	/* TODO Use instrinsics for Windows */
 	return _cvtss_sh(num, 0);
 #elif defined(FLT16_SUPPORT)
 	return (_Float16) num;
