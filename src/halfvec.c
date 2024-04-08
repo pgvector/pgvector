@@ -861,9 +861,33 @@ inner_product_internal(HalfVector * a, HalfVector * b)
 	half	   *bx = b->x;
 	float		distance = 0.0;
 
+#if defined(F16C_SUPPORT) && defined(__FMA__)
+	int			i;
+	float		s[8];
+	int			count = (a->dim / 8) * 8;
+	__m256		dist = _mm256_setzero_ps();
+
+	for (i = 0; i < count; i += 8)
+	{
+		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
+		__m256		axs = _mm256_cvtph_ps(axi);
+		__m256		bxs = _mm256_cvtph_ps(bxi);
+
+		dist = _mm256_fmadd_ps(axs, bxs, dist);
+	}
+
+	_mm256_store_ps(s, dist);
+
+	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
+
+	for (; i < a->dim; i++)
+		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
+#else
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
+#endif
 
 	return (double) distance;
 }
