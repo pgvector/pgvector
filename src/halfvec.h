@@ -7,7 +7,9 @@
 
 #include "vector.h"
 
-#ifdef __FLT16_MAX__
+#if defined(__F16C__)
+#define F16C_SUPPORT
+#elif defined(__FLT16_MAX__)
 #define FLT16_SUPPORT
 #endif
 

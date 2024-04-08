@@ -22,6 +22,10 @@
 #define TYPALIGN_INT 'i'
 #endif
 
+#ifdef F16C_SUPPORT
+#include <immintrin.h>
+#endif
+
 /*
  * Check if half is NaN
  */
@@ -99,7 +103,9 @@ pq_sendhalf(StringInfo buf, half h)
 float
 HalfToFloat4(half num)
 {
-#ifdef FLT16_SUPPORT
+#if defined(F16C_SUPPORT)
+	return _cvtsh_ss(num);
+#elif defined(FLT16_SUPPORT)
 	return (float) num;
 #else
 	/* TODO Improve performance */
@@ -184,7 +190,9 @@ HalfToFloat4(half num)
 half
 Float4ToHalfUnchecked(float num)
 {
-#ifdef FLT16_SUPPORT
+#if defined(F16C_SUPPORT)
+	return _cvtss_sh(num, 0);
+#elif defined(FLT16_SUPPORT)
 	return (_Float16) num;
 #else
 	/* TODO Improve performance */
