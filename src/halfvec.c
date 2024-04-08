@@ -6,6 +6,7 @@
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
+#include "halfutils.h"
 #include "halfvec.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
@@ -801,56 +802,6 @@ vector_to_halfvec(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the L2 squared distance between half vectors
- */
-static double
-l2_distance_squared_internal(HalfVector * a, HalfVector * b)
-{
-	half	   *ax = a->x;
-	half	   *bx = b->x;
-	float		distance = 0.0;
-
-#if defined(F16C_SUPPORT) && defined(__FMA__)
-	int			i;
-	float		s[8];
-	int			count = (a->dim / 8) * 8;
-	__m256		dist = _mm256_setzero_ps();
-
-	for (i = 0; i < count; i += 8)
-	{
-		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
-		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
-		__m256		axs = _mm256_cvtph_ps(axi);
-		__m256		bxs = _mm256_cvtph_ps(bxi);
-		__m256		diff = _mm256_sub_ps(axs, bxs);
-
-		dist = _mm256_fmadd_ps(diff, diff, dist);
-	}
-
-	_mm256_storeu_ps(s, dist);
-
-	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
-
-	for (; i < a->dim; i++)
-	{
-		float		diff = HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]);
-
-		distance += diff * diff;
-	}
-#else
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		float		diff = HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]);
-
-		distance += diff * diff;
-	}
-#endif
-
-	return (double) distance;
-}
-
-/*
  * Get the L2 distance between half vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_distance);
@@ -862,7 +813,7 @@ halfvec_l2_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(sqrt(l2_distance_squared_internal(a, b)));
+	PG_RETURN_FLOAT8(sqrt(HalfvecL2DistanceSquared(a, b)));
 }
 
 /*
@@ -877,48 +828,7 @@ halfvec_l2_squared_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(l2_distance_squared_internal(a, b));
-}
-
-/*
- * Get the inner product of two half vectors
- */
-static double
-inner_product_internal(HalfVector * a, HalfVector * b)
-{
-	half	   *ax = a->x;
-	half	   *bx = b->x;
-	float		distance = 0.0;
-
-#if defined(F16C_SUPPORT) && defined(__FMA__)
-	int			i;
-	float		s[8];
-	int			count = (a->dim / 8) * 8;
-	__m256		dist = _mm256_setzero_ps();
-
-	for (i = 0; i < count; i += 8)
-	{
-		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
-		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
-		__m256		axs = _mm256_cvtph_ps(axi);
-		__m256		bxs = _mm256_cvtph_ps(bxi);
-
-		dist = _mm256_fmadd_ps(axs, bxs, dist);
-	}
-
-	_mm256_storeu_ps(s, dist);
-
-	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
-
-	for (; i < a->dim; i++)
-		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
-#else
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
-#endif
-
-	return (double) distance;
+	PG_RETURN_FLOAT8(HalfvecL2DistanceSquared(a, b));
 }
 
 /*
@@ -933,7 +843,7 @@ halfvec_inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(inner_product_internal(a, b));
+	PG_RETURN_FLOAT8(HalfvecInnerProduct(a, b));
 }
 
 /*
@@ -948,7 +858,7 @@ halfvec_negative_inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(-inner_product_internal(a, b));
+	PG_RETURN_FLOAT8(-HalfvecInnerProduct(a, b));
 }
 
 /*
