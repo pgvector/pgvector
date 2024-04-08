@@ -19,11 +19,11 @@
 #endif
 #endif
 
-float		(*HalfvecL2DistanceSquared) (int dim, half * ax, half * bx);
+float		(*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 float		(*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 
 static float
-HalfvecL2DistanceSquaredDefault(int dim, half * ax, half * bx)
+HalfvecL2SquaredDistanceDefault(int dim, half * ax, half * bx)
 {
 	float		distance = 0.0;
 
@@ -40,7 +40,7 @@ HalfvecL2DistanceSquaredDefault(int dim, half * ax, half * bx)
 
 #ifdef HALFVEC_DISPATCH
 TARGET_F16C_FMA static float
-HalfvecL2DistanceSquaredF16cFma(int dim, half * ax, half * bx)
+HalfvecL2SquaredDistanceF16cFma(int dim, half * ax, half * bx)
 {
 	float		distance;
 	int			i;
@@ -143,13 +143,13 @@ HalfvecInit(void)
 	 * Could skip pointer when single function, but no difference in
 	 * performance
 	 */
-	HalfvecL2DistanceSquared = HalfvecL2DistanceSquaredDefault;
+	HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceDefault;
 	HalfvecInnerProduct = HalfvecInnerProductDefault;
 
 #ifdef HALFVEC_DISPATCH
 	if (SupportsFeature(FEATURE_FMA | FEATURE_F16C))
 	{
-		HalfvecL2DistanceSquared = HalfvecL2DistanceSquaredF16cFma;
+		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16cFma;
 		HalfvecInnerProduct = HalfvecInnerProductF16cFma;
 	}
 #endif

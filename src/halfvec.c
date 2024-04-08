@@ -813,7 +813,7 @@ halfvec_l2_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(sqrt((double) HalfvecL2DistanceSquared(a->dim, a->x, b->x)));
+	PG_RETURN_FLOAT8(sqrt((double) HalfvecL2SquaredDistance(a->dim, a->x, b->x)));
 }
 
 /*
@@ -828,7 +828,7 @@ halfvec_l2_squared_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8((double) HalfvecL2DistanceSquared(a->dim, a->x, b->x));
+	PG_RETURN_FLOAT8((double) HalfvecL2SquaredDistance(a->dim, a->x, b->x));
 }
 
 /*
