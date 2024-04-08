@@ -580,7 +580,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 }
 
 /*
- *  Get the L2 squared distance between sparse vectors
+ * Get the L2 squared distance between sparse vectors
  */
 static double
 l2_distance_squared_internal(SparseVector * a, SparseVector * b)
