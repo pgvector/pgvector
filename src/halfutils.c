@@ -118,11 +118,11 @@ HalfvecInnerProductF16cFma(int dim, half * ax, half * bx)
 #endif
 
 #ifdef HALFVEC_DISPATCH
-#define FEATURE_FMA  (1 << 12)
-#define FEATURE_F16C (1 << 29)
+#define CPU_FEATURE_FMA  (1 << 12)
+#define CPU_FEATURE_F16C (1 << 29)
 
 static bool
-SupportsFeature(unsigned int feature)
+SupportsCpuFeature(unsigned int feature)
 {
 	unsigned int exx[4] = {0, 0, 0, 0};
 
@@ -147,7 +147,7 @@ HalfvecInit(void)
 	HalfvecInnerProduct = HalfvecInnerProductDefault;
 
 #ifdef HALFVEC_DISPATCH
-	if (SupportsFeature(FEATURE_FMA | FEATURE_F16C))
+	if (SupportsCpuFeature(CPU_FEATURE_FMA | CPU_FEATURE_F16C))
 	{
 		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16cFma;
 		HalfvecInnerProduct = HalfvecInnerProductF16cFma;
