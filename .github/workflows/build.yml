@@ -123,6 +123,6 @@ jobs:
       - uses: ankane/setup-postgres-valgrind@v1
         with:
           postgres-version: 16
-      - run: make
+      - run: make OPTFLAGS=""
       - run: sudo --preserve-env=PG_CONFIG make install
       - run: make installcheck
