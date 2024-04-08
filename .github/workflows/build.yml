@@ -88,7 +88,7 @@ jobs:
       - run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
           cd %TEMP% && ^
-          nmake /NOLOGO /F Makefile.win OPTFLAGS="/arch:AVX2" && ^
+          nmake /NOLOGO /F Makefile.win && ^
           nmake /NOLOGO /F Makefile.win install && ^
           nmake /NOLOGO /F Makefile.win installcheck && ^
           nmake /NOLOGO /F Makefile.win clean && ^

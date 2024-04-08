@@ -8,15 +8,10 @@
 #include "vector.h"
 
 /* F16C has better performance than _Float16 (on x86-64) */
-#if defined(__F16C__)
-#define F16C_SUPPORT
-/* TODO Improve detection */
-#elif defined(_MSC_VER) && defined(__AVX2__)
+#if defined(__F16C__) || defined(_MSC_VER)
 #define F16C_SUPPORT
 #elif defined(__FLT16_MAX__)
 #define FLT16_SUPPORT
-#else
-#error "Not supported"
 #endif
 
 #ifdef FLT16_SUPPORT
