@@ -17,6 +17,9 @@ extern float (*HalfvecL1Distance) (int dim, half * ax, half * bx);
 
 void		HalfvecInit(void);
 
+/* Variables */
+extern bool	halfvec_use_fp16_compute;
+
 /*
  * Check if half is NaN
  */
