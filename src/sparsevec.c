@@ -291,6 +291,9 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			nnz++;
 		}
 
+		while (sparsevec_isspace(*stringEnd))
+			stringEnd++;
+
 		if (*stringEnd != '\0' && *stringEnd != '}')
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
