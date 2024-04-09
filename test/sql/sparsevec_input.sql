@@ -1,5 +1,5 @@
 SELECT '{1:1.5,3:3.5}/5'::sparsevec;
-SELECT ' { 1 : 1.5 ,  3  :  3.5  }/5 '::sparsevec;
+SELECT ' { 1 : 1.5 ,  3  :  3.5  } / 5 '::sparsevec;
 
 SELECT ''::sparsevec;
 SELECT '{'::sparsevec;

@@ -4,7 +4,7 @@ SELECT '{1:1.5,3:3.5}/5'::sparsevec;
  {1:1.5,3:3.5}/5
 (1 row)
 
-SELECT ' { 1 : 1.5 ,  3  :  3.5  }/5 '::sparsevec;
+SELECT ' { 1 : 1.5 ,  3  :  3.5  } / 5 '::sparsevec;
     sparsevec    
 -----------------
  {1:1.5,3:3.5}/5

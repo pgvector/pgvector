@@ -310,6 +310,9 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 	stringEnd++;
 
+	while (sparsevec_isspace(*stringEnd))
+		stringEnd++;
+
 	if (*stringEnd != '/')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
@@ -317,6 +320,9 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				 errdetail("Unexpected end of input.")));
 
 	stringEnd++;
+
+	while (sparsevec_isspace(*stringEnd))
+		stringEnd++;
 
 	/* Use similar logic as int2vectorin */
 	errno = 0;
