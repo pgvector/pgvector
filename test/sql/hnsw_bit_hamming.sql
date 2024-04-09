@@ -15,4 +15,5 @@ DROP TABLE t;
 CREATE TABLE t (val varbit(3));
 CREATE INDEX ON t USING hnsw (val bit_hamming_ops);
 CREATE INDEX ON t USING hnsw ((val::bit(3)) bit_hamming_ops);
+CREATE INDEX ON t USING hnsw ((val::bit(64001)) bit_hamming_ops);
 DROP TABLE t;

@@ -24,4 +24,6 @@ CREATE TABLE t (val varbit(3));
 CREATE INDEX ON t USING hnsw (val bit_hamming_ops);
 ERROR:  type not supported for hnsw index
 CREATE INDEX ON t USING hnsw ((val::bit(3)) bit_hamming_ops);
+CREATE INDEX ON t USING hnsw ((val::bit(64001)) bit_hamming_ops);
+ERROR:  column cannot have more than 64000 dimensions for hnsw index
 DROP TABLE t;
