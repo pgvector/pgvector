@@ -82,6 +82,8 @@ SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
  {2:1.5,4:3.5}/5
 (1 row)
 
+SELECT '{}/16001'::sparsevec::vector;
+ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;

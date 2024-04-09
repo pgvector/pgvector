@@ -78,8 +78,6 @@ SELECT '{}/100001'::sparsevec;
 ERROR:  sparsevec cannot have more than 100000 dimensions
 LINE 1: SELECT '{}/100001'::sparsevec;
                ^
-SELECT '{}/16001'::sparsevec::vector;
-ERROR:  vector cannot have more than 16000 dimensions
 SELECT '{0:1}/1'::sparsevec;
 ERROR:  index "0" is out of range for type sparsevec
 LINE 1: SELECT '{0:1}/1'::sparsevec;
