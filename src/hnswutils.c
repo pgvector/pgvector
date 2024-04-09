@@ -222,10 +222,7 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 			HalfVector *result = InitHalfVector(v->dim);
 
 			for (int i = 0; i < v->dim; i++)
-			{
-				/* TODO Fix */
 				result->x[i] = Float4ToHalfUnchecked(HalfToFloat4(v->x[i]) / norm);
-			}
 
 			*value = PointerGetDatum(result);
 		}
