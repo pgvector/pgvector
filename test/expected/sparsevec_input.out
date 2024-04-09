@@ -10,20 +10,6 @@ SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector;
  [1.5,0,3.5,0,0]
 (1 row)
 
-SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(5);
-     vector      
------------------
- [1.5,0,3.5,0,0]
-(1 row)
-
-SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(4);
-ERROR:  expected 4 dimensions, not 5
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
-    sparsevec    
------------------
- {2:1.5,4:3.5}/5
-(1 row)
-
 SELECT ''::sparsevec;
 ERROR:  malformed sparsevec literal: ""
 LINE 1: SELECT ''::sparsevec;
@@ -104,3 +90,11 @@ LINE 1: SELECT '{2:1}/1'::sparsevec;
                ^
 SELECT '{}/1'::sparsevec(2);
 ERROR:  expected 2 dimensions, not 1
+SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(5);
+     vector      
+-----------------
+ [1.5,0,3.5,0,0]
+(1 row)
+
+SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(4);
+ERROR:  expected 4 dimensions, not 5
