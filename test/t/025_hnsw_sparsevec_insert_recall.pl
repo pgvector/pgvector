@@ -52,7 +52,7 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i serial, v vector(3));");
+$node->safe_psql("postgres", "CREATE TABLE tst (i serial, v sparsevec(3));");
 
 # Generate queries
 for (1 .. 20)
@@ -60,12 +60,12 @@ for (1 .. 20)
 	my $r1 = rand();
 	my $r2 = rand();
 	my $r3 = rand();
-	push(@queries, "[$r1,$r2,$r3]");
+	push(@queries, "{1:$r1,2:$r2,3:$r3}/3");
 }
 
 # Check each index type
 my @operators = ("<->", "<#>", "<=>");
-my @opclasses = ("vector_l2_ops", "vector_ip_ops", "vector_cosine_ops");
+my @opclasses = ("sparsevec_l2_ops", "sparsevec_ip_ops", "sparsevec_cosine_ops");
 
 for my $i (0 .. $#operators)
 {
@@ -83,7 +83,7 @@ for my $i (0 .. $#operators)
 		[qr{^$}],
 		"concurrent INSERTs",
 		{
-			"013_hnsw_insert_recall_$opclass" => "INSERT INTO tst (v) VALUES (ARRAY[random(), random(), random()]);"
+			"025_hnsw_sparsevec_insert_recall_$opclass" => "INSERT INTO tst (v) VALUES (ARRAY[random(), random(), random()]::vector::sparsevec);"
 		}
 	);
 
