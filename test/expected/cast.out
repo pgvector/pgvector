@@ -111,7 +111,7 @@ SELECT '{1,2,3}'::real[]::halfvec(3);
 SELECT '{1,2,3}'::real[]::halfvec(2);
 ERROR:  expected 2 dimensions, not 3
 SELECT '{65520,-65520}'::real[]::halfvec;
-ERROR:  value out of range: overflow
+ERROR:  "65520" is out of range for type halfvec
 SELECT '{1e-8,-1e-8}'::real[]::halfvec;
 ERROR:  value out of range: underflow
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;

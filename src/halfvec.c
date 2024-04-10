@@ -295,7 +295,15 @@ Float4ToHalf(float num)
 	half		result = Float4ToHalfUnchecked(num);
 
 	if (unlikely(HalfIsInf(result)) && !isinf(num))
-		float_overflow_error();
+	{
+		char	   *buf = palloc(FLOAT_SHORTEST_DECIMAL_LEN);
+
+		float_to_shortest_decimal_buf(num, buf);
+
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("\"%s\" is out of range for type halfvec", buf)));
+	}
 	if (unlikely(HalfIsZero(result)) && num != 0.0)
 		float_underflow_error();
 
@@ -394,14 +402,6 @@ halfvec_isspace(char ch)
 }
 
 #if PG_VERSION_NUM < 120003
-static pg_noinline void
-float_overflow_error(void)
-{
-	ereport(ERROR,
-			(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-			 errmsg("value out of range: overflow")));
-}
-
 static pg_noinline void
 float_underflow_error(void)
 {
