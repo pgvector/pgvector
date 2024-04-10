@@ -28,6 +28,26 @@ SELECT ARRAY[1,2,3]::numeric[]::vector;
  [1,2,3]
 (1 row)
 
+SELECT '[1,2,3]'::vector::real[];
+ float4  
+---------
+ {1,2,3}
+(1 row)
+
+SELECT '{1,2,3}'::real[]::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '{1,2,3}'::real[]::vector(3);
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '{1,2,3}'::real[]::vector(2);
+ERROR:  expected 2 dimensions, not 3
 SELECT '{NULL}'::real[]::vector;
 ERROR:  array must not contain nulls
 SELECT '{NaN}'::real[]::vector;
@@ -40,12 +60,6 @@ SELECT '{}'::real[]::vector;
 ERROR:  vector must have at least 1 dimension
 SELECT '{{1}}'::real[]::vector;
 ERROR:  array must be 1-D
-SELECT '[1,2,3]'::vector::real[];
- float4  
----------
- {1,2,3}
-(1 row)
-
 SELECT '[1,2,3]'::vector::halfvec;
  halfvec 
 ---------
@@ -82,6 +96,20 @@ SELECT '[1,2,3]'::halfvec::vector(3);
 
 SELECT '[1,2,3]'::halfvec::vector(2);
 ERROR:  expected 2 dimensions, not 3
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
+ERROR:  expected 4 dimensions, not 5
 SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector;
      vector      
 -----------------
@@ -98,20 +126,6 @@ SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(4);
 ERROR:  expected 4 dimensions, not 5
 SELECT '{}/16001'::sparsevec::vector;
 ERROR:  vector cannot have more than 16000 dimensions
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
-    sparsevec    
------------------
- {2:1.5,4:3.5}/5
-(1 row)
-
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
-    sparsevec    
------------------
- {2:1.5,4:3.5}/5
-(1 row)
-
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
-ERROR:  expected 4 dimensions, not 5
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
