@@ -34,3 +34,7 @@ SELECT subvector('[1,2,3,4,5]'::halfvec, 3, 9);
 SELECT subvector('[1,2,3,4,5]'::halfvec, 1, 0);
 SELECT subvector('[1,2,3,4,5]'::halfvec, 3, -1);
 SELECT subvector('[1,2,3,4,5]'::halfvec, -1, 2);
+
+SELECT round(halfvec_norm('[1,1]')::numeric, 5);
+SELECT halfvec_norm('[3,4]');
+SELECT halfvec_norm('[0,1]');
