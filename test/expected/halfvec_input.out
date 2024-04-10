@@ -55,17 +55,21 @@ ERROR:  "65520" is out of range for type halfvec
 LINE 1: SELECT '[65520,-65520]'::halfvec;
                ^
 SELECT '[1e-8,-1e-8]'::halfvec;
-ERROR:  "1e-8" is out of range for type halfvec
-LINE 1: SELECT '[1e-8,-1e-8]'::halfvec;
-               ^
+ halfvec 
+---------
+ [0,-0]
+(1 row)
+
 SELECT '[4e38,1]'::halfvec;
 ERROR:  "4e38" is out of range for type halfvec
 LINE 1: SELECT '[4e38,1]'::halfvec;
                ^
 SELECT '[1e-46,1]'::halfvec;
-ERROR:  "1e-46" is out of range for type halfvec
-LINE 1: SELECT '[1e-46,1]'::halfvec;
-               ^
+ halfvec 
+---------
+ [0,1]
+(1 row)
+
 SELECT '[1,2,3'::halfvec;
 ERROR:  malformed halfvec literal: "[1,2,3"
 LINE 1: SELECT '[1,2,3'::halfvec;

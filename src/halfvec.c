@@ -54,19 +54,6 @@ HalfIsInf(half num)
 }
 
 /*
- * Check if half is zero
- */
-static inline bool
-HalfIsZero(half num)
-{
-#ifdef FLT16_SUPPORT
-	return num == 0;
-#else
-	return (num & 0x7FFF) == 0x0000;
-#endif
-}
-
-/*
  * Get a half from a message buffer
  */
 static half
@@ -304,8 +291,6 @@ Float4ToHalf(float num)
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("\"%s\" is out of range for type halfvec", buf)));
 	}
-	if (unlikely(HalfIsZero(result)) && num != 0.0)
-		float_underflow_error();
 
 	return result;
 }
@@ -401,16 +386,6 @@ halfvec_isspace(char ch)
 	return false;
 }
 
-#if PG_VERSION_NUM < 120003
-static pg_noinline void
-float_underflow_error(void)
-{
-	ereport(ERROR,
-			(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-			 errmsg("value out of range: underflow")));
-}
-#endif
-
 /*
  * Convert textual representation to internal representation
  */
@@ -470,7 +445,7 @@ halfvec_in(PG_FUNCTION_ARGS)
 
 		x[dim] = Float4ToHalfUnchecked(val);
 
-		if ((errno == ERANGE && (isinf(val) || val == 0)) || (HalfIsInf(x[dim]) && !isinf(val)) || (HalfIsZero(x[dim]) && val != 0))
+		if ((errno == ERANGE && isinf(val)) || (HalfIsInf(x[dim]) && !isinf(val)))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 					 errmsg("\"%s\" is out of range for type halfvec", pt)));
@@ -792,11 +767,7 @@ vector_to_halfvec(PG_FUNCTION_ARGS)
 	result = InitHalfVector(vec->dim);
 
 	for (int i = 0; i < vec->dim; i++)
-	{
-		result->x[i] = Float4ToHalfUnchecked(vec->x[i]);
-		/* TODO Better error for overflow */
-		CheckElement(result->x[i]);
-	}
+		result->x[i] = Float4ToHalf(vec->x[i]);
 
 	PG_RETURN_POINTER(result);
 }

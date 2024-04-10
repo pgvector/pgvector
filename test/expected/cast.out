@@ -75,7 +75,7 @@ SELECT '[1,2,3]'::vector::halfvec(3);
 SELECT '[1,2,3]'::vector::halfvec(2);
 ERROR:  expected 2 dimensions, not 3
 SELECT '[65520]'::vector::halfvec;
-ERROR:  infinite value not allowed in halfvec
+ERROR:  "65520" is out of range for type halfvec
 SELECT '[1e-8]'::vector::halfvec;
  halfvec 
 ---------
@@ -113,7 +113,11 @@ ERROR:  expected 2 dimensions, not 3
 SELECT '{65520,-65520}'::real[]::halfvec;
 ERROR:  "65520" is out of range for type halfvec
 SELECT '{1e-8,-1e-8}'::real[]::halfvec;
-ERROR:  value out of range: underflow
+ halfvec 
+---------
+ [0,-0]
+(1 row)
+
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
     sparsevec    
 -----------------
