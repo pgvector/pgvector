@@ -16,6 +16,12 @@ SELECT '{-Infinity}'::real[]::vector;
 SELECT '{}'::real[]::vector;
 SELECT '{{1}}'::real[]::vector;
 
+SELECT '{1,2,3}'::double precision[]::vector;
+SELECT '{1,2,3}'::double precision[]::vector(3);
+SELECT '{1,2,3}'::double precision[]::vector(2);
+SELECT '{4e38,-4e38}'::double precision[]::vector;
+SELECT '{1e-46,-1e-46}'::double precision[]::vector;
+
 SELECT '[1,2,3]'::vector::halfvec;
 SELECT '[1,2,3]'::vector::halfvec(3);
 SELECT '[1,2,3]'::vector::halfvec(2);
