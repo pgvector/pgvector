@@ -31,8 +31,8 @@ SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
 
 SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector;
-SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(5);
-SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(4);
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(5);
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(4);
 SELECT '{}/16001'::sparsevec::vector;
 
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
