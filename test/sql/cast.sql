@@ -12,15 +12,23 @@ SELECT '{{1}}'::real[]::vector;
 SELECT '[1,2,3]'::vector::real[];
 
 SELECT '[1,2,3]'::vector::halfvec;
-SELECT '[1,2,3]'::halfvec::vector;
+SELECT '[1,2,3]'::vector::halfvec(3);
 SELECT '[1,2,3]'::vector::halfvec(2);
-SELECT '[1,2,3]'::halfvec::vector(2);
 SELECT '[65520]'::vector::halfvec;
 SELECT '[1e-8]'::vector::halfvec;
 
+SELECT '[1,2,3]'::halfvec::vector;
+SELECT '[1,2,3]'::halfvec::vector(3);
+SELECT '[1,2,3]'::halfvec::vector(2);
+
 SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector;
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
+SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(5);
+SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(4);
 SELECT '{}/16001'::sparsevec::vector;
+
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
 
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;

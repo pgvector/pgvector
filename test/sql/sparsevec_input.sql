@@ -24,5 +24,3 @@ SELECT '{0:1}/1'::sparsevec;
 SELECT '{2:1}/1'::sparsevec;
 
 SELECT '{}/1'::sparsevec(2);
-SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(5);
-SELECT '{1:1.5,3:3.5}/5'::sparsevec::vector(4);
