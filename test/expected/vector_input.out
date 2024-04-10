@@ -107,6 +107,10 @@ ERROR:  malformed vector literal: "["
 LINE 1: SELECT '['::vector;
                ^
 DETAIL:  Unexpected end of input.
+SELECT '[ '::vector;
+ERROR:  invalid input syntax for type vector: "[ "
+LINE 1: SELECT '[ '::vector;
+               ^
 SELECT '[,'::vector;
 ERROR:  malformed vector literal: "[,"
 LINE 1: SELECT '[,'::vector;
@@ -115,6 +119,11 @@ DETAIL:  Unexpected end of input.
 SELECT '[]'::vector;
 ERROR:  vector must have at least 1 dimension
 LINE 1: SELECT '[]'::vector;
+               ^
+-- TODO fix error message
+SELECT '[,]'::vector;
+ERROR:  vector must have at least 1 dimension
+LINE 1: SELECT '[,]'::vector;
                ^
 SELECT '[1,]'::vector;
 ERROR:  invalid input syntax for type vector: "[1,]"

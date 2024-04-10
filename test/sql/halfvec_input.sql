@@ -17,8 +17,11 @@ SELECT '[1,2,3]9'::halfvec;
 SELECT '1,2,3'::halfvec;
 SELECT ''::halfvec;
 SELECT '['::halfvec;
+SELECT '[ '::halfvec;
 SELECT '[,'::halfvec;
 SELECT '[]'::halfvec;
+-- TODO fix error message
+SELECT '[,]'::vector;
 SELECT '[1,]'::halfvec;
 SELECT '[1a]'::halfvec;
 SELECT '[1,,3]'::halfvec;
