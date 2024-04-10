@@ -26,6 +26,12 @@ SELECT '[1,2,3]'::halfvec::vector;
 SELECT '[1,2,3]'::halfvec::vector(3);
 SELECT '[1,2,3]'::halfvec::vector(2);
 
+SELECT '{1,2,3}'::real[]::halfvec;
+SELECT '{1,2,3}'::real[]::halfvec(3);
+SELECT '{1,2,3}'::real[]::halfvec(2);
+SELECT '{65520,-65520}'::real[]::halfvec;
+SELECT '{1e-8,-1e-8}'::real[]::halfvec;
+
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
