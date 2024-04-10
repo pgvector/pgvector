@@ -1,3 +1,27 @@
+SELECT round(sparsevec_norm('{1:1,2:1}/2')::numeric, 5);
+  round  
+---------
+ 1.41421
+(1 row)
+
+SELECT sparsevec_norm('{1:3,2:4}/2');
+ sparsevec_norm 
+----------------
+              5
+(1 row)
+
+SELECT sparsevec_norm('{2:1}/2');
+ sparsevec_norm 
+----------------
+              1
+(1 row)
+
+SELECT sparsevec_norm('{1:3e37,2:4e37}/2')::real;
+ sparsevec_norm 
+----------------
+          5e+37
+(1 row)
+
 SELECT l2_distance('{}/2'::sparsevec, '{1:3,2:4}/2');
  l2_distance 
 -------------

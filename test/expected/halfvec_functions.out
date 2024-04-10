@@ -1,3 +1,21 @@
+SELECT round(halfvec_norm('[1,1]')::numeric, 5);
+  round  
+---------
+ 1.41421
+(1 row)
+
+SELECT halfvec_norm('[3,4]');
+ halfvec_norm 
+--------------
+            5
+(1 row)
+
+SELECT halfvec_norm('[0,1]');
+ halfvec_norm 
+--------------
+            1
+(1 row)
+
 SELECT l2_distance('[0,0]'::halfvec, '[3,4]');
  l2_distance 
 -------------
@@ -156,21 +174,3 @@ SELECT subvector('[1,2,3,4,5]'::halfvec, 3, -1);
 ERROR:  halfvec must have at least 1 dimension
 SELECT subvector('[1,2,3,4,5]'::halfvec, -1, 2);
 ERROR:  halfvec must have at least 1 dimension
-SELECT round(halfvec_norm('[1,1]')::numeric, 5);
-  round  
----------
- 1.41421
-(1 row)
-
-SELECT halfvec_norm('[3,4]');
- halfvec_norm 
---------------
-            5
-(1 row)
-
-SELECT halfvec_norm('[0,1]');
- halfvec_norm 
---------------
-            1
-(1 row)
-
