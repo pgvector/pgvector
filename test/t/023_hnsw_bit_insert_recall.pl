@@ -98,7 +98,7 @@ for my $i (0 .. $#operators)
 		my $res = $node->safe_psql("postgres", qq(
 			SET enable_indexscan = off;
 			WITH top AS (
-				SELECT v $operator $_ AS distance FROM tst ORDER BY v $operator $_ LIMIT $limit
+				SELECT v $operator $_ AS distance FROM tst ORDER BY distance LIMIT $limit
 			)
 			SELECT i FROM tst WHERE (v $operator $_) <= (SELECT MAX(distance) FROM top)
 		));

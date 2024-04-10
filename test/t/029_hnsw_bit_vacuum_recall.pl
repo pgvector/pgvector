@@ -83,7 +83,7 @@ foreach (@queries)
 	my $res = $node->safe_psql("postgres", qq(
 		SET enable_indexscan = off;
 		WITH top AS (
-			SELECT v <~> $_ AS distance FROM tst ORDER BY v <~> $_ LIMIT $limit
+			SELECT v <~> $_ AS distance FROM tst ORDER BY distance LIMIT $limit
 		)
 		SELECT i FROM tst WHERE (v <~> $_) <= (SELECT MAX(distance) FROM top)
 	));
