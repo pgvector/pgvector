@@ -178,6 +178,40 @@ GetScanItems(IndexScanDesc scan, Datum value)
 }
 
 /*
+ * Get scan value
+ */
+static Datum
+GetScanValue(IndexScanDesc scan)
+{
+	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+	Datum		value;
+
+	if (scan->orderByData->sk_flags & SK_ISNULL)
+	{
+		IvfflatType type = IvfflatGetType(scan->indexRelation);
+
+		if (type == IVFFLAT_TYPE_VECTOR)
+			value = PointerGetDatum(InitVector(so->dimensions));
+		else
+			elog(ERROR, "Unsupported type");
+	}
+	else
+	{
+		value = scan->orderByData->sk_argument;
+
+		/* Value should not be compressed or toasted */
+		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
+		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
+
+		/* Fine if normalization fails */
+		if (so->normprocinfo != NULL)
+			IvfflatNormValue(so->normprocinfo, so->collation, &value, IvfflatGetType(scan->indexRelation));
+	}
+
+	return value;
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -268,7 +302,6 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	if (so->first)
 	{
 		Datum		value;
-		IvfflatType type = IvfflatGetType(scan->indexRelation);
 
 		/* Count index scan for stats */
 		pgstat_count_index_scan(scan->indexRelation);
@@ -282,26 +315,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (!IsMVCCSnapshot(scan->xs_snapshot))
 			elog(ERROR, "non-MVCC snapshots are not supported with ivfflat");
 
-		if (scan->orderByData->sk_flags & SK_ISNULL)
-		{
-			if (type == IVFFLAT_TYPE_VECTOR)
-				value = PointerGetDatum(InitVector(so->dimensions));
-			else
-				elog(ERROR, "Unsupported type");
-		}
-		else
-		{
-			value = scan->orderByData->sk_argument;
-
-			/* Value should not be compressed or toasted */
-			Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
-			Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
-
-			/* Fine if normalization fails */
-			if (so->normprocinfo != NULL)
-				IvfflatNormValue(so->normprocinfo, so->collation, &value, type);
-		}
-
+		value = GetScanValue(scan);
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
