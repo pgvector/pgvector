@@ -185,8 +185,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	Oid			collation;
 	Vector	   *vec;
 	Vector	   *newCenter;
-	int64		j;
-	int64		k;
 	int			dimensions = centers->dim;
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
@@ -250,7 +248,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	newcdist = palloc(newcdistSize);
 
 	newCenters = VectorArrayInit(numCenters, dimensions);
-	for (j = 0; j < numCenters; j++)
+	for (int64 j = 0; j < numCenters; j++)
 	{
 		vec = VectorArrayGet(newCenters, j);
 		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
@@ -265,13 +263,13 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	InitCenters(index, samples, centers, lowerBound);
 
 	/* Assign each x to its closest initial center c(x) = argmin d(x,c) */
-	for (j = 0; j < numSamples; j++)
+	for (int64 j = 0; j < numSamples; j++)
 	{
 		float		minDistance = FLT_MAX;
 		int			closestCenter = 0;
 
 		/* Find closest center */
-		for (k = 0; k < numCenters; k++)
+		for (int64 k = 0; k < numCenters; k++)
 		{
 			/* TODO Use Lemma 1 in k-means++ initialization */
 			float		distance = lowerBound[j * numCenters + k];
@@ -297,11 +295,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		CHECK_FOR_INTERRUPTS();
 
 		/* Step 1: For all centers, compute distance */
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 		{
 			vec = VectorArrayGet(centers, j);
 
-			for (k = j + 1; k < numCenters; k++)
+			for (int64 k = j + 1; k < numCenters; k++)
 			{
 				float		distance = 0.5 * DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, k))));
 
@@ -311,11 +309,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		}
 
 		/* For all centers c, compute s(c) */
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 		{
 			float		minDistance = FLT_MAX;
 
-			for (k = 0; k < numCenters; k++)
+			for (int64 k = 0; k < numCenters; k++)
 			{
 				float		distance;
 
@@ -332,7 +330,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		rjreset = iteration != 0;
 
-		for (j = 0; j < numSamples; j++)
+		for (int64 j = 0; j < numSamples; j++)
 		{
 			bool		rj;
 
@@ -342,7 +340,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 			rj = rjreset;
 
-			for (k = 0; k < numCenters; k++)
+			for (int64 k = 0; k < numCenters; k++)
 			{
 				float		dxcx;
 
@@ -394,16 +392,16 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		}
 
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 		{
 			vec = VectorArrayGet(newCenters, j);
-			for (k = 0; k < dimensions; k++)
+			for (int64 k = 0; k < dimensions; k++)
 				vec->x[k] = 0.0;
 
 			centerCounts[j] = 0;
 		}
 
-		for (j = 0; j < numSamples; j++)
+		for (int64 j = 0; j < numSamples; j++)
 		{
 			int			closestCenter;
 
@@ -412,13 +410,13 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 			/* Increment sum and count of closest center */
 			newCenter = VectorArrayGet(newCenters, closestCenter);
-			for (k = 0; k < dimensions; k++)
+			for (int64 k = 0; k < dimensions; k++)
 				newCenter->x[k] += vec->x[k];
 
 			centerCounts[closestCenter] += 1;
 		}
 
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 		{
 			vec = VectorArrayGet(newCenters, j);
 
@@ -426,19 +424,19 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 			{
 				/* Double avoids overflow, but requires more memory */
 				/* TODO Update bounds */
-				for (k = 0; k < dimensions; k++)
+				for (int64 k = 0; k < dimensions; k++)
 				{
 					if (isinf(vec->x[k]))
 						vec->x[k] = vec->x[k] > 0 ? FLT_MAX : -FLT_MAX;
 				}
 
-				for (k = 0; k < dimensions; k++)
+				for (int64 k = 0; k < dimensions; k++)
 					vec->x[k] /= centerCounts[j];
 			}
 			else
 			{
 				/* TODO Handle empty centers properly */
-				for (k = 0; k < dimensions; k++)
+				for (int64 k = 0; k < dimensions; k++)
 					vec->x[k] = RandomDouble();
 			}
 
@@ -448,12 +446,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		}
 
 		/* Step 5 */
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 			newcdist[j] = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(VectorArrayGet(centers, j)), PointerGetDatum(VectorArrayGet(newCenters, j))));
 
-		for (j = 0; j < numSamples; j++)
+		for (int64 j = 0; j < numSamples; j++)
 		{
-			for (k = 0; k < numCenters; k++)
+			for (int64 k = 0; k < numCenters; k++)
 			{
 				float		distance = lowerBound[j * numCenters + k] - newcdist[k];
 
@@ -466,11 +464,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		/* Step 6 */
 		/* We reset r(x) before Step 3 in the next iteration */
-		for (j = 0; j < numSamples; j++)
+		for (int64 j = 0; j < numSamples; j++)
 			upperBound[j] += newcdist[closestCenters[j]];
 
 		/* Step 7 */
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 			VectorArraySet(centers, j, VectorArrayGet(newCenters, j));
 
 		if (changes == 0 && iteration != 0)
