@@ -264,13 +264,12 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 
 #define VECTOR_ARRAY_SIZE(_length, _size) (sizeof(VectorArrayData) + (_length) * _size)
 #define VECTOR_ARRAY_OFFSET(_arr, _offset) ((char*) (_arr)->items + (_offset) * (_arr)->itemsize)
-#define VectorArrayGet(_arr, _offset) ((Vector *) VECTOR_ARRAY_OFFSET(_arr, _offset))
+#define VectorArrayGet(_arr, _offset) VECTOR_ARRAY_OFFSET(_arr, _offset)
 #define VectorArraySet(_arr, _offset, _val) memcpy(VECTOR_ARRAY_OFFSET(_arr, _offset), _val, (_arr)->itemsize)
 
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
-void		PrintVectorArray(char *msg, VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 IvfflatType IvfflatGetType(Relation index);

@@ -34,16 +34,6 @@ VectorArrayFree(VectorArray arr)
 }
 
 /*
- * Print vector array - useful for debugging
- */
-void
-PrintVectorArray(char *msg, VectorArray arr)
-{
-	for (int i = 0; i < arr->length; i++)
-		PrintVector(msg, VectorArrayGet(arr, i));
-}
-
-/*
  * Get the number of lists in the index
  */
 int
