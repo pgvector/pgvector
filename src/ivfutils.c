@@ -1,9 +1,11 @@
 #include "postgres.h"
 
 #include "access/generic_xlog.h"
+#include "catalog/pg_type.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
 #include "vector.h"
+#include "utils/syscache.h"
 
 /*
  * Allocate a vector array
@@ -72,7 +74,27 @@ IvfflatOptionalProcInfo(Relation index, uint16 procnum)
 IvfflatType
 IvfflatGetType(Relation index)
 {
-	return IVFFLAT_TYPE_VECTOR;
+	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
+	HeapTuple	tuple;
+	Form_pg_type type;
+	IvfflatType result;
+
+	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typid));
+	if (!HeapTupleIsValid(tuple))
+		elog(ERROR, "cache lookup failed for type %u", typid);
+
+	type = (Form_pg_type) GETSTRUCT(tuple);
+	if (strcmp(NameStr(type->typname), "vector") == 0)
+		result = IVFFLAT_TYPE_VECTOR;
+	else
+	{
+		ReleaseSysCache(tuple);
+		elog(ERROR, "type not supported for ivfflat index");
+	}
+
+	ReleaseSysCache(tuple);
+
+	return result;
 }
 
 /*
