@@ -183,8 +183,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
-	Vector	   *vec;
-	Vector	   *newCenter;
 	int			dimensions = centers->dim;
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
@@ -250,7 +248,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	newCenters = VectorArrayInit(numCenters, dimensions);
 	for (int64 j = 0; j < numCenters; j++)
 	{
-		vec = VectorArrayGet(newCenters, j);
+		Vector	   *vec = VectorArrayGet(newCenters, j);
+
 		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
 		vec->dim = dimensions;
 	}
@@ -297,7 +296,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		/* Step 1: For all centers, compute distance */
 		for (int64 j = 0; j < numCenters; j++)
 		{
-			vec = VectorArrayGet(centers, j);
+			Vector	   *vec = VectorArrayGet(centers, j);
 
 			for (int64 k = j + 1; k < numCenters; k++)
 			{
@@ -342,6 +341,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 			for (int64 k = 0; k < numCenters; k++)
 			{
+				Vector	   *vec;
 				float		dxcx;
 
 				/* Step 3: For all remaining points x and centers c */
@@ -394,7 +394,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
 		for (int64 j = 0; j < numCenters; j++)
 		{
-			vec = VectorArrayGet(newCenters, j);
+			Vector	   *vec = VectorArrayGet(newCenters, j);
+
 			for (int64 k = 0; k < dimensions; k++)
 				vec->x[k] = 0.0;
 
@@ -403,13 +404,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		for (int64 j = 0; j < numSamples; j++)
 		{
-			int			closestCenter;
-
-			vec = VectorArrayGet(samples, j);
-			closestCenter = closestCenters[j];
+			int			closestCenter = closestCenters[j];
+			Vector	   *vec = VectorArrayGet(samples, j);
+			Vector	   *newCenter = VectorArrayGet(newCenters, closestCenter);
 
 			/* Increment sum and count of closest center */
-			newCenter = VectorArrayGet(newCenters, closestCenter);
 			for (int64 k = 0; k < dimensions; k++)
 				newCenter->x[k] += vec->x[k];
 
@@ -418,7 +417,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		for (int64 j = 0; j < numCenters; j++)
 		{
-			vec = VectorArrayGet(newCenters, j);
+			Vector	   *vec = VectorArrayGet(newCenters, j);
 
 			if (centerCounts[j] > 0)
 			{
