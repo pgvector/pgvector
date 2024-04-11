@@ -5,6 +5,7 @@
 
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "utils/datum.h"
 #include "utils/memutils.h"
 
 /*
@@ -123,11 +124,11 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 		qsort(samples->items, samples->length, samples->itemsize, CompareVectors);
 		for (int i = 0; i < samples->length; i++)
 		{
-			Vector	   *vec = (Vector *) VectorArrayGet(samples, i);
+			Datum	   vec = PointerGetDatum(VectorArrayGet(samples, i));
 
-			if (i == 0 || CompareVectors(vec, VectorArrayGet(samples, i - 1)) != 0)
+			if (i == 0 || !datumIsEqual(vec, PointerGetDatum(VectorArrayGet(samples, i - 1)), false, -1))
 			{
-				VectorArraySet(centers, centers->length, vec);
+				VectorArraySet(centers, centers->length, DatumGetPointer(vec));
 				centers->length++;
 			}
 		}
@@ -509,7 +510,7 @@ CheckCenters(Relation index, VectorArray centers)
 	qsort(centers->items, centers->length, centers->itemsize, CompareVectors);
 	for (int i = 1; i < centers->length; i++)
 	{
-		if (CompareVectors(VectorArrayGet(centers, i), VectorArrayGet(centers, i - 1)) == 0)
+		if (datumIsEqual(PointerGetDatum(VectorArrayGet(centers, i)), PointerGetDatum(VectorArrayGet(centers, i - 1)), false, -1))
 			elog(ERROR, "Duplicate centers detected. Please report a bug.");
 	}
 
