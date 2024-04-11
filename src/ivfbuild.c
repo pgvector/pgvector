@@ -437,7 +437,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	}
 
 	/* Calculate centers */
-	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));
+	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers, buildstate->type));
 
 	/* Free samples before we allocate more memory */
 	VectorArrayFree(buildstate->samples);
