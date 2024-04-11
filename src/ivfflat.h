@@ -54,7 +54,7 @@ typedef enum IvfflatType
 #define PROGRESS_IVFFLAT_PHASE_ASSIGN	3
 #define PROGRESS_IVFFLAT_PHASE_LOAD		4
 
-#define IVFFLAT_LIST_SIZE(_dim)	(offsetof(IvfflatListData, center) + VECTOR_SIZE(_dim))
+#define IVFFLAT_LIST_SIZE(size)	(offsetof(IvfflatListData, center) + size)
 
 #define IvfflatPageGetOpaque(page)	((IvfflatPageOpaque) PageGetSpecialPointer(page))
 #define IvfflatPageGetMeta(page)	((IvfflatMetaPageData *) PageGetContents(page))
