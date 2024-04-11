@@ -813,7 +813,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	shm_toc_estimate_chunk(&pcxt->estimator, estivfshared);
 	estsort = tuplesort_estimate_shared(scantuplesortstates);
 	shm_toc_estimate_chunk(&pcxt->estimator, estsort);
-	estcenters = buildstate->centers->itemsize * buildstate->lists;
+	estcenters = buildstate->centers->itemsize * buildstate->centers->maxlen;
 	shm_toc_estimate_chunk(&pcxt->estimator, estcenters);
 	shm_toc_estimate_keys(&pcxt->estimator, 3);
 
