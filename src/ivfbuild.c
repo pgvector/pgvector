@@ -367,7 +367,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
 
-	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions);
+	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, VECTOR_SIZE(buildstate->dimensions));
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
@@ -422,7 +422,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 
 	/* Sample rows */
 	/* TODO Ensure within maintenance_work_mem */
-	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions);
+	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->centers->itemsize);
 	if (buildstate->heap != NULL)
 	{
 		SampleRows(buildstate);
@@ -495,7 +495,7 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 		/* Load list */
 		list->startPage = InvalidBlockNumber;
 		list->insertPage = InvalidBlockNumber;
-		memcpy(&list->center, VectorArrayGet(centers, i), VECTOR_SIZE(dimensions));
+		memcpy(&list->center, VectorArrayGet(centers, i), centers->itemsize);
 
 		/* Ensure free space */
 		if (PageGetFreeSpace(page) < listSize)
@@ -624,7 +624,7 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 	indexInfo = BuildIndexInfo(ivfspool->index);
 	indexInfo->ii_Concurrent = ivfshared->isconcurrent;
 	InitBuildState(&buildstate, ivfspool->heap, ivfspool->index, indexInfo);
-	memcpy(buildstate.centers->items, ivfcenters, VECTOR_SIZE(buildstate.centers->dim) * buildstate.centers->maxlen);
+	memcpy(buildstate.centers->items, ivfcenters, buildstate.centers->itemsize * buildstate.centers->maxlen);
 	buildstate.centers->length = buildstate.centers->maxlen;
 	ivfspool->sortstate = tuplesort_begin_heap(buildstate.tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, sortmem, coordinate, false);
 	buildstate.sortstate = ivfspool->sortstate;
@@ -813,7 +813,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	shm_toc_estimate_chunk(&pcxt->estimator, estivfshared);
 	estsort = tuplesort_estimate_shared(scantuplesortstates);
 	shm_toc_estimate_chunk(&pcxt->estimator, estsort);
-	estcenters = VECTOR_SIZE(buildstate->dimensions) * buildstate->lists;
+	estcenters = buildstate->centers->itemsize * buildstate->lists;
 	shm_toc_estimate_chunk(&pcxt->estimator, estcenters);
 	shm_toc_estimate_keys(&pcxt->estimator, 3);
 

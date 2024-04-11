@@ -11,14 +11,15 @@
  * Allocate a vector array
  */
 VectorArray
-VectorArrayInit(int maxlen, int dimensions)
+VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 {
 	VectorArray res = palloc(sizeof(VectorArrayData));
 
 	res->length = 0;
 	res->maxlen = maxlen;
 	res->dim = dimensions;
-	res->items = palloc_extended(maxlen * VECTOR_SIZE(dimensions), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
+	res->itemsize = itemsize;
+	res->items = palloc_extended(maxlen * itemsize, MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
 	return res;
 }
 

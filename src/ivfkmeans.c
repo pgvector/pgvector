@@ -120,7 +120,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
 	/* Copy existing vectors while avoiding duplicates */
 	if (samples->length > 0)
 	{
-		qsort(samples->items, samples->length, VECTOR_SIZE(samples->dim), CompareVectors);
+		qsort(samples->items, samples->length, samples->itemsize, CompareVectors);
 		for (int i = 0; i < samples->length; i++)
 		{
 			Vector	   *vec = VectorArrayGet(samples, i);
@@ -198,9 +198,9 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	MemoryContext oldCtx;
 
 	/* Calculate allocation sizes */
-	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
-	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->dim);
-	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, dimensions);
+	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->itemsize);
+	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->itemsize);
+	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
 	Size		centerCountsSize = sizeof(int) * numCenters;
 	Size		closestCentersSize = sizeof(int) * numSamples;
 	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
@@ -245,7 +245,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	halfcdist = palloc_extended(halfcdistSize, MCXT_ALLOC_HUGE);
 	newcdist = palloc(newcdistSize);
 
-	newCenters = VectorArrayInit(numCenters, dimensions);
+	newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
 	for (int64 j = 0; j < numCenters; j++)
 	{
 		Vector	   *vec = VectorArrayGet(newCenters, j);
@@ -506,7 +506,7 @@ CheckCenters(Relation index, VectorArray centers)
 
 	/* Ensure no duplicate centers */
 	/* Fine to sort in-place */
-	qsort(centers->items, centers->length, VECTOR_SIZE(centers->dim), CompareVectors);
+	qsort(centers->items, centers->length, centers->itemsize, CompareVectors);
 	for (int i = 1; i < centers->length; i++)
 	{
 		if (CompareVectors(VectorArrayGet(centers, i), VectorArrayGet(centers, i - 1)) == 0)
