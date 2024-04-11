@@ -91,7 +91,7 @@ typedef struct VectorArrayData
 	int			maxlen;
 	int			dim;
 	Size		itemsize;
-	Vector	   *items;
+	char	   *items;
 }			VectorArrayData;
 
 typedef VectorArrayData * VectorArray;
@@ -150,7 +150,7 @@ typedef struct IvfflatLeader
 	IvfflatShared *ivfshared;
 	Sharedsort *sharedsort;
 	Snapshot	snapshot;
-	Vector	   *ivfcenters;
+	char	   *ivfcenters;
 }			IvfflatLeader;
 
 typedef struct IvfflatBuildState

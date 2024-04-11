@@ -600,7 +600,7 @@ ParallelHeapScan(IvfflatBuildState * buildstate)
  * Perform a worker's portion of a parallel sort
  */
 static void
-IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, Sharedsort *sharedsort, Vector * ivfcenters, int sortmem, bool progress)
+IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, Sharedsort *sharedsort, char *ivfcenters, int sortmem, bool progress)
 {
 	SortCoordinate coordinate;
 	IvfflatBuildState buildstate;
@@ -672,7 +672,7 @@ IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 	IvfflatSpool *ivfspool;
 	IvfflatShared *ivfshared;
 	Sharedsort *sharedsort;
-	Vector	   *ivfcenters;
+	char	   *ivfcenters;
 	Relation	heapRel;
 	Relation	indexRel;
 	LOCKMODE	heapLockmode;
@@ -786,7 +786,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	Size		estcenters;
 	IvfflatShared *ivfshared;
 	Sharedsort *sharedsort;
-	Vector	   *ivfcenters;
+	char	   *ivfcenters;
 	IvfflatLeader *ivfleader = (IvfflatLeader *) palloc0(sizeof(IvfflatLeader));
 	bool		leaderparticipates = true;
 	int			querylen;
@@ -865,7 +865,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	tuplesort_initialize_shared(sharedsort, scantuplesortstates,
 								pcxt->seg);
 
-	ivfcenters = (Vector *) shm_toc_allocate(pcxt->toc, estcenters);
+	ivfcenters = shm_toc_allocate(pcxt->toc, estcenters);
 	memcpy(ivfcenters, buildstate->centers->items, estcenters);
 
 	shm_toc_insert(pcxt->toc, PARALLEL_KEY_IVFFLAT_SHARED, ivfshared);
