@@ -5,10 +5,7 @@
 
 #include "ivfflat.h"
 #include "miscadmin.h"
-
-#ifdef IVFFLAT_MEMORY
 #include "utils/memutils.h"
-#endif
 
 /*
  * Initialize with kmeans++
@@ -201,6 +198,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *s;
 	float	   *halfcdist;
 	float	   *newcdist;
+	MemoryContext kmeansCtx;
+	MemoryContext oldCtx;
 
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
@@ -233,6 +232,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	collation = index->rd_indcollation[0];
+
+	/* Use memory context */
+	kmeansCtx = AllocSetContextCreate(CurrentMemoryContext,
+									  "Ivfflat kmeans temporary context",
+									  ALLOCSET_DEFAULT_SIZES);
+	oldCtx = MemoryContextSwitchTo(kmeansCtx);
 
 	/* Allocate space */
 	/* Use float instead of double to save memory */
@@ -472,14 +477,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 			break;
 	}
 
-	VectorArrayFree(newCenters);
-	pfree(centerCounts);
-	pfree(closestCenters);
-	pfree(lowerBound);
-	pfree(upperBound);
-	pfree(s);
-	pfree(halfcdist);
-	pfree(newcdist);
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextDelete(kmeansCtx);
 }
 
 /*
