@@ -880,6 +880,32 @@ halfvec_cosine_distance(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get the distance for spherical k-means
+ * Currently uses angular distance since needs to satisfy triangle inequality
+ * Assumes inputs are unit vectors (skips norm)
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_spherical_distance);
+Datum
+halfvec_spherical_distance(PG_FUNCTION_ARGS)
+{
+	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	HalfVector *b = PG_GETARG_HALFVEC_P(1);
+	double		distance;
+
+	CheckDims(a, b);
+
+	distance = (double) HalfvecInnerProduct(a->dim, a->x, b->x);
+
+	/* Prevent NaN with acos with loss of precision */
+	if (distance > 1)
+		distance = 1;
+	else if (distance < -1)
+		distance = -1;
+
+	PG_RETURN_FLOAT8(acos(distance) / M_PI);
+}
+
+/*
  * Get the L1 distance between two half vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l1_distance);
