@@ -108,6 +108,8 @@ for my $i (0 .. $#operators)
 		test_recall(1, 0.35, $operator);
 		test_recall(10, 0.95, $operator);
 	}
+
+	# Test probes equals lists
 	if ($operator eq "<=>")
 	{
 		test_recall(100, 0.985, $operator);
@@ -135,6 +137,8 @@ for my $i (0 .. $#operators)
 		test_recall(1, 0.35, $operator);
 		test_recall(10, 0.95, $operator);
 	}
+
+	# Test probes equals lists
 	if ($operator eq "<=>")
 	{
 		test_recall(100, 0.985, $operator);
