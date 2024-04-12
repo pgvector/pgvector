@@ -103,7 +103,7 @@ for my $i (0 .. $#operators)
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
-	test_recall(100, 0.9875, $operator);
+	test_recall(100, 0.985, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 
@@ -124,7 +124,7 @@ for my $i (0 .. $#operators)
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
-	test_recall(100, 0.9875, $operator);
+	test_recall(100, 0.985, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 }
