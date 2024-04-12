@@ -297,7 +297,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	newcdist = palloc(newcdistSize);
 
 	aggCenters = VectorArrayInit(numCenters, dimensions, VECTOR_SIZE(dimensions));
-	for (int64 j = 0; j < numCenters; j++)
+	for (int j = 0; j < numCenters; j++)
 	{
 		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
 
@@ -460,11 +460,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 		}
 
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
-		for (int64 j = 0; j < numCenters; j++)
+		for (int j = 0; j < numCenters; j++)
 		{
 			Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
 
-			for (int64 k = 0; k < dimensions; k++)
+			for (int k = 0; k < dimensions; k++)
 				vec->x[k] = 0.0;
 
 			centerCounts[j] = 0;
@@ -480,14 +480,14 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 			{
 				Vector	   *vec = (Vector *) VectorArrayGet(samples, j);
 
-				for (int64 k = 0; k < dimensions; k++)
+				for (int k = 0; k < dimensions; k++)
 					aggCenter->x[k] += vec->x[k];
 			}
 			else if (type == IVFFLAT_TYPE_HALFVEC)
 			{
 				HalfVector *vec = (HalfVector *) VectorArrayGet(samples, j);
 
-				for (int64 k = 0; k < dimensions; k++)
+				for (int k = 0; k < dimensions; k++)
 					aggCenter->x[k] += HalfToFloat4(vec->x[k]);
 			}
 			else
@@ -496,7 +496,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 			centerCounts[closestCenter] += 1;
 		}
 
-		for (int64 j = 0; j < numCenters; j++)
+		for (int j = 0; j < numCenters; j++)
 		{
 			Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
 
@@ -504,19 +504,19 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 			{
 				/* Double avoids overflow, but requires more memory */
 				/* TODO Update bounds */
-				for (int64 k = 0; k < dimensions; k++)
+				for (int k = 0; k < dimensions; k++)
 				{
 					if (isinf(vec->x[k]))
 						vec->x[k] = vec->x[k] > 0 ? FLT_MAX : -FLT_MAX;
 				}
 
-				for (int64 k = 0; k < dimensions; k++)
+				for (int k = 0; k < dimensions; k++)
 					vec->x[k] /= centerCounts[j];
 			}
 			else
 			{
 				/* TODO Handle empty centers properly */
-				for (int64 k = 0; k < dimensions; k++)
+				for (int k = 0; k < dimensions; k++)
 					vec->x[k] = RandomDouble();
 			}
 		}
@@ -544,7 +544,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 		}
 
 		/* Step 5 */
-		for (int64 j = 0; j < numCenters; j++)
+		for (int j = 0; j < numCenters; j++)
 			newcdist[j] = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(VectorArrayGet(centers, j)), PointerGetDatum(VectorArrayGet(newCenters, j))));
 
 		for (int64 j = 0; j < numSamples; j++)
@@ -562,11 +562,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 
 		/* Step 6 */
 		/* We reset r(x) before Step 3 in the next iteration */
-		for (int64 j = 0; j < numSamples; j++)
+		for (int j = 0; j < numSamples; j++)
 			upperBound[j] += newcdist[closestCenters[j]];
 
 		/* Step 7 */
-		for (int64 j = 0; j < numCenters; j++)
+		for (int j = 0; j < numCenters; j++)
 			VectorArraySet(centers, j, VectorArrayGet(newCenters, j));
 
 		if (changes == 0 && iteration != 0)
