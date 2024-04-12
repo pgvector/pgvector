@@ -528,6 +528,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 			}
 		}
 
+		/* Set new centers if different from agg centers */
 		if (type == IVFFLAT_TYPE_HALFVEC)
 		{
 			for (int j = 0; j < numCenters; j++)
@@ -540,6 +541,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 			}
 		}
 
+		/* Normalize if needed */
 		if (normprocinfo != NULL)
 		{
 			for (int j = 0; j < numCenters; j++)
