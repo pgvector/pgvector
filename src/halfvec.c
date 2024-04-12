@@ -1010,10 +1010,10 @@ halfvec_cmp_internal(HalfVector * a, HalfVector * b)
 	/* Check values before dimensions to be consistent with Postgres arrays */
 	for (int i = 0; i < dim; i++)
 	{
-		if (a->x[i] < b->x[i])
+		if (HalfToFloat4(a->x[i]) < HalfToFloat4(b->x[i]))
 			return -1;
 
-		if (a->x[i] > b->x[i])
+		if (HalfToFloat4(a->x[i]) > HalfToFloat4(b->x[i]))
 			return 1;
 	}
 
