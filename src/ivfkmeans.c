@@ -3,6 +3,7 @@
 #include <float.h>
 #include <math.h>
 
+#include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"
 #include "miscadmin.h"

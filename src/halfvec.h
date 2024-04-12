@@ -42,29 +42,6 @@ typedef struct HalfVector
 }			HalfVector;
 
 HalfVector *InitHalfVector(int dim);
-float		HalfToFloat4(half num);
-half		Float4ToHalf(float num);
-half		Float4ToHalfUnchecked(float num);
 int			halfvec_cmp_internal(HalfVector * a, HalfVector * b);
-
-static inline bool
-HalfIsNan(half num)
-{
-#ifdef FLT16_SUPPORT
-	return isnan(num);
-#else
-	return (num & 0x7C00) == 0x7C00 && (num & 0x7FFF) != 0x7C00;
-#endif
-}
-
-static inline bool
-HalfIsInf(half num)
-{
-#ifdef FLT16_SUPPORT
-	return isinf(num);
-#else
-	return (num & 0x7FFF) == 0x7C00;
-#endif
-}
 
 #endif
