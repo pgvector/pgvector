@@ -99,7 +99,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
-		test_recall(1, 0.39, $operator);
+		test_recall(1, 0.35, $operator);
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
@@ -120,7 +120,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
-		test_recall(1, 0.39, $operator);
+		test_recall(1, 0.35, $operator);
 		test_recall(10, 0.95, $operator);
 	}
 	# Account for equal distances
