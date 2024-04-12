@@ -320,7 +320,12 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 static int
 GetMaxDimensions(IvfflatType type)
 {
-	return IVFFLAT_MAX_DIM;
+	int			maxDimensions = IVFFLAT_MAX_DIM;
+
+	if (type == IVFFLAT_TYPE_HALFVEC)
+		maxDimensions *= 2;
+
+	return maxDimensions;
 }
 
 /*
