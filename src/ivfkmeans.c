@@ -503,6 +503,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 		for (int j = 0; j < numSamples; j++)
 			centerCounts[closestCenters[j]] += 1;
 
+		/* Average centers */
 		for (int j = 0; j < numCenters; j++)
 		{
 			Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
