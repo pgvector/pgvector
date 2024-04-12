@@ -32,18 +32,19 @@ sub test_recall
 			SELECT i FROM tst ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
-		my %actual_set = map { $_ => 1 } @actual_ids;
 
 		my @expected_ids = split("\n", $expected[$i]);
+		my %expected_set = map { $_ => 1 } @expected_ids;
 
-		foreach (@expected_ids)
+		foreach (@actual_ids)
 		{
-			if (exists($actual_set{$_}))
+			if (exists($expected_set{$_}))
 			{
 				$correct++;
 			}
-			$total++;
 		}
+
+		$total += $limit;
 	}
 
 	cmp_ok($correct / $total, ">=", $min, $operator);
@@ -85,7 +86,12 @@ for my $i (0 .. $#operators)
 	@expected = ();
 	foreach (@queries)
 	{
-		my $res = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v $operator '$_' LIMIT $limit;");
+		my $res = $node->safe_psql("postgres", qq(
+			WITH top AS (
+				SELECT v $operator '$_' AS distance FROM tst ORDER BY distance LIMIT $limit
+			)
+			SELECT i FROM tst WHERE (v $operator '$_') <= (SELECT MAX(distance) FROM top)
+		));
 		push(@expected, $res);
 	}
 
@@ -102,8 +108,14 @@ for my $i (0 .. $#operators)
 		test_recall(1, 0.35, $operator);
 		test_recall(10, 0.95, $operator);
 	}
-	# Account for equal distances
-	test_recall(100, 0.985, $operator);
+	if ($operator eq "<=>")
+	{
+		test_recall(100, 0.985, $operator);
+	}
+	else
+	{
+		test_recall(100, 1.00, $operator);
+	}
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 
@@ -123,8 +135,14 @@ for my $i (0 .. $#operators)
 		test_recall(1, 0.35, $operator);
 		test_recall(10, 0.95, $operator);
 	}
-	# Account for equal distances
-	test_recall(100, 0.985, $operator);
+	if ($operator eq "<=>")
+	{
+		test_recall(100, 0.985, $operator);
+	}
+	else
+	{
+		test_recall(100, 1.00, $operator);
+	}
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
 }
