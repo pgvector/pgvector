@@ -176,13 +176,13 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers, IvfflatTy
  * Show memory usage
  */
 static void
-ShowMemoryUsage(Size estimatedSize)
+ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 {
 #if PG_VERSION_NUM >= 130000
 	elog(INFO, "total memory: %zu MB",
-		 MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
+		 MemoryContextMemAllocated(context, true) / (1024 * 1024));
 #else
-	MemoryContextStats(CurrentMemoryContext);
+	MemoryContextStats(context);
 #endif
 	elog(INFO, "estimated memory: %zu MB", estimatedSize / (1024 * 1024));
 }
@@ -280,7 +280,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 		elog(ERROR, "Unsupported type");
 
 #ifdef IVFFLAT_MEMORY
-	ShowMemoryUsage(totalSize);
+	ShowMemoryUsage(oldCtx, totalSize);
 #endif
 
 	/* Pick initial centers */
