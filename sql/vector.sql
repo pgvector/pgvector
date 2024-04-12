@@ -444,6 +444,27 @@ CREATE OPERATOR <=> (
 -- halfvec opclasses
 
 CREATE OPERATOR CLASS halfvec_l2_ops
+	FOR TYPE halfvec USING ivfflat AS
+	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
+	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec),
+	FUNCTION 3 l2_distance(halfvec, halfvec);
+
+CREATE OPERATOR CLASS halfvec_ip_ops
+	FOR TYPE halfvec USING ivfflat AS
+	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
+	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
+	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
+	FUNCTION 4 halfvec_norm(halfvec);
+
+CREATE OPERATOR CLASS halfvec_cosine_ops
+	FOR TYPE halfvec USING ivfflat AS
+	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
+	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
+	FUNCTION 2 halfvec_norm(halfvec),
+	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
+	FUNCTION 4 halfvec_norm(halfvec);
+
+CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec);

@@ -346,6 +346,7 @@ CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 
 Supported types are:
 
 - `vector` - up to 2,000 dimensions
+- `halfvec` - up to 4,000 dimensions (unreleased)
 
 ### Query Options
 

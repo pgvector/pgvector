@@ -2,6 +2,7 @@
 
 #include "access/generic_xlog.h"
 #include "catalog/pg_type.h"
+#include "halfvec.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
 #include "vector.h"
@@ -77,6 +78,8 @@ IvfflatGetType(Relation index)
 	type = (Form_pg_type) GETSTRUCT(tuple);
 	if (strcmp(NameStr(type->typname), "vector") == 0)
 		result = IVFFLAT_TYPE_VECTOR;
+	else if (strcmp(NameStr(type->typname), "halfvec") == 0)
+		result = IVFFLAT_TYPE_HALFVEC;
 	else
 	{
 		ReleaseSysCache(tuple);
@@ -110,6 +113,16 @@ IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, IvfflatType ty
 
 			for (int i = 0; i < v->dim; i++)
 				result->x[i] = v->x[i] / norm;
+
+			*value = PointerGetDatum(result);
+		}
+		else if (type == IVFFLAT_TYPE_HALFVEC)
+		{
+			HalfVector *v = DatumGetHalfVector(*value);
+			HalfVector *result = InitHalfVector(v->dim);
+
+			for (int i = 0; i < v->dim; i++)
+				result->x[i] = Float4ToHalfUnchecked(HalfToFloat4(v->x[i]) / norm);
 
 			*value = PointerGetDatum(result);
 		}

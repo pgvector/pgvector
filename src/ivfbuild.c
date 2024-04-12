@@ -10,12 +10,14 @@
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
 #include "commands/progress.h"
+#include "halfvec.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
 #include "tcop/tcopprot.h"
 #include "utils/memutils.h"
+#include "vector.h"
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_progress.h"
@@ -367,7 +369,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
 
-	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, VECTOR_SIZE(buildstate->dimensions));
+	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->type == IVFFLAT_TYPE_HALFVEC ? HALFVEC_SIZE(buildstate->dimensions) : VECTOR_SIZE(buildstate->dimensions));
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,

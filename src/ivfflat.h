@@ -45,7 +45,8 @@
 
 typedef enum IvfflatType
 {
-	IVFFLAT_TYPE_VECTOR
+	IVFFLAT_TYPE_VECTOR,
+	IVFFLAT_TYPE_HALFVEC
 }			IvfflatType;
 
 /* Build phases */

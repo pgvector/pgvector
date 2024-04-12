@@ -5,6 +5,7 @@
 #include "access/relscan.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
+#include "halfvec.h"
 #include "lib/pairingheap.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
@@ -192,6 +193,8 @@ GetScanValue(IndexScanDesc scan)
 
 		if (type == IVFFLAT_TYPE_VECTOR)
 			value = PointerGetDatum(InitVector(so->dimensions));
+		else if (type == IVFFLAT_TYPE_HALFVEC)
+			value = PointerGetDatum(InitHalfVector(so->dimensions));
 		else
 			elog(ERROR, "Unsupported type");
 	}

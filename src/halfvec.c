@@ -28,32 +28,6 @@
 #endif
 
 /*
- * Check if half is NaN
- */
-static inline bool
-HalfIsNan(half num)
-{
-#ifdef FLT16_SUPPORT
-	return isnan(num);
-#else
-	return (num & 0x7C00) == 0x7C00 && (num & 0x7FFF) != 0x7C00;
-#endif
-}
-
-/*
- * Check if half is infinite
- */
-static inline bool
-HalfIsInf(half num)
-{
-#ifdef FLT16_SUPPORT
-	return isinf(num);
-#else
-	return (num & 0x7FFF) == 0x7C00;
-#endif
-}
-
-/*
  * Get a half from a message buffer
  */
 static half
