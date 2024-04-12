@@ -329,6 +329,20 @@ GetMaxDimensions(IvfflatType type)
 }
 
 /*
+ * Get item size
+ */
+static Size
+GetItemSize(IvfflatType type, int dimensions)
+{
+	if (type == IVFFLAT_TYPE_VECTOR)
+		return VECTOR_SIZE(dimensions);
+	else if (type == IVFFLAT_TYPE_HALFVEC)
+		return HALFVEC_SIZE(dimensions);
+	else
+		elog(ERROR, "Unsupported type");
+}
+
+/*
  * Initialize the build state
  */
 static void
@@ -374,7 +388,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
 
-	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->type == IVFFLAT_TYPE_HALFVEC ? HALFVEC_SIZE(buildstate->dimensions) : VECTOR_SIZE(buildstate->dimensions));
+	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, GetItemSize(buildstate->type, buildstate->dimensions));
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
