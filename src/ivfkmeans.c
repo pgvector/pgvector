@@ -306,7 +306,10 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	}
 
 	if (type == IVFFLAT_TYPE_VECTOR)
+	{
+		/* Use same centers to save memory */
 		newCenters = aggCenters;
+	}
 	else if (type == IVFFLAT_TYPE_HALFVEC)
 	{
 		newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
