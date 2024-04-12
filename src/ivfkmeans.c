@@ -228,6 +228,7 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 	int			numCenters = aggCenters->maxlen;
 	int			numSamples = samples->length;
 
+	/* Reset sum and count */
 	for (int j = 0; j < numCenters; j++)
 	{
 		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
@@ -268,7 +269,7 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 	for (int j = 0; j < numSamples; j++)
 		centerCounts[closestCenters[j]] += 1;
 
-	/* Average centers */
+	/* Divide sum by count */
 	for (int j = 0; j < numCenters; j++)
 	{
 		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
