@@ -268,18 +268,16 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	aggCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
 	for (int64 j = 0; j < numCenters; j++)
 	{
-		if (type == IVFFLAT_TYPE_VECTOR)
-		{
-			Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
+		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
 
-			SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-			vec->dim = dimensions;
-		}
-		else
-			elog(ERROR, "Unsupported type");
+		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
+		vec->dim = dimensions;
 	}
 
-	newCenters = aggCenters;
+	if (type == IVFFLAT_TYPE_VECTOR)
+		newCenters = aggCenters;
+	else
+		elog(ERROR, "Unsupported type");
 
 #ifdef IVFFLAT_MEMORY
 	ShowMemoryUsage(totalSize);
