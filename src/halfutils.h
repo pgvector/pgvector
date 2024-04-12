@@ -1,8 +1,14 @@
 #ifndef HALFUTILS_H
 #define HALFUTILS_H
 
+#include <math.h>
+
 #include "common/shortest_dec.h"
 #include "halfvec.h"
+
+#ifdef F16C_SUPPORT
+#include <immintrin.h>
+#endif
 
 extern float (*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 extern float (*HalfvecInnerProduct) (int dim, half * ax, half * bx);

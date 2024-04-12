@@ -23,10 +23,6 @@
 #define TYPALIGN_INT 'i'
 #endif
 
-#ifdef F16C_SUPPORT
-#include <immintrin.h>
-#endif
-
 /*
  * Get a half from a message buffer
  */
