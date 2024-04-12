@@ -998,3 +998,30 @@ halfvec_subvector(PG_FUNCTION_ARGS)
 
 	PG_RETURN_POINTER(result);
 }
+
+/*
+ * Internal helper to compare half vectors
+ */
+int
+halfvec_cmp_internal(HalfVector * a, HalfVector * b)
+{
+	int			dim = Min(a->dim, b->dim);
+
+	/* Check values before dimensions to be consistent with Postgres arrays */
+	for (int i = 0; i < dim; i++)
+	{
+		if (a->x[i] < b->x[i])
+			return -1;
+
+		if (a->x[i] > b->x[i])
+			return 1;
+	}
+
+	if (a->dim < b->dim)
+		return -1;
+
+	if (a->dim > b->dim)
+		return 1;
+
+	return 0;
+}
