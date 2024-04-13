@@ -74,7 +74,6 @@ SELECT '[1,2,3'::halfvec;
 ERROR:  invalid input syntax for type halfvec: "[1,2,3"
 LINE 1: SELECT '[1,2,3'::halfvec;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[1,2,3]9'::halfvec;
 ERROR:  invalid input syntax for type halfvec: "[1,2,3]9"
 LINE 1: SELECT '[1,2,3]9'::halfvec;
@@ -94,17 +93,14 @@ SELECT '['::halfvec;
 ERROR:  invalid input syntax for type halfvec: "["
 LINE 1: SELECT '['::halfvec;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[ '::halfvec;
 ERROR:  invalid input syntax for type halfvec: "[ "
 LINE 1: SELECT '[ '::halfvec;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[,'::halfvec;
 ERROR:  invalid input syntax for type halfvec: "[,"
 LINE 1: SELECT '[,'::halfvec;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[]'::halfvec;
 ERROR:  halfvec must have at least 1 dimension
 LINE 1: SELECT '[]'::halfvec;
@@ -114,7 +110,7 @@ ERROR:  halfvec must have at least 1 dimension
 LINE 1: SELECT '[ ]'::halfvec;
                ^
 SELECT '[,]'::halfvec;
-ERROR:  halfvec must have at least 1 dimension
+ERROR:  invalid input syntax for type halfvec: "[,]"
 LINE 1: SELECT '[,]'::halfvec;
                ^
 SELECT '[1,]'::halfvec;

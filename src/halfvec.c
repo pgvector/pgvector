@@ -157,32 +157,32 @@ halfvec_in(PG_FUNCTION_ARGS)
 	int32		typmod = PG_GETARG_INT32(2);
 	half		x[HALFVEC_MAX_DIM];
 	int			dim = 0;
-	char	   *pt;
-	char	   *stringEnd;
+	char	   *pt = lit;
 	HalfVector *result;
-	char	   *litcopy = pstrdup(lit);
-	char	   *str = litcopy;
 
-	while (halfvec_isspace(*str))
-		str++;
+	while (halfvec_isspace(*pt))
+		pt++;
 
-	if (*str != '[')
+	if (*pt != '[')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type halfvec: \"%s\"", lit),
 				 errdetail("Vector contents must start with \"[\".")));
 
-	str++;
+	pt++;
 
-	while (halfvec_isspace(*str))
-		str++;
+	while (halfvec_isspace(*pt))
+		pt++;
 
-	pt = strtok(str, ",");
-	stringEnd = pt;
+	if (*pt == ']')
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("halfvec must have at least 1 dimension")));
 
-	while (pt != NULL && *stringEnd != ']')
+	for (;;)
 	{
 		float		val;
+		char	   *stringEnd;
 
 		if (dim == HALFVEC_MAX_DIM)
 			ereport(ERROR,
@@ -210,59 +210,49 @@ halfvec_in(PG_FUNCTION_ARGS)
 
 		x[dim] = Float4ToHalfUnchecked(val);
 
+		/* Check for range error like float4in */
 		if ((errno == ERANGE && isinf(val)) || (HalfIsInf(x[dim]) && !isinf(val)))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("\"%s\" is out of range for type halfvec", pt)));
+					 errmsg("\"%s\" is out of range for type halfvec", pnstrdup(pt, stringEnd - pt))));
 
 		CheckElement(x[dim]);
 		dim++;
 
-		while (halfvec_isspace(*stringEnd))
-			stringEnd++;
+		pt = stringEnd;
 
-		if (*stringEnd != '\0' && *stringEnd != ']')
+		while (halfvec_isspace(*pt))
+			pt++;
+
+		if (*pt == ',')
+			pt++;
+		else if (*pt == ']')
+		{
+			pt++;
+			break;
+		}
+		else
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type halfvec: \"%s\"", lit)));
-
-		pt = strtok(NULL, ",");
 	}
 
-	if (stringEnd == NULL || *stringEnd != ']')
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("invalid input syntax for type halfvec: \"%s\"", lit),
-				 errdetail("Unexpected end of input.")));
-
-	stringEnd++;
-
 	/* Only whitespace is allowed after the closing brace */
-	while (halfvec_isspace(*stringEnd))
-		stringEnd++;
+	while (halfvec_isspace(*pt))
+		pt++;
 
-	if (*stringEnd != '\0')
+	if (*pt != '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type halfvec: \"%s\"", lit),
 				 errdetail("Junk after closing right brace.")));
-
-	/* Ensure no consecutive delimiters since strtok skips */
-	for (pt = lit + 1; *pt != '\0'; pt++)
-	{
-		if (pt[-1] == ',' && *pt == ',')
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type halfvec: \"%s\"", lit)));
-	}
 
 	if (dim < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("halfvec must have at least 1 dimension")));
 
-	pfree(litcopy);
-
+	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
 
 	result = InitHalfVector(dim);
