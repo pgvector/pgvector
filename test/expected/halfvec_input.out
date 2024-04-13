@@ -109,6 +109,11 @@ ERROR:  halfvec must have at least 1 dimension
 LINE 1: SELECT '[]'::halfvec;
                ^
 -- TODO fix error message
+SELECT '[ ]'::halfvec;
+ERROR:  invalid input syntax for type halfvec: "[ ]"
+LINE 1: SELECT '[ ]'::halfvec;
+               ^
+-- TODO fix error message
 SELECT '[,]'::vector;
 ERROR:  vector must have at least 1 dimension
 LINE 1: SELECT '[,]'::vector;
