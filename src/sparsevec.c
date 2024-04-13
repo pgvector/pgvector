@@ -286,6 +286,8 @@ sparsevec_in(PG_FUNCTION_ARGS)
 						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 						 errmsg("\"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
 
+			CheckElement(value);
+
 			/* Do not store zero values */
 			if (value != 0)
 			{
@@ -359,7 +361,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		rvalues[i] = values[i];
 
 		CheckIndex(result->indices, i, dim);
-		CheckElement(rvalues[i]);
 	}
 
 	PG_RETURN_POINTER(result);
