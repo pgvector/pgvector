@@ -121,7 +121,6 @@ SELECT '[ ]'::vector;
 ERROR:  vector must have at least 1 dimension
 LINE 1: SELECT '[ ]'::vector;
                ^
--- TODO fix error message
 SELECT '[,]'::vector;
 ERROR:  invalid input syntax for type vector: "[,]"
 LINE 1: SELECT '[,]'::vector;
