@@ -193,7 +193,7 @@ vector_in(PG_FUNCTION_ARGS)
 	if (*str != '[')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed vector literal: \"%s\"", lit),
+				 errmsg("invalid input syntax for type vector: \"%s\"", lit),
 				 errdetail("Vector contents must start with \"[\".")));
 
 	str++;
@@ -254,7 +254,7 @@ vector_in(PG_FUNCTION_ARGS)
 	if (stringEnd == NULL || *stringEnd != ']')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed vector literal: \"%s\"", lit),
+				 errmsg("invalid input syntax for type vector: \"%s\"", lit),
 				 errdetail("Unexpected end of input.")));
 
 	stringEnd++;
@@ -266,7 +266,7 @@ vector_in(PG_FUNCTION_ARGS)
 	if (*stringEnd != '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed vector literal: \"%s\"", lit),
+				 errmsg("invalid input syntax for type vector: \"%s\"", lit),
 				 errdetail("Junk after closing right brace.")));
 
 	/* Ensure no consecutive delimiters since strtok skips */
@@ -275,7 +275,7 @@ vector_in(PG_FUNCTION_ARGS)
 		if (pt[-1] == ',' && *pt == ',')
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("malformed vector literal: \"%s\"", lit)));
+					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
 	}
 
 	if (dim < 1)

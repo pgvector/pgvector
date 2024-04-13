@@ -11,12 +11,12 @@ SELECT ' { 1 : 1.5 ,  3  :  3.5  } / 5 '::sparsevec;
 (1 row)
 
 SELECT ''::sparsevec;
-ERROR:  malformed sparsevec literal: ""
+ERROR:  invalid input syntax for type sparsevec: ""
 LINE 1: SELECT ''::sparsevec;
                ^
 DETAIL:  Vector contents must start with "{".
 SELECT '{'::sparsevec;
-ERROR:  malformed sparsevec literal: "{"
+ERROR:  invalid input syntax for type sparsevec: "{"
 LINE 1: SELECT '{'::sparsevec;
                ^
 DETAIL:  Unexpected end of input.
@@ -25,7 +25,7 @@ ERROR:  invalid input syntax for type sparsevec: "{ "
 LINE 1: SELECT '{ '::sparsevec;
                ^
 SELECT '{}'::sparsevec;
-ERROR:  malformed sparsevec literal: "{}"
+ERROR:  invalid input syntax for type sparsevec: "{}"
 LINE 1: SELECT '{}'::sparsevec;
                ^
 DETAIL:  Unexpected end of input.
@@ -34,7 +34,7 @@ ERROR:  invalid input syntax for type sparsevec: "{}/"
 LINE 1: SELECT '{}/'::sparsevec;
                ^
 SELECT '{}/1a'::sparsevec;
-ERROR:  malformed sparsevec literal: "{}/1a"
+ERROR:  invalid input syntax for type sparsevec: "{}/1a"
 LINE 1: SELECT '{}/1a'::sparsevec;
                ^
 DETAIL:  Junk after closing.

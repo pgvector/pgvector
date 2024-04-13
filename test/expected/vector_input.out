@@ -83,37 +83,37 @@ SELECT '[-1e-46,1]'::vector;
 (1 row)
 
 SELECT '[1,2,3'::vector;
-ERROR:  malformed vector literal: "[1,2,3"
+ERROR:  invalid input syntax for type vector: "[1,2,3"
 LINE 1: SELECT '[1,2,3'::vector;
                ^
 DETAIL:  Unexpected end of input.
 SELECT '[1,2,3]9'::vector;
-ERROR:  malformed vector literal: "[1,2,3]9"
+ERROR:  invalid input syntax for type vector: "[1,2,3]9"
 LINE 1: SELECT '[1,2,3]9'::vector;
                ^
 DETAIL:  Junk after closing right brace.
 SELECT '1,2,3'::vector;
-ERROR:  malformed vector literal: "1,2,3"
+ERROR:  invalid input syntax for type vector: "1,2,3"
 LINE 1: SELECT '1,2,3'::vector;
                ^
 DETAIL:  Vector contents must start with "[".
 SELECT ''::vector;
-ERROR:  malformed vector literal: ""
+ERROR:  invalid input syntax for type vector: ""
 LINE 1: SELECT ''::vector;
                ^
 DETAIL:  Vector contents must start with "[".
 SELECT '['::vector;
-ERROR:  malformed vector literal: "["
+ERROR:  invalid input syntax for type vector: "["
 LINE 1: SELECT '['::vector;
                ^
 DETAIL:  Unexpected end of input.
 SELECT '[ '::vector;
-ERROR:  malformed vector literal: "[ "
+ERROR:  invalid input syntax for type vector: "[ "
 LINE 1: SELECT '[ '::vector;
                ^
 DETAIL:  Unexpected end of input.
 SELECT '[,'::vector;
-ERROR:  malformed vector literal: "[,"
+ERROR:  invalid input syntax for type vector: "[,"
 LINE 1: SELECT '[,'::vector;
                ^
 DETAIL:  Unexpected end of input.
@@ -139,7 +139,7 @@ ERROR:  invalid input syntax for type vector: "[1a]"
 LINE 1: SELECT '[1a]'::vector;
                ^
 SELECT '[1,,3]'::vector;
-ERROR:  malformed vector literal: "[1,,3]"
+ERROR:  invalid input syntax for type vector: "[1,,3]"
 LINE 1: SELECT '[1,,3]'::vector;
                ^
 SELECT '[1, ,3]'::vector;

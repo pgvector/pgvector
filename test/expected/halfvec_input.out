@@ -71,37 +71,37 @@ SELECT '[1e-46,1]'::halfvec;
 (1 row)
 
 SELECT '[1,2,3'::halfvec;
-ERROR:  malformed halfvec literal: "[1,2,3"
+ERROR:  invalid input syntax for type halfvec: "[1,2,3"
 LINE 1: SELECT '[1,2,3'::halfvec;
                ^
 DETAIL:  Unexpected end of input.
 SELECT '[1,2,3]9'::halfvec;
-ERROR:  malformed halfvec literal: "[1,2,3]9"
+ERROR:  invalid input syntax for type halfvec: "[1,2,3]9"
 LINE 1: SELECT '[1,2,3]9'::halfvec;
                ^
 DETAIL:  Junk after closing right brace.
 SELECT '1,2,3'::halfvec;
-ERROR:  malformed halfvec literal: "1,2,3"
+ERROR:  invalid input syntax for type halfvec: "1,2,3"
 LINE 1: SELECT '1,2,3'::halfvec;
                ^
 DETAIL:  Vector contents must start with "[".
 SELECT ''::halfvec;
-ERROR:  malformed halfvec literal: ""
+ERROR:  invalid input syntax for type halfvec: ""
 LINE 1: SELECT ''::halfvec;
                ^
 DETAIL:  Vector contents must start with "[".
 SELECT '['::halfvec;
-ERROR:  malformed halfvec literal: "["
+ERROR:  invalid input syntax for type halfvec: "["
 LINE 1: SELECT '['::halfvec;
                ^
 DETAIL:  Unexpected end of input.
 SELECT '[ '::halfvec;
-ERROR:  malformed halfvec literal: "[ "
+ERROR:  invalid input syntax for type halfvec: "[ "
 LINE 1: SELECT '[ '::halfvec;
                ^
 DETAIL:  Unexpected end of input.
 SELECT '[,'::halfvec;
-ERROR:  malformed halfvec literal: "[,"
+ERROR:  invalid input syntax for type halfvec: "[,"
 LINE 1: SELECT '[,'::halfvec;
                ^
 DETAIL:  Unexpected end of input.
@@ -127,7 +127,7 @@ ERROR:  invalid input syntax for type halfvec: "[1a]"
 LINE 1: SELECT '[1a]'::halfvec;
                ^
 SELECT '[1,,3]'::halfvec;
-ERROR:  malformed halfvec literal: "[1,,3]"
+ERROR:  invalid input syntax for type halfvec: "[1,,3]"
 LINE 1: SELECT '[1,,3]'::halfvec;
                ^
 SELECT '[1, ,3]'::halfvec;

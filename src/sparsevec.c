@@ -209,7 +209,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	if (*str != '{')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed sparsevec literal: \"%s\"", lit),
+				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
 				 errdetail("Vector contents must start with \"{\".")));
 
 	str++;
@@ -305,7 +305,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	if (stringEnd == NULL || *stringEnd != '}')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed sparsevec literal: \"%s\"", lit),
+				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
 				 errdetail("Unexpected end of input.")));
 
 	stringEnd++;
@@ -316,7 +316,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	if (*stringEnd != '/')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed sparsevec literal: \"%s\"", lit),
+				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
 				 errdetail("Unexpected end of input.")));
 
 	stringEnd++;
@@ -341,7 +341,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	if (*stringEnd != '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("malformed sparsevec literal: \"%s\"", lit),
+				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
 				 errdetail("Junk after closing.")));
 
 	pfree(litcopy);
