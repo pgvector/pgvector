@@ -4,16 +4,22 @@ SELECT '{1:1.5,3:3.5}/5'::sparsevec;
  {1:1.5,3:3.5}/5
 (1 row)
 
+SELECT '{1:-2,3:-4}/5'::sparsevec;
+   sparsevec   
+---------------
+ {1:-2,3:-4}/5
+(1 row)
+
+SELECT '{1:2.,3:4.}/5'::sparsevec;
+  sparsevec  
+-------------
+ {1:2,3:4}/5
+(1 row)
+
 SELECT ' { 1 : 1.5 ,  3  :  3.5  } / 5 '::sparsevec;
     sparsevec    
 -----------------
  {1:1.5,3:3.5}/5
-(1 row)
-
-SELECT ' { } / 5'::sparsevec;
- sparsevec 
------------
- {}/5
 (1 row)
 
 SELECT '{1:1.23456}/1'::sparsevec;
@@ -85,6 +91,14 @@ SELECT '{ '::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{ "
 LINE 1: SELECT '{ '::sparsevec;
                ^
+SELECT '{:'::sparsevec;
+ERROR:  invalid input syntax for type sparsevec: "{:"
+LINE 1: SELECT '{:'::sparsevec;
+               ^
+SELECT '{,'::sparsevec;
+ERROR:  invalid input syntax for type sparsevec: "{,"
+LINE 1: SELECT '{,'::sparsevec;
+               ^
 SELECT '{}'::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{}"
 LINE 1: SELECT '{}'::sparsevec;
@@ -94,11 +108,27 @@ SELECT '{}/'::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{}/"
 LINE 1: SELECT '{}/'::sparsevec;
                ^
+SELECT '{}/1'::sparsevec;
+ sparsevec 
+-----------
+ {}/1
+(1 row)
+
 SELECT '{}/1a'::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{}/1a"
 LINE 1: SELECT '{}/1a'::sparsevec;
                ^
 DETAIL:  Junk after closing.
+SELECT '{ }/1'::sparsevec;
+ sparsevec 
+-----------
+ {}/1
+(1 row)
+
+SELECT '{:}/1'::sparsevec;
+ERROR:  invalid input syntax for type sparsevec: "{:}/1"
+LINE 1: SELECT '{:}/1'::sparsevec;
+               ^
 SELECT '{,}/1'::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{,}/1"
 LINE 1: SELECT '{,}/1'::sparsevec;
