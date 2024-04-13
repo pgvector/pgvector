@@ -10,6 +10,12 @@ SELECT ' { 1 : 1.5 ,  3  :  3.5  } / 5 '::sparsevec;
  {1:1.5,3:3.5}/5
 (1 row)
 
+SELECT ' { } / 5'::sparsevec;
+ sparsevec 
+-----------
+ {}/5
+(1 row)
+
 SELECT ''::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: ""
 LINE 1: SELECT ''::sparsevec;
@@ -24,6 +30,7 @@ SELECT '{ '::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{ "
 LINE 1: SELECT '{ '::sparsevec;
                ^
+DETAIL:  Unexpected end of input.
 SELECT '{}'::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{}"
 LINE 1: SELECT '{}'::sparsevec;
