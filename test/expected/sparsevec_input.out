@@ -189,5 +189,27 @@ SELECT '{2:1}/1'::sparsevec;
 ERROR:  index must be less than or equal to dimensions
 LINE 1: SELECT '{2:1}/1'::sparsevec;
                ^
-SELECT '{}/1'::sparsevec(2);
-ERROR:  expected 2 dimensions, not 1
+SELECT '{}/3'::sparsevec(3);
+ sparsevec 
+-----------
+ {}/3
+(1 row)
+
+SELECT '{}/3'::sparsevec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '{}/3'::sparsevec(3, 2);
+ERROR:  invalid type modifier
+LINE 1: SELECT '{}/3'::sparsevec(3, 2);
+                       ^
+SELECT '{}/3'::sparsevec('a');
+ERROR:  invalid input syntax for type integer: "a"
+LINE 1: SELECT '{}/3'::sparsevec('a');
+                       ^
+SELECT '{}/3'::sparsevec(0);
+ERROR:  dimensions for type sparsevec must be at least 1
+LINE 1: SELECT '{}/3'::sparsevec(0);
+                       ^
+SELECT '{}/3'::sparsevec(100001);
+ERROR:  dimensions for type sparsevec cannot exceed 100000
+LINE 1: SELECT '{}/3'::sparsevec(100001);
+                       ^
