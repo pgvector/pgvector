@@ -21,7 +21,6 @@ SELECT '[ '::halfvec;
 SELECT '[,'::halfvec;
 SELECT '[]'::halfvec;
 SELECT '[ ]'::halfvec;
--- TODO fix error message
 SELECT '[,]'::halfvec;
 SELECT '[1,]'::halfvec;
 SELECT '[1a]'::halfvec;

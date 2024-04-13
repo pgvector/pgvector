@@ -113,7 +113,6 @@ SELECT '[ ]'::halfvec;
 ERROR:  halfvec must have at least 1 dimension
 LINE 1: SELECT '[ ]'::halfvec;
                ^
--- TODO fix error message
 SELECT '[,]'::halfvec;
 ERROR:  halfvec must have at least 1 dimension
 LINE 1: SELECT '[,]'::halfvec;
