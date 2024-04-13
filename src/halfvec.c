@@ -198,8 +198,9 @@ halfvec_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type halfvec: \"%s\"", lit)));
 
-		/* Use strtof like float4in to avoid a double-rounding problem */
 		errno = 0;
+
+		/* Postgres sets LC_NUMERIC to C on startup */
 		val = strtof(pt, &stringEnd);
 
 		if (stringEnd == pt)

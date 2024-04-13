@@ -268,8 +268,11 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		while (sparsevec_isspace(*stringEnd))
 			stringEnd++;
 
-		errno = 0;
 		pt = stringEnd;
+		errno = 0;
+
+		/* Use strtof like float4in to avoid a double-rounding problem */
+		/* Postgres sets LC_NUMERIC to C on startup */
 		value = strtof(pt, &stringEnd);
 
 		if (stringEnd == pt)

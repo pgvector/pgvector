@@ -222,8 +222,10 @@ vector_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
 
-		/* Use strtof like float4in to avoid a double-rounding problem */
 		errno = 0;
+
+		/* Use strtof like float4in to avoid a double-rounding problem */
+		/* Postgres sets LC_NUMERIC to C on startup */
 		val = strtof(pt, &stringEnd);
 
 		if (stringEnd == pt)
