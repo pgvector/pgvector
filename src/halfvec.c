@@ -173,6 +173,10 @@ halfvec_in(PG_FUNCTION_ARGS)
 				 errdetail("Vector contents must start with \"[\".")));
 
 	str++;
+
+	while (halfvec_isspace(*str))
+		str++;
+
 	pt = strtok(str, ",");
 	stringEnd = pt;
 

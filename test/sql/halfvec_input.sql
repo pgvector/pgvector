@@ -20,7 +20,6 @@ SELECT '['::halfvec;
 SELECT '[ '::halfvec;
 SELECT '[,'::halfvec;
 SELECT '[]'::halfvec;
--- TODO fix error message
 SELECT '[ ]'::halfvec;
 -- TODO fix error message
 SELECT '[,]'::vector;

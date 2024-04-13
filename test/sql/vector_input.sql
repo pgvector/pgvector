@@ -22,7 +22,6 @@ SELECT '['::vector;
 SELECT '[ '::vector;
 SELECT '[,'::vector;
 SELECT '[]'::vector;
--- TODO fix error message
 SELECT '[ ]'::vector;
 -- TODO fix error message
 SELECT '[,]'::vector;
