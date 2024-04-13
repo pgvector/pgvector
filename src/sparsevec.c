@@ -174,19 +174,16 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	char	   *lit = PG_GETARG_CSTRING(0);
 	int32		typmod = PG_GETARG_INT32(2);
 	int			dim;
-	char	   *pt;
+	char	   *pt = lit;
 	char	   *stringEnd;
 	SparseVector *result;
 	float	   *rvalues;
-	char	   *litcopy = pstrdup(lit);
-	char	   *str = litcopy;
 	int32	   *indices;
 	float	   *values;
 	int			maxNnz;
 	int			nnz = 0;
 
 	maxNnz = 1;
-	pt = str;
 	while (*pt != '\0')
 	{
 		if (*pt == ',')
@@ -203,137 +200,135 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	indices = palloc(maxNnz * sizeof(int32));
 	values = palloc(maxNnz * sizeof(float));
 
-	while (sparsevec_isspace(*str))
-		str++;
+	pt = lit;
 
-	if (*str != '{')
+	while (sparsevec_isspace(*pt))
+		pt++;
+
+	if (*pt != '{')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
 				 errdetail("Vector contents must start with \"{\".")));
 
-	str++;
+	pt++;
 
-	while (sparsevec_isspace(*str))
-		str++;
+	while (sparsevec_isspace(*pt))
+		pt++;
 
-	pt = strtok(str, ",");
-	stringEnd = pt;
-
-	while (pt != NULL && *stringEnd != '}')
+	if (*pt == '}')
+		pt++;
+	else
 	{
-		long		index;
-		float		value;
+		for (;;)
+		{
+			long		index;
+			float		value;
 
-		/* TODO Better error */
-		if (nnz == maxNnz)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("ran out of buffer: \"%s\"", lit)));
+			/* TODO Better error */
+			if (nnz == maxNnz)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("ran out of buffer: \"%s\"", lit)));
 
-		while (sparsevec_isspace(*pt))
+			while (sparsevec_isspace(*pt))
+				pt++;
+
+			/* Check for empty string like float4in */
+			if (*pt == '\0')
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+
+			/* Use similar logic as int2vectorin */
+			errno = 0;
+			index = strtol(pt, &stringEnd, 10);
+
+			if (stringEnd == pt)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+
+			if (errno == ERANGE || index < 1 || index > INT_MAX)
+				ereport(ERROR,
+						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+						 errmsg("index \"%ld\" is out of range for type sparsevec", index)));
+
+			pt = stringEnd;
+
+			while (sparsevec_isspace(*pt))
+				pt++;
+
+			if (*pt != ':')
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+
 			pt++;
 
-		/* Check for empty string like float4in */
-		if (*pt == '\0')
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+			while (sparsevec_isspace(*pt))
+				pt++;
 
-		/* Use similar logic as int2vectorin */
-		errno = 0;
-		index = strtol(pt, &stringEnd, 10);
+			errno = 0;
 
-		if (stringEnd == pt)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+			/* Use strtof like float4in to avoid a double-rounding problem */
+			/* Postgres sets LC_NUMERIC to C on startup */
+			value = strtof(pt, &stringEnd);
 
-		if (errno == ERANGE || index < 1 || index > INT_MAX)
-			ereport(ERROR,
-					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("index \"%ld\" is out of range for type sparsevec", index)));
+			if (stringEnd == pt)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
-		if (stringEnd == pt)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+			/* Check for range error like float4in */
+			if (errno == ERANGE && (value == 0 || isinf(value)))
+				ereport(ERROR,
+						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+						 errmsg("\"%s\" is out of range for type sparsevec", pt)));
 
-		while (sparsevec_isspace(*stringEnd))
-			stringEnd++;
+			/* Do not store zero values */
+			if (value != 0)
+			{
+				indices[nnz] = index;
+				values[nnz] = value;
+				nnz++;
+			}
 
-		if (*stringEnd != ':')
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+			pt = stringEnd;
 
-		stringEnd++;
+			while (sparsevec_isspace(*pt))
+				pt++;
 
-		while (sparsevec_isspace(*stringEnd))
-			stringEnd++;
-
-		pt = stringEnd;
-		errno = 0;
-
-		/* Use strtof like float4in to avoid a double-rounding problem */
-		/* Postgres sets LC_NUMERIC to C on startup */
-		value = strtof(pt, &stringEnd);
-
-		if (stringEnd == pt)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
-
-		/* Check for range error like float4in */
-		if (errno == ERANGE && (value == 0 || isinf(value)))
-			ereport(ERROR,
-					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("\"%s\" is out of range for type sparsevec", pt)));
-
-		/* TODO Decide whether to store zero values */
-		if (value != 0)
-		{
-			indices[nnz] = index;
-			values[nnz] = value;
-			nnz++;
+			if (*pt == ',')
+				pt++;
+			else if (*pt == '}')
+			{
+				pt++;
+				break;
+			}
+			else
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 		}
-
-		while (sparsevec_isspace(*stringEnd))
-			stringEnd++;
-
-		if (*stringEnd != '\0' && *stringEnd != '}')
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
-
-		pt = strtok(NULL, ",");
 	}
 
-	if (stringEnd == NULL || *stringEnd != '}')
+	while (sparsevec_isspace(*pt))
+		pt++;
+
+	if (*pt != '/')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
 				 errdetail("Unexpected end of input.")));
 
-	stringEnd++;
+	pt++;
 
-	while (sparsevec_isspace(*stringEnd))
-		stringEnd++;
-
-	if (*stringEnd != '/')
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
-				 errdetail("Unexpected end of input.")));
-
-	stringEnd++;
-
-	while (sparsevec_isspace(*stringEnd))
-		stringEnd++;
+	while (sparsevec_isspace(*pt))
+		pt++;
 
 	/* Use similar logic as int2vectorin */
 	errno = 0;
-	pt = stringEnd;
 	dim = strtol(pt, &stringEnd, 10);
 
 	if (stringEnd == pt)
@@ -341,17 +336,17 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
-	/* Only whitespace is allowed after the closing brace */
-	while (sparsevec_isspace(*stringEnd))
-		stringEnd++;
+	pt = stringEnd;
 
-	if (*stringEnd != '\0')
+	/* Only whitespace is allowed after the closing brace */
+	while (sparsevec_isspace(*pt))
+		pt++;
+
+	if (*pt != '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit),
 				 errdetail("Junk after closing.")));
-
-	pfree(litcopy);
 
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
