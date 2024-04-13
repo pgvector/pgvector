@@ -16,6 +16,62 @@ SELECT ' { } / 5'::sparsevec;
  {}/5
 (1 row)
 
+SELECT '{1:1.23456}/1'::sparsevec;
+   sparsevec   
+---------------
+ {1:1.23456}/1
+(1 row)
+
+SELECT '{1:hello,2:1}/2'::sparsevec;
+ERROR:  invalid input syntax for type sparsevec: "{1:hello,2:1}/2"
+LINE 1: SELECT '{1:hello,2:1}/2'::sparsevec;
+               ^
+SELECT '{1:NaN,2:1}/2'::sparsevec;
+ERROR:  NaN not allowed in sparsevec
+LINE 1: SELECT '{1:NaN,2:1}/2'::sparsevec;
+               ^
+SELECT '{1:Infinity,2:1}/2'::sparsevec;
+ERROR:  infinite value not allowed in sparsevec
+LINE 1: SELECT '{1:Infinity,2:1}/2'::sparsevec;
+               ^
+SELECT '{1:-Infinity,2:1}/2'::sparsevec;
+ERROR:  infinite value not allowed in sparsevec
+LINE 1: SELECT '{1:-Infinity,2:1}/2'::sparsevec;
+               ^
+SELECT '{1:1.5e38,2:-1.5e38}/2'::sparsevec;
+        sparsevec         
+--------------------------
+ {1:1.5e+38,2:-1.5e+38}/2
+(1 row)
+
+SELECT '{1:1.5e+38,2:-1.5e+38}/2'::sparsevec;
+        sparsevec         
+--------------------------
+ {1:1.5e+38,2:-1.5e+38}/2
+(1 row)
+
+SELECT '{1:1.5e-38,2:-1.5e-38}/2'::sparsevec;
+        sparsevec         
+--------------------------
+ {1:1.5e-38,2:-1.5e-38}/2
+(1 row)
+
+SELECT '{1:4e38,2:1}/2'::sparsevec;
+ERROR:  "4e38" is out of range for type sparsevec
+LINE 1: SELECT '{1:4e38,2:1}/2'::sparsevec;
+               ^
+SELECT '{1:-4e38,2:1}/2'::sparsevec;
+ERROR:  "-4e38" is out of range for type sparsevec
+LINE 1: SELECT '{1:-4e38,2:1}/2'::sparsevec;
+               ^
+SELECT '{1:1e-46,2:1}/2'::sparsevec;
+ERROR:  "1e-46" is out of range for type sparsevec
+LINE 1: SELECT '{1:1e-46,2:1}/2'::sparsevec;
+               ^
+SELECT '{1:-1e-46,2:1}/2'::sparsevec;
+ERROR:  "-1e-46" is out of range for type sparsevec
+LINE 1: SELECT '{1:-1e-46,2:1}/2'::sparsevec;
+               ^
 SELECT ''::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: ""
 LINE 1: SELECT ''::sparsevec;
@@ -43,7 +99,6 @@ ERROR:  invalid input syntax for type sparsevec: "{}/1a"
 LINE 1: SELECT '{}/1a'::sparsevec;
                ^
 DETAIL:  Junk after closing.
--- TODO fix
 SELECT '{,}/1'::sparsevec;
 ERROR:  invalid input syntax for type sparsevec: "{,}/1"
 LINE 1: SELECT '{,}/1'::sparsevec;
