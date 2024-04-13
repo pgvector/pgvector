@@ -181,32 +181,32 @@ vector_in(PG_FUNCTION_ARGS)
 	int32		typmod = PG_GETARG_INT32(2);
 	float		x[VECTOR_MAX_DIM];
 	int			dim = 0;
-	char	   *pt;
-	char	   *stringEnd;
+	char	   *pt = lit;
 	Vector	   *result;
-	char	   *litcopy = pstrdup(lit);
-	char	   *str = litcopy;
 
-	while (vector_isspace(*str))
-		str++;
+	while (vector_isspace(*pt))
+		pt++;
 
-	if (*str != '[')
+	if (*pt != '[')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type vector: \"%s\"", lit),
 				 errdetail("Vector contents must start with \"[\".")));
 
-	str++;
+	pt++;
 
-	while (vector_isspace(*str))
-		str++;
+	while (vector_isspace(*pt))
+		pt++;
 
-	pt = strtok(str, ",");
-	stringEnd = pt;
+	if (*pt == ']')
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
 
-	while (pt != NULL && *stringEnd != ']')
+	for (;;)
 	{
 		float		val;
+		char	   *stringEnd;
 
 		if (dim == VECTOR_MAX_DIM)
 			ereport(ERROR,
@@ -237,56 +237,45 @@ vector_in(PG_FUNCTION_ARGS)
 		if (errno == ERANGE && isinf(val))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("\"%s\" is out of range for type vector", pt)));
+					 errmsg("\"%s\" is out of range for type vector", pnstrdup(pt, stringEnd - pt))));
 
 		CheckElement(val);
 		x[dim++] = val;
 
-		while (vector_isspace(*stringEnd))
-			stringEnd++;
+		pt = stringEnd;
 
-		if (*stringEnd != '\0' && *stringEnd != ']')
+		while (vector_isspace(*pt))
+			pt++;
+
+		if (*pt == ',')
+			pt++;
+		else if (*pt == ']')
+		{
+			pt++;
+			break;
+		}
+		else
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
-
-		pt = strtok(NULL, ",");
 	}
 
-	if (stringEnd == NULL || *stringEnd != ']')
-		ereport(ERROR,
-				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-				 errmsg("invalid input syntax for type vector: \"%s\"", lit),
-				 errdetail("Unexpected end of input.")));
-
-	stringEnd++;
-
 	/* Only whitespace is allowed after the closing brace */
-	while (vector_isspace(*stringEnd))
-		stringEnd++;
+	while (vector_isspace(*pt))
+		pt++;
 
-	if (*stringEnd != '\0')
+	if (*pt != '\0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type vector: \"%s\"", lit),
 				 errdetail("Junk after closing right brace.")));
-
-	/* Ensure no consecutive delimiters since strtok skips */
-	for (pt = lit + 1; *pt != '\0'; pt++)
-	{
-		if (pt[-1] == ',' && *pt == ',')
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
-	}
 
 	if (dim < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("vector must have at least 1 dimension")));
 
-	pfree(litcopy);
-
+	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
 
 	result = InitVector(dim);
