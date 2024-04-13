@@ -86,7 +86,6 @@ SELECT '[1,2,3'::vector;
 ERROR:  invalid input syntax for type vector: "[1,2,3"
 LINE 1: SELECT '[1,2,3'::vector;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[1,2,3]9'::vector;
 ERROR:  invalid input syntax for type vector: "[1,2,3]9"
 LINE 1: SELECT '[1,2,3]9'::vector;
@@ -106,17 +105,14 @@ SELECT '['::vector;
 ERROR:  invalid input syntax for type vector: "["
 LINE 1: SELECT '['::vector;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[ '::vector;
 ERROR:  invalid input syntax for type vector: "[ "
 LINE 1: SELECT '[ '::vector;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[,'::vector;
 ERROR:  invalid input syntax for type vector: "[,"
 LINE 1: SELECT '[,'::vector;
                ^
-DETAIL:  Unexpected end of input.
 SELECT '[]'::vector;
 ERROR:  vector must have at least 1 dimension
 LINE 1: SELECT '[]'::vector;
@@ -127,7 +123,7 @@ LINE 1: SELECT '[ ]'::vector;
                ^
 -- TODO fix error message
 SELECT '[,]'::vector;
-ERROR:  vector must have at least 1 dimension
+ERROR:  invalid input syntax for type vector: "[,]"
 LINE 1: SELECT '[,]'::vector;
                ^
 SELECT '[1,]'::vector;
