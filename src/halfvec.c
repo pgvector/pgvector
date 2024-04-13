@@ -247,11 +247,6 @@ halfvec_in(PG_FUNCTION_ARGS)
 				 errmsg("invalid input syntax for type halfvec: \"%s\"", lit),
 				 errdetail("Junk after closing right brace.")));
 
-	if (dim < 1)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("halfvec must have at least 1 dimension")));
-
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
 
