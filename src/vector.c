@@ -873,9 +873,9 @@ vector_mul(PG_FUNCTION_ARGS)
 /*
  * Quantize a vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(quantize_binary);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(binary_quantize);
 Datum
-quantize_binary(PG_FUNCTION_ARGS)
+binary_quantize(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	float	   *ax = a->x;

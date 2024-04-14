@@ -3,9 +3,9 @@
 - Added `halfvec` type
 - Added `sparsevec` type
 - Added support for `bit` vectors to HNSW
+- Added `binary_quantize` function
 - Added `hamming_distance` function
 - Added `jaccard_distance` function
-- Added `quantize_binary` function
 - Added `subvector` function
 - Updated comparison operators to support vectors with different dimensions
 

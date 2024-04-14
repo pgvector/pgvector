@@ -278,14 +278,14 @@ SELECT l1_distance('[0,0]'::halfvec, '[0,1]');
 
 SELECT l1_distance('[1,2]'::halfvec, '[3]');
 ERROR:  different halfvec dimensions 2 and 1
-SELECT quantize_binary('[1,0,-1]'::halfvec);
- quantize_binary 
+SELECT binary_quantize('[1,0,-1]'::halfvec);
+ binary_quantize 
 -----------------
  100
 (1 row)
 
-SELECT quantize_binary('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]'::halfvec);
- quantize_binary 
+SELECT binary_quantize('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]'::halfvec);
+ binary_quantize 
 -----------------
  01001110101
 (1 row)

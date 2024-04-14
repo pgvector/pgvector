@@ -869,9 +869,9 @@ halfvec_mul(PG_FUNCTION_ARGS)
 /*
  * Quantize a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_quantize_binary);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_binary_quantize);
 Datum
-halfvec_quantize_binary(PG_FUNCTION_ARGS)
+halfvec_binary_quantize(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	half	   *ax = a->x;

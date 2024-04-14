@@ -482,20 +482,20 @@ Also supports Jaccard distance (`<%>`)
 Use expression indexing for binary quantization
 
 ```sql
-CREATE INDEX ON items USING hnsw ((quantize_binary(embedding)::bit(3)) bit_hamming_ops);
+CREATE INDEX ON items USING hnsw ((binary_quantize(embedding)::bit(3)) bit_hamming_ops);
 ```
 
 Get the nearest neighbors by Hamming distance
 
 ```sql
-SELECT * FROM items ORDER BY quantize_binary(embedding)::bit(3) <~> quantize_binary('[1,-2,3]') LIMIT 5;
+SELECT * FROM items ORDER BY binary_quantize(embedding)::bit(3) <~> binary_quantize('[1,-2,3]') LIMIT 5;
 ```
 
 Re-rank by the original vectors for better recall
 
 ```sql
 SELECT * FROM (
-    SELECT * FROM items ORDER BY quantize_binary(embedding)::bit(3) <~> quantize_binary('[1,-2,3]') LIMIT 20
+    SELECT * FROM items ORDER BY binary_quantize(embedding)::bit(3) <~> binary_quantize('[1,-2,3]') LIMIT 20
 ) ORDER BY embedding <=> '[1,-2,3]' LIMIT 5;
 ```
 
@@ -858,11 +858,11 @@ Operator | Description | Added
 
 Function | Description | Added
 --- | --- | ---
+binary_quantize(vector) → bit | binary quantize | unreleased
 cosine_distance(vector, vector) → double precision | cosine distance |
 inner_product(vector, vector) → double precision | inner product |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
 l2_distance(vector, vector) → double precision | Euclidean distance |
-quantize_binary(vector) → bit | quantize | unreleased
 subvector(vector, integer, integer) → vector | subvector | unreleased
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
@@ -893,12 +893,12 @@ Operator | Description | Added
 
 Function | Description | Added
 --- | --- | ---
+binary_quantize(halfvec) → bit | binary quantize | unreleased
 cosine_distance(halfvec, halfvec) → double precision | cosine distance | unreleased
 inner_product(halfvec, halfvec) → double precision | inner product | unreleased
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
 l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
 l2_norm(halfvec) → double precision | Euclidean norm | unreleased
-quantize_binary(halfvec) → bit | quantize | unreleased
 subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
 vector_dims(halfvec) → integer | number of dimensions | unreleased
 

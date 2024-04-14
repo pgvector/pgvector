@@ -1,7 +1,7 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "ALTER EXTENSION vector UPDATE TO '0.7.0'" to load this file. \quit
 
-CREATE FUNCTION quantize_binary(vector) RETURNS bit
+CREATE FUNCTION binary_quantize(vector) RETURNS bit
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION subvector(vector, int, int) RETURNS vector
@@ -77,8 +77,8 @@ CREATE FUNCTION vector_dims(halfvec) RETURNS integer
 CREATE FUNCTION l2_norm(halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
-CREATE FUNCTION quantize_binary(halfvec) RETURNS bit
-	AS 'MODULE_PATHNAME', 'halfvec_quantize_binary' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION binary_quantize(halfvec) RETURNS bit
+	AS 'MODULE_PATHNAME', 'halfvec_binary_quantize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION subvector(halfvec, int, int) RETURNS halfvec
 	AS 'MODULE_PATHNAME', 'halfvec_subvector' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
