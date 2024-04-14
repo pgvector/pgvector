@@ -860,8 +860,8 @@ Function | Description | Added
 --- | --- | ---
 cosine_distance(vector, vector) → double precision | cosine distance |
 inner_product(vector, vector) → double precision | inner product |
-l2_distance(vector, vector) → double precision | Euclidean distance |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
+l2_distance(vector, vector) → double precision | Euclidean distance |
 quantize_binary(vector) → bit | quantize | unreleased
 subvector(vector, integer, integer) → vector | subvector | unreleased
 vector_dims(vector) → integer | number of dimensions |
@@ -897,8 +897,8 @@ cosine_distance(halfvec, halfvec) → double precision | cosine distance | unrel
 halfvec_dims(halfvec) → integer | number of dimensions | unreleased
 halfvec_norm(halfvec) → double precision | Euclidean norm | unreleased
 inner_product(halfvec, halfvec) → double precision | inner product | unreleased
-l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
+l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
 quantize_binary(halfvec) → bit | quantize | unreleased
 subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
 
@@ -938,8 +938,9 @@ Function | Description | Added
 --- | --- | ---
 cosine_distance(sparsevec, sparsevec) → double precision | cosine distance | unreleased
 inner_product(sparsevec, sparsevec) → double precision | inner product | unreleased
-l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | unreleased
 l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | unreleased
+l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | unreleased
+sparsevec_norm(sparsevec) → double precision | Euclidean norm | unreleased
 
 ## Installation Notes - Linux and Mac
 
