@@ -621,6 +621,27 @@ CREATE FUNCTION sparsevec_norm(sparsevec) RETURNS float8
 
 -- sparsevec private functions
 
+CREATE FUNCTION sparsevec_lt(sparsevec, sparsevec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec_le(sparsevec, sparsevec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec_eq(sparsevec, sparsevec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec_ne(sparsevec, sparsevec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec_ge(sparsevec, sparsevec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec_gt(sparsevec, sparsevec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec_cmp(sparsevec, sparsevec) RETURNS int4
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION sparsevec_l2_squared_distance(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -644,7 +665,7 @@ CREATE CAST (sparsevec AS sparsevec)
 	WITH FUNCTION sparsevec(sparsevec, integer, boolean) AS IMPLICIT;
 
 CREATE CAST (sparsevec AS vector)
-	WITH FUNCTION sparsevec_to_vector(sparsevec, integer, boolean) AS IMPLICIT;
+	WITH FUNCTION sparsevec_to_vector(sparsevec, integer, boolean) AS ASSIGNMENT;
 
 CREATE CAST (vector AS sparsevec)
 	WITH FUNCTION vector_to_sparsevec(vector, integer, boolean) AS IMPLICIT;
@@ -664,6 +685,42 @@ CREATE OPERATOR <#> (
 CREATE OPERATOR <=> (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = cosine_distance,
 	COMMUTATOR = '<=>'
+);
+
+CREATE OPERATOR < (
+	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_lt,
+	COMMUTATOR = > , NEGATOR = >= ,
+	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
+);
+
+CREATE OPERATOR <= (
+	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_le,
+	COMMUTATOR = >= , NEGATOR = > ,
+	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
+);
+
+CREATE OPERATOR = (
+	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_eq,
+	COMMUTATOR = = , NEGATOR = <> ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR <> (
+	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_ne,
+	COMMUTATOR = <> , NEGATOR = = ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR >= (
+	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_ge,
+	COMMUTATOR = <= , NEGATOR = < ,
+	RESTRICT = scalargesel, JOIN = scalargejoinsel
+);
+
+CREATE OPERATOR > (
+	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_gt,
+	COMMUTATOR = < , NEGATOR = <= ,
+	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
 );
 
 -- sparsevec opclasses

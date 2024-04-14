@@ -1,3 +1,117 @@
+SELECT '{1:1,2:2,3:3}/3'::sparsevec < '{1:1,2:2,3:3}/3';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec < '{1:1,2:2}/2';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec <= '{1:1,2:2,3:3}/3';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec <= '{1:1,2:2}/2';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec = '{1:1,2:2,3:3}/3';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec = '{1:1,2:2}/2';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec != '{1:1,2:2,3:3}/3';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec != '{1:1,2:2}/2';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec >= '{1:1,2:2,3:3}/3';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec >= '{1:1,2:2}/2';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec > '{1:1,2:2,3:3}/3';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '{1:1,2:2,3:3}/3'::sparsevec > '{1:1,2:2}/2';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT sparsevec_cmp('{1:1,2:2,3:3}/3', '{1:1,2:2,3:3}/3');
+ sparsevec_cmp 
+---------------
+             0
+(1 row)
+
+SELECT sparsevec_cmp('{1:1,2:2,3:3}/3', '{}/3');
+ sparsevec_cmp 
+---------------
+             1
+(1 row)
+
+SELECT sparsevec_cmp('{}/3', '{1:1,2:2,3:3}/3');
+ sparsevec_cmp 
+---------------
+            -1
+(1 row)
+
+SELECT sparsevec_cmp('{1:1,2:2}/2', '{1:1,2:2,3:3}/3');
+ sparsevec_cmp 
+---------------
+            -1
+(1 row)
+
+SELECT sparsevec_cmp('{1:1,2:2,3:3}/3', '{1:1,2:2}/2');
+ sparsevec_cmp 
+---------------
+             1
+(1 row)
+
+SELECT sparsevec_cmp('{1:1,2:2}/2', '{1:2,2:3,3:4}/3');
+ sparsevec_cmp 
+---------------
+            -1
+(1 row)
+
+SELECT sparsevec_cmp('{1:2,2:3}/2', '{1:1,2:2,3:3}/3');
+ sparsevec_cmp 
+---------------
+             1
+(1 row)
+
 SELECT round(sparsevec_norm('{1:1,2:1}/2')::numeric, 5);
   round  
 ---------

@@ -1,3 +1,24 @@
+SELECT '{1:1,2:2,3:3}/3'::sparsevec < '{1:1,2:2,3:3}/3';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec < '{1:1,2:2}/2';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec <= '{1:1,2:2,3:3}/3';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec <= '{1:1,2:2}/2';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec = '{1:1,2:2,3:3}/3';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec = '{1:1,2:2}/2';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec != '{1:1,2:2,3:3}/3';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec != '{1:1,2:2}/2';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec >= '{1:1,2:2,3:3}/3';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec >= '{1:1,2:2}/2';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec > '{1:1,2:2,3:3}/3';
+SELECT '{1:1,2:2,3:3}/3'::sparsevec > '{1:1,2:2}/2';
+
+SELECT sparsevec_cmp('{1:1,2:2,3:3}/3', '{1:1,2:2,3:3}/3');
+SELECT sparsevec_cmp('{1:1,2:2,3:3}/3', '{}/3');
+SELECT sparsevec_cmp('{}/3', '{1:1,2:2,3:3}/3');
+SELECT sparsevec_cmp('{1:1,2:2}/2', '{1:1,2:2,3:3}/3');
+SELECT sparsevec_cmp('{1:1,2:2,3:3}/3', '{1:1,2:2}/2');
+SELECT sparsevec_cmp('{1:1,2:2}/2', '{1:2,2:3,3:4}/3');
+SELECT sparsevec_cmp('{1:2,2:3}/2', '{1:1,2:2,3:3}/3');
+
 SELECT round(sparsevec_norm('{1:1,2:1}/2')::numeric, 5);
 SELECT sparsevec_norm('{1:3,2:4}/2');
 SELECT sparsevec_norm('{2:1}/2');
