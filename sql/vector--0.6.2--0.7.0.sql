@@ -223,6 +223,15 @@ CREATE OPERATOR > (
 	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
 );
 
+CREATE OPERATOR CLASS halfvec_ops
+	DEFAULT FOR TYPE halfvec USING btree AS
+	OPERATOR 1 < ,
+	OPERATOR 2 <= ,
+	OPERATOR 3 = ,
+	OPERATOR 4 >= ,
+	OPERATOR 5 > ,
+	FUNCTION 1 halfvec_cmp(halfvec, halfvec);
+
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING ivfflat AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
@@ -405,6 +414,15 @@ CREATE OPERATOR > (
 	COMMUTATOR = < , NEGATOR = <= ,
 	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
 );
+
+CREATE OPERATOR CLASS sparsevec_ops
+	DEFAULT FOR TYPE sparsevec USING btree AS
+	OPERATOR 1 < ,
+	OPERATOR 2 <= ,
+	OPERATOR 3 = ,
+	OPERATOR 4 >= ,
+	OPERATOR 5 > ,
+	FUNCTION 1 sparsevec_cmp(sparsevec, sparsevec);
 
 CREATE OPERATOR CLASS sparsevec_l2_ops
 	FOR TYPE sparsevec USING hnsw AS
