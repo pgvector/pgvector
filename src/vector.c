@@ -33,6 +33,12 @@
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
+#if defined(__x86_64__) && defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones)
+#define VECTOR_DISPATCH __attribute__((target_clones("default", "arch=x86-64-v3")))
+#else
+#define VECTOR_DISPATCH
+#endif
+
 PG_MODULE_MAGIC;
 
 /*
@@ -557,7 +563,7 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
-static float
+VECTOR_DISPATCH static float
 VectorL2SquaredDistance(int dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
@@ -604,7 +610,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) VectorL2SquaredDistance(a->dim, a->x, b->x));
 }
 
-static float
+VECTOR_DISPATCH static float
 VectorInnerProduct(int dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
