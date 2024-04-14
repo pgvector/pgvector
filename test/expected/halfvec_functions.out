@@ -320,3 +320,31 @@ SELECT subvector('[1,2,3,4,5]'::halfvec, 3, -1);
 ERROR:  halfvec must have at least 1 dimension
 SELECT subvector('[1,2,3,4,5]'::halfvec, -1, 2);
 ERROR:  halfvec must have at least 1 dimension
+SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]']) v;
+    avg    
+-----------
+ [2,3.5,5]
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]', NULL]) v;
+    avg    
+-----------
+ [2,3.5,5]
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY[]::halfvec[]) v;
+ avg 
+-----
+ 
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY['[1,2]'::halfvec, '[3]']) v;
+ERROR:  expected 2 dimensions, not 1
+SELECT avg(v) FROM unnest(ARRAY['[65504]'::halfvec, '[65504]']) v;
+   avg   
+---------
+ [65504]
+(1 row)
+
+SELECT halfvec_avg(array_agg(n)) FROM generate_series(1, 16002) n;
+ERROR:  halfvec cannot have more than 16000 dimensions

@@ -1100,7 +1100,7 @@ vector_accum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Combine vectors
+ * Combine vectors or half vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_combine);
 Datum

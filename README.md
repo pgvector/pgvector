@@ -902,6 +902,12 @@ l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unrele
 quantize_binary(halfvec) → bit | quantize | unreleased
 subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
 
+### Halfvec Aggregate Functions
+
+Function | Description | Added
+--- | --- | ---
+avg(halfvec) → halfvec | average | unreleased
+
 ### Bit Type
 
 Each bit vector takes `dimensions / 8 + 8` bytes of storage. See the [Postgres docs](https://www.postgresql.org/docs/current/datatype-bit.html) for more info.

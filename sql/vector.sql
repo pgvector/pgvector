@@ -417,6 +417,23 @@ CREATE FUNCTION halfvec_negative_inner_product(halfvec, halfvec) RETURNS float8
 CREATE FUNCTION halfvec_spherical_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION halfvec_accum(double precision[], halfvec) RETURNS double precision[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_avg(double precision[]) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- halfvec aggregates
+
+CREATE AGGREGATE avg(halfvec) (
+	SFUNC = halfvec_accum,
+	STYPE = double precision[],
+	FINALFUNC = halfvec_avg,
+	COMBINEFUNC = vector_combine,
+	INITCOND = '{0}',
+	PARALLEL = SAFE
+);
+
 -- halfvec cast functions
 
 CREATE FUNCTION halfvec(halfvec, integer, boolean) RETURNS halfvec
