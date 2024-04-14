@@ -137,6 +137,13 @@ CREATE AGGREGATE avg(halfvec) (
 	PARALLEL = SAFE
 );
 
+CREATE AGGREGATE sum(halfvec) (
+	SFUNC = halfvec_add,
+	STYPE = halfvec,
+	COMBINEFUNC = halfvec_add,
+	PARALLEL = SAFE
+);
+
 CREATE FUNCTION halfvec(halfvec, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 

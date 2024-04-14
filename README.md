@@ -907,6 +907,7 @@ subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
 Function | Description | Added
 --- | --- | ---
 avg(halfvec) → halfvec | average | unreleased
+sum(halfvec) → halfvec | sum | unreleased
 
 ### Bit Type
 

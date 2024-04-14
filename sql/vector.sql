@@ -434,6 +434,13 @@ CREATE AGGREGATE avg(halfvec) (
 	PARALLEL = SAFE
 );
 
+CREATE AGGREGATE sum(halfvec) (
+	SFUNC = halfvec_add,
+	STYPE = halfvec,
+	COMBINEFUNC = halfvec_add,
+	PARALLEL = SAFE
+);
+
 -- halfvec cast functions
 
 CREATE FUNCTION halfvec(halfvec, integer, boolean) RETURNS halfvec

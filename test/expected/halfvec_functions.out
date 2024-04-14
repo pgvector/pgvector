@@ -348,3 +348,25 @@ SELECT avg(v) FROM unnest(ARRAY['[65504]'::halfvec, '[65504]']) v;
 
 SELECT halfvec_avg(array_agg(n)) FROM generate_series(1, 16002) n;
 ERROR:  halfvec cannot have more than 16000 dimensions
+SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]']) v;
+   sum    
+----------
+ [4,7,10]
+(1 row)
+
+SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]', NULL]) v;
+   sum    
+----------
+ [4,7,10]
+(1 row)
+
+SELECT sum(v) FROM unnest(ARRAY[]::halfvec[]) v;
+ sum 
+-----
+ 
+(1 row)
+
+SELECT sum(v) FROM unnest(ARRAY['[1,2]'::halfvec, '[3]']) v;
+ERROR:  different halfvec dimensions 2 and 1
+SELECT sum(v) FROM unnest(ARRAY['[65504]'::halfvec, '[65504]']) v;
+ERROR:  value out of range: overflow
