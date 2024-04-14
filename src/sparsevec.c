@@ -826,10 +826,10 @@ sparsevec_cmp_internal(SparseVector * a, SparseVector * b)
 	}
 
 	if (a->nnz < b->nnz)
-		return bx[nnz + 1] < 0 ? 1 : -1;
+		return bx[nnz] < 0 ? 1 : -1;
 
 	if (a->nnz > b->nnz)
-		return ax[nnz + 1] < 0 ? -1 : 1;
+		return ax[nnz] < 0 ? -1 : 1;
 
 	if (a->dim < b->dim)
 		return -1;
