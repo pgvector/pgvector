@@ -33,8 +33,9 @@
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
+/* target_clones requires glibc */
 #if defined(__x86_64__) && defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones)
-#define VECTOR_DISPATCH __attribute__((target_clones("default", "arch=x86-64-v3")))
+#define VECTOR_DISPATCH __attribute__((target_clones("default", "fma")))
 #else
 #define VECTOR_DISPATCH
 #endif
