@@ -138,6 +138,12 @@ Get the nearest neighbors to a vector
 SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
+Supported distance functions are:
+
+- `<->` - L2 distance
+- `<#>` - (negative) inner product
+- `<=>` - cosine distance
+
 Get the nearest neighbors to a row
 
 ```sql
@@ -509,7 +515,7 @@ Insert vectors
 INSERT INTO items (embedding) VALUES ('{1:1,3:2,5:3}/5'), ('{1:4,3:5,5:6}/5');
 ```
 
-Note: The format is `{index1:value1,index2:value2,...}/dimensions` and indices start at 1 like SQL arrays
+The format is `{index1:value1,index2:value2}/dimensions` and indices start at 1 like SQL arrays
 
 Get the nearest neighbors by L2 distance
 
