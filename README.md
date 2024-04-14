@@ -894,13 +894,13 @@ Operator | Description | Added
 Function | Description | Added
 --- | --- | ---
 cosine_distance(halfvec, halfvec) → double precision | cosine distance | unreleased
-halfvec_dims(halfvec) → integer | number of dimensions | unreleased
 inner_product(halfvec, halfvec) → double precision | inner product | unreleased
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
 l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
 l2_norm(halfvec) → double precision | Euclidean norm | unreleased
 quantize_binary(halfvec) → bit | quantize | unreleased
 subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
+vector_dims(halfvec) → integer | number of dimensions | unreleased
 
 ### Halfvec Aggregate Functions
 

@@ -27,7 +27,7 @@ SELECT halfvec_cmp('[1,2,3]', '[1,2]');
 SELECT halfvec_cmp('[1,2]', '[2,3,4]');
 SELECT halfvec_cmp('[2,3]', '[1,2,3]');
 
-SELECT halfvec_dims('[1,2,3]'::halfvec);
+SELECT vector_dims('[1,2,3]'::halfvec);
 
 SELECT round(l2_norm('[1,1]'::halfvec)::numeric, 5);
 SELECT l2_norm('[3,4]'::halfvec);

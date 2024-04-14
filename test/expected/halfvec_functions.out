@@ -138,10 +138,10 @@ SELECT halfvec_cmp('[2,3]', '[1,2,3]');
            1
 (1 row)
 
-SELECT halfvec_dims('[1,2,3]'::halfvec);
- halfvec_dims 
---------------
-            3
+SELECT vector_dims('[1,2,3]'::halfvec);
+ vector_dims 
+-------------
+           3
 (1 row)
 
 SELECT round(l2_norm('[1,1]'::halfvec)::numeric, 5);

@@ -27,7 +27,7 @@ SELECT vector_cmp('[1,2,3]', '[1,2]');
 SELECT vector_cmp('[1,2]', '[2,3,4]');
 SELECT vector_cmp('[2,3]', '[1,2,3]');
 
-SELECT vector_dims('[1,2,3]');
+SELECT vector_dims('[1,2,3]'::vector);
 
 SELECT round(vector_norm('[1,1]')::numeric, 5);
 SELECT vector_norm('[3,4]');

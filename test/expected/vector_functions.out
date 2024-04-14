@@ -138,7 +138,7 @@ SELECT vector_cmp('[2,3]', '[1,2,3]');
           1
 (1 row)
 
-SELECT vector_dims('[1,2,3]');
+SELECT vector_dims('[1,2,3]'::vector);
  vector_dims 
 -------------
            3

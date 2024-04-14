@@ -715,9 +715,9 @@ halfvec_l1_distance(PG_FUNCTION_ARGS)
 /*
  * Get the dimensions of a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_dims);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_vector_dims);
 Datum
-halfvec_dims(PG_FUNCTION_ARGS)
+halfvec_vector_dims(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 
