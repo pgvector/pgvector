@@ -422,6 +422,12 @@ CREATE FUNCTION halfvec_spherical_distance(halfvec, halfvec) RETURNS float8
 CREATE FUNCTION halfvec(halfvec, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION halfvec_to_vector(halfvec, integer, boolean) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_to_halfvec(vector, integer, boolean) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION array_to_halfvec(integer[], integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -442,8 +448,14 @@ CREATE FUNCTION halfvec_to_float4(halfvec, integer, boolean) RETURNS real[]
 CREATE CAST (halfvec AS halfvec)
 	WITH FUNCTION halfvec(halfvec, integer, boolean) AS IMPLICIT;
 
+CREATE CAST (halfvec AS vector)
+	WITH FUNCTION halfvec_to_vector(halfvec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (vector AS halfvec)
+	WITH FUNCTION vector_to_halfvec(vector, integer, boolean) AS IMPLICIT;
+
 CREATE CAST (halfvec AS real[])
-	WITH FUNCTION halfvec_to_float4(halfvec, integer, boolean) AS IMPLICIT;
+	WITH FUNCTION halfvec_to_float4(halfvec, integer, boolean) AS ASSIGNMENT;
 
 CREATE CAST (integer[] AS halfvec)
 	WITH FUNCTION array_to_halfvec(integer[], integer, boolean) AS ASSIGNMENT;
@@ -571,20 +583,6 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 2 halfvec_norm(halfvec);
-
--- extension casts
-
-CREATE FUNCTION halfvec_to_vector(halfvec, integer, boolean) RETURNS vector
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE FUNCTION vector_to_halfvec(vector, integer, boolean) RETURNS halfvec
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE CAST (halfvec AS vector)
-	WITH FUNCTION halfvec_to_vector(halfvec, integer, boolean) AS ASSIGNMENT;
-
-CREATE CAST (vector AS halfvec)
-	WITH FUNCTION vector_to_halfvec(vector, integer, boolean) AS IMPLICIT;
 
 --- sparsevec type
 
