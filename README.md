@@ -882,6 +882,9 @@ Each half vector takes `2 * dimensions + 8` bytes of storage. Each element is a 
 
 Operator | Description | Added
 --- | --- | ---
+\+ | element-wise addition | unreleased
+\- | element-wise subtraction | unreleased
+\* | element-wise multiplication | unreleased
 <-> | Euclidean distance | unreleased
 <#> | negative inner product | unreleased
 <=> | cosine distance | unreleased
@@ -891,6 +894,8 @@ Operator | Description | Added
 Function | Description | Added
 --- | --- | ---
 cosine_distance(halfvec, halfvec) → double precision | cosine distance | unreleased
+halfvec_dims(halfvec) → integer | number of dimensions | unreleased
+halfvec_norm(halfvec) → double precision | Euclidean norm | unreleased
 inner_product(halfvec, halfvec) → double precision | inner product | unreleased
 l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased

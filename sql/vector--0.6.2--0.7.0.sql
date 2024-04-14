@@ -71,7 +71,19 @@ CREATE FUNCTION cosine_distance(halfvec, halfvec) RETURNS float8
 CREATE FUNCTION l1_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION halfvec_dims(halfvec) RETURNS integer
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION halfvec_norm(halfvec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_add(halfvec, halfvec) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_sub(halfvec, halfvec) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_mul(halfvec, halfvec) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION quantize_binary(halfvec) RETURNS bit
@@ -79,6 +91,27 @@ CREATE FUNCTION quantize_binary(halfvec) RETURNS bit
 
 CREATE FUNCTION subvector(halfvec, int, int) RETURNS halfvec
 	AS 'MODULE_PATHNAME', 'halfvec_subvector' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_lt(halfvec, halfvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_le(halfvec, halfvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_eq(halfvec, halfvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_ne(halfvec, halfvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_ge(halfvec, halfvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_gt(halfvec, halfvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_cmp(halfvec, halfvec) RETURNS int4
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION halfvec_l2_squared_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -140,6 +173,56 @@ CREATE OPERATOR <=> (
 	COMMUTATOR = '<=>'
 );
 
+CREATE OPERATOR + (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_add,
+	COMMUTATOR = +
+);
+
+CREATE OPERATOR - (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_sub
+);
+
+CREATE OPERATOR * (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_mul,
+	COMMUTATOR = *
+);
+
+CREATE OPERATOR < (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_lt,
+	COMMUTATOR = > , NEGATOR = >= ,
+	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
+);
+
+CREATE OPERATOR <= (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_le,
+	COMMUTATOR = >= , NEGATOR = > ,
+	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
+);
+
+CREATE OPERATOR = (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_eq,
+	COMMUTATOR = = , NEGATOR = <> ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR <> (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_ne,
+	COMMUTATOR = <> , NEGATOR = = ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR >= (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_ge,
+	COMMUTATOR = <= , NEGATOR = < ,
+	RESTRICT = scalargesel, JOIN = scalargejoinsel
+);
+
+CREATE OPERATOR > (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_gt,
+	COMMUTATOR = < , NEGATOR = <= ,
+	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
+);
+
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING ivfflat AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
@@ -184,7 +267,7 @@ CREATE FUNCTION vector_to_halfvec(vector, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE CAST (halfvec AS vector)
-	WITH FUNCTION halfvec_to_vector(halfvec, integer, boolean) AS IMPLICIT;
+	WITH FUNCTION halfvec_to_vector(halfvec, integer, boolean) AS ASSIGNMENT;
 
 CREATE CAST (vector AS halfvec)
 	WITH FUNCTION vector_to_halfvec(vector, integer, boolean) AS IMPLICIT;

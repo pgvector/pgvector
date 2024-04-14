@@ -42,6 +42,19 @@ HalfIsInf(half num)
 }
 
 /*
+ * Check if half is zero
+ */
+static inline bool
+HalfIsZero(half num)
+{
+#ifdef FLT16_SUPPORT
+	return num == 0;
+#else
+	return (num & 0x7FFF) == 0x0000;
+#endif
+}
+
+/*
  * Convert a half to a float4
  */
 static inline float

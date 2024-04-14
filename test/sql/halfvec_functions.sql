@@ -1,3 +1,34 @@
+SELECT '[1,2,3]'::halfvec + '[4,5,6]';
+SELECT '[65519]'::halfvec + '[65519]';
+SELECT '[1,2,3]'::halfvec - '[4,5,6]';
+SELECT '[-65519]'::halfvec - '[65519]';
+SELECT '[1,2,3]'::halfvec * '[4,5,6]';
+SELECT '[65519]'::halfvec * '[65519]';
+SELECT '[1e-7]'::halfvec * '[1e-7]';
+
+SELECT '[1,2,3]'::halfvec < '[1,2,3]';
+SELECT '[1,2,3]'::halfvec < '[1,2]';
+SELECT '[1,2,3]'::halfvec <= '[1,2,3]';
+SELECT '[1,2,3]'::halfvec <= '[1,2]';
+SELECT '[1,2,3]'::halfvec = '[1,2,3]';
+SELECT '[1,2,3]'::halfvec = '[1,2]';
+SELECT '[1,2,3]'::halfvec != '[1,2,3]';
+SELECT '[1,2,3]'::halfvec != '[1,2]';
+SELECT '[1,2,3]'::halfvec >= '[1,2,3]';
+SELECT '[1,2,3]'::halfvec >= '[1,2]';
+SELECT '[1,2,3]'::halfvec > '[1,2,3]';
+SELECT '[1,2,3]'::halfvec > '[1,2]';
+
+SELECT halfvec_cmp('[1,2,3]', '[1,2,3]');
+SELECT halfvec_cmp('[1,2,3]', '[0,0,0]');
+SELECT halfvec_cmp('[0,0,0]', '[1,2,3]');
+SELECT halfvec_cmp('[1,2]', '[1,2,3]');
+SELECT halfvec_cmp('[1,2,3]', '[1,2]');
+SELECT halfvec_cmp('[1,2]', '[2,3,4]');
+SELECT halfvec_cmp('[2,3]', '[1,2,3]');
+
+SELECT halfvec_dims('[1,2,3]'::halfvec);
+
 SELECT round(halfvec_norm('[1,1]')::numeric, 5);
 SELECT halfvec_norm('[3,4]');
 SELECT halfvec_norm('[0,1]');
