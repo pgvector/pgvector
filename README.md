@@ -1061,7 +1061,7 @@ Note: Replace `16` with your Postgres server version
 Install the FreeBSD package with:
 
 ```sh
-pkg install postgresql15-pg_vector
+pkg install postgresql15-pgvector
 ```
 
 or the port with:
