@@ -74,8 +74,8 @@ CREATE FUNCTION l1_distance(halfvec, halfvec) RETURNS float8
 CREATE FUNCTION halfvec_dims(halfvec) RETURNS integer
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
-CREATE FUNCTION halfvec_norm(halfvec) RETURNS float8
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION l2_norm(halfvec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'halfvec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION halfvec_add(halfvec, halfvec) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -277,15 +277,15 @@ CREATE OPERATOR CLASS halfvec_ip_ops
 	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
-	FUNCTION 4 halfvec_norm(halfvec);
+	FUNCTION 4 l2_norm(halfvec);
 
 CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING ivfflat AS
 	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
-	FUNCTION 2 halfvec_norm(halfvec),
+	FUNCTION 2 l2_norm(halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
-	FUNCTION 4 halfvec_norm(halfvec);
+	FUNCTION 4 l2_norm(halfvec);
 
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS
@@ -301,7 +301,7 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
-	FUNCTION 2 halfvec_norm(halfvec);
+	FUNCTION 2 l2_norm(halfvec);
 
 CREATE TYPE sparsevec;
 
@@ -338,8 +338,8 @@ CREATE FUNCTION inner_product(sparsevec, sparsevec) RETURNS float8
 CREATE FUNCTION cosine_distance(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_cosine_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
-CREATE FUNCTION sparsevec_norm(sparsevec) RETURNS float8
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION l2_norm(sparsevec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'sparsevec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION sparsevec_lt(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
@@ -460,4 +460,4 @@ CREATE OPERATOR CLASS sparsevec_cosine_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <=> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
-	FUNCTION 2 sparsevec_norm(sparsevec);
+	FUNCTION 2 l2_norm(sparsevec);

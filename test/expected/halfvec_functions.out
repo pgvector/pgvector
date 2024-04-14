@@ -144,22 +144,22 @@ SELECT halfvec_dims('[1,2,3]'::halfvec);
             3
 (1 row)
 
-SELECT round(halfvec_norm('[1,1]')::numeric, 5);
+SELECT round(l2_norm('[1,1]'::halfvec)::numeric, 5);
   round  
 ---------
  1.41421
 (1 row)
 
-SELECT halfvec_norm('[3,4]');
- halfvec_norm 
---------------
-            5
+SELECT l2_norm('[3,4]'::halfvec);
+ l2_norm 
+---------
+       5
 (1 row)
 
-SELECT halfvec_norm('[0,1]');
- halfvec_norm 
---------------
-            1
+SELECT l2_norm('[0,1]'::halfvec);
+ l2_norm 
+---------
+       1
 (1 row)
 
 SELECT l2_distance('[0,0]'::halfvec, '[3,4]');

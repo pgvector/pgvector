@@ -895,10 +895,10 @@ Function | Description | Added
 --- | --- | ---
 cosine_distance(halfvec, halfvec) → double precision | cosine distance | unreleased
 halfvec_dims(halfvec) → integer | number of dimensions | unreleased
-halfvec_norm(halfvec) → double precision | Euclidean norm | unreleased
 inner_product(halfvec, halfvec) → double precision | inner product | unreleased
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
 l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
+l2_norm(halfvec) → double precision | Euclidean norm | unreleased
 quantize_binary(halfvec) → bit | quantize | unreleased
 subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
 
@@ -947,7 +947,7 @@ cosine_distance(sparsevec, sparsevec) → double precision | cosine distance | u
 inner_product(sparsevec, sparsevec) → double precision | inner product | unreleased
 l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | unreleased
 l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | unreleased
-sparsevec_norm(sparsevec) → double precision | Euclidean norm | unreleased
+l2_norm(sparsevec) → double precision | Euclidean norm | unreleased
 
 ## Installation Notes - Linux and Mac
 

@@ -29,9 +29,9 @@ SELECT halfvec_cmp('[2,3]', '[1,2,3]');
 
 SELECT halfvec_dims('[1,2,3]'::halfvec);
 
-SELECT round(halfvec_norm('[1,1]')::numeric, 5);
-SELECT halfvec_norm('[3,4]');
-SELECT halfvec_norm('[0,1]');
+SELECT round(l2_norm('[1,1]'::halfvec)::numeric, 5);
+SELECT l2_norm('[3,4]'::halfvec);
+SELECT l2_norm('[0,1]'::halfvec);
 
 SELECT l2_distance('[0,0]'::halfvec, '[3,4]');
 SELECT l2_distance('[0,0]'::halfvec, '[0,1]');

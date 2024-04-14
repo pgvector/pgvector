@@ -112,28 +112,28 @@ SELECT sparsevec_cmp('{1:2,2:3}/2', '{1:1,2:2,3:3}/3');
              1
 (1 row)
 
-SELECT round(sparsevec_norm('{1:1,2:1}/2')::numeric, 5);
+SELECT round(l2_norm('{1:1,2:1}/2'::sparsevec)::numeric, 5);
   round  
 ---------
  1.41421
 (1 row)
 
-SELECT sparsevec_norm('{1:3,2:4}/2');
- sparsevec_norm 
-----------------
-              5
+SELECT l2_norm('{1:3,2:4}/2'::sparsevec);
+ l2_norm 
+---------
+       5
 (1 row)
 
-SELECT sparsevec_norm('{2:1}/2');
- sparsevec_norm 
-----------------
-              1
+SELECT l2_norm('{2:1}/2'::sparsevec);
+ l2_norm 
+---------
+       1
 (1 row)
 
-SELECT sparsevec_norm('{1:3e37,2:4e37}/2')::real;
- sparsevec_norm 
-----------------
-          5e+37
+SELECT l2_norm('{1:3e37,2:4e37}/2'::sparsevec)::real;
+ l2_norm 
+---------
+   5e+37
 (1 row)
 
 SELECT l2_distance('{}/2'::sparsevec, '{1:3,2:4}/2');
