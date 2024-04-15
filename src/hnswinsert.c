@@ -626,8 +626,10 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		if (!HnswNormValue(normprocinfo, collation, &value, type))
+		if (!HnswCheckNorm(normprocinfo, collation, value))
 			return;
+
+		value = HnswNormValue(value, type);
 	}
 
 	HnswInsertTupleOnDisk(index, value, values, isnull, heap_tid, false);

@@ -193,34 +193,29 @@ HnswGetType(Relation index)
 }
 
 /*
- * Divide by the norm
- *
- * Returns false if value should not be indexed
- *
- * The caller needs to free the pointer stored in value
- * if it's different than the original value
+ * Normalize value
+ */
+Datum
+HnswNormValue(Datum value, HnswType type)
+{
+	/* TODO Remove type-specific code */
+	if (type == HNSW_TYPE_VECTOR)
+		return DirectFunctionCall1(l2_normalize, value);
+	else if (type == HNSW_TYPE_HALFVEC)
+		return DirectFunctionCall1(halfvec_l2_normalize, value);
+	else if (type == HNSW_TYPE_SPARSEVEC)
+		return DirectFunctionCall1(sparsevec_l2_normalize, value);
+	else
+		elog(ERROR, "Unsupported type");
+}
+
+/*
+ * Check if non-zero norm
  */
 bool
-HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
+HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
 {
-	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
-
-	if (norm > 0)
-	{
-		/* TODO Remove type-specific code */
-		if (type == HNSW_TYPE_VECTOR)
-			*value = DirectFunctionCall1(l2_normalize, *value);
-		else if (type == HNSW_TYPE_HALFVEC)
-			*value = DirectFunctionCall1(halfvec_l2_normalize, *value);
-		else if (type == HNSW_TYPE_SPARSEVEC)
-			*value = DirectFunctionCall1(sparsevec_l2_normalize, *value);
-		else
-			elog(ERROR, "Unsupported type");
-
-		return true;
-	}
-
-	return false;
+	return DatumGetFloat8(FunctionCall1Coll(procinfo, collation, value)) > 0;
 }
 
 /*
