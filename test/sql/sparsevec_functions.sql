@@ -25,6 +25,8 @@ SELECT l2_norm('{2:1}/2'::sparsevec);
 SELECT l2_norm('{1:3e37,2:4e37}/2'::sparsevec)::real;
 
 SELECT l2_distance('{}/2'::sparsevec, '{1:3,2:4}/2');
+SELECT l2_distance('{1:3}/2'::sparsevec, '{2:4}/2');
+SELECT l2_distance('{2:4}/2'::sparsevec, '{1:3}/2');
 SELECT l2_distance('{}/2'::sparsevec, '{2:1}/2');
 SELECT '{}/2'::sparsevec <-> '{1:3,2:4}/2';
 
