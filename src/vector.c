@@ -653,6 +653,25 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) -VectorInnerProduct(a->dim, a->x, b->x));
 }
 
+static double
+VectorCosineSimilarity(int dim, float *ax, float *bx)
+{
+	float		similarity = 0.0;
+	float		norma = 0.0;
+	float		normb = 0.0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+	{
+		similarity += ax[i] * bx[i];
+		norma += ax[i] * ax[i];
+		normb += bx[i] * bx[i];
+	}
+
+	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
+	return (double) similarity / sqrt((double) norma * (double) normb);
+}
+
 /*
  * Get the cosine distance between two vectors
  */
@@ -662,25 +681,11 @@ cosine_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
-	float		distance = 0.0;
-	float		norma = 0.0;
-	float		normb = 0.0;
 	double		similarity;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		distance += ax[i] * bx[i];
-		norma += ax[i] * ax[i];
-		normb += bx[i] * bx[i];
-	}
-
-	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
-	similarity = (double) distance / sqrt((double) norma * (double) normb);
+	similarity = VectorCosineSimilarity(a->dim, a->x, b->x);
 
 #ifdef _MSC_VER
 	/* /fp:fast may not propagate NaN */
