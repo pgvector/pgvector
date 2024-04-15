@@ -899,7 +899,7 @@ sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 					continue;
 
 				/* Safety check */
-				if (j == newResult->nnz)
+				if (j >= newResult->nnz)
 					elog(ERROR, "safety check failed");
 
 				newResult->indices[j] = result->indices[i];
