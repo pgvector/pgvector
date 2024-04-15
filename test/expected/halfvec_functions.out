@@ -6,6 +6,8 @@ SELECT '[1,2,3]'::halfvec + '[4,5,6]';
 
 SELECT '[65519]'::halfvec + '[65519]';
 ERROR:  value out of range: overflow
+SELECT '[1,2]'::halfvec + '[3]';
+ERROR:  different halfvec dimensions 2 and 1
 SELECT '[1,2,3]'::halfvec - '[4,5,6]';
   ?column?  
 ------------
@@ -14,6 +16,8 @@ SELECT '[1,2,3]'::halfvec - '[4,5,6]';
 
 SELECT '[-65519]'::halfvec - '[65519]';
 ERROR:  value out of range: overflow
+SELECT '[1,2]'::halfvec - '[3]';
+ERROR:  different halfvec dimensions 2 and 1
 SELECT '[1,2,3]'::halfvec * '[4,5,6]';
  ?column?  
 -----------
@@ -24,6 +28,8 @@ SELECT '[65519]'::halfvec * '[65519]';
 ERROR:  value out of range: overflow
 SELECT '[1e-7]'::halfvec * '[1e-7]';
 ERROR:  value out of range: underflow
+SELECT '[1,2]'::halfvec * '[3]';
+ERROR:  different halfvec dimensions 2 and 1
 SELECT '[1,2,3]'::halfvec || '[4,5]';
   ?column?   
 -------------

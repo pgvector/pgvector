@@ -1,10 +1,15 @@
 SELECT '[1,2,3]'::vector + '[4,5,6]';
 SELECT '[3e38]'::vector + '[3e38]';
+SELECT '[1,2]'::vector + '[3]';
+
 SELECT '[1,2,3]'::vector - '[4,5,6]';
 SELECT '[-3e38]'::vector - '[3e38]';
+SELECT '[1,2]'::vector - '[3]';
+
 SELECT '[1,2,3]'::vector * '[4,5,6]';
 SELECT '[1e37]'::vector * '[1e37]';
 SELECT '[1e-37]'::vector * '[1e-37]';
+SELECT '[1,2]'::vector * '[3]';
 
 SELECT '[1,2,3]'::vector || '[4,5]';
 SELECT array_fill(0, ARRAY[16000])::vector || '[1]';

@@ -6,6 +6,8 @@ SELECT '[1,2,3]'::vector + '[4,5,6]';
 
 SELECT '[3e38]'::vector + '[3e38]';
 ERROR:  value out of range: overflow
+SELECT '[1,2]'::vector + '[3]';
+ERROR:  different vector dimensions 2 and 1
 SELECT '[1,2,3]'::vector - '[4,5,6]';
   ?column?  
 ------------
@@ -14,6 +16,8 @@ SELECT '[1,2,3]'::vector - '[4,5,6]';
 
 SELECT '[-3e38]'::vector - '[3e38]';
 ERROR:  value out of range: overflow
+SELECT '[1,2]'::vector - '[3]';
+ERROR:  different vector dimensions 2 and 1
 SELECT '[1,2,3]'::vector * '[4,5,6]';
  ?column?  
 -----------
@@ -24,6 +28,8 @@ SELECT '[1e37]'::vector * '[1e37]';
 ERROR:  value out of range: overflow
 SELECT '[1e-37]'::vector * '[1e-37]';
 ERROR:  value out of range: underflow
+SELECT '[1,2]'::vector * '[3]';
+ERROR:  different vector dimensions 2 and 1
 SELECT '[1,2,3]'::vector || '[4,5]';
   ?column?   
 -------------

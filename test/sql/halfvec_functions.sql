@@ -1,10 +1,15 @@
 SELECT '[1,2,3]'::halfvec + '[4,5,6]';
 SELECT '[65519]'::halfvec + '[65519]';
+SELECT '[1,2]'::halfvec + '[3]';
+
 SELECT '[1,2,3]'::halfvec - '[4,5,6]';
 SELECT '[-65519]'::halfvec - '[65519]';
+SELECT '[1,2]'::halfvec - '[3]';
+
 SELECT '[1,2,3]'::halfvec * '[4,5,6]';
 SELECT '[65519]'::halfvec * '[65519]';
 SELECT '[1e-7]'::halfvec * '[1e-7]';
+SELECT '[1,2]'::halfvec * '[3]';
 
 SELECT '[1,2,3]'::halfvec || '[4,5]';
 SELECT array_fill(0, ARRAY[16000])::halfvec || '[1]';
