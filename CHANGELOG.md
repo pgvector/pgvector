@@ -7,6 +7,7 @@
 - Added `hamming_distance` function
 - Added `jaccard_distance` function
 - Added `subvector` function
+- Added CPU dispatching for distance functions on Linux x86-64
 - Updated comparison operators to support vectors with different dimensions
 
 ## 0.6.2 (2024-03-18)
