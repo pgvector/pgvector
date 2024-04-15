@@ -33,7 +33,7 @@ SELECT '{}/2'::sparsevec <-> '{1:3,2:4}/2';
 SELECT inner_product('{1:1,2:2}/2'::sparsevec, '{1:2,2:4}/2');
 SELECT inner_product('{1:1,2:2}/2'::sparsevec, '{1:3}/1');
 SELECT inner_product('{1:3e38}/1'::sparsevec, '{1:3e38}/1');
-SELECT inner_product('{1:1,3:3,5:5}/5'::sparsevec, '{2:2,3:3,4:4}/5');
+SELECT inner_product('{1:1,3:3,5:5}/5'::sparsevec, '{2:4,3:6,4:8}/5');
 
 SELECT cosine_distance('{1:1,2:2}/2'::sparsevec, '{1:2,2:4}/2');
 SELECT cosine_distance('{1:1,2:2}/2'::sparsevec, '{}/2');
