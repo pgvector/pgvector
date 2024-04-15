@@ -278,6 +278,36 @@ SELECT l1_distance('[0,0]'::halfvec, '[0,1]');
 
 SELECT l1_distance('[1,2]'::halfvec, '[3]');
 ERROR:  different halfvec dimensions 2 and 1
+SELECT l2_normalize('[3,4]'::halfvec);
+      l2_normalize      
+------------------------
+ [0.60009766,0.7998047]
+(1 row)
+
+SELECT l2_normalize('[3,0]'::halfvec);
+ l2_normalize 
+--------------
+ [1,0]
+(1 row)
+
+SELECT l2_normalize('[0,0.1]'::halfvec);
+ l2_normalize 
+--------------
+ [0,1]
+(1 row)
+
+SELECT l2_normalize('[0,0]'::halfvec);
+ l2_normalize 
+--------------
+ [0,0]
+(1 row)
+
+SELECT l2_normalize('[65504]'::halfvec);
+ l2_normalize 
+--------------
+ [1]
+(1 row)
+
 SELECT binary_quantize('[1,0,-1]'::halfvec);
  binary_quantize 
 -----------------

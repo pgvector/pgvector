@@ -863,6 +863,7 @@ cosine_distance(vector, vector) → double precision | cosine distance |
 inner_product(vector, vector) → double precision | inner product |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
 l2_distance(vector, vector) → double precision | Euclidean distance |
+l2_normalize(vector) → vector | Normalize with Euclidean norm | unreleased
 subvector(vector, integer, integer) → vector | subvector | unreleased
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
@@ -899,6 +900,7 @@ inner_product(halfvec, halfvec) → double precision | inner product | unrelease
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
 l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
 l2_norm(halfvec) → double precision | Euclidean norm | unreleased
+l2_normalize(halfvec) → halfvec | Normalize with Euclidean norm | unreleased
 subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
 vector_dims(halfvec) → integer | number of dimensions | unreleased
 

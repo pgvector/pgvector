@@ -58,6 +58,12 @@ SELECT l1_distance('[0,0]'::vector, '[0,1]');
 SELECT l1_distance('[1,2]'::vector, '[3]');
 SELECT l1_distance('[3e38]'::vector, '[-3e38]');
 
+SELECT l2_normalize('[3,4]'::vector);
+SELECT l2_normalize('[3,0]'::vector);
+SELECT l2_normalize('[0,0.1]'::vector);
+SELECT l2_normalize('[0,0]'::vector);
+SELECT l2_normalize('[3e38]'::vector);
+
 SELECT binary_quantize('[1,0,-1]'::vector);
 SELECT binary_quantize('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]'::vector);
 

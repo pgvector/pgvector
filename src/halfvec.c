@@ -747,6 +747,45 @@ halfvec_l2_norm(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Normalize a half vector with the L2 norm
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_normalize);
+Datum
+halfvec_l2_normalize(PG_FUNCTION_ARGS)
+{
+	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	half	   *ax = a->x;
+	double		norm = 0;
+	HalfVector *result;
+	half	   *rx;
+
+	result = InitHalfVector(a->dim);
+	rx = result->x;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < a->dim; i++)
+		norm += (double) HalfToFloat4(ax[i]) * (double) HalfToFloat4(ax[i]);
+
+	norm = sqrt(norm);
+
+	/* Return zero vector for zero norm */
+	if (norm > 0)
+	{
+		for (int i = 0; i < a->dim; i++)
+			rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) / norm);
+
+		/* Check for overflow */
+		for (int i = 0; i < a->dim; i++)
+		{
+			if (HalfIsInf(rx[i]))
+				float_overflow_error();
+		}
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Add half vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_add);

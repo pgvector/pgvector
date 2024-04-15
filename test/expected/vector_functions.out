@@ -272,6 +272,36 @@ SELECT l1_distance('[3e38]'::vector, '[-3e38]');
     Infinity
 (1 row)
 
+SELECT l2_normalize('[3,4]'::vector);
+ l2_normalize 
+--------------
+ [0.6,0.8]
+(1 row)
+
+SELECT l2_normalize('[3,0]'::vector);
+ l2_normalize 
+--------------
+ [1,0]
+(1 row)
+
+SELECT l2_normalize('[0,0.1]'::vector);
+ l2_normalize 
+--------------
+ [0,1]
+(1 row)
+
+SELECT l2_normalize('[0,0]'::vector);
+ l2_normalize 
+--------------
+ [0,0]
+(1 row)
+
+SELECT l2_normalize('[3e38]'::vector);
+ l2_normalize 
+--------------
+ [1]
+(1 row)
+
 SELECT binary_quantize('[1,0,-1]'::vector);
  binary_quantize 
 -----------------

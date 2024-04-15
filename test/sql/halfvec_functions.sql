@@ -59,6 +59,12 @@ SELECT l1_distance('[0,0]'::halfvec, '[3,4]');
 SELECT l1_distance('[0,0]'::halfvec, '[0,1]');
 SELECT l1_distance('[1,2]'::halfvec, '[3]');
 
+SELECT l2_normalize('[3,4]'::halfvec);
+SELECT l2_normalize('[3,0]'::halfvec);
+SELECT l2_normalize('[0,0.1]'::halfvec);
+SELECT l2_normalize('[0,0]'::halfvec);
+SELECT l2_normalize('[65504]'::halfvec);
+
 SELECT binary_quantize('[1,0,-1]'::halfvec);
 SELECT binary_quantize('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]'::halfvec);
 
