@@ -807,9 +807,9 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 			bi = b->indices[j];
 
 			if (ai == bi)
-				distance += fabs(ax[i] - bx[j]);
+				distance += fabsf(ax[i] - bx[j]);
 			else if (ai > bi)
-				distance += fabs(bx[j]);
+				distance += fabsf(bx[j]);
 
 			/* Update start for next iteration */
 			if (ai >= bi)
@@ -821,11 +821,11 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 		}
 
 		if (ai != bi)
-			distance += fabs(ax[i]);
+			distance += fabsf(ax[i]);
 	}
 
 	for (int j = bpos; j < b->nnz; j++)
-		distance += fabs(bx[j]);
+		distance += fabsf(bx[j]);
 
 	PG_RETURN_FLOAT8(distance);
 }
