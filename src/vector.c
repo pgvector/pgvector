@@ -728,6 +728,18 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(acos(distance) / M_PI);
 }
 
+static float
+VectorL1Distance(int dim, float *ax, float *bx)
+{
+	float		distance = 0.0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+		distance += fabsf(ax[i] - bx[i]);
+
+	return distance;
+}
+
 /*
  * Get the L1 distance between two vectors
  */
@@ -737,17 +749,10 @@ l1_distance(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
-	float	   *ax = a->x;
-	float	   *bx = b->x;
-	float		distance = 0.0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += fabsf(ax[i] - bx[i]);
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) VectorL1Distance(a->dim, a->x, b->x));
 }
 
 /*
