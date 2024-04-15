@@ -8,6 +8,7 @@
 - Added `jaccard_distance` function
 - Added `l2_normalize` function
 - Added `subvector` function
+- Added concatenate operator for vectors
 - Added CPU dispatching for distance functions on Linux x86-64
 - Updated comparison operators to support vectors with different dimensions
 

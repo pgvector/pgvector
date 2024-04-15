@@ -906,6 +906,30 @@ halfvec_mul(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Concatenate half vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_concat);
+Datum
+halfvec_concat(PG_FUNCTION_ARGS)
+{
+	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	HalfVector *b = PG_GETARG_HALFVEC_P(1);
+	HalfVector *result;
+	int			dim = a->dim + b->dim;
+
+	CheckDim(dim);
+	result = InitHalfVector(dim);
+
+	for (int i = 0; i < a->dim; i++)
+		result->x[i] = a->x[i];
+
+	for (int i = 0; i < b->dim; i++)
+		result->x[i + a->dim] = b->x[i];
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Quantize a half vector
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_binary_quantize);

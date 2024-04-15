@@ -917,6 +917,30 @@ vector_mul(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Concatenate vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_concat);
+Datum
+vector_concat(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	Vector	   *result;
+	int			dim = a->dim + b->dim;
+
+	CheckDim(dim);
+	result = InitVector(dim);
+
+	for (int i = 0; i < a->dim; i++)
+		result->x[i] = a->x[i];
+
+	for (int i = 0; i < b->dim; i++)
+		result->x[i + a->dim] = b->x[i];
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Quantize a vector
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(binary_quantize);

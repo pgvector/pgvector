@@ -24,6 +24,14 @@ SELECT '[65519]'::halfvec * '[65519]';
 ERROR:  value out of range: overflow
 SELECT '[1e-7]'::halfvec * '[1e-7]';
 ERROR:  value out of range: underflow
+SELECT '[1,2,3]'::halfvec || '[4,5]'::halfvec;
+  ?column?   
+-------------
+ [1,2,3,4,5]
+(1 row)
+
+SELECT array_fill(0, ARRAY[16000])::halfvec || '[1]'::halfvec;
+ERROR:  halfvec cannot have more than 16000 dimensions
 SELECT '[1,2,3]'::halfvec < '[1,2,3]';
  ?column? 
 ----------
