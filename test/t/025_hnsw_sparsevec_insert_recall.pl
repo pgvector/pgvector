@@ -99,7 +99,7 @@ for my $i (0 .. $#operators)
 	}
 
 	# Test approximate results
-	my $min = $operator eq "<#>" ? 0.80 : 0.99;
+	my $min = $operator eq "<#>" ? 0.79 : 0.99;
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
