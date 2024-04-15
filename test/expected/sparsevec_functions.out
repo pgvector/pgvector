@@ -322,3 +322,9 @@ SELECT l2_normalize('{1:3e38}/1'::sparsevec);
  {1:1}/1
 (1 row)
 
+SELECT l2_normalize('{1:3e38,2:1e-37}/2'::sparsevec);
+ l2_normalize 
+--------------
+ {1:1,2:0}/2
+(1 row)
+

@@ -61,3 +61,4 @@ SELECT l2_normalize('{1:3}/2'::sparsevec);
 SELECT l2_normalize('{2:0.1}/2'::sparsevec);
 SELECT l2_normalize('{}/2'::sparsevec);
 SELECT l2_normalize('{1:3e38}/1'::sparsevec);
+SELECT l2_normalize('{1:3e38,2:1e-37}/2'::sparsevec);
