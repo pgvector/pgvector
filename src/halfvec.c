@@ -626,28 +626,11 @@ halfvec_cosine_distance(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	HalfVector *b = PG_GETARG_HALFVEC_P(1);
-	half	   *ax = a->x;
-	half	   *bx = b->x;
-	float		distance = 0.0;
-	float		norma = 0.0;
-	float		normb = 0.0;
 	double		similarity;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		float		axi = HalfToFloat4(ax[i]);
-		float		bxi = HalfToFloat4(bx[i]);
-
-		distance += axi * bxi;
-		norma += axi * axi;
-		normb += bxi * bxi;
-	}
-
-	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
-	similarity = (double) distance / sqrt((double) norma * (double) normb);
+	similarity = HalfvecCosineSimilarity(a->dim, a->x, b->x);
 
 #ifdef _MSC_VER
 	/* /fp:fast may not propagate NaN */
