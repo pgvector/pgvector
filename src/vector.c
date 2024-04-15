@@ -653,7 +653,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) -VectorInnerProduct(a->dim, a->x, b->x));
 }
 
-static double
+VECTOR_DISPATCH static double
 VectorCosineSimilarity(int dim, float *ax, float *bx)
 {
 	float		similarity = 0.0;
