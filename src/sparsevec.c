@@ -579,7 +579,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 		if (vec->x[i] != 0)
 		{
 			/* Safety check */
-			if (j == nnz)
+			if (j >= result->nnz)
 				elog(ERROR, "safety check failed");
 
 			result->indices[j] = i + 1;
