@@ -5,6 +5,7 @@
 #include "access/generic_xlog.h"
 #include "catalog/pg_type.h"
 #include "catalog/pg_type_d.h"
+#include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
 #include "hnsw.h"
@@ -206,27 +207,11 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 
 	if (norm > 0)
 	{
-		/* TODO Remove vector-specific code */
+		/* TODO Remove type-specific code */
 		if (type == HNSW_TYPE_VECTOR)
-		{
-			Vector	   *v = DatumGetVector(*value);
-			Vector	   *result = InitVector(v->dim);
-
-			for (int i = 0; i < v->dim; i++)
-				result->x[i] = v->x[i] / norm;
-
-			*value = PointerGetDatum(result);
-		}
+			*value = DirectFunctionCall1(l2_normalize, *value);
 		else if (type == HNSW_TYPE_HALFVEC)
-		{
-			HalfVector *v = DatumGetHalfVector(*value);
-			HalfVector *result = InitHalfVector(v->dim);
-
-			for (int i = 0; i < v->dim; i++)
-				result->x[i] = Float4ToHalfUnchecked(HalfToFloat4(v->x[i]) / norm);
-
-			*value = PointerGetDatum(result);
-		}
+			*value = DirectFunctionCall1(halfvec_l2_normalize, *value);
 		else if (type == HNSW_TYPE_SPARSEVEC)
 		{
 			SparseVector *v = DatumGetSparseVector(*value);

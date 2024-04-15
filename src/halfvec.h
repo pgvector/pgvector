@@ -5,6 +5,7 @@
 
 #include <float.h>
 
+#include "fmgr.h"
 #include "vector.h"
 
 #if defined(__x86_64__) || defined(_M_AMD64)
@@ -43,5 +44,6 @@ typedef struct HalfVector
 
 HalfVector *InitHalfVector(int dim);
 int			halfvec_cmp_internal(HalfVector * a, HalfVector * b);
+Datum		halfvec_l2_normalize(PG_FUNCTION_ARGS);
 
 #endif
