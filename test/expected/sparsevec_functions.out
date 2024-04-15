@@ -190,6 +190,18 @@ SELECT cosine_distance('{1:1,2:2}/2'::sparsevec, '{}/2');
              NaN
 (1 row)
 
+SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:1,2:1}/2');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('{1:1}/2'::sparsevec, '{2:2}/2');
+ cosine_distance 
+-----------------
+               1
+(1 row)
+
 SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:-1,2:-1}/2');
  cosine_distance 
 -----------------
@@ -202,14 +214,32 @@ SELECT cosine_distance('{1:2}/2'::sparsevec, '{2:2}/2');
                1
 (1 row)
 
+SELECT cosine_distance('{1:1,2:2}/2'::sparsevec, '{1:3}/1');
+ERROR:  different sparsevec dimensions 2 and 1
+SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:1.1,2:1.1}/2');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:-1.1,2:-1.1}/2');
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
+SELECT cosine_distance('{1:3e38}/1'::sparsevec, '{1:3e38}/1');
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
 SELECT cosine_distance('{}/1'::sparsevec, '{}/1');
  cosine_distance 
 -----------------
              NaN
 (1 row)
 
-SELECT cosine_distance('{1:2}/2'::sparsevec, '{1:1}/3');
-ERROR:  different sparsevec dimensions 2 and 3
 SELECT l1_distance('{}/2'::sparsevec, '{1:3,2:4}/2');
  l1_distance 
 -------------
