@@ -37,3 +37,8 @@ SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:-1,2:-1}/2');
 SELECT cosine_distance('{1:2}/2'::sparsevec, '{2:2}/2');
 SELECT cosine_distance('{}/1'::sparsevec, '{}/1');
 SELECT cosine_distance('{1:2}/2'::sparsevec, '{1:1}/3');
+
+SELECT l1_distance('{}/2'::sparsevec, '{1:3,2:4}/2');
+SELECT l1_distance('{}/2'::sparsevec, '{2:1}/2');
+SELECT l1_distance('{1:1,2:2}/2'::sparsevec, '{1:3}/1');
+SELECT l1_distance('{1:3e38}/1'::sparsevec, '{1:-3e38}/1');

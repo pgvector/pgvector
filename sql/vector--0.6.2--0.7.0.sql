@@ -344,6 +344,9 @@ CREATE FUNCTION inner_product(sparsevec, sparsevec) RETURNS float8
 CREATE FUNCTION cosine_distance(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_cosine_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION l1_distance(sparsevec, sparsevec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'sparsevec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION l2_norm(sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 

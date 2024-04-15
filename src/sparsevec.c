@@ -782,6 +782,55 @@ sparsevec_cosine_distance(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get the L1 distance between two sparse vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l1_distance);
+Datum
+sparsevec_l1_distance(PG_FUNCTION_ARGS)
+{
+	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
+	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
+	float	   *ax = SPARSEVEC_VALUES(a);
+	float	   *bx = SPARSEVEC_VALUES(b);
+	double		distance = 0.0;
+	int			bpos = 0;
+
+	CheckDims(a, b);
+
+	for (int i = 0; i < a->nnz; i++)
+	{
+		int			ai = a->indices[i];
+		int			bi = -1;
+
+		for (int j = bpos; j < b->nnz; j++)
+		{
+			bi = b->indices[j];
+
+			if (ai == bi)
+				distance += fabs(ax[i] - bx[j]);
+			else if (ai > bi)
+				distance += fabs(bx[j]);
+
+			/* Update start for next iteration */
+			if (ai >= bi)
+				bpos = j + 1;
+
+			/* Found or passed it */
+			if (bi >= ai)
+				break;
+		}
+
+		if (ai != bi)
+			distance += fabs(ax[i]);
+	}
+
+	for (int j = bpos; j < b->nnz; j++)
+		distance += fabs(bx[j]);
+
+	PG_RETURN_FLOAT8(distance);
+}
+
+/*
  * Get the L2 norm of a sparse vector
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l2_norm);
