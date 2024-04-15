@@ -849,6 +849,48 @@ sparsevec_l2_norm(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Normalize a sparse vector with the L2 norm
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l2_normalize);
+Datum
+sparsevec_l2_normalize(PG_FUNCTION_ARGS)
+{
+	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
+	float	   *ax = SPARSEVEC_VALUES(a);
+	double		norm = 0;
+	SparseVector *result;
+	float	   *rx;
+
+	result = InitSparseVector(a->dim, a->nnz);
+	rx = SPARSEVEC_VALUES(result);
+
+	/* Auto-vectorized */
+	for (int i = 0; i < a->nnz; i++)
+		norm += (double) ax[i] * (double) ax[i];
+
+	norm = sqrt(norm);
+
+	/* Return zero vector for zero norm */
+	if (norm > 0)
+	{
+		for (int i = 0; i < a->nnz; i++)
+		{
+			result->indices[i] = a->indices[i];
+			rx[i] = ax[i] / norm;
+		}
+
+		/* Check for overflow */
+		for (int i = 0; i < a->nnz; i++)
+		{
+			if (isinf(rx[i]))
+				float_overflow_error();
+		}
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Internal helper to compare sparse vectors
  */
 static int

@@ -364,6 +364,9 @@ CREATE FUNCTION l1_distance(sparsevec, sparsevec) RETURNS float8
 CREATE FUNCTION l2_norm(sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION l2_normalize(sparsevec) RETURNS sparsevec
+	AS 'MODULE_PATHNAME', 'sparsevec_l2_normalize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION sparsevec_lt(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 

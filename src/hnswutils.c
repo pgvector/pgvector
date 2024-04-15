@@ -213,20 +213,7 @@ HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, HnswType type)
 		else if (type == HNSW_TYPE_HALFVEC)
 			*value = DirectFunctionCall1(halfvec_l2_normalize, *value);
 		else if (type == HNSW_TYPE_SPARSEVEC)
-		{
-			SparseVector *v = DatumGetSparseVector(*value);
-			SparseVector *result = InitSparseVector(v->dim, v->nnz);
-			float	   *vx = SPARSEVEC_VALUES(v);
-			float	   *rx = SPARSEVEC_VALUES(result);
-
-			for (int i = 0; i < v->nnz; i++)
-			{
-				result->indices[i] = v->indices[i];
-				rx[i] = vx[i] / norm;
-			}
-
-			*value = PointerGetDatum(result);
-		}
+			*value = DirectFunctionCall1(sparsevec_l2_normalize, *value);
 		else
 			elog(ERROR, "Unsupported type");
 

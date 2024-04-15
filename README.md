@@ -952,6 +952,7 @@ inner_product(sparsevec, sparsevec) → double precision | inner product | unrel
 l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | unreleased
 l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | unreleased
 l2_norm(sparsevec) → double precision | Euclidean norm | unreleased
+l2_normalize(sparsevec) → sparsevec | Normalize with Euclidean norm | unreleased
 
 ## Installation Notes - Linux and Mac
 

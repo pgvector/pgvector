@@ -55,3 +55,9 @@ SELECT l1_distance('{1:1,2:2}/2'::sparsevec, '{1:3}/1');
 SELECT l1_distance('{1:3e38}/1'::sparsevec, '{1:-3e38}/1');
 SELECT l1_distance('{1:1,3:3,5:5,7:7}/8'::sparsevec, '{2:2,4:4,6:6,8:8}/8');
 SELECT l1_distance('{1:1,3:3,5:5,7:7,9:9}/9'::sparsevec, '{2:2,4:4,6:6,8:8}/9');
+
+SELECT l2_normalize('{1:3,2:4}/2'::sparsevec);
+SELECT l2_normalize('{1:3}/2'::sparsevec);
+SELECT l2_normalize('{2:0.1}/2'::sparsevec);
+SELECT l2_normalize('{}/2'::sparsevec);
+SELECT l2_normalize('{1:3e38}/1'::sparsevec);
