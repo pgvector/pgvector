@@ -898,13 +898,13 @@ sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 				if (rx[i] == 0)
 					continue;
 
-				newResult->indices[j] = result->indices[i];
-				nx[j] = rx[i];
-				j++;
-
 				/* Safety check */
 				if (j == newResult->nnz)
 					break;
+
+				newResult->indices[j] = result->indices[i];
+				nx[j] = rx[i];
+				j++;
 			}
 
 			pfree(result);
