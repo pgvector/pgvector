@@ -115,6 +115,8 @@ jobs:
           sudo -u postgres make prove_installcheck
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+      - if: ${{ failure() }}
+        run: cat pgvector/regression.diffs
   valgrind:
     if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
     runs-on: ubuntu-latest

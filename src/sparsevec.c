@@ -594,12 +594,12 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 /*
  * Get the L2 squared distance between sparse vectors
  */
-static double
+static float
 SparsevecL2SquaredDistance(SparseVector * a, SparseVector * b)
 {
 	float	   *ax = SPARSEVEC_VALUES(a);
 	float	   *bx = SPARSEVEC_VALUES(b);
-	double		distance = 0.0;
+	float		distance = 0.0;
 	int			bpos = 0;
 
 	for (int i = 0; i < a->nnz; i++)
@@ -673,12 +673,12 @@ sparsevec_l2_squared_distance(PG_FUNCTION_ARGS)
 /*
  * Get the inner product of two sparse vectors
  */
-static double
+static float
 SparsevecInnerProduct(SparseVector * a, SparseVector * b)
 {
 	float	   *ax = SPARSEVEC_VALUES(a);
 	float	   *bx = SPARSEVEC_VALUES(b);
-	double		distance = 0.0;
+	float		distance = 0.0;
 	int			bpos = 0;
 
 	for (int i = 0; i < a->nnz; i++)
