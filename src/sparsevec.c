@@ -887,6 +887,7 @@ sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 				zeros++;
 		}
 
+		/* In the unlikely event there are zeros */
 		if (zeros > 0)
 		{
 			SparseVector *newResult = InitSparseVector(result->dim, result->nnz - zeros);
