@@ -44,6 +44,6 @@ typedef struct HalfVector
 
 HalfVector *InitHalfVector(int dim);
 int			halfvec_cmp_internal(HalfVector * a, HalfVector * b);
-Datum		halfvec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
 
 #endif
