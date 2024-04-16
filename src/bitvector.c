@@ -91,8 +91,8 @@ static double
 BitJaccardDistance(uint32 bytes, unsigned char *ax, unsigned char *bx)
 {
 	uint64		ab = 0;
-	uint64		aa;
-	uint64		bb;
+	uint64		aa = 0;
+	uint64		bb = 0;
 	uint32		i;
 	uint32		count = (bytes / 8) * 8;
 
@@ -105,18 +105,21 @@ BitJaccardDistance(uint32 bytes, unsigned char *ax, unsigned char *bx)
 		memcpy(&bxs, bx + i, sizeof(uint64));
 
 		ab += popcount64(axs & bxs);
+		aa += popcount64(axs);
+		bb += popcount64(bxs);
 	}
 
 	for (; i < bytes; i++)
+	{
 		ab += pg_number_of_ones[ax[i] & bx[i]];
+		aa += pg_number_of_ones[ax[i]];
+		bb += pg_number_of_ones[bx[i]];
+	}
 
 	if (ab == 0)
 		return 1;
-
-	aa = pg_popcount((char *) ax, bytes);
-	bb = pg_popcount((char *) bx, bytes);
-
-	return 1 - (ab / ((double) (aa + bb - ab)));
+	else
+		return 1 - (ab / ((double) (aa + bb - ab)));
 }
 
 /*
