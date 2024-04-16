@@ -8,6 +8,17 @@
 #include "varatt.h"
 #endif
 
+/* Use built-ins when possible for inlining */
+#if defined(HAVE__BUILTIN_POPCOUNT) && defined(HAVE_LONG_INT_64)
+#define popcount64(x) __builtin_popcountl(x)
+#elif defined(HAVE__BUILTIN_POPCOUNT) && defined(HAVE_LONG_LONG_INT_64)
+#define popcount64(x) __builtin_popcountll(x)
+#elif defined(_MSC_VER)
+#define popcount64(x) __popcnt64(x)
+#else
+#define popcount64(x) pg_popcount64(x)
+#endif
+
 /*
  * Allocate and initialize a new bit vector
  */
@@ -49,11 +60,15 @@ hamming_distance(PG_FUNCTION_ARGS)
 	unsigned char *ax = VARBITS(a);
 	unsigned char *bx = VARBITS(b);
 	uint64		distance = 0;
+	uint32		i;
+	uint32		count = (VARBITBYTES(a) / 8) * 8;
 
 	CheckDims(a, b);
 
-	/* TODO Improve performance */
-	for (uint32 i = 0; i < VARBITBYTES(a); i++)
+	for (i = 0; i < count; i += 8)
+		distance += popcount64(*(uint64 *) (ax + i) ^ *(uint64 *) (bx + i));
+
+	for (; i < VARBITBYTES(a); i++)
 		distance += pg_number_of_ones[ax[i] ^ bx[i]];
 
 	PG_RETURN_FLOAT8((double) distance);
@@ -73,11 +88,15 @@ jaccard_distance(PG_FUNCTION_ARGS)
 	uint64		ab = 0;
 	uint64		aa;
 	uint64		bb;
+	uint32		i;
+	uint32		count = (VARBITBYTES(a) / 8) * 8;
 
 	CheckDims(a, b);
 
-	/* TODO Improve performance */
-	for (uint32 i = 0; i < VARBITBYTES(a); i++)
+	for (i = 0; i < count; i += 8)
+		ab += popcount64(*(uint64 *) (ax + i) & *(uint64 *) (bx + i));
+
+	for (; i < VARBITBYTES(a); i++)
 		ab += pg_number_of_ones[ax[i] & bx[i]];
 
 	if (ab == 0)
