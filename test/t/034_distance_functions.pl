@@ -43,11 +43,11 @@ for my $function (@functions)
 
 		# Test halfvec
 		my $actual = $node->safe_psql("postgres", "SELECT $function(v::halfvec, '$query'::vector::halfvec) FROM tst");
-		is($expected, $actual, $function);
+		is($expected, $actual, "halfvec $function");
 
 		# Test sparsevec
 		$actual = $node->safe_psql("postgres", "SELECT $function(v::sparsevec, '$query'::vector::sparsevec) FROM tst");
-		is($expected, $actual, $function);
+		is($expected, $actual, "sparsevec $function");
 	}
 }
 
