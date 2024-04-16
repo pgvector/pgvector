@@ -87,24 +87,14 @@ hamming_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) BitHammingDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b)));
 }
 
-/*
- * Get the Jaccard distance between two bit vectors
- */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(jaccard_distance);
-Datum
-jaccard_distance(PG_FUNCTION_ARGS)
+static double
+BitJaccardDistance(uint32 bytes, unsigned char *ax, unsigned char *bx)
 {
-	VarBit	   *a = PG_GETARG_VARBIT_P(0);
-	VarBit	   *b = PG_GETARG_VARBIT_P(1);
-	unsigned char *ax = VARBITS(a);
-	unsigned char *bx = VARBITS(b);
 	uint64		ab = 0;
 	uint64		aa;
 	uint64		bb;
 	uint32		i;
-	uint32		count = (VARBITBYTES(a) / 8) * 8;
-
-	CheckDims(a, b);
+	uint32		count = (bytes / 8) * 8;
 
 	for (i = 0; i < count; i += 8)
 	{
@@ -117,14 +107,29 @@ jaccard_distance(PG_FUNCTION_ARGS)
 		ab += popcount64(axs & bxs);
 	}
 
-	for (; i < VARBITBYTES(a); i++)
+	for (; i < bytes; i++)
 		ab += pg_number_of_ones[ax[i] & bx[i]];
 
 	if (ab == 0)
-		PG_RETURN_FLOAT8(1);
+		return 1;
 
-	aa = pg_popcount((char *) ax, VARBITBYTES(a));
-	bb = pg_popcount((char *) bx, VARBITBYTES(b));
+	aa = pg_popcount((char *) ax, bytes);
+	bb = pg_popcount((char *) bx, bytes);
 
-	PG_RETURN_FLOAT8(1 - (ab / ((double) (aa + bb - ab))));
+	return 1 - (ab / ((double) (aa + bb - ab)));
+}
+
+/*
+ * Get the Jaccard distance between two bit vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(jaccard_distance);
+Datum
+jaccard_distance(PG_FUNCTION_ARGS)
+{
+	VarBit	   *a = PG_GETARG_VARBIT_P(0);
+	VarBit	   *b = PG_GETARG_VARBIT_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8(BitJaccardDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b)));
 }
