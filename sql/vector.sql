@@ -312,6 +312,8 @@ CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
 CREATE FUNCTION jaccard_distance(bit, bit) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+-- bit operators
+
 CREATE OPERATOR <~> (
 	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = hamming_distance,
 	COMMUTATOR = '<~>'
@@ -321,6 +323,8 @@ CREATE OPERATOR <%> (
 	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = jaccard_distance,
 	COMMUTATOR = '<%>'
 );
+
+-- bit opclasses
 
 CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING hnsw AS
