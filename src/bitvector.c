@@ -48,22 +48,12 @@ CheckDims(VarBit *a, VarBit *b)
 				 errmsg("different bit lengths %u and %u", VARBITLEN(a), VARBITLEN(b))));
 }
 
-/*
- * Get the Hamming distance between two bit vectors
- */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
-Datum
-hamming_distance(PG_FUNCTION_ARGS)
+static uint64
+BitHammingDistance(uint32 bytes, unsigned char *ax, unsigned char *bx)
 {
-	VarBit	   *a = PG_GETARG_VARBIT_P(0);
-	VarBit	   *b = PG_GETARG_VARBIT_P(1);
-	unsigned char *ax = VARBITS(a);
-	unsigned char *bx = VARBITS(b);
 	uint64		distance = 0;
 	uint32		i;
-	uint32		count = (VARBITBYTES(a) / 8) * 8;
-
-	CheckDims(a, b);
+	uint32		count = (bytes / 8) * 8;
 
 	for (i = 0; i < count; i += 8)
 	{
@@ -76,10 +66,25 @@ hamming_distance(PG_FUNCTION_ARGS)
 		distance += popcount64(axs ^ bxs);
 	}
 
-	for (; i < VARBITBYTES(a); i++)
+	for (; i < bytes; i++)
 		distance += pg_number_of_ones[ax[i] ^ bx[i]];
 
-	PG_RETURN_FLOAT8((double) distance);
+	return distance;
+}
+
+/*
+ * Get the Hamming distance between two bit vectors
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
+Datum
+hamming_distance(PG_FUNCTION_ARGS)
+{
+	VarBit	   *a = PG_GETARG_VARBIT_P(0);
+	VarBit	   *b = PG_GETARG_VARBIT_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8((double) BitHammingDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b)));
 }
 
 /*
