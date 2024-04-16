@@ -26,7 +26,9 @@ CREATE TYPE vector (
 	TYPMOD_IN = vector_typmod_in,
 	RECEIVE   = vector_recv,
 	SEND      = vector_send,
-	STORAGE   = external
+	STORAGE   = external,
+	CATEGORY  = 'v',
+	PREFERRED = true
 );
 
 -- vector functions
@@ -357,7 +359,8 @@ CREATE TYPE halfvec (
 	TYPMOD_IN = halfvec_typmod_in,
 	RECEIVE   = halfvec_recv,
 	SEND      = halfvec_send,
-	STORAGE   = external
+	STORAGE   = external,
+	CATEGORY  = 'v'
 );
 
 -- halfvec functions
@@ -653,7 +656,8 @@ CREATE TYPE sparsevec (
 	TYPMOD_IN = sparsevec_typmod_in,
 	RECEIVE   = sparsevec_recv,
 	SEND      = sparsevec_send,
-	STORAGE   = external
+	STORAGE   = external,
+	CATEGORY  = 'v'
 );
 
 -- sparsevec functions
