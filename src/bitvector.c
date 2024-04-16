@@ -19,6 +19,13 @@
 #define popcount64(x) pg_popcount64(x)
 #endif
 
+/* target_clones requires glibc */
+#if defined(__x86_64__) && defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones) && !defined(__POPCNT__)
+#define BIT_DISPATCH __attribute__((target_clones("default", "popcnt")))
+#else
+#define BIT_DISPATCH
+#endif
+
 /*
  * Allocate and initialize a new bit vector
  */
@@ -48,7 +55,7 @@ CheckDims(VarBit *a, VarBit *b)
 				 errmsg("different bit lengths %u and %u", VARBITLEN(a), VARBITLEN(b))));
 }
 
-static uint64
+BIT_DISPATCH static uint64
 BitHammingDistance(uint32 bytes, unsigned char *ax, unsigned char *bx)
 {
 	uint64		distance = 0;
@@ -87,7 +94,7 @@ hamming_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) BitHammingDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b)));
 }
 
-static double
+BIT_DISPATCH static double
 BitJaccardDistance(uint32 bytes, unsigned char *ax, unsigned char *bx)
 {
 	uint64		ab = 0;
