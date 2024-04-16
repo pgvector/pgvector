@@ -943,6 +943,7 @@ sparsevec_cmp_internal(SparseVector * a, SparseVector * b)
 			return 1;
 	}
 
+	/* Check <= dim since indices start at 1 */
 	if (a->nnz < b->nnz && b->indices[nnz] <= a->dim)
 		return bx[nnz] < 0 ? 1 : -1;
 
