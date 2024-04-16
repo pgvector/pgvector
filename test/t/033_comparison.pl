@@ -29,7 +29,7 @@ for (1 .. 50)
 	}
 	my $query = "{" . join(",", @r) . "}";
 
-	# Get expected results
+	# Get expected result
 	my $expected = $node->safe_psql("postgres", "SELECT btarraycmp(v, '$query') FROM tst");
 
 	# Test vector
