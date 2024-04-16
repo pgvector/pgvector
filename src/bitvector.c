@@ -66,7 +66,15 @@ hamming_distance(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 	for (i = 0; i < count; i += 8)
-		distance += popcount64(*(uint64 *) (ax + i) ^ *(uint64 *) (bx + i));
+	{
+		uint64		axs;
+		uint64		bxs;
+
+		memcpy(&axs, ax + i, sizeof(uint64));
+		memcpy(&bxs, bx + i, sizeof(uint64));
+
+		distance += popcount64(axs ^ bxs);
+	}
 
 	for (; i < VARBITBYTES(a); i++)
 		distance += pg_number_of_ones[ax[i] ^ bx[i]];
@@ -94,7 +102,15 @@ jaccard_distance(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 	for (i = 0; i < count; i += 8)
-		ab += popcount64(*(uint64 *) (ax + i) & *(uint64 *) (bx + i));
+	{
+		uint64		axs;
+		uint64		bxs;
+
+		memcpy(&axs, ax + i, sizeof(uint64));
+		memcpy(&bxs, bx + i, sizeof(uint64));
+
+		ab += popcount64(axs & bxs);
+	}
 
 	for (; i < VARBITBYTES(a); i++)
 		ab += pg_number_of_ones[ax[i] & bx[i]];
