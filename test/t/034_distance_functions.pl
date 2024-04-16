@@ -40,7 +40,13 @@ for my $function (@functions)
 	for my $query (@queries)
 	{
 		my $expected = $node->safe_psql("postgres", "SELECT $function(v, '$query') FROM tst");
-		my $actual = $node->safe_psql("postgres", "SELECT $function(v::sparsevec, '$query'::vector::sparsevec) FROM tst");
+
+		# Test halfvec
+		my $actual = $node->safe_psql("postgres", "SELECT $function(v::halfvec, '$query'::vector::halfvec) FROM tst");
+		is($expected, $actual, $function);
+
+		# Test sparsevec
+		$actual = $node->safe_psql("postgres", "SELECT $function(v::sparsevec, '$query'::vector::sparsevec) FROM tst");
 		is($expected, $actual, $function);
 	}
 }
