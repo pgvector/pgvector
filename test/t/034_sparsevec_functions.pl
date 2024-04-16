@@ -41,7 +41,7 @@ for my $function (@functions)
 	{
 		my $expected = $node->safe_psql("postgres", "SELECT $function(v, '$query') FROM tst");
 		my $actual = $node->safe_psql("postgres", "SELECT $function(v::sparsevec, '$query'::vector::sparsevec) FROM tst");
-		is($expected, $actual);
+		is($expected, $actual, $function);
 	}
 }
 
