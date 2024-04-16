@@ -21,7 +21,7 @@ $node->safe_psql("postgres",
 
 for (1 .. 50)
 {
-	# Generate queries
+	# Generate query
 	my @r = ();
 	for (1 .. (int(rand() * 3) + 2))
 	{
