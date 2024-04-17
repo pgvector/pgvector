@@ -327,6 +327,18 @@ CREATE OPERATOR <%> (
 -- bit opclasses
 
 CREATE OPERATOR CLASS bit_hamming_ops
+	FOR TYPE bit USING ivfflat AS
+	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 hamming_distance(bit, bit),
+	FUNCTION 3 hamming_distance(bit, bit);
+
+CREATE OPERATOR CLASS bit_jaccard_ops
+	FOR TYPE bit USING ivfflat AS
+	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 jaccard_distance(bit, bit),
+	FUNCTION 3 jaccard_distance(bit, bit);
+
+CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING hnsw AS
 	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
 	FUNCTION 1 hamming_distance(bit, bit);

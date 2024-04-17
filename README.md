@@ -353,6 +353,7 @@ Supported types are:
 
 - `vector` - up to 2,000 dimensions
 - `halfvec` - up to 4,000 dimensions (unreleased)
+- `bit` - up to 64,000 dimensions (unreleased)
 
 ### Query Options
 

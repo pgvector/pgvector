@@ -3,10 +3,12 @@
 #include <float.h>
 #include <math.h>
 
+#include "bitvector.h"
 #include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "utils/builtins.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
 #include "vector.h"
@@ -135,6 +137,15 @@ CompareHalfVectors(const void *a, const void *b)
 }
 
 /*
+ * Compare bit vectors
+ */
+static int
+CompareBitVectors(const void *a, const void *b)
+{
+	return DirectFunctionCall2(bitcmp, VarBitPGetDatum((VarBit *) a), VarBitPGetDatum((VarBit *) b));
+}
+
+/*
  * Quick approach if we have little data
  */
 static void
@@ -151,6 +162,8 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers, IvfflatTy
 			qsort(samples->items, samples->length, samples->itemsize, CompareVectors);
 		else if (type == IVFFLAT_TYPE_HALFVEC)
 			qsort(samples->items, samples->length, samples->itemsize, CompareHalfVectors);
+		else if (type == IVFFLAT_TYPE_BIT)
+			qsort(samples->items, samples->length, samples->itemsize, CompareBitVectors);
 		else
 			elog(ERROR, "Unsupported type");
 
@@ -190,6 +203,16 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers, IvfflatTy
 
 			for (int j = 0; j < dimensions; j++)
 				vec->x[j] = Float4ToHalfUnchecked((float) RandomDouble());
+		}
+		else if (type == IVFFLAT_TYPE_BIT)
+		{
+			VarBit	   *vec = DatumGetVarBitP(center);
+
+			SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
+			VARBITLEN(vec) = dimensions;
+
+			for (int j = 0; j < dimensions; j++)
+				VARBITS(vec)[j / dimensions] |= (RandomDouble() > 0.5 ? 1 : 0) << (7 - (j % 8));
 		}
 		else
 			elog(ERROR, "Unsupported type");
@@ -263,6 +286,17 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 				aggCenter->x[k] += HalfToFloat4(vec->x[k]);
 		}
 	}
+	else if (type == IVFFLAT_TYPE_BIT)
+	{
+		for (int j = 0; j < numSamples; j++)
+		{
+			Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, closestCenters[j]);
+			VarBit	   *vec = (VarBit *) VectorArrayGet(samples, j);
+
+			for (int k = 0; k < dimensions; k++)
+				aggCenter->x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
+		}
+	}
 	else
 		elog(ERROR, "Unsupported type");
 
@@ -306,6 +340,21 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 
 			for (int k = 0; k < dimensions; k++)
 				newCenter->x[k] = Float4ToHalfUnchecked(aggCenter->x[k]);
+		}
+	}
+	else if (type == IVFFLAT_TYPE_BIT)
+	{
+		for (int j = 0; j < numCenters; j++)
+		{
+			Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, j);
+			VarBit	   *newCenter = (VarBit *) VectorArrayGet(newCenters, j);
+			unsigned char *nx = VARBITS(newCenter);
+
+			for (uint32 k = 0; k < VARBITBYTES(newCenter); k++)
+				nx[k] = 0;
+
+			for (int k = 0; k < dimensions; k++)
+				nx[k / 8] |= (aggCenter->x[k] > 0.5) << (7 - (k % 8));
 		}
 	}
 
@@ -423,6 +472,18 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 
 			SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
 			vec->dim = dimensions;
+		}
+	}
+	else if (type == IVFFLAT_TYPE_BIT)
+	{
+		newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
+
+		for (int j = 0; j < numCenters; j++)
+		{
+			VarBit	   *vec = (VarBit *) VectorArrayGet(newCenters, j);
+
+			SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
+			VARBITLEN(vec) = dimensions;
 		}
 	}
 	else
@@ -642,7 +703,7 @@ CheckCenters(Relation index, VectorArray centers, IvfflatType type)
 					elog(ERROR, "Infinite value detected. Please report a bug.");
 			}
 		}
-		else
+		else if (type != IVFFLAT_TYPE_BIT)
 			elog(ERROR, "Unsupported type");
 	}
 
@@ -652,6 +713,8 @@ CheckCenters(Relation index, VectorArray centers, IvfflatType type)
 		qsort(centers->items, centers->length, centers->itemsize, CompareVectors);
 	else if (type == IVFFLAT_TYPE_HALFVEC)
 		qsort(centers->items, centers->length, centers->itemsize, CompareHalfVectors);
+	else if (type == IVFFLAT_TYPE_BIT)
+		qsort(centers->items, centers->length, centers->itemsize, CompareBitVectors);
 	else
 		elog(ERROR, "Unsupported type");
 

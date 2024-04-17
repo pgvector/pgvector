@@ -3,6 +3,7 @@
 #include <float.h>
 
 #include "access/relscan.h"
+#include "bitvector.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
 #include "halfvec.h"
@@ -195,6 +196,8 @@ GetScanValue(IndexScanDesc scan)
 			value = PointerGetDatum(InitVector(so->dimensions));
 		else if (type == IVFFLAT_TYPE_HALFVEC)
 			value = PointerGetDatum(InitHalfVector(so->dimensions));
+		else if (type == IVFFLAT_TYPE_BIT)
+			value = PointerGetDatum(InitBitVector(so->dimensions));
 		else
 			elog(ERROR, "Unsupported type");
 	}

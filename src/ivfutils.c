@@ -73,6 +73,9 @@ IvfflatGetType(Relation index)
 	Form_pg_type type;
 	IvfflatType result;
 
+	if (typid == BITOID)
+		return IVFFLAT_TYPE_BIT;
+
 	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typid));
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "cache lookup failed for type %u", typid);

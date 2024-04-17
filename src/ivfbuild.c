@@ -6,6 +6,7 @@
 #include "access/tableam.h"
 #include "access/parallel.h"
 #include "access/xact.h"
+#include "bitvector.h"
 #include "catalog/index.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
@@ -324,6 +325,8 @@ GetMaxDimensions(IvfflatType type)
 
 	if (type == IVFFLAT_TYPE_HALFVEC)
 		maxDimensions *= 2;
+	else if (type == IVFFLAT_TYPE_BIT)
+		maxDimensions *= 32;
 
 	return maxDimensions;
 }
@@ -338,6 +341,8 @@ GetItemSize(IvfflatType type, int dimensions)
 		return VECTOR_SIZE(dimensions);
 	else if (type == IVFFLAT_TYPE_HALFVEC)
 		return HALFVEC_SIZE(dimensions);
+	else if (type == IVFFLAT_TYPE_BIT)
+		return VARBITTOTALLEN(dimensions);
 	else
 		elog(ERROR, "Unsupported type");
 }
