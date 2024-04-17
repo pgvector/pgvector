@@ -337,20 +337,14 @@ GetMaxDimensions(IvfflatType type)
 static Size
 GetItemSize(IvfflatType type, int dimensions)
 {
-	Size		size;
-
 	if (type == IVFFLAT_TYPE_VECTOR)
-		size = VECTOR_SIZE(dimensions);
+		return VECTOR_SIZE(dimensions);
 	else if (type == IVFFLAT_TYPE_HALFVEC)
-		size = HALFVEC_SIZE(dimensions);
+		return HALFVEC_SIZE(dimensions);
 	else if (type == IVFFLAT_TYPE_BIT)
-		size = VARBITTOTALLEN(dimensions);
+		return VARBITTOTALLEN(dimensions);
 	else
 		elog(ERROR, "Unsupported type");
-
-	/* Ensure items are aligned to prevent UB */
-	/* Only need 4 byte alignment, but prefer MAXALIGN */
-	return MAXALIGN(size);
 }
 
 /*
