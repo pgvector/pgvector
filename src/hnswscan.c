@@ -188,14 +188,14 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		 */
 		LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 		so->use_relaxed = hnsw_use_relaxed;
-		if(so->use_relaxed)
+		if (so->use_relaxed)
 		{
-			if(!OpenScanItemsRelaxed(scan, value))
+			if (!OpenScanItemsRelaxed(scan, value))
 			{
 				return false;
 			}
 		}
-		else 
+		else
 		{
 			so->w = GetScanItems(scan, value);
 		}
@@ -209,7 +209,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(so->tmpCtx, false) / (1024 * 1024));
 #endif
 	}
-	if(!so->use_relaxed)
+	if (!so->use_relaxed)
 	{
 		while (list_length(so->w) > 0)
 		{
@@ -235,19 +235,20 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			return true;
 		}
 	}
-	else 
+	else
 	{
 		ItemPointerData heaptiddata;
+
 		heaptiddata = NextScanItemsRelaxed(scan);
 		MemoryContextSwitchTo(oldCtx);
-		if(ItemPointerIsValid(&heaptiddata))
+		if (ItemPointerIsValid(&heaptiddata))
 		{
 			scan->xs_heaptid = heaptiddata;
 			scan->xs_recheck = false;
 			scan->xs_recheckorderby = false;
 			return true;
 		}
-		else 
+		else
 		{
 			return false;
 		}

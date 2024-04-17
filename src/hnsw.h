@@ -335,8 +335,9 @@ typedef HnswNeighborTupleData * HnswNeighborTuple;
 
 typedef struct HnswNextElement
 {
-	HnswCandidate  *nextFromVisited,*nextFromSearch;
-} HnswNextElement;
+	HnswCandidate *nextFromVisited,
+			   *nextFromSearch;
+}			HnswNextElement;
 
 typedef struct HnswScanOpaqueData
 {
@@ -348,13 +349,14 @@ typedef struct HnswScanOpaqueData
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
-	char 		*base; 
-	Datum 		q;  
-	int 		m;
-	pairingheap *allVisited, *candidates;
-	void *visitedFlag;
-	bool use_relaxed;
-	HnswNextElement	next;
+	char	   *base;
+	Datum		q;
+	int			m;
+	pairingheap *allVisited,
+			   *candidates;
+	void	   *visitedFlag;
+	bool		use_relaxed;
+	HnswNextElement next;
 }			HnswScanOpaqueData;
 
 typedef HnswScanOpaqueData * HnswScanOpaque;

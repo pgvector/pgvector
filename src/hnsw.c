@@ -76,8 +76,8 @@ HnswInit(void)
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
 	DefineCustomBoolVariable("hnsw.use_relaxed", "Sets the flag to use Relaxed monotonicity algorithm during search",
-							"Valid values are ON, OFF, FALSE, TRUE.", &hnsw_use_relaxed,
-							false, PGC_USERSET, 0, NULL, NULL, NULL);						
+							 "Valid values are ON, OFF, FALSE, TRUE.", &hnsw_use_relaxed,
+							 false, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }
