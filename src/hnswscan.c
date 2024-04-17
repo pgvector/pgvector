@@ -41,6 +41,42 @@ GetScanItems(IndexScanDesc scan, Datum q)
 }
 
 /*
+ * Algorithm 5 from paper with Relaxed option
+ */
+static bool
+OpenScanItemsRelaxed(IndexScanDesc scan, Datum q)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	Relation	index = scan->indexRelation;
+	FmgrInfo   *procinfo = so->procinfo;
+	Oid			collation = so->collation;
+	List	   *ep;
+	List	   *w;
+	int			m;
+	HnswElement entryPoint;
+	char	   *base = NULL;
+
+	/* Get m and entry point */
+	HnswGetMetaPageInfo(index, &m, &entryPoint);
+
+	if (entryPoint == NULL)
+		return false;
+
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
+
+	for (int lc = entryPoint->level; lc >= 1; lc--)
+	{
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		ep = w;
+	}
+	/* save values to use them in NextCalls */
+	so->base = base;
+	so->q = q;
+	so->m = m;
+	return HnswSearchLayerRelaxed(scan, ep, hnsw_ef_search);
+}
+
+/*
  * Get scan value
  */
 static Datum
@@ -151,8 +187,18 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		 * before marking tuples as deleted.
 		 */
 		LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
-
-		so->w = GetScanItems(scan, value);
+		so->use_relaxed = hnsw_use_relaxed;
+		if(so->use_relaxed)
+		{
+			if(!OpenScanItemsRelaxed(scan, value))
+			{
+				return false;
+			}
+		}
+		else 
+		{
+			so->w = GetScanItems(scan, value);
+		}
 
 		/* Release shared lock */
 		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
@@ -163,29 +209,48 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(so->tmpCtx, false) / (1024 * 1024));
 #endif
 	}
-
-	while (list_length(so->w) > 0)
+	if(!so->use_relaxed)
 	{
-		char	   *base = NULL;
-		HnswCandidate *hc = llast(so->w);
-		HnswElement element = HnswPtrAccess(base, hc->element);
-		ItemPointer heaptid;
-
-		/* Move to next element if no valid heap TIDs */
-		if (element->heaptidsLength == 0)
+		while (list_length(so->w) > 0)
 		{
-			so->w = list_delete_last(so->w);
-			continue;
+			char	   *base = NULL;
+			HnswCandidate *hc = llast(so->w);
+			HnswElement element = HnswPtrAccess(base, hc->element);
+			ItemPointer heaptid;
+
+			/* Move to next element if no valid heap TIDs */
+			if (element->heaptidsLength == 0)
+			{
+				so->w = list_delete_last(so->w);
+				continue;
+			}
+
+			heaptid = &element->heaptids[--element->heaptidsLength];
+
+			MemoryContextSwitchTo(oldCtx);
+
+			scan->xs_heaptid = *heaptid;
+			scan->xs_recheck = false;
+			scan->xs_recheckorderby = false;
+			return true;
 		}
-
-		heaptid = &element->heaptids[--element->heaptidsLength];
-
+	}
+	else 
+	{
+		ItemPointerData heaptiddata;
+		heaptiddata = NextScanItemsRelaxed(scan);
 		MemoryContextSwitchTo(oldCtx);
-
-		scan->xs_heaptid = *heaptid;
-		scan->xs_recheck = false;
-		scan->xs_recheckorderby = false;
-		return true;
+		if(ItemPointerIsValid(&heaptiddata))
+		{
+			scan->xs_heaptid = heaptiddata;
+			scan->xs_recheck = false;
+			scan->xs_recheckorderby = false;
+			return true;
+		}
+		else 
+		{
+			return false;
+		}
 	}
 
 	MemoryContextSwitchTo(oldCtx);
