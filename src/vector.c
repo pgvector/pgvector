@@ -34,7 +34,14 @@
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
 /* target_clones requires glibc */
-#if defined(__x86_64__) && defined(__gnu_linux__) && defined(__has_attribute) && __has_attribute(target_clones) && !defined(__FMA__)
+#if defined(__gnu_linux__) && defined(__has_attribute)
+/* Use separate line for portability */
+#if __has_attribute(target_clones)
+#define HAVE_TARGET_CLONES
+#endif
+#endif
+
+#if defined(__x86_64__) && HAVE_TARGET_CLONES && !defined(__FMA__)
 #define VECTOR_DISPATCH __attribute__((target_clones("default", "fma")))
 #else
 #define VECTOR_DISPATCH
