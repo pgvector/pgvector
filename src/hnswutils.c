@@ -1359,9 +1359,8 @@ HnswSearchLayerRelaxedNext(char *base, Datum q, Relation index,
 	if(!pairingheap_is_empty(C))
 	{
 		HnswNeighborArray *neighborhood;
-		c = ((HnswPairingHeapNode *) pairingheap_remove_first(C))->inner;
-		//HnswCandidate *f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 		HnswElement cElement;
+		c = ((HnswPairingHeapNode *) pairingheap_remove_first(C))->inner;
 		
 		cElement = HnswPtrAccess(base, c->element);
 
@@ -1391,6 +1390,7 @@ HnswSearchLayerRelaxedNext(char *base, Datum q, Relation index,
 			{
 				float		eDistance;
 				HnswElement eElement = HnswPtrAccess(base, e->element);
+				HnswCandidate *ec;
 
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
@@ -1398,7 +1398,7 @@ HnswSearchLayerRelaxedNext(char *base, Datum q, Relation index,
 					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, false);
 
 				Assert(!eElement->deleted);
-				HnswCandidate *ec = palloc(sizeof(HnswCandidate));
+				ec = palloc(sizeof(HnswCandidate));
 
 				HnswPtrStore(base, ec->element, eElement);
 				ec->distance = eDistance;
@@ -1505,6 +1505,7 @@ HnswSearchLayerRelaxed(IndexScanDesc scan, List *ep, int ef)
 			{
 				float		eDistance;
 				HnswElement eElement = HnswPtrAccess(base, e->element);
+				HnswCandidate *ec;
 
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
@@ -1512,7 +1513,7 @@ HnswSearchLayerRelaxed(IndexScanDesc scan, List *ep, int ef)
 					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, false);
 
 				Assert(!eElement->deleted);
-				HnswCandidate *ec = palloc(sizeof(HnswCandidate));
+				ec = palloc(sizeof(HnswCandidate));
 
 				HnswPtrStore(base, ec->element, eElement);
 				ec->distance = eDistance;
