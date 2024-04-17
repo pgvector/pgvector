@@ -1411,7 +1411,7 @@ HnswSearchLayerRelaxedNext(char *base, Datum q, Relation index,
 }
 
 static HnswCandidate * 
-HnswRelaxedNextVisited(char *base, pairingheap *all_visited)
+HnswVisitedRelaxedNext(char *base, pairingheap *all_visited)
 {
 	while(!pairingheap_is_empty(all_visited) )
 	{
@@ -1548,7 +1548,7 @@ HnswSearchLayerRelaxed(IndexScanDesc scan, List *ep, int ef)
 	}
 	/* save all variables stored search state */
 	so->next.nextFromSearch = HnswSearchLayerRelaxedNext(base,q,index,procinfo,collation,m,C,(visited_hash*)v);
-	so->next.nextFromVisited = HnswRelaxedNextVisited(base,all_visited);
+	so->next.nextFromVisited = HnswVisitedRelaxedNext(base,all_visited);
 	so->visitedFlag = v;
 	so->candidates = C;
 	so->allVisited = all_visited;
@@ -1580,7 +1580,7 @@ ItemPointerData NextScanItemsRelaxed(IndexScanDesc scan)
             heaptid = element->heaptids[--element->heaptidsLength];
 			if(element->heaptidsLength == 0)
 			{
-				next->nextFromVisited = HnswRelaxedNextVisited(base,all_visited);
+				next->nextFromVisited = HnswVisitedRelaxedNext(base,all_visited);
 			}
         } 
 		else 
@@ -1599,7 +1599,7 @@ ItemPointerData NextScanItemsRelaxed(IndexScanDesc scan)
         heaptid = element->heaptids[--element->heaptidsLength];
 		if(element->heaptidsLength == 0)
 		{
-			next->nextFromVisited = HnswRelaxedNextVisited(base,all_visited);
+			next->nextFromVisited = HnswVisitedRelaxedNext(base,all_visited);
 		}
 	}
 	else if(next->nextFromSearch)
