@@ -41,7 +41,7 @@
 #endif
 #endif
 
-#if defined(__x86_64__) && HAVE_TARGET_CLONES && !defined(__FMA__)
+#if defined(__x86_64__) && defined(HAVE_TARGET_CLONES) && !defined(__FMA__)
 #define VECTOR_DISPATCH __attribute__((target_clones("default", "fma")))
 #else
 #define VECTOR_DISPATCH
