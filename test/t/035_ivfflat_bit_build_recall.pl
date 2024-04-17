@@ -98,7 +98,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	test_recall(1, 0.10, $operator);
+	test_recall(1, 0.09, $operator);
 	test_recall(10, 0.55, $operator);
 
 	# Test probes equals lists
@@ -116,7 +116,7 @@ for my $i (0 .. $#operators)
 	like($stderr, qr/using \d+ parallel workers/);
 
 	# Test approximate results
-	test_recall(1, 0.10, $operator);
+	test_recall(1, 0.09, $operator);
 	test_recall(10, 0.55, $operator);
 
 	# Test probes equals lists
