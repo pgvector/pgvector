@@ -16,4 +16,5 @@ CREATE TABLE t (val varbit(3));
 CREATE INDEX ON t USING ivfflat (val bit_hamming_ops) WITH (lists = 1);
 CREATE INDEX ON t USING ivfflat ((val::bit(3)) bit_hamming_ops) WITH (lists = 1);
 CREATE INDEX ON t USING ivfflat ((val::bit(64001)) bit_hamming_ops) WITH (lists = 1);
+CREATE INDEX ON t USING ivfflat ((val::bit(2)) bit_hamming_ops) WITH (lists = 5);
 DROP TABLE t;

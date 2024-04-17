@@ -707,21 +707,22 @@ CheckCenters(Relation index, VectorArray centers, IvfflatType type)
 			elog(ERROR, "Unsupported type");
 	}
 
-	/* Ensure no duplicate centers */
-	/* Fine to sort in-place */
-	if (type == IVFFLAT_TYPE_VECTOR)
-		qsort(centers->items, centers->length, centers->itemsize, CompareVectors);
-	else if (type == IVFFLAT_TYPE_HALFVEC)
-		qsort(centers->items, centers->length, centers->itemsize, CompareHalfVectors);
-	else if (type == IVFFLAT_TYPE_BIT)
-		qsort(centers->items, centers->length, centers->itemsize, CompareBitVectors);
-	else
-		elog(ERROR, "Unsupported type");
-
-	for (int i = 1; i < centers->length; i++)
+	if (type != IVFFLAT_TYPE_BIT)
 	{
-		if (datumIsEqual(PointerGetDatum(VectorArrayGet(centers, i)), PointerGetDatum(VectorArrayGet(centers, i - 1)), false, -1))
-			elog(ERROR, "Duplicate centers detected. Please report a bug.");
+		/* Ensure no duplicate centers */
+		/* Fine to sort in-place */
+		if (type == IVFFLAT_TYPE_VECTOR)
+			qsort(centers->items, centers->length, centers->itemsize, CompareVectors);
+		else if (type == IVFFLAT_TYPE_HALFVEC)
+			qsort(centers->items, centers->length, centers->itemsize, CompareHalfVectors);
+		else
+			elog(ERROR, "Unsupported type");
+
+		for (int i = 1; i < centers->length; i++)
+		{
+			if (datumIsEqual(PointerGetDatum(VectorArrayGet(centers, i)), PointerGetDatum(VectorArrayGet(centers, i - 1)), false, -1))
+				elog(ERROR, "Duplicate centers detected. Please report a bug.");
+		}
 	}
 
 	/* Ensure no zero vectors for cosine distance */
