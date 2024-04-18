@@ -198,6 +198,7 @@ HalfvecCosineSimilarityF16cFma(int dim, half * ax, half * bx)
 static bool
 SupportsCpuFeature(unsigned int feature)
 {
+	/* TODO Fix check */
 	unsigned int exx[4] = {0, 0, 0, 0};
 
 #if defined(HAVE__GET_CPUID)
