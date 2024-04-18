@@ -5,10 +5,11 @@
 
 #include <float.h>
 
+#include "bitutils.h"
 #include "fmgr.h"
 #include "vector.h"
 
-#if defined(__x86_64__) || defined(_M_AMD64)
+#if defined(USE_DISPATCH)
 #define HALFVEC_DISPATCH
 #endif
 
