@@ -1,7 +1,7 @@
 #include "postgres.h"
 
+#include "bitutils.h"
 #include "bitvector.h"
-#include "port/pg_bitutils.h"
 #include "utils/varbit.h"
 
 #if PG_VERSION_NUM >= 160000
@@ -46,17 +46,10 @@ hamming_distance(PG_FUNCTION_ARGS)
 {
 	VarBit	   *a = PG_GETARG_VARBIT_P(0);
 	VarBit	   *b = PG_GETARG_VARBIT_P(1);
-	unsigned char *ax = VARBITS(a);
-	unsigned char *bx = VARBITS(b);
-	uint64		distance = 0;
 
 	CheckDims(a, b);
 
-	/* TODO Improve performance */
-	for (uint32 i = 0; i < VARBITBYTES(a); i++)
-		distance += pg_number_of_ones[ax[i] ^ bx[i]];
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) BitHammingDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b), 0));
 }
 
 /*
@@ -68,23 +61,8 @@ jaccard_distance(PG_FUNCTION_ARGS)
 {
 	VarBit	   *a = PG_GETARG_VARBIT_P(0);
 	VarBit	   *b = PG_GETARG_VARBIT_P(1);
-	unsigned char *ax = VARBITS(a);
-	unsigned char *bx = VARBITS(b);
-	uint64		ab = 0;
-	uint64		aa;
-	uint64		bb;
 
 	CheckDims(a, b);
 
-	/* TODO Improve performance */
-	for (uint32 i = 0; i < VARBITBYTES(a); i++)
-		ab += pg_number_of_ones[ax[i] & bx[i]];
-
-	if (ab == 0)
-		PG_RETURN_FLOAT8(1);
-
-	aa = pg_popcount((char *) ax, VARBITBYTES(a));
-	bb = pg_popcount((char *) bx, VARBITBYTES(b));
-
-	PG_RETURN_FLOAT8(1 - (ab / ((double) (aa + bb - ab))));
+	PG_RETURN_FLOAT8(BitJaccardDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b), 0, 0, 0));
 }

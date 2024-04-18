@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "bitutils.h"
 #include "bitvector.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
@@ -56,6 +57,7 @@ PGDLLEXPORT void _PG_init(void);
 void
 _PG_init(void)
 {
+	BitvecInit();
 	HalfvecInit();
 	HnswInit();
 	IvfflatInit();
