@@ -19,6 +19,7 @@
 #endif
 #endif
 
+
 float		(*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 float		(*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 double		(*HalfvecCosineSimilarity) (int dim, half * ax, half * bx);
@@ -196,7 +197,13 @@ HalfvecCosineSimilarityF16cFma(int dim, half * ax, half * bx)
 #define CPU_FEATURE_OSXSAVE (1 << 27)
 #define CPU_FEATURE_F16C    (1 << 29)
 
-static bool
+#ifdef _MSC_VER
+#define TARGET_XSAVE
+#else
+#define TARGET_XSAVE __attribute__((target("xsave")))
+#endif
+
+TARGET_XSAVE static bool
 SupportsCpuFeature(unsigned int feature)
 {
 	unsigned int exx[4] = {0, 0, 0, 0};
