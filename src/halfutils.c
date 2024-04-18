@@ -195,6 +195,7 @@ HalfvecCosineSimilarityF16cFma(int dim, half * ax, half * bx)
 #ifdef HALFVEC_DISPATCH
 #define CPU_FEATURE_FMA     (1 << 12)
 #define CPU_FEATURE_OSXSAVE (1 << 27)
+#define CPU_FEATURE_AVX     (1 << 28)
 #define CPU_FEATURE_F16C    (1 << 29)
 
 #ifdef _MSC_VER
@@ -236,7 +237,7 @@ HalfvecInit(void)
 	HalfvecCosineSimilarity = HalfvecCosineSimilarityDefault;
 
 #ifdef HALFVEC_DISPATCH
-	if (SupportsCpuFeature(CPU_FEATURE_FMA | CPU_FEATURE_F16C))
+	if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_FMA | CPU_FEATURE_F16C))
 	{
 		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16cFma;
 		HalfvecInnerProduct = HalfvecInnerProductF16cFma;
