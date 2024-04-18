@@ -214,9 +214,11 @@ SupportsCpuFeature(unsigned int feature)
 	__cpuid(exx, 1);
 #endif
 
+	/* Check OS supports XSAVE */
 	if ((exx[2] & CPU_FEATURE_OSXSAVE) != CPU_FEATURE_OSXSAVE)
 		return false;
 
+	/* Check YMM registers are enabled */
 	if ((_xgetbv(0) & 6) != 6)
 		return false;
 
