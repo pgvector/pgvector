@@ -8,14 +8,14 @@
 
 #if defined(HAVE__GET_CPUID)
 #include <cpuid.h>
-#elif defined(HAVE__CPUID)
+#else
 #include <intrin.h>
 #endif
 
 #ifdef _MSC_VER
-#define TARGET_F16C_FMA
+#define TARGET_F16C
 #else
-#define TARGET_F16C_FMA __attribute__((target("f16c,fma")))
+#define TARGET_F16C __attribute__((target("avx,f16c,fma")))
 #endif
 #endif
 
@@ -40,8 +40,8 @@ HalfvecL2SquaredDistanceDefault(int dim, half * ax, half * bx)
 }
 
 #ifdef HALFVEC_DISPATCH
-TARGET_F16C_FMA static float
-HalfvecL2SquaredDistanceF16cFma(int dim, half * ax, half * bx)
+TARGET_F16C static float
+HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 {
 	float		distance;
 	int			i;
@@ -88,8 +88,8 @@ HalfvecInnerProductDefault(int dim, half * ax, half * bx)
 }
 
 #ifdef HALFVEC_DISPATCH
-TARGET_F16C_FMA static float
-HalfvecInnerProductF16cFma(int dim, half * ax, half * bx)
+TARGET_F16C static float
+HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 {
 	float		distance;
 	int			i;
@@ -141,8 +141,8 @@ HalfvecCosineSimilarityDefault(int dim, half * ax, half * bx)
 }
 
 #ifdef HALFVEC_DISPATCH
-TARGET_F16C_FMA static double
-HalfvecCosineSimilarityF16cFma(int dim, half * ax, half * bx)
+TARGET_F16C static double
+HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 {
 	float		similarity;
 	float		norma;
@@ -192,20 +192,37 @@ HalfvecCosineSimilarityF16cFma(int dim, half * ax, half * bx)
 #endif
 
 #ifdef HALFVEC_DISPATCH
-#define CPU_FEATURE_FMA  (1 << 12)
-#define CPU_FEATURE_F16C (1 << 29)
+#define CPU_FEATURE_FMA     (1 << 12)
+#define CPU_FEATURE_OSXSAVE (1 << 27)
+#define CPU_FEATURE_AVX     (1 << 28)
+#define CPU_FEATURE_F16C    (1 << 29)
 
-static bool
+#ifdef _MSC_VER
+#define TARGET_XSAVE
+#else
+#define TARGET_XSAVE __attribute__((target("xsave")))
+#endif
+
+TARGET_XSAVE static bool
 SupportsCpuFeature(unsigned int feature)
 {
 	unsigned int exx[4] = {0, 0, 0, 0};
 
 #if defined(HAVE__GET_CPUID)
 	__get_cpuid(1, &exx[0], &exx[1], &exx[2], &exx[3]);
-#elif defined(HAVE__CPUID)
+#else
 	__cpuid(exx, 1);
 #endif
 
+	/* Check OS supports XSAVE */
+	if ((exx[2] & CPU_FEATURE_OSXSAVE) != CPU_FEATURE_OSXSAVE)
+		return false;
+
+	/* Check XMM and YMM registers are enabled */
+	if ((_xgetbv(0) & 6) != 6)
+		return false;
+
+	/* Now check features */
 	return (exx[2] & feature) == feature;
 }
 #endif
@@ -222,11 +239,11 @@ HalfvecInit(void)
 	HalfvecCosineSimilarity = HalfvecCosineSimilarityDefault;
 
 #ifdef HALFVEC_DISPATCH
-	if (SupportsCpuFeature(CPU_FEATURE_FMA | CPU_FEATURE_F16C))
+	if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_F16C | CPU_FEATURE_FMA))
 	{
-		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16cFma;
-		HalfvecInnerProduct = HalfvecInnerProductF16cFma;
-		HalfvecCosineSimilarity = HalfvecCosineSimilarityF16cFma;
+		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16c;
+		HalfvecInnerProduct = HalfvecInnerProductF16c;
+		HalfvecCosineSimilarity = HalfvecCosineSimilarityF16c;
 	}
 #endif
 }
