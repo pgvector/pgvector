@@ -218,10 +218,11 @@ SupportsCpuFeature(unsigned int feature)
 	if ((exx[2] & CPU_FEATURE_OSXSAVE) != CPU_FEATURE_OSXSAVE)
 		return false;
 
-	/* Check YMM registers are enabled */
+	/* Check XMM and YMM registers are enabled */
 	if ((_xgetbv(0) & 6) != 6)
 		return false;
 
+	/* Now check features */
 	return (exx[2] & feature) == feature;
 }
 #endif
