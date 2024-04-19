@@ -164,8 +164,18 @@ SELECT '{1:0,2:1,3:0}/3'::sparsevec;
 (1 row)
 
 SELECT '{2:1,1:1}/2'::sparsevec;
-ERROR:  indexes must be in ascending order
-LINE 1: SELECT '{2:1,1:1}/2'::sparsevec;
+  sparsevec  
+-------------
+ {1:1,2:1}/2
+(1 row)
+
+SELECT '{1:1,1:1}/2'::sparsevec;
+ERROR:  indexes must not contain duplicates
+LINE 1: SELECT '{1:1,1:1}/2'::sparsevec;
+               ^
+SELECT '{1:1,2:1,1:1}/2'::sparsevec;
+ERROR:  indexes must not contain duplicates
+LINE 1: SELECT '{1:1,2:1,1:1}/2'::sparsevec;
                ^
 SELECT '{}/5'::sparsevec;
  sparsevec 

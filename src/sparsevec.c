@@ -18,6 +18,12 @@
 #include "utils/builtins.h"
 #endif
 
+typedef struct SparseInputElement
+{
+	int32		index;
+	float		value;
+}			SparseInputElement;
+
 /*
  * Ensure same dimensions
  */
@@ -165,6 +171,21 @@ sparsevec_isspace(char ch)
 }
 
 /*
+ * Compare indices
+ */
+static int
+CompareIndices(const void *a, const void *b)
+{
+	if (((SparseInputElement *) a)->index < ((SparseInputElement *) b)->index)
+		return -1;
+
+	if (((SparseInputElement *) a)->index > ((SparseInputElement *) b)->index)
+		return 1;
+
+	return 0;
+}
+
+/*
  * Convert textual representation to internal representation
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_in);
@@ -178,8 +199,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	char	   *stringEnd;
 	SparseVector *result;
 	float	   *rvalues;
-	int32	   *indices;
-	float	   *values;
+	SparseInputElement *elements;
 	int			maxNnz;
 	int			nnz = 0;
 
@@ -197,8 +217,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("sparsevec cannot have more than %d non-zero elements", SPARSEVEC_MAX_NNZ)));
 
-	indices = palloc(maxNnz * sizeof(int32));
-	values = palloc(maxNnz * sizeof(float));
+	elements = palloc(maxNnz * sizeof(SparseInputElement));
 
 	pt = lit;
 
@@ -291,8 +310,8 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			/* Do not store zero values */
 			if (value != 0)
 			{
-				indices[nnz] = index;
-				values[nnz] = value;
+				elements[nnz].index = index;
+				elements[nnz].value = value;
 				nnz++;
 			}
 
@@ -353,12 +372,14 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
 
+	qsort(elements, nnz, sizeof(SparseInputElement), CompareIndices);
+
 	result = InitSparseVector(dim, nnz);
 	rvalues = SPARSEVEC_VALUES(result);
 	for (int i = 0; i < nnz; i++)
 	{
-		result->indices[i] = indices[i];
-		rvalues[i] = values[i];
+		result->indices[i] = elements[i].index;
+		rvalues[i] = elements[i].value;
 
 		CheckIndex(result->indices, i, dim);
 	}
