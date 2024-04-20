@@ -4,6 +4,8 @@
 #include <math.h>
 
 #include "fmgr.h"
+#include "halfutils.h"
+#include "halfvec.h"
 #include "libpq/pqformat.h"
 #include "sparsevec.h"
 #include "utils/array.h"
@@ -605,6 +607,49 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 
 			result->indices[j] = i + 1;
 			values[j] = vec->x[i];
+			j++;
+		}
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert half vector to sparse vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_sparsevec);
+Datum
+halfvec_to_sparsevec(PG_FUNCTION_ARGS)
+{
+	HalfVector *vec = PG_GETARG_HALFVEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	SparseVector *result;
+	int			dim = vec->dim;
+	int			nnz = 0;
+	float	   *values;
+	int			j = 0;
+
+	CheckDim(dim);
+	CheckExpectedDim(typmod, dim);
+
+	for (int i = 0; i < dim; i++)
+	{
+		if (!HalfIsZero(vec->x[i]))
+			nnz++;
+	}
+
+	result = InitSparseVector(dim, nnz);
+	values = SPARSEVEC_VALUES(result);
+	for (int i = 0; i < dim; i++)
+	{
+		if (!HalfIsZero(vec->x[i]))
+		{
+			/* Safety check */
+			if (j >= result->nnz)
+				elog(ERROR, "safety check failed");
+
+			result->indices[j] = i + 1;
+			values[j] = HalfToFloat4(vec->x[i]);
 			j++;
 		}
 	}

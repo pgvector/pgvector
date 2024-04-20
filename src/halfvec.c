@@ -11,6 +11,7 @@
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
+#include "sparsevec.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/float.h"
@@ -1171,6 +1172,29 @@ halfvec_avg(PG_FUNCTION_ARGS)
 		result->x[i] = Float4ToHalf(statevalues[i + 1] / n);
 		CheckElement(result->x[i]);
 	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert sparse vector to half vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_to_halfvec);
+Datum
+sparsevec_to_halfvec(PG_FUNCTION_ARGS)
+{
+	SparseVector *svec = PG_GETARG_SPARSEVEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	HalfVector *result;
+	int			dim = svec->dim;
+	float	   *values = SPARSEVEC_VALUES(svec);
+
+	CheckDim(dim);
+	CheckExpectedDim(typmod, dim);
+
+	result = InitHalfVector(dim);
+	for (int i = 0; i < svec->nnz; i++)
+		result->x[svec->indices[i] - 1] = Float4ToHalf(values[i]);
 
 	PG_RETURN_POINTER(result);
 }

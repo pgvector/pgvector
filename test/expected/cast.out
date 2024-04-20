@@ -170,6 +170,36 @@ SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(4);
 ERROR:  expected 4 dimensions, not 5
 SELECT '{}/16001'::sparsevec::vector;
 ERROR:  vector cannot have more than 16000 dimensions
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec;
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(5);
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(4);
+ERROR:  expected 4 dimensions, not 5
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec;
+     halfvec     
+-----------------
+ [0,1.5,0,3.5,0]
+(1 row)
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(5);
+     halfvec     
+-----------------
+ [0,1.5,0,3.5,0]
+(1 row)
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(4);
+ERROR:  expected 4 dimensions, not 5
+SELECT '{}/16001'::sparsevec::halfvec;
+ERROR:  halfvec cannot have more than 16000 dimensions
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;

@@ -47,6 +47,15 @@ SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(5);
 SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(4);
 SELECT '{}/16001'::sparsevec::vector;
 
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec;
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(5);
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(4);
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec;
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(5);
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(4);
+SELECT '{}/16001'::sparsevec::halfvec;
+
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
 
