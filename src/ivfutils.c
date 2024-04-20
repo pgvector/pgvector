@@ -3,7 +3,6 @@
 #include "access/generic_xlog.h"
 #include "catalog/pg_type.h"
 #include "fmgr.h"
-#include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"

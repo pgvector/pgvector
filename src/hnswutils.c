@@ -6,7 +6,6 @@
 #include "catalog/pg_type.h"
 #include "catalog/pg_type_d.h"
 #include "fmgr.h"
-#include "halfutils.h"
 #include "halfvec.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
