@@ -68,6 +68,9 @@ SELECT '[1,2]'::halfvec <=> '[2,4]';
 SELECT l1_distance('[0,0]'::halfvec, '[3,4]');
 SELECT l1_distance('[0,0]'::halfvec, '[0,1]');
 SELECT l1_distance('[1,2]'::halfvec, '[3]');
+SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::halfvec, '[1,2,3,4,5,6,7,8,9]');
+SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::halfvec, '[0,3,2,5,4,7,6,9,8]');
+SELECT '[0,0]'::halfvec <+> '[3,4]';
 
 SELECT l2_normalize('[3,4]'::halfvec);
 SELECT l2_normalize('[3,0]'::halfvec);
