@@ -202,6 +202,12 @@ SELECT l2_distance('[3e38]'::vector, '[-3e38]');
     Infinity
 (1 row)
 
+SELECT l2_distance('[1,1,1,1,1,1,1,1,1]'::vector, '[1,1,1,1,1,1,1,4,5]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
 SELECT '[0,0]'::vector <-> '[3,4]';
  ?column? 
 ----------
@@ -220,6 +226,12 @@ SELECT inner_product('[3e38]'::vector, '[3e38]');
  inner_product 
 ---------------
       Infinity
+(1 row)
+
+SELECT inner_product('[1,1,1,1,1,1,1,1,1]'::vector, '[1,2,3,4,5,6,7,8,9]');
+ inner_product 
+---------------
+            45
 (1 row)
 
 SELECT '[1,2]'::vector <#> '[3,4]';
@@ -278,6 +290,18 @@ SELECT cosine_distance('[3e38]'::vector, '[3e38]');
              NaN
 (1 row)
 
+SELECT cosine_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[1,2,3,4,5,6,7,8,9]');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[-1,-2,-3,-4,-5,-6,-7,-8,-9]');
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
 SELECT '[1,2]'::vector <=> '[2,4]';
  ?column? 
 ----------
@@ -302,6 +326,24 @@ SELECT l1_distance('[3e38]'::vector, '[-3e38]');
  l1_distance 
 -------------
     Infinity
+(1 row)
+
+SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[1,2,3,4,5,6,7,8,9]');
+ l1_distance 
+-------------
+           0
+(1 row)
+
+SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[0,3,2,5,4,7,6,9,8]');
+ l1_distance 
+-------------
+           9
+(1 row)
+
+SELECT '[0,0]'::vector <+> '[3,4]';
+ ?column? 
+----------
+        7
 (1 row)
 
 SELECT l2_normalize('[3,4]'::vector);
