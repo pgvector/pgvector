@@ -729,7 +729,8 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(acos(distance) / M_PI);
 }
 
-static float
+/* Does not require FMA, but keep logic simple */
+VECTOR_TARGET_CLONES static float
 VectorL1Distance(int dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
