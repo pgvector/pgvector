@@ -535,7 +535,7 @@ SELECT id, content FROM items, plainto_tsquery('hello search') query
 
 You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search_rrf.py) or a [cross-encoder](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search.py) to combine results.
 
-## Subvector Indexing
+## Indexing Subvectors
 
 *Unreleased*
 
