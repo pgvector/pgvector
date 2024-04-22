@@ -67,8 +67,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<->", "<#>", "<=>");
-my @opclasses = ("sparsevec_l2_ops", "sparsevec_ip_ops", "sparsevec_cosine_ops");
+my @operators = ("<->", "<#>", "<=>", "<+>");
+my @opclasses = ("sparsevec_l2_ops", "sparsevec_ip_ops", "sparsevec_cosine_ops", "sparsevec_l1_ops");
 
 for my $i (0 .. $#operators)
 {

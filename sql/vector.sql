@@ -804,6 +804,11 @@ CREATE OPERATOR <=> (
 	COMMUTATOR = '<=>'
 );
 
+CREATE OPERATOR <+> (
+	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = l1_distance,
+	COMMUTATOR = '<+>'
+);
+
 CREATE OPERATOR < (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_lt,
 	COMMUTATOR = > , NEGATOR = >= ,
@@ -866,3 +871,8 @@ CREATE OPERATOR CLASS sparsevec_cosine_ops
 	OPERATOR 1 <=> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
 	FUNCTION 2 l2_norm(sparsevec);
+
+CREATE OPERATOR CLASS sparsevec_l1_ops
+	FOR TYPE sparsevec USING hnsw AS
+	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(sparsevec, sparsevec);
