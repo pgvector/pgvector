@@ -683,17 +683,10 @@ halfvec_l1_distance(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	HalfVector *b = PG_GETARG_HALFVEC_P(1);
-	half	   *ax = a->x;
-	half	   *bx = b->x;
-	float		distance = 0.0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) HalfvecL1Distance(a->dim, a->x, b->x));
 }
 
 /*

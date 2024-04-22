@@ -22,6 +22,7 @@
 float		(*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 float		(*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 double		(*HalfvecCosineSimilarity) (int dim, half * ax, half * bx);
+float		(*HalfvecL1Distance) (int dim, half * ax, half * bx);
 
 static float
 HalfvecL2SquaredDistanceDefault(int dim, half * ax, half * bx)
@@ -191,6 +192,18 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 }
 #endif
 
+static float
+HalfvecL1DistanceDefault(int dim, half * ax, half * bx)
+{
+	float		distance = 0.0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
+
+	return distance;
+}
+
 #ifdef HALFVEC_DISPATCH
 #define CPU_FEATURE_FMA     (1 << 12)
 #define CPU_FEATURE_OSXSAVE (1 << 27)
@@ -237,6 +250,7 @@ HalfvecInit(void)
 	HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceDefault;
 	HalfvecInnerProduct = HalfvecInnerProductDefault;
 	HalfvecCosineSimilarity = HalfvecCosineSimilarityDefault;
+	HalfvecL1Distance = HalfvecL1DistanceDefault;
 
 #ifdef HALFVEC_DISPATCH
 	if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_F16C | CPU_FEATURE_FMA))

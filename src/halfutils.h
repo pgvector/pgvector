@@ -13,6 +13,7 @@
 extern float (*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 extern float (*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 extern double (*HalfvecCosineSimilarity) (int dim, half * ax, half * bx);
+extern float (*HalfvecL1Distance) (int dim, half * ax, half * bx);
 
 void		HalfvecInit(void);
 
