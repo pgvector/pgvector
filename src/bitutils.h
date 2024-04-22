@@ -1,9 +1,10 @@
 #ifndef BITUTILS_H
 #define BITUTILS_H
 
-#ifndef DISABLE_DISPATCH
-/* Only enable for more recent compilers */
+/* We use two types of dispatching: intrinsics and target_clones */
 /* TODO Move to better place */
+#ifndef DISABLE_DISPATCH
+/* Only enable for more recent compilers to keep build process simple */
 #if defined(__x86_64__) && defined(__GNUC__) && __GNUC__ >= 8
 #define USE_DISPATCH
 #elif defined(__x86_64__) && defined(__clang_major__) && __clang_major__ >= 7
