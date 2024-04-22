@@ -81,7 +81,7 @@ Get the nearest neighbors by L2 distance
 SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
-Also supports inner product (`<#>`) and cosine distance (`<=>`)
+Also supports inner product (`<#>`), cosine distance (`<=>`), and L1 distance (`<+>`, unreleased)
 
 Note: `<#>` returns the negative inner product since Postgres only supports `ASC` order index scans on operators
 
@@ -143,6 +143,7 @@ Supported distance functions are:
 - `<->` - L2 distance
 - `<#>` - (negative) inner product
 - `<=>` - cosine distance
+- `<+>` - L1 distance (unreleased)
 
 Get the nearest neighbors to a row
 
