@@ -1,6 +1,7 @@
 #ifndef BITUTILS_H
 #define BITUTILS_H
 
+#ifndef DISABLE_DISPATCH
 /* Only enable for more recent compilers */
 /* TODO Move to better place */
 #if defined(__x86_64__) && defined(__GNUC__) && __GNUC__ >= 8
@@ -9,6 +10,7 @@
 #define USE_DISPATCH
 #elif defined(_M_AMD64) && defined(_MSC_VER) && _MSC_VER >= 1920
 #define USE_DISPATCH
+#endif
 #endif
 
 /* target_clones requires glibc */
