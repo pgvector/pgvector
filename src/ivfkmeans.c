@@ -3,7 +3,7 @@
 #include <float.h>
 #include <math.h>
 
-#include "bitvector.h"
+#include "bitvec.h"
 #include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"

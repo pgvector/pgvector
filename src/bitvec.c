@@ -1,7 +1,7 @@
 #include "postgres.h"
 
 #include "bitutils.h"
-#include "bitvector.h"
+#include "bitvec.h"
 #include "utils/varbit.h"
 
 #if PG_VERSION_NUM >= 160000

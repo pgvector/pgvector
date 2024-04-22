@@ -6,7 +6,7 @@
 #include "access/tableam.h"
 #include "access/parallel.h"
 #include "access/xact.h"
-#include "bitvector.h"
+#include "bitvec.h"
 #include "catalog/index.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"

@@ -3,7 +3,7 @@
 #include <float.h>
 
 #include "access/relscan.h"
-#include "bitvector.h"
+#include "bitvec.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
 #include "halfvec.h"

@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "bitvector.h"
+#include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
