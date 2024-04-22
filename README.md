@@ -227,6 +227,12 @@ Cosine distance
 CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
 ```
 
+L1 distance - unreleased
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l1_ops);
+```
+
 Hamming distance - unreleased
 
 ```sql
@@ -347,6 +353,12 @@ Cosine distance
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+L1 distance - unreleased
+
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_l1_ops) WITH (lists = 100);
 ```
 
 Supported types are:
@@ -855,6 +867,7 @@ Operator | Description | Added
 <-> | Euclidean distance |
 <#> | negative inner product |
 <=> | cosine distance |
+<+> | taxicab distance | unreleased
 
 ### Vector Functions
 

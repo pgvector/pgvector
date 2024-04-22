@@ -186,6 +186,11 @@ CREATE OPERATOR <=> (
 	COMMUTATOR = '<=>'
 );
 
+CREATE OPERATOR <+> (
+	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = l1_distance,
+	COMMUTATOR = '<+>'
+);
+
 CREATE OPERATOR + (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_add,
 	COMMUTATOR = +
@@ -288,6 +293,12 @@ CREATE OPERATOR CLASS vector_cosine_ops
 	FUNCTION 3 vector_spherical_distance(vector, vector),
 	FUNCTION 4 vector_norm(vector);
 
+CREATE OPERATOR CLASS vector_l1_ops
+	FOR TYPE vector USING ivfflat AS
+	OPERATOR 1 <+> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(vector, vector),
+	FUNCTION 3 l1_distance(vector, vector);
+
 CREATE OPERATOR CLASS vector_l2_ops
 	FOR TYPE vector USING hnsw AS
 	OPERATOR 1 <-> (vector, vector) FOR ORDER BY float_ops,
@@ -303,6 +314,11 @@ CREATE OPERATOR CLASS vector_cosine_ops
 	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector),
 	FUNCTION 2 vector_norm(vector);
+
+CREATE OPERATOR CLASS vector_l1_ops
+	FOR TYPE vector USING hnsw AS
+	OPERATOR 1 <+> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(vector, vector);
 
 -- bit functions
 

@@ -13,9 +13,25 @@ CREATE FUNCTION subvector(vector, int, int) RETURNS vector
 CREATE FUNCTION vector_concat(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE OPERATOR <+> (
+	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = l1_distance,
+	COMMUTATOR = '<+>'
+);
+
 CREATE OPERATOR || (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_concat
 );
+
+CREATE OPERATOR CLASS vector_l1_ops
+	FOR TYPE vector USING ivfflat AS
+	OPERATOR 1 <+> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(vector, vector),
+	FUNCTION 3 l1_distance(vector, vector);
+
+CREATE OPERATOR CLASS vector_l1_ops
+	FOR TYPE vector USING hnsw AS
+	OPERATOR 1 <+> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(vector, vector);
 
 CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
