@@ -68,8 +68,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<->", "<#>", "<=>");
-my @opclasses = ("halfvec_l2_ops", "halfvec_ip_ops", "halfvec_cosine_ops");
+my @operators = ("<->", "<#>", "<=>", "<+>");
+my @opclasses = ("halfvec_l2_ops", "halfvec_ip_ops", "halfvec_cosine_ops", "halfvec_l1_ops");
 
 for my $i (0 .. $#operators)
 {

@@ -917,6 +917,7 @@ Operator | Description | Added
 <-> | Euclidean distance | unreleased
 <#> | negative inner product | unreleased
 <=> | cosine distance | unreleased
+<+> | taxicab distance | unreleased
 
 ### Halfvec Functions
 

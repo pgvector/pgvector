@@ -251,6 +251,11 @@ CREATE OPERATOR <=> (
 	COMMUTATOR = '<=>'
 );
 
+CREATE OPERATOR <+> (
+	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = l1_distance,
+	COMMUTATOR = '<+>'
+);
+
 CREATE OPERATOR + (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_add,
 	COMMUTATOR = +
@@ -335,6 +340,12 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
 	FUNCTION 4 l2_norm(halfvec);
 
+CREATE OPERATOR CLASS halfvec_l1_ops
+	FOR TYPE halfvec USING ivfflat AS
+	OPERATOR 1 <+> (halfvec, halfvec) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(halfvec, halfvec),
+	FUNCTION 3 l1_distance(halfvec, halfvec);
+
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
@@ -350,6 +361,11 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 2 l2_norm(halfvec);
+
+CREATE OPERATOR CLASS halfvec_l1_ops
+	FOR TYPE halfvec USING hnsw AS
+	OPERATOR 1 <+> (halfvec, halfvec) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(halfvec, halfvec);
 
 CREATE TYPE sparsevec;
 
