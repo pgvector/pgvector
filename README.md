@@ -248,10 +248,10 @@ CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
 
 Supported types are:
 
-- `vector` - up to 2,000 dimensions
-- `halfvec` - up to 4,000 dimensions (unreleased)
-- `bit` - up to 64,000 dimensions (unreleased)
-- `sparsevec` - up to 1,000 non-zero elements (unreleased)
+- `vector` - up to 2,000 dimensions - `vector_*_ops`
+- `halfvec` - up to 4,000 dimensions - `halfvec_*_ops` (unreleased)
+- `bit` - up to 64,000 dimensions - `bit_*_ops` (unreleased)
+- `sparsevec` - up to 1,000 non-zero elements - `sparsevec_*_ops` (unreleased)
 
 ### Index Options
 
@@ -364,9 +364,9 @@ CREATE INDEX ON items USING ivfflat (embedding bit_hamming_ops) WITH (lists = 10
 
 Supported types are:
 
-- `vector` - up to 2,000 dimensions
-- `halfvec` - up to 4,000 dimensions (unreleased)
-- `bit` - up to 64,000 dimensions (unreleased)
+- `vector` - up to 2,000 dimensions - `vector_*_ops`
+- `halfvec` - up to 4,000 dimensions - `halfvec_*_ops` (unreleased)
+- `bit` - up to 64,000 dimensions - `bit_*_ops` (unreleased)
 
 ### Query Options
 
