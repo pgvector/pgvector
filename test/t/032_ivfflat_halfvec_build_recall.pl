@@ -102,7 +102,12 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	if ($operator ne "<#>")
+	if ($operator eq "<+>")
+	{
+		test_recall(1, 0.30, $operator);
+		test_recall(10, 0.90, $operator);
+	}
+	elsif ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
 		test_recall(1, 0.34, $operator);
@@ -131,7 +136,12 @@ for my $i (0 .. $#operators)
 	like($stderr, qr/using \d+ parallel workers/);
 
 	# Test approximate results
-	if ($operator ne "<#>")
+	if ($operator eq "<+>")
+	{
+		test_recall(1, 0.30, $operator);
+		test_recall(10, 0.90, $operator);
+	}
+	elsif ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
 		test_recall(1, 0.34, $operator);
