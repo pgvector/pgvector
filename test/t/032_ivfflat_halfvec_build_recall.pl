@@ -74,8 +74,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<->", "<#>", "<=>", "<+>");
-my @opclasses = ("halfvec_l2_ops", "halfvec_ip_ops", "halfvec_cosine_ops", "halfvec_l1_ops");
+my @operators = ("<->", "<#>", "<=>");
+my @opclasses = ("halfvec_l2_ops", "halfvec_ip_ops", "halfvec_cosine_ops");
 
 for my $i (0 .. $#operators)
 {
@@ -102,12 +102,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	if ($operator eq "<+>")
-	{
-		test_recall(1, 0.30, $operator);
-		test_recall(10, 0.90, $operator);
-	}
-	elsif ($operator ne "<#>")
+	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
 		test_recall(1, 0.34, $operator);
@@ -136,12 +131,7 @@ for my $i (0 .. $#operators)
 	like($stderr, qr/using \d+ parallel workers/);
 
 	# Test approximate results
-	if ($operator eq "<+>")
-	{
-		test_recall(1, 0.30, $operator);
-		test_recall(10, 0.90, $operator);
-	}
-	elsif ($operator ne "<#>")
+	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
 		test_recall(1, 0.34, $operator);

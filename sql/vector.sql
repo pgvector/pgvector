@@ -293,12 +293,6 @@ CREATE OPERATOR CLASS vector_cosine_ops
 	FUNCTION 3 vector_spherical_distance(vector, vector),
 	FUNCTION 4 vector_norm(vector);
 
-CREATE OPERATOR CLASS vector_l1_ops
-	FOR TYPE vector USING ivfflat AS
-	OPERATOR 1 <+> (vector, vector) FOR ORDER BY float_ops,
-	FUNCTION 1 l1_distance(vector, vector),
-	FUNCTION 3 l1_distance(vector, vector);
-
 CREATE OPERATOR CLASS vector_l2_ops
 	FOR TYPE vector USING hnsw AS
 	OPERATOR 1 <-> (vector, vector) FOR ORDER BY float_ops,
@@ -347,12 +341,6 @@ CREATE OPERATOR CLASS bit_hamming_ops
 	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
 	FUNCTION 1 hamming_distance(bit, bit),
 	FUNCTION 3 hamming_distance(bit, bit);
-
-CREATE OPERATOR CLASS bit_jaccard_ops
-	FOR TYPE bit USING ivfflat AS
-	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
-	FUNCTION 1 jaccard_distance(bit, bit),
-	FUNCTION 3 jaccard_distance(bit, bit);
 
 CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING hnsw AS
@@ -648,12 +636,6 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FUNCTION 2 l2_norm(halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
 	FUNCTION 4 l2_norm(halfvec);
-
-CREATE OPERATOR CLASS halfvec_l1_ops
-	FOR TYPE halfvec USING ivfflat AS
-	OPERATOR 1 <+> (halfvec, halfvec) FOR ORDER BY float_ops,
-	FUNCTION 1 l1_distance(halfvec, halfvec),
-	FUNCTION 3 l1_distance(halfvec, halfvec);
 
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS

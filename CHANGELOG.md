@@ -3,7 +3,7 @@
 - Added `halfvec` type
 - Added `sparsevec` type
 - Added support for indexing `bit` type
-- Added support for indexing L1 distance
+- Added support for indexing L1 distance with HNSW
 - Added `binary_quantize` function
 - Added `hamming_distance` function
 - Added `jaccard_distance` function

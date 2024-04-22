@@ -17,8 +17,8 @@ $node->safe_psql("postgres",
 );
 
 # Check each index type
-my @operators = ("<->", "<#>", "<=>", "<+>");
-my @opclasses = ("vector_l2_ops", "vector_ip_ops", "vector_cosine_ops", "vector_l1_ops");
+my @operators = ("<->", "<#>", "<=>");
+my @opclasses = ("vector_l2_ops", "vector_ip_ops", "vector_cosine_ops");
 
 for my $i (0 .. $#operators)
 {

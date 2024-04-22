@@ -356,22 +356,10 @@ Cosine distance
 CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
 
-L1 distance - unreleased
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding vector_l1_ops) WITH (lists = 100);
-```
-
 Hamming distance - unreleased
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding bit_hamming_ops) WITH (lists = 100);
-```
-
-Jaccard distance - unreleased
-
-```sql
-CREATE INDEX ON items USING ivfflat (embedding bit_jaccard_ops) WITH (lists = 100);
 ```
 
 Supported types are:
