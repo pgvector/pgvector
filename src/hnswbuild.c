@@ -678,11 +678,7 @@ HnswSharedMemoryAlloc(Size size, void *state)
 static int
 GetMaxDimensions(Relation index)
 {
-	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
 	FmgrInfo   *procinfo = HnswOptionalProcInfo(index, HNSW_MAX_DIMS_PROC);
-
-	if (typid == VARBITOID)
-		elog(ERROR, "type not supported for hnsw index");
 
 	if (procinfo == NULL)
 		return HNSW_MAX_DIM;
@@ -706,6 +702,9 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
+
+	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
+		elog(ERROR, "type not supported for hnsw index");
 
 	maxDimensions = GetMaxDimensions(index);
 
