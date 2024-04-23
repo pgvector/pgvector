@@ -195,17 +195,12 @@ HnswGetType(Relation index)
  * Normalize value
  */
 Datum
-HnswNormValue(Datum value, HnswType type)
+HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum value)
 {
-	/* TODO Remove type-specific code */
-	if (type == HNSW_TYPE_VECTOR)
+	if (procinfo == NULL)
 		return DirectFunctionCall1(l2_normalize, value);
-	else if (type == HNSW_TYPE_HALFVEC)
-		return DirectFunctionCall1(halfvec_l2_normalize, value);
-	else if (type == HNSW_TYPE_SPARSEVEC)
-		return DirectFunctionCall1(sparsevec_l2_normalize, value);
-	else
-		elog(ERROR, "Unsupported type");
+
+	return FunctionCall1Coll(procinfo, collation, value);
 }
 
 /*

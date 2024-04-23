@@ -61,7 +61,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Fine if normalization fails */
 		if (so->normprocinfo != NULL)
-			value = HnswNormValue(value, HnswGetType(scan->indexRelation));
+			value = HnswNormValue(so->normalizeprocinfo, so->collation, value);
 	}
 
 	return value;
@@ -87,6 +87,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
+	so->normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
 	so->collation = index->rd_indcollation[0];
 
 	scan->opaque = so;

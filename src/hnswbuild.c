@@ -496,7 +496,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 		if (!HnswCheckNorm(buildstate->normprocinfo, buildstate->collation, value))
 			return false;
 
-		value = HnswNormValue(value, buildstate->type);
+		value = HnswNormValue(buildstate->normalizeprocinfo, buildstate->collation, value);
 	}
 
 	/* Get datum size */
@@ -725,6 +725,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	/* Get support functions */
 	buildstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
+	buildstate->normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
 	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * 1024L);

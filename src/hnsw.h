@@ -22,6 +22,7 @@
 /* Support functions */
 #define HNSW_DISTANCE_PROC 1
 #define HNSW_NORM_PROC 2
+#define HNSW_NORMALIZE_PROC 3
 
 #define HNSW_VERSION	1
 #define HNSW_MAGIC_NUMBER 0xA953A953
@@ -265,6 +266,7 @@ typedef struct HnswBuildState
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
+	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 
 	/* Variables */
@@ -341,6 +343,7 @@ typedef struct HnswScanOpaqueData
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
+	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 }			HnswScanOpaqueData;
 
@@ -377,7 +380,7 @@ int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
 HnswType	HnswGetType(Relation index);
-Datum		HnswNormValue(Datum value, HnswType type);
+Datum		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 void		HnswCheckValue(Datum value, HnswType type);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);

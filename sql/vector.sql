@@ -651,7 +651,8 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
-	FUNCTION 2 l2_norm(halfvec);
+	FUNCTION 2 l2_norm(halfvec),
+	FUNCTION 3 l2_normalize(halfvec);
 
 CREATE OPERATOR CLASS halfvec_l1_ops
 	FOR TYPE halfvec USING hnsw AS
@@ -852,7 +853,8 @@ CREATE OPERATOR CLASS sparsevec_cosine_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <=> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
-	FUNCTION 2 l2_norm(sparsevec);
+	FUNCTION 2 l2_norm(sparsevec),
+	FUNCTION 3 l2_normalize(sparsevec);
 
 CREATE OPERATOR CLASS sparsevec_l1_ops
 	FOR TYPE sparsevec USING hnsw AS
