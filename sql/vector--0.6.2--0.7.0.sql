@@ -82,6 +82,7 @@ CREATE TYPE halfvec (
 	TYPMOD_IN = halfvec_typmod_in,
 	RECEIVE   = halfvec_recv,
 	SEND      = halfvec_send,
+	ALIGNMENT = int4,
 	STORAGE   = external
 );
 
@@ -375,6 +376,7 @@ CREATE TYPE sparsevec (
 	TYPMOD_IN = sparsevec_typmod_in,
 	RECEIVE   = sparsevec_recv,
 	SEND      = sparsevec_send,
+	ALIGNMENT = int4,
 	STORAGE   = external
 );
 
