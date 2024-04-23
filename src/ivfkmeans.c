@@ -443,6 +443,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	newcdist = palloc(newcdistSize);
 
 	aggCenters = VectorArrayInit(numCenters, dimensions, VECTOR_SIZE(dimensions));
+	aggCenters->length = numCenters;
+
 	for (int j = 0; j < numCenters; j++)
 	{
 		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
@@ -459,6 +461,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	else if (type == IVFFLAT_TYPE_HALFVEC)
 	{
 		newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
+		newCenters->length = numCenters;
 
 		for (int j = 0; j < numCenters; j++)
 		{
@@ -471,6 +474,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	else if (type == IVFFLAT_TYPE_BIT)
 	{
 		newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
+		newCenters->length = numCenters;
 
 		for (int j = 0; j < numCenters; j++)
 		{
@@ -482,9 +486,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	}
 	else
 		elog(ERROR, "Unsupported type");
-
-	aggCenters->length = aggCenters->maxlen;
-	newCenters->length = newCenters->maxlen;
 
 #ifdef IVFFLAT_MEMORY
 	ShowMemoryUsage(oldCtx, totalSize);
