@@ -687,7 +687,7 @@ GetMaxDimensions(Relation index)
 	if (procinfo == NULL)
 		return HNSW_MAX_DIM;
 
-	return DatumGetInt32(FunctionCall0Coll(procinfo, InvalidOid));
+	return DatumGetInt32(FunctionCall1(procinfo, PointerGetDatum(NULL)));
 }
 
 /*
