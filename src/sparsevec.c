@@ -527,6 +527,10 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	{
 		values[i] = pq_getmsgfloat4(buf);
 		CheckElement(values[i]);
+		if (values[i] == 0)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("binary representation of sparsevec cannot contain zero values")));
 	}
 
 	PG_RETURN_POINTER(result);
