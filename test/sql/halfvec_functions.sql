@@ -88,6 +88,7 @@ SELECT subvector('[1,2,3,4,5]'::halfvec, 3, 9);
 SELECT subvector('[1,2,3,4,5]'::halfvec, 1, 0);
 SELECT subvector('[1,2,3,4,5]'::halfvec, 3, -1);
 SELECT subvector('[1,2,3,4,5]'::halfvec, -1, 2);
+SELECT subvector('[1,2,3,4,5]'::halfvec, 2147483647, 10);
 
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]']) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]', NULL]) v;
