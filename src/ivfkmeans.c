@@ -99,7 +99,7 @@ NormCenters(FmgrInfo *normalizeprocinfo, Oid collation, VectorArray centers)
 												  ALLOCSET_DEFAULT_SIZES);
 	MemoryContext oldCtx = MemoryContextSwitchTo(normCtx);
 
-	for (int j = 0; j < centers->maxlen; j++)
+	for (int j = 0; j < centers->length; j++)
 	{
 		Datum		center = PointerGetDatum(VectorArrayGet(centers, j));
 		Datum		newCenter = IvfflatNormValue(normalizeprocinfo, collation, center);
@@ -482,6 +482,9 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	}
 	else
 		elog(ERROR, "Unsupported type");
+
+	aggCenters->length = aggCenters->maxlen;
+	newCenters->length = newCenters->maxlen;
 
 #ifdef IVFFLAT_MEMORY
 	ShowMemoryUsage(oldCtx, totalSize);
