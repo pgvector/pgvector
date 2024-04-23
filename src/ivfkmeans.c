@@ -103,8 +103,12 @@ NormCenters(FmgrInfo *normalizeprocinfo, Oid collation, VectorArray centers)
 	{
 		Datum		center = PointerGetDatum(VectorArrayGet(centers, j));
 		Datum		newCenter = IvfflatNormValue(normalizeprocinfo, collation, center);
+		Size		size = VARSIZE_ANY(DatumGetPointer(newCenter));
 
-		memcpy(DatumGetPointer(center), DatumGetPointer(newCenter), VARSIZE_ANY(DatumGetPointer(newCenter)));
+		if (size > centers->itemsize)
+			elog(ERROR, "safety check failed");
+
+		memcpy(DatumGetPointer(center), DatumGetPointer(newCenter), size);
 		MemoryContextReset(normCtx);
 	}
 
