@@ -5,7 +5,6 @@
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
-#include "utils/syscache.h"
 
 /*
  * Allocate a vector array
@@ -68,30 +67,17 @@ IvfflatOptionalProcInfo(Relation index, uint16 procnum)
 IvfflatType
 IvfflatGetType(Relation index)
 {
+	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_TYPE_SUPPORT_PROC);
 	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
-	HeapTuple	tuple;
-	Form_pg_type type;
 	IvfflatType result;
 
-	if (typid == BITOID)
-		return IVFFLAT_TYPE_BIT;
+	if (procinfo == NULL)
+		return IVFFLAT_TYPE_VECTOR;
 
-	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typid));
-	if (!HeapTupleIsValid(tuple))
-		elog(ERROR, "cache lookup failed for type %u", typid);
+	result = (IvfflatType) DatumGetInt32(FunctionCall1(procinfo, ObjectIdGetDatum(typid)));
 
-	type = (Form_pg_type) GETSTRUCT(tuple);
-	if (strcmp(NameStr(type->typname), "vector") == 0)
-		result = IVFFLAT_TYPE_VECTOR;
-	else if (strcmp(NameStr(type->typname), "halfvec") == 0)
-		result = IVFFLAT_TYPE_HALFVEC;
-	else
-	{
-		ReleaseSysCache(tuple);
+	if (result == IVFFLAT_TYPE_UNSUPPORTED)
 		elog(ERROR, "type not supported for ivfflat index");
-	}
-
-	ReleaseSysCache(tuple);
 
 	return result;
 }
@@ -259,3 +245,22 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 		UnlockReleaseBuffer(buf);
 	}
 }
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_ivfflat_support);
+Datum
+halfvec_ivfflat_support(PG_FUNCTION_ARGS)
+{
+	PG_RETURN_INT32(IVFFLAT_TYPE_HALFVEC);
+};
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(bit_ivfflat_support);
+Datum
+bit_ivfflat_support(PG_FUNCTION_ARGS)
+{
+	Oid			typid = PG_GETARG_OID(0);
+
+	if (typid == BITOID)
+		PG_RETURN_INT32(IVFFLAT_TYPE_BIT);
+	else
+		PG_RETURN_INT32(IVFFLAT_TYPE_UNSUPPORTED);
+};

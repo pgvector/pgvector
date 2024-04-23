@@ -33,6 +33,12 @@ CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
 CREATE FUNCTION jaccard_distance(bit, bit) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION bit_ivfflat_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION bit_hnsw_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE OPERATOR <~> (
 	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = hamming_distance,
 	COMMUTATOR = '<~>'
@@ -47,17 +53,20 @@ CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING ivfflat AS
 	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
 	FUNCTION 1 hamming_distance(bit, bit),
-	FUNCTION 3 hamming_distance(bit, bit);
+	FUNCTION 3 hamming_distance(bit, bit),
+	FUNCTION 6 bit_ivfflat_support(internal);
 
 CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING hnsw AS
 	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
-	FUNCTION 1 hamming_distance(bit, bit);
+	FUNCTION 1 hamming_distance(bit, bit),
+	FUNCTION 4 bit_hnsw_support(internal);
 
 CREATE OPERATOR CLASS bit_jaccard_ops
 	FOR TYPE bit USING hnsw AS
 	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
-	FUNCTION 1 jaccard_distance(bit, bit);
+	FUNCTION 1 jaccard_distance(bit, bit),
+	FUNCTION 4 bit_hnsw_support(internal);
 
 CREATE TYPE halfvec;
 
@@ -158,6 +167,12 @@ CREATE FUNCTION halfvec_accum(double precision[], halfvec) RETURNS double precis
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION halfvec_avg(double precision[]) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_ivfflat_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_hnsw_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE AGGREGATE avg(halfvec) (
@@ -311,7 +326,8 @@ CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING ivfflat AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec),
-	FUNCTION 3 l2_distance(halfvec, halfvec);
+	FUNCTION 3 l2_distance(halfvec, halfvec),
+	FUNCTION 6 halfvec_ivfflat_support(internal);
 
 CREATE OPERATOR CLASS halfvec_ip_ops
 	FOR TYPE halfvec USING ivfflat AS
@@ -319,7 +335,8 @@ CREATE OPERATOR CLASS halfvec_ip_ops
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
 	FUNCTION 4 l2_norm(halfvec),
-	FUNCTION 5 l2_normalize(halfvec);
+	FUNCTION 5 l2_normalize(halfvec),
+	FUNCTION 6 halfvec_ivfflat_support(internal);
 
 CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING ivfflat AS
@@ -328,29 +345,34 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FUNCTION 2 l2_norm(halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
 	FUNCTION 4 l2_norm(halfvec),
-	FUNCTION 5 l2_normalize(halfvec);
+	FUNCTION 5 l2_normalize(halfvec),
+	FUNCTION 6 halfvec_ivfflat_support(internal);
 
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
-	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec);
+	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec),
+	FUNCTION 4 halfvec_hnsw_support(internal);
 
 CREATE OPERATOR CLASS halfvec_ip_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
-	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec);
+	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
+	FUNCTION 4 halfvec_hnsw_support(internal);
 
 CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 2 l2_norm(halfvec),
-	FUNCTION 3 l2_normalize(halfvec);
+	FUNCTION 3 l2_normalize(halfvec),
+	FUNCTION 4 halfvec_hnsw_support(internal);
 
 CREATE OPERATOR CLASS halfvec_l1_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <+> (halfvec, halfvec) FOR ORDER BY float_ops,
-	FUNCTION 1 l1_distance(halfvec, halfvec);
+	FUNCTION 1 l1_distance(halfvec, halfvec),
+	FUNCTION 4 halfvec_hnsw_support(internal);
 
 CREATE TYPE sparsevec;
 
@@ -438,6 +460,9 @@ CREATE FUNCTION halfvec_to_sparsevec(halfvec, integer, boolean) RETURNS sparseve
 CREATE FUNCTION sparsevec_to_halfvec(sparsevec, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION sparsevec_hnsw_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE CAST (sparsevec AS sparsevec)
 	WITH FUNCTION sparsevec(sparsevec, integer, boolean) AS IMPLICIT;
 
@@ -521,21 +546,25 @@ CREATE OPERATOR CLASS sparsevec_ops
 CREATE OPERATOR CLASS sparsevec_l2_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <-> (sparsevec, sparsevec) FOR ORDER BY float_ops,
-	FUNCTION 1 sparsevec_l2_squared_distance(sparsevec, sparsevec);
+	FUNCTION 1 sparsevec_l2_squared_distance(sparsevec, sparsevec),
+	FUNCTION 4 sparsevec_hnsw_support(internal);
 
 CREATE OPERATOR CLASS sparsevec_ip_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <#> (sparsevec, sparsevec) FOR ORDER BY float_ops,
-	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec);
+	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
+	FUNCTION 4 sparsevec_hnsw_support(internal);
 
 CREATE OPERATOR CLASS sparsevec_cosine_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <=> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
 	FUNCTION 2 l2_norm(sparsevec),
-	FUNCTION 3 l2_normalize(sparsevec);
+	FUNCTION 3 l2_normalize(sparsevec),
+	FUNCTION 4 sparsevec_hnsw_support(internal);
 
 CREATE OPERATOR CLASS sparsevec_l1_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
-	FUNCTION 1 l1_distance(sparsevec, sparsevec);
+	FUNCTION 1 l1_distance(sparsevec, sparsevec),
+	FUNCTION 4 sparsevec_hnsw_support(internal);
