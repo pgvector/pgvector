@@ -318,7 +318,8 @@ CREATE OPERATOR CLASS halfvec_ip_ops
 	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
-	FUNCTION 4 l2_norm(halfvec);
+	FUNCTION 4 l2_norm(halfvec),
+	FUNCTION 5 l2_normalize(halfvec);
 
 CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING ivfflat AS
@@ -326,7 +327,8 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 2 l2_norm(halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
-	FUNCTION 4 l2_norm(halfvec);
+	FUNCTION 4 l2_norm(halfvec),
+	FUNCTION 5 l2_normalize(halfvec);
 
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS

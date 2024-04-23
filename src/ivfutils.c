@@ -99,31 +99,24 @@ IvfflatGetType(Relation index)
 }
 
 /*
- * Divide by the norm
- *
- * Returns false if value should not be indexed
- *
- * The caller needs to free the pointer stored in value
- * if it's different than the original value
+ * Normalize value
+ */
+Datum
+IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum value)
+{
+	if (procinfo == NULL)
+		return DirectFunctionCall1(l2_normalize, value);
+
+	return FunctionCall1Coll(procinfo, collation, value);
+}
+
+/*
+ * Check if non-zero norm
  */
 bool
-IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, IvfflatType type)
+IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
 {
-	double		norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
-
-	if (norm > 0)
-	{
-		if (type == IVFFLAT_TYPE_VECTOR)
-			*value = DirectFunctionCall1(l2_normalize, *value);
-		else if (type == IVFFLAT_TYPE_HALFVEC)
-			*value = DirectFunctionCall1(halfvec_l2_normalize, *value);
-		else
-			elog(ERROR, "Unsupported type");
-
-		return true;
-	}
-
-	return false;
+	return DatumGetFloat8(FunctionCall1Coll(procinfo, collation, value)) > 0;
 }
 
 /*

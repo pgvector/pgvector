@@ -209,9 +209,9 @@ GetScanValue(IndexScanDesc scan)
 		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
 		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
 
-		/* Fine if normalization fails */
+		/* Check normprocinfo since normalizeprocinfo not set for vector */
 		if (so->normprocinfo != NULL)
-			IvfflatNormValue(so->normprocinfo, so->collation, &value, IvfflatGetType(scan->indexRelation));
+			value = IvfflatNormValue(so->normalizeprocinfo, so->collation, value);
 	}
 
 	return value;
@@ -249,6 +249,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
 	so->normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
+	so->normalizeprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORMALIZE_PROC);
 	so->collation = index->rd_indcollation[0];
 
 	/* Create tuple description for sorting */

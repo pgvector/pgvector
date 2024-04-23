@@ -85,8 +85,12 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(normprocinfo, index->rd_indcollation[0], &value, IvfflatGetType(index)))
+		Oid			collation = index->rd_indcollation[0];
+
+		if (!IvfflatCheckNorm(normprocinfo, collation, value))
 			return;
+
+		value = IvfflatNormValue(IvfflatOptionalProcInfo(index, IVFFLAT_NORMALIZE_PROC), collation, value);
 	}
 
 	/* Find the insert page - sets the page and list info */
