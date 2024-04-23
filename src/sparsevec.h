@@ -23,6 +23,5 @@ typedef struct SparseVector
 }			SparseVector;
 
 SparseVector *InitSparseVector(int dim, int nnz);
-PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
 
 #endif

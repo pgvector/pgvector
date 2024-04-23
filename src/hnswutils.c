@@ -6,7 +6,6 @@
 #include "catalog/pg_type.h"
 #include "catalog/pg_type_d.h"
 #include "fmgr.h"
-#include "halfvec.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
 #include "sparsevec.h"
@@ -15,7 +14,6 @@
 #include "utils/memdebug.h"
 #include "utils/rel.h"
 #include "utils/syscache.h"
-#include "vector.h"
 
 #if PG_VERSION_NUM >= 130000
 #include "common/hashfn.h"
