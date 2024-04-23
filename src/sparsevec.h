@@ -19,7 +19,7 @@ typedef struct SparseVector
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int32		dim;			/* number of dimensions */
 	int32		nnz;			/* number of non-zero elements */
-	int32		unused;
+	int32		unused;			/* reserved for future use, always zero */
 	int32		indices[FLEXIBLE_ARRAY_MEMBER];
 }			SparseVector;
 
