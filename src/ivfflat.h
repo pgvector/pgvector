@@ -256,6 +256,7 @@ typedef struct IvfflatScanOpaqueData
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
+	Datum		(*distfunc) (FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2);
 
 	/* Lists */
 	pairingheap *listQueue;
