@@ -187,12 +187,12 @@ SELECT '{}/-1'::sparsevec;
 ERROR:  sparsevec must have at least 1 dimension
 LINE 1: SELECT '{}/-1'::sparsevec;
                ^
-SELECT '{}/1000001'::sparsevec;
-ERROR:  sparsevec cannot have more than 1000000 dimensions
-LINE 1: SELECT '{}/1000001'::sparsevec;
+SELECT '{}/1000000001'::sparsevec;
+ERROR:  sparsevec cannot have more than 1000000000 dimensions
+LINE 1: SELECT '{}/1000000001'::sparsevec;
                ^
 SELECT '{}/2147483648'::sparsevec;
-ERROR:  sparsevec cannot have more than 1000000 dimensions
+ERROR:  sparsevec cannot have more than 1000000000 dimensions
 LINE 1: SELECT '{}/2147483648'::sparsevec;
                ^
 SELECT '{}/-2147483649'::sparsevec;
@@ -200,7 +200,7 @@ ERROR:  sparsevec must have at least 1 dimension
 LINE 1: SELECT '{}/-2147483649'::sparsevec;
                ^
 SELECT '{}/9223372036854775808'::sparsevec;
-ERROR:  sparsevec cannot have more than 1000000 dimensions
+ERROR:  sparsevec cannot have more than 1000000000 dimensions
 LINE 1: SELECT '{}/9223372036854775808'::sparsevec;
                ^
 SELECT '{}/-9223372036854775809'::sparsevec;
@@ -251,7 +251,7 @@ SELECT '{}/3'::sparsevec(0);
 ERROR:  dimensions for type sparsevec must be at least 1
 LINE 1: SELECT '{}/3'::sparsevec(0);
                        ^
-SELECT '{}/3'::sparsevec(1000001);
-ERROR:  dimensions for type sparsevec cannot exceed 1000000
-LINE 1: SELECT '{}/3'::sparsevec(1000001);
+SELECT '{}/3'::sparsevec(1000000001);
+ERROR:  dimensions for type sparsevec cannot exceed 1000000000
+LINE 1: SELECT '{}/3'::sparsevec(1000000001);
                        ^
