@@ -273,7 +273,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 #define VECTOR_ARRAY_SIZE(_length, _size) (sizeof(VectorArrayData) + (_length) * MAXALIGN(_size))
 #define VECTOR_ARRAY_OFFSET(_arr, _offset) ((char*) (_arr)->items + (_offset) * (_arr)->itemsize)
 #define VectorArrayGet(_arr, _offset) VECTOR_ARRAY_OFFSET(_arr, _offset)
-#define VectorArraySet(_arr, _offset, _val) memcpy(VECTOR_ARRAY_OFFSET(_arr, _offset), _val, (_arr)->itemsize)
+#define VectorArraySet(_arr, _offset, _val) memcpy(VECTOR_ARRAY_OFFSET(_arr, _offset), _val, VARSIZE_ANY(_val))
 
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);

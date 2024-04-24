@@ -523,10 +523,13 @@ CreateListPages(Relation index, VectorArray centers, int dimensions,
 	{
 		OffsetNumber offno;
 
+		/* Zero memory for each list */
+		MemSet(list, 0, listSize);
+
 		/* Load list */
 		list->startPage = InvalidBlockNumber;
 		list->insertPage = InvalidBlockNumber;
-		memcpy(&list->center, VectorArrayGet(centers, i), centers->itemsize);
+		memcpy(&list->center, VectorArrayGet(centers, i), VARSIZE_ANY(VectorArrayGet(centers, i)));
 
 		/* Ensure free space */
 		if (PageGetFreeSpace(page) < listSize)
