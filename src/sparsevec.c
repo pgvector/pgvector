@@ -197,7 +197,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 {
 	char	   *lit = PG_GETARG_CSTRING(0);
 	int32		typmod = PG_GETARG_INT32(2);
-	int			dim;
+	long		dim;
 	char	   *pt = lit;
 	char	   *stringEnd;
 	SparseVector *result;
@@ -244,7 +244,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	{
 		for (;;)
 		{
-			int			index;
+			long		index;
 			float		value;
 
 			/* TODO Better error */
@@ -263,18 +263,17 @@ sparsevec_in(PG_FUNCTION_ARGS)
 						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
 			/* Use similar logic as int2vectorin */
-			errno = 0;
-			index = strtoint(pt, &stringEnd, 10);
+			index = strtol(pt, &stringEnd, 10);
 
 			if (stringEnd == pt)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
-			if (errno == ERANGE)
-				ereport(ERROR,
-						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-						 errmsg("index \"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
+			if (index > INT_MAX)
+				index = INT_MAX;
+			else if (index < INT_MIN)
+				index = INT_MIN;
 
 			pt = stringEnd;
 
@@ -352,18 +351,17 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		pt++;
 
 	/* Use similar logic as int2vectorin */
-	errno = 0;
-	dim = strtoint(pt, &stringEnd, 10);
+	dim = strtol(pt, &stringEnd, 10);
 
 	if (stringEnd == pt)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
-	if (errno == ERANGE)
-		ereport(ERROR,
-				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-				 errmsg("dimensions \"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
+	if (dim > INT_MAX)
+		dim = INT_MAX;
+	else if (dim < INT_MIN)
+		dim = INT_MIN;
 
 	pt = stringEnd;
 
