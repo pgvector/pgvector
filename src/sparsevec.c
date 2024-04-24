@@ -788,7 +788,7 @@ sparsevec_inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(SparsevecInnerProduct(a, b));
+	PG_RETURN_FLOAT8((double) SparsevecInnerProduct(a, b));
 }
 
 /*
@@ -803,7 +803,7 @@ sparsevec_negative_inner_product(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(-SparsevecInnerProduct(a, b));
+	PG_RETURN_FLOAT8((double) -SparsevecInnerProduct(a, b));
 }
 
 /*
