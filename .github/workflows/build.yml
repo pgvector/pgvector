@@ -87,13 +87,14 @@ jobs:
           postgres-version: 14
       - run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
-          cd %TEMP% && ^
           nmake /NOLOGO /F Makefile.win && ^
           nmake /NOLOGO /F Makefile.win install && ^
           nmake /NOLOGO /F Makefile.win installcheck && ^
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
+      - if: ${{ failure() }}
+        run: cat regression.diffs
   i386:
     if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
     runs-on: ubuntu-latest
