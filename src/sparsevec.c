@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <math.h>
 
+#include "common/string.h"
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
@@ -243,7 +244,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	{
 		for (;;)
 		{
-			long		index;
+			int			index;
 			float		value;
 
 			/* TODO Better error */
@@ -263,17 +264,17 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 			/* Use similar logic as int2vectorin */
 			errno = 0;
-			index = strtol(pt, &stringEnd, 10);
+			index = strtoint(pt, &stringEnd, 10);
 
 			if (stringEnd == pt)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
-			if (errno == ERANGE || index < 1 || index > INT_MAX)
+			if (errno == ERANGE)
 				ereport(ERROR,
 						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-						 errmsg("index \"%ld\" is out of range for type sparsevec", index)));
+						 errmsg("index \"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
 
 			pt = stringEnd;
 
@@ -352,12 +353,17 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 	/* Use similar logic as int2vectorin */
 	errno = 0;
-	dim = strtol(pt, &stringEnd, 10);
+	dim = strtoint(pt, &stringEnd, 10);
 
 	if (stringEnd == pt)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
+
+	if (errno == ERANGE)
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("dimensions \"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
 
 	pt = stringEnd;
 
