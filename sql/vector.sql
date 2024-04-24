@@ -263,6 +263,12 @@ COMMENT ON ACCESS METHOD hnsw IS 'hnsw index access method';
 
 -- access method private functions
 
+CREATE FUNCTION ivfflat_bit_max_dims(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION ivfflat_halfvec_max_dims(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -361,7 +367,8 @@ CREATE OPERATOR CLASS bit_hamming_ops
 	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
 	FUNCTION 1 hamming_distance(bit, bit),
 	FUNCTION 3 hamming_distance(bit, bit),
-	FUNCTION 6 ivfflat_bit_support(internal);
+	FUNCTION 6 ivfflat_bit_max_dims(internal),
+	FUNCTION 7 ivfflat_bit_support(internal);
 
 CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING hnsw AS
@@ -644,7 +651,8 @@ CREATE OPERATOR CLASS halfvec_l2_ops
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec),
 	FUNCTION 3 l2_distance(halfvec, halfvec),
-	FUNCTION 6 ivfflat_halfvec_support(internal);
+	FUNCTION 6 ivfflat_halfvec_max_dims(internal),
+	FUNCTION 7 ivfflat_halfvec_support(internal);
 
 CREATE OPERATOR CLASS halfvec_ip_ops
 	FOR TYPE halfvec USING ivfflat AS
@@ -653,7 +661,8 @@ CREATE OPERATOR CLASS halfvec_ip_ops
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
 	FUNCTION 4 l2_norm(halfvec),
 	FUNCTION 5 l2_normalize(halfvec),
-	FUNCTION 6 ivfflat_halfvec_support(internal);
+	FUNCTION 6 ivfflat_halfvec_max_dims(internal),
+	FUNCTION 7 ivfflat_halfvec_support(internal);
 
 CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING ivfflat AS
@@ -663,7 +672,8 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
 	FUNCTION 4 l2_norm(halfvec),
 	FUNCTION 5 l2_normalize(halfvec),
-	FUNCTION 6 ivfflat_halfvec_support(internal);
+	FUNCTION 6 ivfflat_halfvec_max_dims(internal),
+	FUNCTION 7 ivfflat_halfvec_support(internal);
 
 CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS

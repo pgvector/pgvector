@@ -246,6 +246,20 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 	}
 }
 
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_max_dims);
+Datum
+ivfflat_halfvec_max_dims(PG_FUNCTION_ARGS)
+{
+	PG_RETURN_INT32(IVFFLAT_MAX_DIM * 2);
+};
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_max_dims);
+Datum
+ivfflat_bit_max_dims(PG_FUNCTION_ARGS)
+{
+	PG_RETURN_INT32(IVFFLAT_MAX_DIM * 32);
+};
+
 PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_support);
 Datum
 ivfflat_halfvec_support(PG_FUNCTION_ARGS)

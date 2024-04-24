@@ -323,16 +323,14 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
  * Get max dimensions
  */
 static int
-GetMaxDimensions(IvfflatType type)
+GetMaxDimensions(Relation index)
 {
-	int			maxDimensions = IVFFLAT_MAX_DIM;
+	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_MAX_DIMS_PROC);
 
-	if (type == IVFFLAT_TYPE_HALFVEC)
-		maxDimensions *= 2;
-	else if (type == IVFFLAT_TYPE_BIT)
-		maxDimensions *= 32;
+	if (procinfo == NULL)
+		return IVFFLAT_MAX_DIM;
 
-	return maxDimensions;
+	return DatumGetInt32(FunctionCall1(procinfo, PointerGetDatum(NULL)));
 }
 
 /*
@@ -367,7 +365,11 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->lists = IvfflatGetLists(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
-	maxDimensions = GetMaxDimensions(buildstate->type);
+	/* Disallow varbit since require fixed dimensions */
+	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
+		elog(ERROR, "type not supported for ivfflat index");
+
+	maxDimensions = GetMaxDimensions(index);
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
