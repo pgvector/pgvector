@@ -41,6 +41,8 @@ SELECT round(vector_norm('[1,1]')::numeric, 5);
 SELECT vector_norm('[3,4]');
 SELECT vector_norm('[0,1]');
 SELECT vector_norm('[3e37,4e37]')::real;
+SELECT vector_norm('[0,0]');
+SELECT vector_norm('[2]');
 
 SELECT l2_distance('[0,0]'::vector, '[3,4]');
 SELECT l2_distance('[0,0]'::vector, '[0,1]');

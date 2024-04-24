@@ -176,6 +176,18 @@ SELECT l2_norm('[0,1]'::halfvec);
        1
 (1 row)
 
+SELECT l2_norm('[0,0]'::halfvec);
+ l2_norm 
+---------
+       0
+(1 row)
+
+SELECT l2_norm('[2]'::halfvec);
+ l2_norm 
+---------
+       2
+(1 row)
+
 SELECT l2_distance('[0,0]'::halfvec, '[3,4]');
  l2_distance 
 -------------
