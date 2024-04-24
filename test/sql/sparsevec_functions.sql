@@ -50,6 +50,7 @@ SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:1,2:1}/2');
 SELECT cosine_distance('{1:1}/2'::sparsevec, '{2:2}/2');
 SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:-1,2:-1}/2');
 SELECT cosine_distance('{1:2}/2'::sparsevec, '{2:2}/2');
+SELECT cosine_distance('{2:2}/2'::sparsevec, '{1:2}/2');
 SELECT cosine_distance('{1:1,2:2}/2'::sparsevec, '{1:3}/1');
 SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:1.1,2:1.1}/2');
 SELECT cosine_distance('{1:1,2:1}/2'::sparsevec, '{1:-1.1,2:-1.1}/2');
