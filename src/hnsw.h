@@ -23,7 +23,8 @@
 #define HNSW_DISTANCE_PROC 1
 #define HNSW_NORM_PROC 2
 #define HNSW_NORMALIZE_PROC 3
-#define HNSW_TYPE_SUPPORT_PROC 4
+#define HNSW_MAX_DIMS_PROC 4
+#define HNSW_CHECK_VALUE_PROC 5
 
 #define HNSW_VERSION	1
 #define HNSW_MAGIC_NUMBER 0xA953A953
@@ -57,15 +58,6 @@
 
 #define HNSW_UPDATE_ENTRY_GREATER 1
 #define HNSW_UPDATE_ENTRY_ALWAYS 2
-
-typedef enum HnswType
-{
-	HNSW_TYPE_VECTOR,
-	HNSW_TYPE_HALFVEC,
-	HNSW_TYPE_BIT,
-	HNSW_TYPE_SPARSEVEC,
-	HNSW_TYPE_UNSUPPORTED
-}			HnswType;
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
@@ -254,7 +246,6 @@ typedef struct HnswBuildState
 	Relation	index;
 	IndexInfo  *indexInfo;
 	ForkNumber	forkNum;
-	HnswType	type;
 
 	/* Settings */
 	int			dimensions;
@@ -269,6 +260,7 @@ typedef struct HnswBuildState
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	FmgrInfo   *normalizeprocinfo;
+	FmgrInfo   *checkvalueprocinfo;
 	Oid			collation;
 
 	/* Variables */
@@ -381,10 +373,9 @@ typedef struct HnswVacuumState
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
-HnswType	HnswGetType(Relation index);
 Datum		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
-void		HnswCheckValue(Datum value, HnswType type);
+void		HnswCheckValue(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);

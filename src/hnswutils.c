@@ -153,27 +153,6 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
- * Get type
- */
-HnswType
-HnswGetType(Relation index)
-{
-	FmgrInfo   *procinfo = HnswOptionalProcInfo(index, HNSW_TYPE_SUPPORT_PROC);
-	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
-	HnswType	result;
-
-	if (procinfo == NULL)
-		return HNSW_TYPE_VECTOR;
-
-	result = (HnswType) DatumGetInt32(FunctionCall1(procinfo, ObjectIdGetDatum(typid)));
-
-	if (result == HNSW_TYPE_UNSUPPORTED)
-		elog(ERROR, "type not supported for hnsw index");
-
-	return result;
-}
-
-/*
  * Normalize value
  */
 Datum
@@ -198,15 +177,9 @@ HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
  * Check if a value can be indexed
  */
 void
-HnswCheckValue(Datum value, HnswType type)
+HnswCheckValue(FmgrInfo *procinfo, Oid collation, Datum value)
 {
-	if (type == HNSW_TYPE_SPARSEVEC)
-	{
-		SparseVector *vec = DatumGetSparseVector(value);
-
-		if (vec->nnz > HNSW_MAX_NNZ)
-			elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
-	}
+	FunctionCall1Coll(procinfo, collation, value);
 }
 
 /*
@@ -1303,28 +1276,35 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	}
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_hnsw_support);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_hnsw_max_dims);
 Datum
-halfvec_hnsw_support(PG_FUNCTION_ARGS)
+halfvec_hnsw_max_dims(PG_FUNCTION_ARGS)
 {
-	PG_RETURN_INT32(HNSW_TYPE_HALFVEC);
+	PG_RETURN_INT32(HNSW_MAX_DIM * 2);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(bit_hnsw_support);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(bit_hnsw_max_dims);
 Datum
-bit_hnsw_support(PG_FUNCTION_ARGS)
+bit_hnsw_max_dims(PG_FUNCTION_ARGS)
 {
-	Oid			typid = PG_GETARG_OID(0);
-
-	if (typid == BITOID)
-		PG_RETURN_INT32(HNSW_TYPE_BIT);
-	else
-		PG_RETURN_INT32(HNSW_TYPE_UNSUPPORTED);
+	PG_RETURN_INT32(HNSW_MAX_DIM * 32);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_hnsw_support);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_hnsw_max_dims);
 Datum
-sparsevec_hnsw_support(PG_FUNCTION_ARGS)
+sparsevec_hnsw_max_dims(PG_FUNCTION_ARGS)
 {
-	PG_RETURN_INT32(HNSW_TYPE_SPARSEVEC);
+	PG_RETURN_INT32(SPARSEVEC_MAX_DIM);
 };
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_hnsw_check_value);
+Datum
+sparsevec_hnsw_check_value(PG_FUNCTION_ARGS)
+{
+	SparseVector *vec = PG_GETARG_SPARSEVEC_P(0);
+
+	if (vec->nnz > HNSW_MAX_NNZ)
+		elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
+
+	PG_RETURN_VOID();
+}

@@ -488,7 +488,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Check value */
-	HnswCheckValue(value, buildstate->type);
+	if (buildstate->checkvalueprocinfo != NULL)
+		HnswCheckValue(buildstate->checkvalueprocinfo, buildstate->collation, value);
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -675,18 +676,14 @@ HnswSharedMemoryAlloc(Size size, void *state)
  * Get max dimensions
  */
 static int
-GetMaxDimensions(HnswType type)
+GetMaxDimensions(Relation index)
 {
-	int			maxDimensions = HNSW_MAX_DIM;
+	FmgrInfo   *procinfo = HnswOptionalProcInfo(index, HNSW_MAX_DIMS_PROC);
 
-	if (type == HNSW_TYPE_HALFVEC)
-		maxDimensions *= 2;
-	else if (type == HNSW_TYPE_BIT)
-		maxDimensions *= 32;
-	else if (type == HNSW_TYPE_SPARSEVEC)
-		maxDimensions = INT_MAX;
+	if (procinfo == NULL)
+		return HNSW_MAX_DIM;
 
-	return maxDimensions;
+	return DatumGetInt32(FunctionCall1(procinfo, PointerGetDatum(NULL)));
 }
 
 /*
@@ -701,13 +698,16 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
 	buildstate->forkNum = forkNum;
-	buildstate->type = HnswGetType(index);
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
-	maxDimensions = GetMaxDimensions(buildstate->type);
+	/* Disallow varbit since require fixed dimensions */
+	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
+		elog(ERROR, "type not supported for hnsw index");
+
+	maxDimensions = GetMaxDimensions(index);
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
@@ -726,6 +726,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	buildstate->normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
+	buildstate->checkvalueprocinfo = HnswOptionalProcInfo(index, HNSW_CHECK_VALUE_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
 	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * 1024L);
