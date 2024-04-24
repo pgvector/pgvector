@@ -255,30 +255,30 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 #endif
 
 static void
-VectorSumCenter(const void *v, Vector * aggCenter)
+VectorSumCenter(const void *v, float *x)
 {
 	Vector	   *vec = (Vector *) v;
 
-	for (int k = 0; k < aggCenter->dim; k++)
-		aggCenter->x[k] += vec->x[k];
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += vec->x[k];
 }
 
 static void
-HalfvecSumCenter(const void *v, Vector * aggCenter)
+HalfvecSumCenter(const void *v, float *x)
 {
 	HalfVector *vec = (HalfVector *) v;
 
-	for (int k = 0; k < aggCenter->dim; k++)
-		aggCenter->x[k] += HalfToFloat4(vec->x[k]);
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += HalfToFloat4(vec->x[k]);
 }
 
 static void
-BitSumCenter(const void *v, Vector * aggCenter)
+BitSumCenter(const void *v, float *x)
 {
 	VarBit	   *vec = (VarBit *) v;
 
-	for (int k = 0; k < aggCenter->dim; k++)
-		aggCenter->x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
+	for (int k = 0; k < VARBITLEN(v); k++)
+		x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
 }
 
 /*
@@ -287,7 +287,7 @@ BitSumCenter(const void *v, Vector * aggCenter)
 static void
 SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, IvfflatType type)
 {
-	void		(*sumCenter) (const void *v, Vector * aggCenter);
+	void		(*sumCenter) (const void *v, float *x);
 
 	if (type == IVFFLAT_TYPE_VECTOR)
 		sumCenter = VectorSumCenter;
@@ -302,21 +302,21 @@ SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, Ivf
 	{
 		Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, closestCenters[j]);
 
-		sumCenter(VectorArrayGet(samples, j), aggCenter);
+		sumCenter(VectorArrayGet(samples, j), aggCenter->x);
 	}
 }
 
 static void
-HalfvecSetNewCenter(const void *v, Vector * aggCenter)
+HalfvecSetNewCenter(const void *v, float *x)
 {
 	HalfVector *newCenter = (HalfVector *) v;
 
-	for (int k = 0; k < aggCenter->dim; k++)
-		newCenter->x[k] = Float4ToHalfUnchecked(aggCenter->x[k]);
+	for (int k = 0; k < newCenter->dim; k++)
+		newCenter->x[k] = Float4ToHalfUnchecked(x[k]);
 }
 
 static void
-BitSetNewCenter(const void *v, Vector * aggCenter)
+BitSetNewCenter(const void *v, float *x)
 {
 	VarBit	   *newCenter = (VarBit *) v;
 	unsigned char *nx = VARBITS(newCenter);
@@ -324,8 +324,8 @@ BitSetNewCenter(const void *v, Vector * aggCenter)
 	for (uint32 k = 0; k < VARBITBYTES(newCenter); k++)
 		nx[k] = 0;
 
-	for (int k = 0; k < aggCenter->dim; k++)
-		nx[k / 8] |= (aggCenter->x[k] > 0.5) << (7 - (k % 8));
+	for (int k = 0; k < VARBITLEN(newCenter); k++)
+		nx[k / 8] |= (x[k] > 0.5) << (7 - (k % 8));
 }
 
 /*
@@ -334,7 +334,7 @@ BitSetNewCenter(const void *v, Vector * aggCenter)
 static void
 SetNewCenters(VectorArray aggCenters, VectorArray newCenters, IvfflatType type)
 {
-	void		(*setNewCenter) (const void *v, Vector * aggCenter);
+	void		(*setNewCenter) (const void *v, float *x);
 
 	if (type == IVFFLAT_TYPE_HALFVEC)
 		setNewCenter = HalfvecSetNewCenter;
@@ -347,7 +347,7 @@ SetNewCenters(VectorArray aggCenters, VectorArray newCenters, IvfflatType type)
 	{
 		Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, j);
 
-		setNewCenter(VectorArrayGet(newCenters, j), aggCenter);
+		setNewCenter(VectorArrayGet(newCenters, j), aggCenter->x);
 	}
 }
 
