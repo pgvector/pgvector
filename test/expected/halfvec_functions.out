@@ -414,6 +414,12 @@ SELECT subvector('[1,2,3,4,5]'::halfvec, 3, 2147483647);
  [3,4,5]
 (1 row)
 
+SELECT subvector('[1,2,3,4,5]'::halfvec, -2147483644, 2147483647);
+ subvector 
+-----------
+ [1,2]
+(1 row)
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]']) v;
     avg    
 -----------
