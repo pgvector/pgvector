@@ -27,11 +27,17 @@ SELECT l2_norm('{1:3e37,2:4e37}/2'::sparsevec)::real;
 SELECT l2_distance('{}/2'::sparsevec, '{1:3,2:4}/2');
 SELECT l2_distance('{1:3}/2'::sparsevec, '{2:4}/2');
 SELECT l2_distance('{2:4}/2'::sparsevec, '{1:3}/2');
+SELECT l2_distance('{1:3,2:4}/2'::sparsevec, '{}/2');
 SELECT l2_distance('{}/2'::sparsevec, '{2:1}/2');
 SELECT '{}/2'::sparsevec <-> '{1:3,2:4}/2';
 
 SELECT inner_product('{1:1,2:2}/2'::sparsevec, '{1:2,2:4}/2');
 SELECT inner_product('{1:1,2:2}/2'::sparsevec, '{1:3}/1');
+SELECT inner_product('{1:1,3:3}/4'::sparsevec, '{2:2,4:4}/4');
+SELECT inner_product('{2:2,4:4}/4'::sparsevec, '{1:1,3:3}/4');
+SELECT inner_product('{1:1,3:3,5:5}/5'::sparsevec, '{2:4,3:6,4:8}/5');
+SELECT inner_product('{1:1}/2'::sparsevec, '{}/2');
+SELECT inner_product('{}/2'::sparsevec, '{1:1}/2');
 SELECT inner_product('{1:3e38}/1'::sparsevec, '{1:3e38}/1');
 SELECT inner_product('{1:1,3:3,5:5}/5'::sparsevec, '{2:4,3:6,4:8}/5');
 SELECT '{1:1,2:2}/2'::sparsevec <#> '{1:3,2:4}/2';
