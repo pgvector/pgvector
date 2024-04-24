@@ -1276,30 +1276,30 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	}
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_hnsw_max_dims);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_halfvec_max_dims);
 Datum
-halfvec_hnsw_max_dims(PG_FUNCTION_ARGS)
+hnsw_halfvec_max_dims(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_INT32(HNSW_MAX_DIM * 2);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(bit_hnsw_max_dims);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_bit_max_dims);
 Datum
-bit_hnsw_max_dims(PG_FUNCTION_ARGS)
+hnsw_bit_max_dims(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_INT32(HNSW_MAX_DIM * 32);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_hnsw_max_dims);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_sparsevec_max_dims);
 Datum
-sparsevec_hnsw_max_dims(PG_FUNCTION_ARGS)
+hnsw_sparsevec_max_dims(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_INT32(SPARSEVEC_MAX_DIM);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_hnsw_check_value);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_sparsevec_check_value);
 Datum
-sparsevec_hnsw_check_value(PG_FUNCTION_ARGS)
+hnsw_sparsevec_check_value(PG_FUNCTION_ARGS)
 {
 	SparseVector *vec = PG_GETARG_SPARSEVEC_P(0);
 

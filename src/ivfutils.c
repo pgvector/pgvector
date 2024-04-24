@@ -246,16 +246,16 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 	}
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_ivfflat_support);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_support);
 Datum
-halfvec_ivfflat_support(PG_FUNCTION_ARGS)
+ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 {
 	PG_RETURN_INT32(IVFFLAT_TYPE_HALFVEC);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(bit_ivfflat_support);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_support);
 Datum
-bit_ivfflat_support(PG_FUNCTION_ARGS)
+ivfflat_bit_support(PG_FUNCTION_ARGS)
 {
 	Oid			typid = PG_GETARG_OID(0);
 
