@@ -320,6 +320,27 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 }
 
 /*
+ * Get type
+ */
+static IvfflatType
+IvfflatGetType(Relation index)
+{
+	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_TYPE_SUPPORT_PROC);
+	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
+	IvfflatType result;
+
+	if (procinfo == NULL)
+		return IVFFLAT_TYPE_VECTOR;
+
+	result = (IvfflatType) DatumGetInt32(FunctionCall1(procinfo, ObjectIdGetDatum(typid)));
+
+	if (result == IVFFLAT_TYPE_UNSUPPORTED)
+		elog(ERROR, "type not supported for ivfflat index");
+
+	return result;
+}
+
+/*
  * Get max dimensions
  */
 static int

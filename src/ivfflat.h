@@ -281,7 +281,6 @@ VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatType type);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
-IvfflatType IvfflatGetType(Relation index);
 Datum		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 int			IvfflatGetLists(Relation index);
