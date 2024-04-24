@@ -270,6 +270,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 						 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
+			/* Keep value in int range for correct error message later */
 			if (index > INT_MAX)
 				index = INT_MAX;
 			else if (index < INT_MIN)
@@ -358,6 +359,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
+	/* Keep value in int range for correct error message later */
 	if (dim > INT_MAX)
 		dim = INT_MAX;
 	else if (dim < INT_MIN)
