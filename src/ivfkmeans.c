@@ -255,7 +255,7 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 #endif
 
 static void
-VectorSumCenter(const void *v, float *x)
+VectorSumCenter(Pointer v, float *x)
 {
 	Vector	   *vec = (Vector *) v;
 
@@ -264,7 +264,7 @@ VectorSumCenter(const void *v, float *x)
 }
 
 static void
-HalfvecSumCenter(const void *v, float *x)
+HalfvecSumCenter(Pointer v, float *x)
 {
 	HalfVector *vec = (HalfVector *) v;
 
@@ -273,7 +273,7 @@ HalfvecSumCenter(const void *v, float *x)
 }
 
 static void
-BitSumCenter(const void *v, float *x)
+BitSumCenter(Pointer v, float *x)
 {
 	VarBit	   *vec = (VarBit *) v;
 
@@ -287,7 +287,7 @@ BitSumCenter(const void *v, float *x)
 static void
 SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, IvfflatType type)
 {
-	void		(*sumCenter) (const void *v, float *x);
+	void		(*sumCenter) (Pointer v, float *x);
 
 	if (type == IVFFLAT_TYPE_VECTOR)
 		sumCenter = VectorSumCenter;
@@ -307,7 +307,7 @@ SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, Ivf
 }
 
 static void
-HalfvecSetNewCenter(const void *v, float *x)
+HalfvecSetNewCenter(Pointer v, float *x)
 {
 	HalfVector *newCenter = (HalfVector *) v;
 
@@ -316,7 +316,7 @@ HalfvecSetNewCenter(const void *v, float *x)
 }
 
 static void
-BitSetNewCenter(const void *v, float *x)
+BitSetNewCenter(Pointer v, float *x)
 {
 	VarBit	   *newCenter = (VarBit *) v;
 	unsigned char *nx = VARBITS(newCenter);
@@ -334,7 +334,7 @@ BitSetNewCenter(const void *v, float *x)
 static void
 SetNewCenters(VectorArray aggCenters, VectorArray newCenters, IvfflatType type)
 {
-	void		(*setNewCenter) (const void *v, float *x);
+	void		(*setNewCenter) (Pointer v, float *x);
 
 	if (type == IVFFLAT_TYPE_HALFVEC)
 		setNewCenter = HalfvecSetNewCenter;
