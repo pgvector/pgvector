@@ -287,7 +287,6 @@ BitSumCenter(const void *v, Vector * aggCenter)
 static void
 SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, IvfflatType type)
 {
-	int			numSamples = samples->length;
 	void		(*sumCenter) (const void *v, Vector * aggCenter);
 
 	if (type == IVFFLAT_TYPE_VECTOR)
@@ -299,8 +298,7 @@ SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, Ivf
 	else
 		elog(ERROR, "Unsupported type");
 
-
-	for (int j = 0; j < numSamples; j++)
+	for (int j = 0; j < samples->length; j++)
 	{
 		Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, closestCenters[j]);
 
