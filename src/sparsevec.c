@@ -862,7 +862,7 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
 	float	   *ax = SPARSEVEC_VALUES(a);
 	float	   *bx = SPARSEVEC_VALUES(b);
-	double		distance = 0.0;
+	float		distance = 0.0;
 	int			bpos = 0;
 
 	CheckDims(a, b);
@@ -897,7 +897,7 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 	for (int j = bpos; j < b->nnz; j++)
 		distance += fabsf(bx[j]);
 
-	PG_RETURN_FLOAT8(distance);
+	PG_RETURN_FLOAT8((double) distance);
 }
 
 /*
