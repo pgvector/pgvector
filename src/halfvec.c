@@ -328,6 +328,10 @@ halfvec_out(PG_FUNCTION_ARGS)
 		if (i > 0)
 			AppendChar(ptr, ',');
 
+		/*
+		 * Use shortest decimal representation of single-precision float for
+		 * simplicity
+		 */
 		AppendFloat(ptr, HalfToFloat4(vector->x[i]));
 	}
 
