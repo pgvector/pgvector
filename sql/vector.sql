@@ -261,7 +261,7 @@ CREATE ACCESS METHOD hnsw TYPE INDEX HANDLER hnswhandler;
 
 COMMENT ON ACCESS METHOD hnsw IS 'hnsw index access method';
 
--- private access method functions
+-- access method private functions
 
 CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
