@@ -683,7 +683,7 @@ SparsevecL2SquaredDistance(SparseVector * a, SparseVector * b)
 
 			if (ai == bi)
 			{
-				double		diff = ax[i] - bx[j];
+				float		diff = ax[i] - bx[j];
 
 				distance += diff * diff;
 			}
@@ -721,7 +721,7 @@ sparsevec_l2_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(sqrt(SparsevecL2SquaredDistance(a, b)));
+	PG_RETURN_FLOAT8(sqrt((double) SparsevecL2SquaredDistance(a, b)));
 }
 
 /*
@@ -737,7 +737,7 @@ sparsevec_l2_squared_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(SparsevecL2SquaredDistance(a, b));
+	PG_RETURN_FLOAT8((double) SparsevecL2SquaredDistance(a, b));
 }
 
 /*
