@@ -95,6 +95,7 @@ SELECT subvector('[1,2,3,4,5]'::vector, 1, 0);
 SELECT subvector('[1,2,3,4,5]'::vector, 3, -1);
 SELECT subvector('[1,2,3,4,5]'::vector, -1, 2);
 SELECT subvector('[1,2,3,4,5]'::vector, 2147483647, 10);
+SELECT subvector('[1,2,3,4,5]'::vector, 3, 2147483647);
 
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
