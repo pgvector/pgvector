@@ -10,8 +10,10 @@
 #define PG_GETARG_SPARSEVEC_P(x)	DatumGetSparseVector(PG_GETARG_DATUM(x))
 #define PG_RETURN_SPARSEVEC_P(x)	PG_RETURN_POINTER(x)
 
-/* Indices are always sorted */
-/* Values come after indices */
+/*
+ * Indices use 0-based numbering for the on-disk (and binary) format (consistent with C)
+ * and are always sorted. Values come after indices.
+ */
 typedef struct SparseVector
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */

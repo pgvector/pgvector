@@ -1206,7 +1206,7 @@ sparsevec_to_halfvec(PG_FUNCTION_ARGS)
 
 	result = InitHalfVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
-		result->x[svec->indices[i] - 1] = Float4ToHalf(values[i]);
+		result->x[svec->indices[i]] = Float4ToHalf(values[i]);
 
 	PG_RETURN_POINTER(result);
 }

@@ -98,12 +98,14 @@ CheckIndex(int32 *indices, int i, int dim)
 {
 	int32		index = indices[i];
 
-	if (index < 1)
+	/* TODO Better error message for binary format */
+	if (index < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("index must be greater than zero")));
 
-	if (index > dim)
+	/* TODO Better error message for binary format */
+	if (index >= dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("index must be less than or equal to dimensions")));
@@ -273,8 +275,8 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			/* Keep in int range for correct error message later */
 			if (index > INT_MAX)
 				index = INT_MAX;
-			else if (index < INT_MIN)
-				index = INT_MIN;
+			else if (index < INT_MIN + 1)
+				index = INT_MIN + 1;
 
 			pt = stringEnd;
 
@@ -313,7 +315,8 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			/* Do not store zero values */
 			if (value != 0)
 			{
-				elements[nnz].index = index;
+				/* Convert 1-based numbering (SQL) to 0-based (C) */
+				elements[nnz].index = index - 1;
 				elements[nnz].value = value;
 				nnz++;
 			}
@@ -447,7 +450,8 @@ sparsevec_out(PG_FUNCTION_ARGS)
 		if (i > 0)
 			AppendChar(ptr, ',');
 
-		AppendInt(ptr, sparsevec->indices[i]);
+		/* Convert 0-based numbering (C) to 1-based (SQL) */
+		AppendInt(ptr, sparsevec->indices[i] + 1);
 		AppendChar(ptr, ':');
 		AppendFloat(ptr, values[i]);
 	}
@@ -615,7 +619,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 			if (j >= result->nnz)
 				elog(ERROR, "safety check failed");
 
-			result->indices[j] = i + 1;
+			result->indices[j] = i;
 			values[j] = vec->x[i];
 			j++;
 		}
@@ -658,7 +662,7 @@ halfvec_to_sparsevec(PG_FUNCTION_ARGS)
 			if (j >= result->nnz)
 				elog(ERROR, "safety check failed");
 
-			result->indices[j] = i + 1;
+			result->indices[j] = i;
 			values[j] = HalfToFloat4(vec->x[i]);
 			j++;
 		}
@@ -1019,11 +1023,10 @@ sparsevec_cmp_internal(SparseVector * a, SparseVector * b)
 			return 1;
 	}
 
-	/* Check <= dim since indices start at 1 */
-	if (a->nnz < b->nnz && b->indices[nnz] <= a->dim)
+	if (a->nnz < b->nnz && b->indices[nnz] < a->dim)
 		return bx[nnz] < 0 ? 1 : -1;
 
-	if (a->nnz > b->nnz && a->indices[nnz] <= b->dim)
+	if (a->nnz > b->nnz && a->indices[nnz] < b->dim)
 		return ax[nnz] < 0 ? -1 : 1;
 
 	if (a->dim < b->dim)
