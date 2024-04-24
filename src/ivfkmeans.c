@@ -149,14 +149,18 @@ CompareBitVectors(const void *a, const void *b)
 static void
 SortVectorArray(VectorArray arr, IvfflatType type)
 {
+	int			(*comp) (const void *a, const void *b);
+
 	if (type == IVFFLAT_TYPE_VECTOR)
-		qsort(arr->items, arr->length, arr->itemsize, CompareVectors);
+		comp = CompareVectors;
 	else if (type == IVFFLAT_TYPE_HALFVEC)
-		qsort(arr->items, arr->length, arr->itemsize, CompareHalfVectors);
+		comp = CompareHalfVectors;
 	else if (type == IVFFLAT_TYPE_BIT)
-		qsort(arr->items, arr->length, arr->itemsize, CompareBitVectors);
+		comp = CompareBitVectors;
 	else
 		elog(ERROR, "Unsupported type");
+
+	qsort(arr->items, arr->length, arr->itemsize, comp);
 }
 
 /*
