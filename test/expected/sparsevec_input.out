@@ -207,6 +207,22 @@ SELECT '{}/-9223372036854775809'::sparsevec;
 ERROR:  dimensions "-9223372036854775809" is out of range for type sparsevec
 LINE 1: SELECT '{}/-9223372036854775809'::sparsevec;
                ^
+SELECT '{2147483647:1}/1'::sparsevec;
+ERROR:  index must be less than or equal to dimensions
+LINE 1: SELECT '{2147483647:1}/1'::sparsevec;
+               ^
+SELECT '{2147483648:1}/1'::sparsevec;
+ERROR:  index "2147483648" is out of range for type sparsevec
+LINE 1: SELECT '{2147483648:1}/1'::sparsevec;
+               ^
+SELECT '{-2147483648:1}/1'::sparsevec;
+ERROR:  index must be greater than zero
+LINE 1: SELECT '{-2147483648:1}/1'::sparsevec;
+               ^
+SELECT '{-2147483649:1}/1'::sparsevec;
+ERROR:  index "-2147483649" is out of range for type sparsevec
+LINE 1: SELECT '{-2147483649:1}/1'::sparsevec;
+               ^
 SELECT '{0:1}/1'::sparsevec;
 ERROR:  index must be greater than zero
 LINE 1: SELECT '{0:1}/1'::sparsevec;

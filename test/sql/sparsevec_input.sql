@@ -43,6 +43,10 @@ SELECT '{}/2147483648'::sparsevec;
 SELECT '{}/-2147483649'::sparsevec;
 SELECT '{}/9223372036854775808'::sparsevec;
 SELECT '{}/-9223372036854775809'::sparsevec;
+SELECT '{2147483647:1}/1'::sparsevec;
+SELECT '{2147483648:1}/1'::sparsevec;
+SELECT '{-2147483648:1}/1'::sparsevec;
+SELECT '{-2147483649:1}/1'::sparsevec;
 SELECT '{0:1}/1'::sparsevec;
 SELECT '{2:1}/1'::sparsevec;
 
