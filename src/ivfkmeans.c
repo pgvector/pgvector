@@ -15,8 +15,8 @@
 
 typedef struct KmeansState
 {
-	void		(*initNewCenter) (Pointer v, int dimensions);
-	void		(*setNewCenter) (Pointer v, float *x);
+	void		(*initCenter) (Pointer v, int dimensions);
+	void		(*updateCenter) (Pointer v, float *x);
 	void		(*sumCenter) (Pointer v, float *x);
 	int			(*comp) (const void *a, const void *b);
 	bool		separateAgg;
@@ -163,7 +163,7 @@ SortVectorArray(VectorArray arr, KmeansState * kmeansstate)
 }
 
 static void
-VectorInitNewCenter(Pointer v, int dimensions)
+VectorInitCenter(Pointer v, int dimensions)
 {
 	Vector	   *vec = (Vector *) v;
 
@@ -172,7 +172,7 @@ VectorInitNewCenter(Pointer v, int dimensions)
 }
 
 static void
-HalfvecInitNewCenter(Pointer v, int dimensions)
+HalfvecInitCenter(Pointer v, int dimensions)
 {
 	HalfVector *vec = (HalfVector *) v;
 
@@ -181,7 +181,7 @@ HalfvecInitNewCenter(Pointer v, int dimensions)
 }
 
 static void
-BitInitNewCenter(Pointer v, int dimensions)
+BitInitCenter(Pointer v, int dimensions)
 {
 	VarBit	   *vec = (VarBit *) v;
 
@@ -190,7 +190,7 @@ BitInitNewCenter(Pointer v, int dimensions)
 }
 
 static void
-VectorSetNewCenter(Pointer v, float *x)
+VectorUpdateCenter(Pointer v, float *x)
 {
 	Vector	   *newCenter = (Vector *) v;
 
@@ -199,7 +199,7 @@ VectorSetNewCenter(Pointer v, float *x)
 }
 
 static void
-HalfvecSetNewCenter(Pointer v, float *x)
+HalfvecUpdateCenter(Pointer v, float *x)
 {
 	HalfVector *newCenter = (HalfVector *) v;
 
@@ -208,7 +208,7 @@ HalfvecSetNewCenter(Pointer v, float *x)
 }
 
 static void
-BitSetNewCenter(Pointer v, float *x)
+BitUpdateCenter(Pointer v, float *x)
 {
 	VarBit	   *newCenter = (VarBit *) v;
 	unsigned char *nx = VARBITS(newCenter);
@@ -257,8 +257,8 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers, KmeansSta
 		for (int i = 0; i < dimensions; i++)
 			x[i] = (float) RandomDouble();
 
-		kmeansstate->initNewCenter(center, dimensions);
-		kmeansstate->setNewCenter(center, x);
+		kmeansstate->initCenter(center, dimensions);
+		kmeansstate->updateCenter(center, x);
 
 		centers->length++;
 	}
@@ -332,13 +332,13 @@ SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, Kme
  * Set new centers
  */
 static void
-SetNewCenters(VectorArray aggCenters, VectorArray newCenters, KmeansState * kmeansstate)
+UpdateCenters(VectorArray aggCenters, VectorArray newCenters, KmeansState * kmeansstate)
 {
 	for (int j = 0; j < aggCenters->length; j++)
 	{
 		Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, j);
 
-		kmeansstate->setNewCenter(VectorArrayGet(newCenters, j), aggCenter->x);
+		kmeansstate->updateCenter(VectorArrayGet(newCenters, j), aggCenter->x);
 	}
 }
 
@@ -398,7 +398,7 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 
 	/* Set new centers if different from agg centers */
 	if (kmeansstate->separateAgg)
-		SetNewCenters(aggCenters, newCenters, kmeansstate);
+		UpdateCenters(aggCenters, newCenters, kmeansstate);
 
 	/* Normalize if needed */
 	if (normprocinfo != NULL)
@@ -490,7 +490,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 	newCenters->length = numCenters;
 
 	for (int j = 0; j < numCenters; j++)
-		kmeansstate->initNewCenter(VectorArrayGet(newCenters, j), dimensions);
+		kmeansstate->initCenter(VectorArrayGet(newCenters, j), dimensions);
 
 	/* Initialize agg centers */
 	if (!kmeansstate->separateAgg)
@@ -504,7 +504,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 		aggCenters->length = numCenters;
 
 		for (int j = 0; j < numCenters; j++)
-			VectorInitNewCenter(VectorArrayGet(aggCenters, j), dimensions);
+			VectorInitCenter(VectorArrayGet(aggCenters, j), dimensions);
 	}
 
 #ifdef IVFFLAT_MEMORY
@@ -747,8 +747,8 @@ InitKmeansState(KmeansState * kmeansstate, IvfflatType type)
 {
 	if (type == IVFFLAT_TYPE_VECTOR)
 	{
-		kmeansstate->initNewCenter = VectorInitNewCenter;
-		kmeansstate->setNewCenter = VectorSetNewCenter;
+		kmeansstate->initCenter = VectorInitCenter;
+		kmeansstate->updateCenter = VectorUpdateCenter;
 		kmeansstate->sumCenter = VectorSumCenter;
 		kmeansstate->comp = CompareVectors;
 		kmeansstate->separateAgg = false;
@@ -756,8 +756,8 @@ InitKmeansState(KmeansState * kmeansstate, IvfflatType type)
 	}
 	else if (type == IVFFLAT_TYPE_HALFVEC)
 	{
-		kmeansstate->initNewCenter = HalfvecInitNewCenter;
-		kmeansstate->setNewCenter = HalfvecSetNewCenter;
+		kmeansstate->initCenter = HalfvecInitCenter;
+		kmeansstate->updateCenter = HalfvecUpdateCenter;
 		kmeansstate->sumCenter = HalfvecSumCenter;
 		kmeansstate->comp = CompareHalfVectors;
 		kmeansstate->separateAgg = true;
@@ -765,8 +765,8 @@ InitKmeansState(KmeansState * kmeansstate, IvfflatType type)
 	}
 	else if (type == IVFFLAT_TYPE_BIT)
 	{
-		kmeansstate->initNewCenter = BitInitNewCenter;
-		kmeansstate->setNewCenter = BitSetNewCenter;
+		kmeansstate->initCenter = BitInitCenter;
+		kmeansstate->updateCenter = BitUpdateCenter;
 		kmeansstate->sumCenter = BitSumCenter;
 		kmeansstate->comp = CompareBitVectors;
 		kmeansstate->separateAgg = true;
