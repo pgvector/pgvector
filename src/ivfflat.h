@@ -292,7 +292,7 @@ Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
 void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		IvfflatInit(void);
-void		GetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index);
+void		IvfflatGetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */

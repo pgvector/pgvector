@@ -299,7 +299,7 @@ BitSumCenter(Pointer v, float *x)
  * Get type info
  */
 void
-GetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index)
+IvfflatGetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index)
 {
 	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_TYPE_INFO_PROC);
 

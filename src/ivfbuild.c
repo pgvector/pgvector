@@ -335,7 +335,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
 	typeInfo->dimensions = buildstate->dimensions;
-	GetTypeInfo(typeInfo, index);
+	IvfflatGetTypeInfo(typeInfo, index);
 
 	/* Disallow varbit since require fixed dimensions */
 	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
