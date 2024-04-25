@@ -325,17 +325,13 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 static void
 InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo)
 {
-	IvfflatTypeInfo *typeInfo = &buildstate->typeInfo;
-
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
+	buildstate->typeInfo = IvfflatGetTypeInfo(index);
 
 	buildstate->lists = IvfflatGetLists(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
-
-	typeInfo->dimensions = buildstate->dimensions;
-	IvfflatGetTypeInfo(typeInfo, index);
 
 	/* Disallow varbit since require fixed dimensions */
 	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
@@ -345,8 +341,8 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
-	if (buildstate->dimensions > typeInfo->maxDimensions)
-		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", typeInfo->maxDimensions);
+	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
+		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", buildstate->typeInfo->maxDimensions);
 
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;
@@ -370,7 +366,8 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
 
-	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, typeInfo->itemsize);
+	/* TODO Fix item size */
+	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, VECTOR_SIZE(buildstate->dimensions));
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
@@ -440,7 +437,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	}
 
 	/* Calculate centers */
-	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers, &buildstate->typeInfo));
+	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers, buildstate->typeInfo));
 
 	/* Free samples before we allocate more memory */
 	VectorArrayFree(buildstate->samples);

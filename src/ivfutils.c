@@ -298,46 +298,47 @@ BitSumCenter(Pointer v, float *x)
 /*
  * Get type info
  */
-void
-IvfflatGetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index)
+const		IvfflatTypeInfo *
+IvfflatGetTypeInfo(Relation index)
 {
 	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_TYPE_INFO_PROC);
 
 	if (procinfo == NULL)
 	{
-		typeInfo->maxDimensions = IVFFLAT_MAX_DIM;
-		typeInfo->itemsize = VECTOR_SIZE(typeInfo->dimensions);
-		typeInfo->updateCenter = VectorUpdateCenter;
-		typeInfo->sumCenter = VectorSumCenter;
+		static const IvfflatTypeInfo typeInfo = {
+			.maxDimensions = IVFFLAT_MAX_DIM,
+			.updateCenter = VectorUpdateCenter,
+			.sumCenter = VectorSumCenter
+		};
+
+		return (&typeInfo);
 	}
 	else
-		FunctionCall1(procinfo, PointerGetDatum(typeInfo));
+		return (const IvfflatTypeInfo *) DatumGetPointer(FunctionCall0Coll(procinfo, InvalidOid));
 }
 
 PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_support);
 Datum
 ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 {
-	IvfflatTypeInfo *typeInfo = (IvfflatTypeInfo *) PG_GETARG_POINTER(0);
+	static const IvfflatTypeInfo typeInfo = {
+		.maxDimensions = IVFFLAT_MAX_DIM * 2,
+		.updateCenter = HalfvecUpdateCenter,
+		.sumCenter = HalfvecSumCenter
+	};
 
-	typeInfo->maxDimensions = IVFFLAT_MAX_DIM * 2;
-	typeInfo->itemsize = HALFVEC_SIZE(typeInfo->dimensions);
-	typeInfo->updateCenter = HalfvecUpdateCenter;
-	typeInfo->sumCenter = HalfvecSumCenter;
-
-	PG_RETURN_VOID();
+	PG_RETURN_POINTER(&typeInfo);
 };
 
 PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_support);
 Datum
 ivfflat_bit_support(PG_FUNCTION_ARGS)
 {
-	IvfflatTypeInfo *typeInfo = (IvfflatTypeInfo *) PG_GETARG_POINTER(0);
+	static const IvfflatTypeInfo typeInfo = {
+		.maxDimensions = IVFFLAT_MAX_DIM * 32,
+		.updateCenter = BitUpdateCenter,
+		.sumCenter = BitSumCenter
+	};
 
-	typeInfo->maxDimensions = IVFFLAT_MAX_DIM * 32;
-	typeInfo->itemsize = VARBITTOTALLEN(typeInfo->dimensions);
-	typeInfo->updateCenter = BitUpdateCenter;
-	typeInfo->sumCenter = BitSumCenter;
-
-	PG_RETURN_VOID();
+	PG_RETURN_POINTER(&typeInfo);
 };

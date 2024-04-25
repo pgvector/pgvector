@@ -165,7 +165,7 @@ typedef struct IvfflatBuildState
 	Relation	heap;
 	Relation	index;
 	IndexInfo  *indexInfo;
-	IvfflatTypeInfo typeInfo;
+	const		IvfflatTypeInfo *typeInfo;
 
 	/* Settings */
 	int			dimensions;
@@ -279,7 +279,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTypeInfo * typeInfo);
+void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 Datum		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
@@ -292,7 +292,7 @@ Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
 void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		IvfflatInit(void);
-void		IvfflatGetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index);
+const		IvfflatTypeInfo *IvfflatGetTypeInfo(Relation index);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */

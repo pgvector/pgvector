@@ -120,7 +120,7 @@ NormCenters(FmgrInfo *normalizeprocinfo, Oid collation, VectorArray centers)
  * Quick approach if we have no data
  */
 static void
-RandomCenters(Relation index, VectorArray centers, IvfflatTypeInfo * typeInfo)
+RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	int			dimensions = centers->dim;
 	Oid			collation = index->rd_indcollation[0];
@@ -168,7 +168,7 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
  * Sum centers
  */
 static void
-SumCenters(VectorArray samples, float *agg, int *closestCenters, IvfflatTypeInfo * typeInfo)
+SumCenters(VectorArray samples, float *agg, int *closestCenters, const IvfflatTypeInfo * typeInfo)
 {
 	for (int j = 0; j < samples->length; j++)
 	{
@@ -182,7 +182,7 @@ SumCenters(VectorArray samples, float *agg, int *closestCenters, IvfflatTypeInfo
  * Update centers
  */
 static void
-UpdateCenters(float *agg, VectorArray centers, IvfflatTypeInfo * typeInfo)
+UpdateCenters(float *agg, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	for (int j = 0; j < centers->length; j++)
 	{
@@ -196,7 +196,7 @@ UpdateCenters(float *agg, VectorArray centers, IvfflatTypeInfo * typeInfo)
  * Compute new centers
  */
 static void
-ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, FmgrInfo *normalizeprocinfo, Oid collation, IvfflatTypeInfo * typeInfo)
+ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, FmgrInfo *normalizeprocinfo, Oid collation, const IvfflatTypeInfo * typeInfo)
 {
 	int			dimensions = newCenters->dim;
 	int			numCenters = newCenters->length;
@@ -263,7 +263,7 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
  * https://www.aaai.org/Papers/ICML/2003/ICML03-022.pdf
  */
 static void
-ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTypeInfo * typeInfo)
+ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
@@ -517,7 +517,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
  * Detect issues with centers
  */
 static void
-CheckCenters(Relation index, VectorArray centers, IvfflatTypeInfo * typeInfo)
+CheckCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	FmgrInfo   *normprocinfo;
 	float	   *scratch = palloc(sizeof(float) * centers->dim);
@@ -568,7 +568,7 @@ CheckCenters(Relation index, VectorArray centers, IvfflatTypeInfo * typeInfo)
  * We use spherical k-means for inner product and cosine
  */
 void
-IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTypeInfo * typeInfo)
+IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	if (samples->length == 0)
 		RandomCenters(index, centers, typeInfo);
