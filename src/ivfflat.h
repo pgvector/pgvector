@@ -153,6 +153,7 @@ typedef struct IvfflatTypeInfo
 {
 	int			maxDimensions;
 	Datum		(*normalize) (PG_FUNCTION_ARGS);
+	Size		(*itemSize) (int dimensions);
 	void		(*updateCenter) (Pointer v, int dimensions, float *x);
 	void		(*sumCenter) (Pointer v, float *x);
 }			IvfflatTypeInfo;

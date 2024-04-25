@@ -229,6 +229,24 @@ PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
 
+static Size
+VectorItemSize(int dimensions)
+{
+	return VECTOR_SIZE(dimensions);
+}
+
+static Size
+HalfvecItemSize(int dimensions)
+{
+	return HALFVEC_SIZE(dimensions);
+}
+
+static Size
+BitItemSize(int dimensions)
+{
+	return VARBITTOTALLEN(dimensions);
+}
+
 static void
 VectorUpdateCenter(Pointer v, int dimensions, float *x)
 {
@@ -309,6 +327,7 @@ IvfflatGetTypeInfo(Relation index)
 		static const IvfflatTypeInfo typeInfo = {
 			.maxDimensions = IVFFLAT_MAX_DIM,
 			.normalize = l2_normalize,
+			.itemSize = VectorItemSize,
 			.updateCenter = VectorUpdateCenter,
 			.sumCenter = VectorSumCenter
 		};
@@ -326,6 +345,7 @@ ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 	static const IvfflatTypeInfo typeInfo = {
 		.maxDimensions = IVFFLAT_MAX_DIM * 2,
 		.normalize = halfvec_l2_normalize,
+		.itemSize = HalfvecItemSize,
 		.updateCenter = HalfvecUpdateCenter,
 		.sumCenter = HalfvecSumCenter
 	};
@@ -340,6 +360,7 @@ ivfflat_bit_support(PG_FUNCTION_ARGS)
 	static const IvfflatTypeInfo typeInfo = {
 		.maxDimensions = IVFFLAT_MAX_DIM * 32,
 		.normalize = NULL,
+		.itemSize = BitItemSize,
 		.updateCenter = BitUpdateCenter,
 		.sumCenter = BitSumCenter
 	};
