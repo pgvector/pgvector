@@ -142,8 +142,6 @@ RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeI
 
 	if (normprocinfo != NULL)
 		NormCenters(typeInfo, collation, centers);
-
-	pfree(x);
 }
 
 #ifdef IVFFLAT_MEMORY
@@ -279,8 +277,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	float	   *s;
 	float	   *halfcdist;
 	float	   *newcdist;
-	MemoryContext kmeansCtx;
-	MemoryContext oldCtx;
 
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->itemsize);
@@ -315,12 +311,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	collation = index->rd_indcollation[0];
 
-	/* Use memory context */
-	kmeansCtx = AllocSetContextCreate(CurrentMemoryContext,
-									  "Ivfflat kmeans temporary context",
-									  ALLOCSET_DEFAULT_SIZES);
-	oldCtx = MemoryContextSwitchTo(kmeansCtx);
-
 	/* Allocate space */
 	/* Use float instead of double to save memory */
 	agg = palloc(aggSize);
@@ -337,7 +327,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	newCenters->length = numCenters;
 
 #ifdef IVFFLAT_MEMORY
-	ShowMemoryUsage(oldCtx, totalSize);
+	ShowMemoryUsage(MemoryContextGetParent(CurrentMemoryContext));
 #endif
 
 	/* Pick initial centers */
@@ -505,9 +495,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 		if (changes == 0 && iteration != 0)
 			break;
 	}
-
-	MemoryContextSwitchTo(oldCtx);
-	MemoryContextDelete(kmeansCtx);
 }
 
 /*
@@ -556,8 +543,6 @@ CheckCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeIn
 				elog(ERROR, "Zero norm detected. Please report a bug.");
 		}
 	}
-
-	pfree(scratch);
 }
 
 /*
@@ -567,10 +552,18 @@ CheckCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeIn
 void
 IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
+	MemoryContext kmeansCtx = AllocSetContextCreate(CurrentMemoryContext,
+													"Ivfflat kmeans temporary context",
+													ALLOCSET_DEFAULT_SIZES);
+	MemoryContext oldCtx = MemoryContextSwitchTo(kmeansCtx);
+
 	if (samples->length == 0)
 		RandomCenters(index, centers, typeInfo);
 	else
 		ElkanKmeans(index, samples, centers, typeInfo);
 
 	CheckCenters(index, centers, typeInfo);
+
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextDelete(kmeansCtx);
 }
