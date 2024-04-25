@@ -153,6 +153,15 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
+ * Normalize value
+ */
+Datum
+HnswNormValue(const HnswTypeInfo * typeInfo, Datum value)
+{
+	return DirectFunctionCall1(typeInfo->normalize, value);
+}
+
+/*
  * Check if non-zero norm
  */
 bool

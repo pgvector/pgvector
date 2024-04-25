@@ -61,7 +61,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Fine if normalization fails */
 		if (so->normprocinfo != NULL)
-			value = DirectFunctionCall1(so->typeInfo->normalize, value);
+			value = HnswNormValue(so->typeInfo, value);
 	}
 
 	return value;
