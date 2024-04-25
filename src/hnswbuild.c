@@ -498,7 +498,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 		if (!HnswCheckNorm(buildstate->normprocinfo, buildstate->collation, value))
 			return false;
 
-		value = HnswNormValue(typeInfo, value);
+		value = HnswNormValue(typeInfo, buildstate->collation, value);
 	}
 
 	/* Get datum size */

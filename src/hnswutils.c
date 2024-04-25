@@ -156,9 +156,9 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
  * Normalize value
  */
 Datum
-HnswNormValue(const HnswTypeInfo * typeInfo, Datum value)
+HnswNormValue(const HnswTypeInfo * typeInfo, Oid collation, Datum value)
 {
-	return DirectFunctionCall1(typeInfo->normalize, value);
+	return DirectFunctionCall1Coll(typeInfo->normalize, collation, value);
 }
 
 /*
