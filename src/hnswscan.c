@@ -61,7 +61,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Fine if normalization fails */
 		if (so->normprocinfo != NULL)
-			value = HnswNormValue(so->normalizeprocinfo, so->collation, value);
+			value = DirectFunctionCall1(so->typeInfo->normalize, value);
 	}
 
 	return value;
@@ -79,6 +79,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
+	so->typeInfo = HnswGetTypeInfo(index);
 	so->first = true;
 	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 									   "Hnsw scan temporary context",
@@ -87,7 +88,6 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
 	so->collation = index->rd_indcollation[0];
 
 	scan->opaque = so;

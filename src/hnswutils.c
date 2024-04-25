@@ -153,18 +153,6 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
- * Normalize value
- */
-Datum
-HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum value)
-{
-	if (procinfo == NULL)
-		return DirectFunctionCall1(l2_normalize, value);
-
-	return FunctionCall1Coll(procinfo, collation, value);
-}
-
-/*
  * Check if non-zero norm
  */
 bool
@@ -1267,6 +1255,10 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	}
 }
 
+PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
+
 static void
 SparsevecCheckValue(Pointer v)
 {
@@ -1288,6 +1280,7 @@ HnswGetTypeInfo(Relation index)
 	{
 		static const HnswTypeInfo typeInfo = {
 			.maxDimensions = HNSW_MAX_DIM,
+			.normalize = l2_normalize,
 			.checkValue = NULL
 		};
 
@@ -1303,6 +1296,7 @@ hnsw_halfvec_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = HNSW_MAX_DIM * 2,
+		.normalize = halfvec_l2_normalize,
 		.checkValue = NULL
 	};
 
@@ -1315,6 +1309,7 @@ hnsw_bit_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = HNSW_MAX_DIM * 32,
+		.normalize = NULL,
 		.checkValue = NULL
 	};
 
@@ -1327,6 +1322,7 @@ hnsw_sparsevec_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = SPARSEVEC_MAX_DIM,
+		.normalize = sparsevec_l2_normalize,
 		.checkValue = SparsevecCheckValue
 	};
 

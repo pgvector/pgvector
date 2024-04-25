@@ -476,6 +476,7 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 static bool
 InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, HnswBuildState * buildstate)
 {
+	const		HnswTypeInfo *typeInfo = buildstate->typeInfo;
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
@@ -488,8 +489,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Check value */
-	if (buildstate->typeInfo->checkValue != NULL)
-		buildstate->typeInfo->checkValue(DatumGetPointer(value));
+	if (typeInfo->checkValue != NULL)
+		typeInfo->checkValue(DatumGetPointer(value));
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -497,7 +498,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 		if (!HnswCheckNorm(buildstate->normprocinfo, buildstate->collation, value))
 			return false;
 
-		value = HnswNormValue(buildstate->normalizeprocinfo, buildstate->collation, value);
+		value = DirectFunctionCall1(typeInfo->normalize, value);
 	}
 
 	/* Get datum size */
@@ -708,7 +709,6 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	/* Get support functions */
 	buildstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	buildstate->normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
 	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * 1024L);

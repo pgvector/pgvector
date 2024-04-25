@@ -22,8 +22,7 @@
 /* Support functions */
 #define HNSW_DISTANCE_PROC 1
 #define HNSW_NORM_PROC 2
-#define HNSW_NORMALIZE_PROC 3
-#define HNSW_TYPE_INFO_PROC 4
+#define HNSW_TYPE_INFO_PROC 3
 
 #define HNSW_VERSION	1
 #define HNSW_MAGIC_NUMBER 0xA953A953
@@ -241,6 +240,7 @@ typedef struct HnswAllocator
 typedef struct HnswTypeInfo
 {
 	int			maxDimensions;
+	Datum		(*normalize) (PG_FUNCTION_ARGS);
 	void		(*checkValue) (Pointer v);
 }			HnswTypeInfo;
 
@@ -265,7 +265,6 @@ typedef struct HnswBuildState
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
-	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 
 	/* Variables */
@@ -335,6 +334,7 @@ typedef HnswNeighborTupleData * HnswNeighborTuple;
 
 typedef struct HnswScanOpaqueData
 {
+	const		HnswTypeInfo *typeInfo;
 	bool		first;
 	List	   *w;
 	MemoryContext tmpCtx;
@@ -342,7 +342,6 @@ typedef struct HnswScanOpaqueData
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
-	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 }			HnswScanOpaqueData;
 
@@ -378,7 +377,6 @@ typedef struct HnswVacuumState
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
-Datum		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
