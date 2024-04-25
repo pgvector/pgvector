@@ -152,9 +152,7 @@ typedef struct IvfflatLeader
 
 typedef struct IvfflatTypeInfo
 {
-	int			dimensions;
 	int			maxDimensions;
-	int			itemsize;
 	void		(*updateCenter) (Pointer v, int dimensions, float *x);
 	void		(*sumCenter) (Pointer v, float *x);
 }			IvfflatTypeInfo;
