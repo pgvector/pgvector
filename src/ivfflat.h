@@ -29,9 +29,7 @@
 #define IVFFLAT_KMEANS_DISTANCE_PROC 3
 #define IVFFLAT_KMEANS_NORM_PROC 4
 #define IVFFLAT_NORMALIZE_PROC 5
-#define IVFFLAT_MAX_DIMS_PROC 6
-#define IVFFLAT_UPDATE_CENTER_PROC 7
-#define IVFFLAT_SUM_CENTER_PROC 8
+#define IVFFLAT_TYPE_INFO_PROC 6
 
 #define IVFFLAT_VERSION	1
 #define IVFFLAT_MAGIC_NUMBER 0x14FF1A7
@@ -152,12 +150,22 @@ typedef struct IvfflatLeader
 	char	   *ivfcenters;
 }			IvfflatLeader;
 
+typedef struct IvfflatTypeInfo
+{
+	int			dimensions;
+	int			maxDimensions;
+	int			itemsize;
+	void		(*updateCenter) (Pointer v, int dimensions, float *x);
+	void		(*sumCenter) (Pointer v, float *x);
+}			IvfflatTypeInfo;
+
 typedef struct IvfflatBuildState
 {
 	/* Info */
 	Relation	heap;
 	Relation	index;
 	IndexInfo  *indexInfo;
+	IvfflatTypeInfo typeInfo;
 
 	/* Settings */
 	int			dimensions;
@@ -271,7 +279,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
+void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTypeInfo * typeInfo);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 Datum		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
@@ -284,6 +292,7 @@ Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
 void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		IvfflatInit(void);
+void		GetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */

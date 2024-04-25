@@ -228,61 +228,34 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 	}
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_max_dims);
-Datum
-ivfflat_halfvec_max_dims(PG_FUNCTION_ARGS)
+static void
+VectorUpdateCenter(Pointer v, int dimensions, float *x)
 {
-	PG_RETURN_INT32(IVFFLAT_MAX_DIM * 2);
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_max_dims);
-Datum
-ivfflat_bit_max_dims(PG_FUNCTION_ARGS)
-{
-	PG_RETURN_INT32(IVFFLAT_MAX_DIM * 32);
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_vector_update_center);
-Datum
-ivfflat_vector_update_center(PG_FUNCTION_ARGS)
-{
-	Vector	   *vec = PG_GETARG_VECTOR_P(0);
-	int			dimensions = PG_GETARG_INT32(1);
-	float	   *x = (float *) PG_GETARG_POINTER(2);
+	Vector	   *vec = (Vector *) v;
 
 	SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
 	vec->dim = dimensions;
 
 	for (int k = 0; k < dimensions; k++)
 		vec->x[k] = x[k];
+}
 
-	PG_RETURN_VOID();
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_update_center);
-Datum
-ivfflat_halfvec_update_center(PG_FUNCTION_ARGS)
+static void
+HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 {
-	HalfVector *vec = PG_GETARG_HALFVEC_P(0);
-	int			dimensions = PG_GETARG_INT32(1);
-	float	   *x = (float *) PG_GETARG_POINTER(2);
+	HalfVector *vec = (HalfVector *) v;
 
 	SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
 	vec->dim = dimensions;
 
 	for (int k = 0; k < dimensions; k++)
 		vec->x[k] = Float4ToHalfUnchecked(x[k]);
+}
 
-	PG_RETURN_VOID();
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_update_center);
-Datum
-ivfflat_bit_update_center(PG_FUNCTION_ARGS)
+static void
+BitUpdateCenter(Pointer v, int dimensions, float *x)
 {
-	VarBit	   *vec = PG_GETARG_VARBIT_P(0);
-	int			dimensions = PG_GETARG_INT32(1);
-	float	   *x = (float *) PG_GETARG_POINTER(2);
+	VarBit	   *vec = (VarBit *) v;
 	unsigned char *nx = VARBITS(vec);
 
 	SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
@@ -293,45 +266,78 @@ ivfflat_bit_update_center(PG_FUNCTION_ARGS)
 
 	for (int k = 0; k < dimensions; k++)
 		nx[k / 8] |= (x[k] > 0.5 ? 1 : 0) << (7 - (k % 8));
+}
 
-	PG_RETURN_VOID();
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_vector_sum_center);
-Datum
-ivfflat_vector_sum_center(PG_FUNCTION_ARGS)
+static void
+VectorSumCenter(Pointer v, float *x)
 {
-	Vector	   *vec = PG_GETARG_VECTOR_P(0);
-	float	   *x = (float *) PG_GETARG_POINTER(1);
+	Vector	   *vec = (Vector *) v;
 
 	for (int k = 0; k < vec->dim; k++)
 		x[k] += vec->x[k];
+}
+
+static void
+HalfvecSumCenter(Pointer v, float *x)
+{
+	HalfVector *vec = (HalfVector *) v;
+
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += HalfToFloat4(vec->x[k]);
+}
+
+static void
+BitSumCenter(Pointer v, float *x)
+{
+	VarBit	   *vec = (VarBit *) v;
+
+	for (int k = 0; k < VARBITLEN(vec); k++)
+		x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
+}
+
+/*
+ * Get type info
+ */
+void
+GetTypeInfo(IvfflatTypeInfo * typeInfo, Relation index)
+{
+	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_TYPE_INFO_PROC);
+
+	if (procinfo == NULL)
+	{
+		typeInfo->maxDimensions = IVFFLAT_MAX_DIM;
+		typeInfo->itemsize = VECTOR_SIZE(typeInfo->dimensions);
+		typeInfo->updateCenter = VectorUpdateCenter;
+		typeInfo->sumCenter = VectorSumCenter;
+	}
+	else
+		FunctionCall1(procinfo, PointerGetDatum(typeInfo));
+}
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_support);
+Datum
+ivfflat_halfvec_support(PG_FUNCTION_ARGS)
+{
+	IvfflatTypeInfo *typeInfo = (IvfflatTypeInfo *) PG_GETARG_POINTER(0);
+
+	typeInfo->maxDimensions = IVFFLAT_MAX_DIM * 2;
+	typeInfo->itemsize = HALFVEC_SIZE(typeInfo->dimensions);
+	typeInfo->updateCenter = HalfvecUpdateCenter;
+	typeInfo->sumCenter = HalfvecSumCenter;
 
 	PG_RETURN_VOID();
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_sum_center);
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_support);
 Datum
-ivfflat_halfvec_sum_center(PG_FUNCTION_ARGS)
+ivfflat_bit_support(PG_FUNCTION_ARGS)
 {
-	HalfVector *vec = PG_GETARG_HALFVEC_P(0);
-	float	   *x = (float *) PG_GETARG_POINTER(1);
+	IvfflatTypeInfo *typeInfo = (IvfflatTypeInfo *) PG_GETARG_POINTER(0);
 
-	for (int k = 0; k < vec->dim; k++)
-		x[k] += HalfToFloat4(vec->x[k]);
+	typeInfo->maxDimensions = IVFFLAT_MAX_DIM * 32;
+	typeInfo->itemsize = VARBITTOTALLEN(typeInfo->dimensions);
+	typeInfo->updateCenter = BitUpdateCenter;
+	typeInfo->sumCenter = BitSumCenter;
 
 	PG_RETURN_VOID();
-}
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_sum_center);
-Datum
-ivfflat_bit_sum_center(PG_FUNCTION_ARGS)
-{
-	VarBit	   *vec = PG_GETARG_VARBIT_P(0);
-	float	   *x = (float *) PG_GETARG_POINTER(1);
-
-	for (int k = 0; k < VARBITLEN(vec); k++)
-		x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
-
-	PG_RETURN_VOID();
-}
+};
