@@ -531,6 +531,7 @@ CheckCenters(Relation index, VectorArray centers, IvfflatTypeInfo * typeInfo)
 		for (int j = 0; j < centers->dim; j++)
 			scratch[j] = 0;
 
+		/* /fp:fast may not propagate NaN with MSVC, but that's alright */
 		typeInfo->sumCenter(VectorArrayGet(centers, i), scratch);
 
 		for (int j = 0; j < centers->dim; j++)
