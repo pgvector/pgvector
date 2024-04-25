@@ -67,6 +67,7 @@ FindInsertPage(Relation index, Datum *values, BlockNumber *insertPage, ListInfo 
 static void
 InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel)
 {
+	const		IvfflatTypeInfo *typeInfo = IvfflatGetTypeInfo(index);
 	IndexTuple	itup;
 	Datum		value;
 	FmgrInfo   *normprocinfo;
@@ -90,7 +91,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 		if (!IvfflatCheckNorm(normprocinfo, collation, value))
 			return;
 
-		value = IvfflatNormValue(IvfflatOptionalProcInfo(index, IVFFLAT_NORMALIZE_PROC), collation, value);
+		value = IvfflatNormValue(typeInfo, collation, value);
 	}
 
 	/* Find the insert page - sets the page and list info */

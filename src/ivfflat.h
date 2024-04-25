@@ -28,8 +28,7 @@
 #define IVFFLAT_NORM_PROC 2
 #define IVFFLAT_KMEANS_DISTANCE_PROC 3
 #define IVFFLAT_KMEANS_NORM_PROC 4
-#define IVFFLAT_NORMALIZE_PROC 5
-#define IVFFLAT_TYPE_INFO_PROC 6
+#define IVFFLAT_TYPE_INFO_PROC 5
 
 #define IVFFLAT_VERSION	1
 #define IVFFLAT_MAGIC_NUMBER 0x14FF1A7
@@ -153,6 +152,7 @@ typedef struct IvfflatLeader
 typedef struct IvfflatTypeInfo
 {
 	int			maxDimensions;
+	Datum		(*normalize) (PG_FUNCTION_ARGS);
 	void		(*updateCenter) (Pointer v, int dimensions, float *x);
 	void		(*sumCenter) (Pointer v, float *x);
 }			IvfflatTypeInfo;
@@ -177,7 +177,6 @@ typedef struct IvfflatBuildState
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	FmgrInfo   *kmeansnormprocinfo;
-	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 
 	/* Variables */
@@ -245,6 +244,7 @@ typedef struct IvfflatScanList
 
 typedef struct IvfflatScanOpaqueData
 {
+	const		IvfflatTypeInfo *typeInfo;
 	int			probes;
 	int			dimensions;
 	bool		first;
@@ -258,7 +258,6 @@ typedef struct IvfflatScanOpaqueData
 	/* Support functions */
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
-	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 	Datum		(*distfunc) (FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2);
 
@@ -279,7 +278,7 @@ VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
-Datum		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
+Datum		IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 int			IvfflatGetLists(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);

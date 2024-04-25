@@ -68,12 +68,9 @@ IvfflatOptionalProcInfo(Relation index, uint16 procnum)
  * Normalize value
  */
 Datum
-IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum value)
+IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value)
 {
-	if (procinfo == NULL)
-		return DirectFunctionCall1(l2_normalize, value);
-
-	return FunctionCall1Coll(procinfo, collation, value);
+	return DirectFunctionCall1Coll(typeInfo->normalize, collation, value);
 }
 
 /*
@@ -228,6 +225,10 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 	}
 }
 
+PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
+
 static void
 VectorUpdateCenter(Pointer v, int dimensions, float *x)
 {
@@ -307,6 +308,7 @@ IvfflatGetTypeInfo(Relation index)
 	{
 		static const IvfflatTypeInfo typeInfo = {
 			.maxDimensions = IVFFLAT_MAX_DIM,
+			.normalize = l2_normalize,
 			.updateCenter = VectorUpdateCenter,
 			.sumCenter = VectorSumCenter
 		};
@@ -323,6 +325,7 @@ ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 {
 	static const IvfflatTypeInfo typeInfo = {
 		.maxDimensions = IVFFLAT_MAX_DIM * 2,
+		.normalize = halfvec_l2_normalize,
 		.updateCenter = HalfvecUpdateCenter,
 		.sumCenter = HalfvecSumCenter
 	};
@@ -336,6 +339,7 @@ ivfflat_bit_support(PG_FUNCTION_ARGS)
 {
 	static const IvfflatTypeInfo typeInfo = {
 		.maxDimensions = IVFFLAT_MAX_DIM * 32,
+		.normalize = NULL,
 		.updateCenter = BitUpdateCenter,
 		.sumCenter = BitSumCenter
 	};

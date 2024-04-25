@@ -21,6 +21,5 @@ typedef struct Vector
 Vector	   *InitVector(int dim);
 void		PrintVector(char *msg, Vector * vector);
 int			vector_cmp_internal(Vector * a, Vector * b);
-PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 
 #endif

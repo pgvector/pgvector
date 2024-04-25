@@ -63,7 +63,7 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 		if (!IvfflatCheckNorm(buildstate->kmeansnormprocinfo, buildstate->collation, value))
 			return;
 
-		value = IvfflatNormValue(buildstate->normalizeprocinfo, buildstate->collation, value);
+		value = IvfflatNormValue(buildstate->typeInfo, buildstate->collation, value);
 	}
 
 	if (samples->length < targsamples)
@@ -161,7 +161,7 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
 		if (!IvfflatCheckNorm(buildstate->normprocinfo, buildstate->collation, value))
 			return;
 
-		value = IvfflatNormValue(buildstate->normalizeprocinfo, buildstate->collation, value);
+		value = IvfflatNormValue(buildstate->typeInfo, buildstate->collation, value);
 	}
 
 	/* Find the list that minimizes the distance */
@@ -351,7 +351,6 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
 	buildstate->normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	buildstate->kmeansnormprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
-	buildstate->normalizeprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORMALIZE_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
 	/* Require more than one dimension for spherical k-means */

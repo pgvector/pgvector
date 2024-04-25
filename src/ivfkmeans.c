@@ -92,7 +92,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
  * Norm centers
  */
 static void
-NormCenters(FmgrInfo *normalizeprocinfo, Oid collation, VectorArray centers)
+NormCenters(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray centers)
 {
 	MemoryContext normCtx = AllocSetContextCreate(CurrentMemoryContext,
 												  "Ivfflat norm temporary context",
@@ -102,7 +102,7 @@ NormCenters(FmgrInfo *normalizeprocinfo, Oid collation, VectorArray centers)
 	for (int j = 0; j < centers->length; j++)
 	{
 		Datum		center = PointerGetDatum(VectorArrayGet(centers, j));
-		Datum		newCenter = IvfflatNormValue(normalizeprocinfo, collation, center);
+		Datum		newCenter = IvfflatNormValue(typeInfo, collation, center);
 		Size		size = VARSIZE_ANY(DatumGetPointer(newCenter));
 
 		if (size > centers->itemsize)
@@ -123,9 +123,8 @@ static void
 RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	int			dimensions = centers->dim;
-	Oid			collation = index->rd_indcollation[0];
 	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
-	FmgrInfo   *normalizeprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORMALIZE_PROC);
+	Oid			collation = index->rd_indcollation[0];
 	float	   *x = (float *) palloc(sizeof(float) * dimensions);
 
 	/* Fill with random data */
@@ -142,7 +141,7 @@ RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeI
 	}
 
 	if (normprocinfo != NULL)
-		NormCenters(normalizeprocinfo, collation, centers);
+		NormCenters(typeInfo, collation, centers);
 
 	pfree(x);
 }
@@ -196,7 +195,7 @@ UpdateCenters(float *agg, VectorArray centers, const IvfflatTypeInfo * typeInfo)
  * Compute new centers
  */
 static void
-ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, FmgrInfo *normalizeprocinfo, Oid collation, const IvfflatTypeInfo * typeInfo)
+ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, Oid collation, const IvfflatTypeInfo * typeInfo)
 {
 	int			dimensions = newCenters->dim;
 	int			numCenters = newCenters->length;
@@ -251,7 +250,7 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
 
 	/* Normalize if needed */
 	if (normprocinfo != NULL)
-		NormCenters(normalizeprocinfo, collation, newCenters);
+		NormCenters(typeInfo, collation, newCenters);
 }
 
 /*
@@ -267,7 +266,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 {
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
-	FmgrInfo   *normalizeprocinfo;
 	Oid			collation;
 	int			dimensions = centers->dim;
 	int			numCenters = centers->maxlen;
@@ -315,7 +313,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	/* Set support functions */
 	procinfo = index_getprocinfo(index, 1, IVFFLAT_KMEANS_DISTANCE_PROC);
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
-	normalizeprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORMALIZE_PROC);
 	collation = index->rd_indcollation[0];
 
 	/* Use memory context */
@@ -477,7 +474,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 		}
 
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
-		ComputeNewCenters(samples, agg, newCenters, centerCounts, closestCenters, normprocinfo, normalizeprocinfo, collation, typeInfo);
+		ComputeNewCenters(samples, agg, newCenters, centerCounts, closestCenters, normprocinfo, collation, typeInfo);
 
 		/* Step 5 */
 		for (int j = 0; j < numCenters; j++)
