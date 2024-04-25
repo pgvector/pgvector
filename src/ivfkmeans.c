@@ -13,14 +13,15 @@
 #include "utils/memutils.h"
 #include "vector.h"
 
+/* Support functions */
+PGDLLEXPORT Datum ivfflat_vector_update_center(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum ivfflat_vector_sum_center(PG_FUNCTION_ARGS);
+
 typedef struct KmeansState
 {
-	void		(*initCenter) (Pointer v, int dimensions);
-	void		(*updateCenter) (Pointer v, float *x);
-	void		(*sumCenter) (Pointer v, float *x);
-	int			(*comp) (const void *a, const void *b);
-	bool		separateAgg;
-	bool		checkDuplicates;
+	int			dimensions;
+	FmgrInfo   *updatecenterprocinfo;
+	FmgrInfo   *sumcenterprocinfo;
 }			KmeansState;
 
 /*
@@ -126,105 +127,20 @@ NormCenters(FmgrInfo *normalizeprocinfo, Oid collation, VectorArray centers)
 	MemoryContextDelete(normCtx);
 }
 
-/*
- * Compare vectors
- */
-static int
-CompareVectors(const void *a, const void *b)
+static void
+UpdateCenter(FmgrInfo *procinfo, Pointer center, int dimensions, float *x)
 {
-	return vector_cmp_internal((Vector *) a, (Vector *) b);
-}
-
-/*
- * Compare half vectors
- */
-static int
-CompareHalfVectors(const void *a, const void *b)
-{
-	return halfvec_cmp_internal((HalfVector *) a, (HalfVector *) b);
+	if (procinfo == NULL)
+		DirectFunctionCall3(ivfflat_vector_update_center, PointerGetDatum(center), Int32GetDatum(dimensions), PointerGetDatum(x));
+	else
+		FunctionCall3(procinfo, PointerGetDatum(center), Int32GetDatum(dimensions), PointerGetDatum(x));
 }
 
 /*
- * Compare bit vectors
- */
-static int
-CompareBitVectors(const void *a, const void *b)
-{
-	return DirectFunctionCall2(bitcmp, VarBitPGetDatum((VarBit *) a), VarBitPGetDatum((VarBit *) b));
-}
-
-/*
- * Sort vector array
+ * Quick approach if we have no data
  */
 static void
-SortVectorArray(VectorArray arr, KmeansState * kmeansstate)
-{
-	qsort(arr->items, arr->length, arr->itemsize, kmeansstate->comp);
-}
-
-static void
-VectorInitCenter(Pointer v, int dimensions)
-{
-	Vector	   *vec = (Vector *) v;
-
-	SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-	vec->dim = dimensions;
-}
-
-static void
-HalfvecInitCenter(Pointer v, int dimensions)
-{
-	HalfVector *vec = (HalfVector *) v;
-
-	SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
-	vec->dim = dimensions;
-}
-
-static void
-BitInitCenter(Pointer v, int dimensions)
-{
-	VarBit	   *vec = (VarBit *) v;
-
-	SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
-	VARBITLEN(vec) = dimensions;
-}
-
-static void
-VectorUpdateCenter(Pointer v, float *x)
-{
-	Vector	   *newCenter = (Vector *) v;
-
-	for (int k = 0; k < newCenter->dim; k++)
-		newCenter->x[k] = x[k];
-}
-
-static void
-HalfvecUpdateCenter(Pointer v, float *x)
-{
-	HalfVector *newCenter = (HalfVector *) v;
-
-	for (int k = 0; k < newCenter->dim; k++)
-		newCenter->x[k] = Float4ToHalfUnchecked(x[k]);
-}
-
-static void
-BitUpdateCenter(Pointer v, float *x)
-{
-	VarBit	   *newCenter = (VarBit *) v;
-	unsigned char *nx = VARBITS(newCenter);
-
-	for (uint32 k = 0; k < VARBITBYTES(newCenter); k++)
-		nx[k] = 0;
-
-	for (int k = 0; k < VARBITLEN(newCenter); k++)
-		nx[k / 8] |= (x[k] > 0.5 ? 1 : 0) << (7 - (k % 8));
-}
-
-/*
- * Quick approach if we have little data
- */
-static void
-QuickCenters(Relation index, VectorArray samples, VectorArray centers, KmeansState * kmeansstate)
+RandomCenters(Relation index, VectorArray centers, KmeansState * kmeansstate)
 {
 	int			dimensions = centers->dim;
 	Oid			collation = index->rd_indcollation[0];
@@ -232,24 +148,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers, KmeansSta
 	FmgrInfo   *normalizeprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORMALIZE_PROC);
 	float	   *x = (float *) palloc(sizeof(float) * dimensions);
 
-	/* Copy existing vectors while avoiding duplicates */
-	if (samples->length > 0)
-	{
-		SortVectorArray(samples, kmeansstate);
-
-		for (int i = 0; i < samples->length; i++)
-		{
-			Datum		vec = PointerGetDatum(VectorArrayGet(samples, i));
-
-			if (i == 0 || !datumIsEqual(vec, PointerGetDatum(VectorArrayGet(samples, i - 1)), false, -1))
-			{
-				VectorArraySet(centers, centers->length, DatumGetPointer(vec));
-				centers->length++;
-			}
-		}
-	}
-
-	/* Fill remaining with random data */
+	/* Fill with random data */
 	while (centers->length < centers->maxlen)
 	{
 		Pointer		center = VectorArrayGet(centers, centers->length);
@@ -257,13 +156,11 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers, KmeansSta
 		for (int i = 0; i < dimensions; i++)
 			x[i] = (float) RandomDouble();
 
-		kmeansstate->initCenter(center, dimensions);
-		kmeansstate->updateCenter(center, x);
+		UpdateCenter(kmeansstate->updatecenterprocinfo, center, dimensions, x);
 
 		centers->length++;
 	}
 
-	/* Fine if existing vectors are normalized twice */
 	if (normprocinfo != NULL)
 		NormCenters(normalizeprocinfo, collation, centers);
 
@@ -288,57 +185,39 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 #endif
 
 static void
-VectorSumCenter(Pointer v, float *x)
+SumCenter(FmgrInfo *procinfo, Pointer sample, float *x)
 {
-	Vector	   *vec = (Vector *) v;
-
-	for (int k = 0; k < vec->dim; k++)
-		x[k] += vec->x[k];
-}
-
-static void
-HalfvecSumCenter(Pointer v, float *x)
-{
-	HalfVector *vec = (HalfVector *) v;
-
-	for (int k = 0; k < vec->dim; k++)
-		x[k] += HalfToFloat4(vec->x[k]);
-}
-
-static void
-BitSumCenter(Pointer v, float *x)
-{
-	VarBit	   *vec = (VarBit *) v;
-
-	for (int k = 0; k < VARBITLEN(v); k++)
-		x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
+	if (procinfo == NULL)
+		DirectFunctionCall2(ivfflat_vector_sum_center, PointerGetDatum(sample), PointerGetDatum(x));
+	else
+		FunctionCall2(procinfo, PointerGetDatum(sample), PointerGetDatum(x));
 }
 
 /*
  * Sum centers
  */
 static void
-SumCenters(VectorArray samples, VectorArray aggCenters, int *closestCenters, KmeansState * kmeansstate)
+SumCenters(VectorArray samples, float *agg, int *closestCenters, KmeansState * kmeansstate)
 {
 	for (int j = 0; j < samples->length; j++)
 	{
-		Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, closestCenters[j]);
+		float	   *x = agg + ((int64) closestCenters[j] * kmeansstate->dimensions);
 
-		kmeansstate->sumCenter(VectorArrayGet(samples, j), aggCenter->x);
+		SumCenter(kmeansstate->sumcenterprocinfo, VectorArrayGet(samples, j), x);
 	}
 }
 
 /*
- * Set new centers
+ * Update centers
  */
 static void
-UpdateCenters(VectorArray aggCenters, VectorArray newCenters, KmeansState * kmeansstate)
+UpdateCenters(float *agg, VectorArray centers, KmeansState * kmeansstate)
 {
-	for (int j = 0; j < aggCenters->length; j++)
+	for (int j = 0; j < centers->length; j++)
 	{
-		Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, j);
+		float	   *x = agg + ((int64) j * kmeansstate->dimensions);
 
-		kmeansstate->updateCenter(VectorArrayGet(newCenters, j), aggCenter->x);
+		UpdateCenter(kmeansstate->updatecenterprocinfo, VectorArrayGet(centers, j), centers->dim, x);
 	}
 }
 
@@ -346,25 +225,25 @@ UpdateCenters(VectorArray aggCenters, VectorArray newCenters, KmeansState * kmea
  * Compute new centers
  */
 static void
-ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, FmgrInfo *normalizeprocinfo, Oid collation, KmeansState * kmeansstate)
+ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, FmgrInfo *normalizeprocinfo, Oid collation, KmeansState * kmeansstate)
 {
-	int			dimensions = aggCenters->dim;
-	int			numCenters = aggCenters->maxlen;
+	int			dimensions = kmeansstate->dimensions;
+	int			numCenters = newCenters->length;
 	int			numSamples = samples->length;
 
 	/* Reset sum and count */
 	for (int j = 0; j < numCenters; j++)
 	{
-		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
+		float	   *x = agg + ((int64) j * dimensions);
 
 		for (int k = 0; k < dimensions; k++)
-			vec->x[k] = 0.0;
+			x[k] = 0.0;
 
 		centerCounts[j] = 0;
 	}
 
 	/* Increment sum of closest center */
-	SumCenters(samples, aggCenters, closestCenters, kmeansstate);
+	SumCenters(samples, agg, closestCenters, kmeansstate);
 
 	/* Increment count of closest center */
 	for (int j = 0; j < numSamples; j++)
@@ -373,7 +252,7 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 	/* Divide sum by count */
 	for (int j = 0; j < numCenters; j++)
 	{
-		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
+		float	   *x = agg + ((int64) j * dimensions);
 
 		if (centerCounts[j] > 0)
 		{
@@ -381,24 +260,23 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 			/* TODO Update bounds */
 			for (int k = 0; k < dimensions; k++)
 			{
-				if (isinf(vec->x[k]))
-					vec->x[k] = vec->x[k] > 0 ? FLT_MAX : -FLT_MAX;
+				if (isinf(x[k]))
+					x[k] = x[k] > 0 ? FLT_MAX : -FLT_MAX;
 			}
 
 			for (int k = 0; k < dimensions; k++)
-				vec->x[k] /= centerCounts[j];
+				x[k] /= centerCounts[j];
 		}
 		else
 		{
 			/* TODO Handle empty centers properly */
 			for (int k = 0; k < dimensions; k++)
-				vec->x[k] = RandomDouble();
+				x[k] = RandomDouble();
 		}
 	}
 
-	/* Set new centers if different from agg centers */
-	if (kmeansstate->separateAgg)
-		UpdateCenters(aggCenters, newCenters, kmeansstate);
+	/* Set new centers */
+	UpdateCenters(agg, newCenters, kmeansstate);
 
 	/* Normalize if needed */
 	if (normprocinfo != NULL)
@@ -424,7 +302,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
 	VectorArray newCenters;
-	VectorArray aggCenters;
+	float	   *agg;
 	int		   *centerCounts;
 	int		   *closestCenters;
 	float	   *lowerBound;
@@ -439,7 +317,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->itemsize);
 	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->itemsize);
 	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
-	Size		aggCentersSize = !kmeansstate->separateAgg ? 0 : VECTOR_ARRAY_SIZE(numCenters, VECTOR_SIZE(dimensions));
+	Size		aggSize = sizeof(float) * (int64) numCenters * dimensions;
 	Size		centerCountsSize = sizeof(int) * numCenters;
 	Size		closestCentersSize = sizeof(int) * numSamples;
 	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
@@ -449,7 +327,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 	Size		newcdistSize = sizeof(float) * numCenters;
 
 	/* Calculate total size */
-	Size		totalSize = samplesSize + centersSize + newCentersSize + aggCentersSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
+	Size		totalSize = samplesSize + centersSize + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
 
 	/* Check memory requirements */
 	/* Add one to error message to ceil */
@@ -477,6 +355,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 
 	/* Allocate space */
 	/* Use float instead of double to save memory */
+	agg = palloc(aggSize);
 	centerCounts = palloc(centerCountsSize);
 	closestCenters = palloc(closestCentersSize);
 	lowerBound = palloc_extended(lowerBoundSize, MCXT_ALLOC_HUGE);
@@ -488,24 +367,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 	/* Initialize new centers */
 	newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
 	newCenters->length = numCenters;
-
-	for (int j = 0; j < numCenters; j++)
-		kmeansstate->initCenter(VectorArrayGet(newCenters, j), dimensions);
-
-	/* Initialize agg centers */
-	if (!kmeansstate->separateAgg)
-	{
-		/* Use same centers to save memory */
-		aggCenters = newCenters;
-	}
-	else
-	{
-		aggCenters = VectorArrayInit(numCenters, dimensions, VECTOR_SIZE(dimensions));
-		aggCenters->length = numCenters;
-
-		for (int j = 0; j < numCenters; j++)
-			VectorInitCenter(VectorArrayGet(aggCenters, j), dimensions);
-	}
 
 #ifdef IVFFLAT_MEMORY
 	ShowMemoryUsage(oldCtx, totalSize);
@@ -645,7 +506,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, KmeansStat
 		}
 
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
-		ComputeNewCenters(samples, aggCenters, newCenters, centerCounts, closestCenters, normprocinfo, normalizeprocinfo, collation, kmeansstate);
+		ComputeNewCenters(samples, agg, newCenters, centerCounts, closestCenters, normprocinfo, normalizeprocinfo, collation, kmeansstate);
 
 		/* Step 5 */
 		for (int j = 0; j < numCenters; j++)
@@ -699,7 +560,7 @@ CheckCenters(Relation index, VectorArray centers, KmeansState * kmeansstate)
 		for (int j = 0; j < centers->dim; j++)
 			scratch[j] = 0;
 
-		kmeansstate->sumCenter(VectorArrayGet(centers, i), scratch);
+		SumCenter(kmeansstate->sumcenterprocinfo, VectorArrayGet(centers, i), scratch);
 
 		for (int j = 0; j < centers->dim; j++)
 		{
@@ -708,18 +569,6 @@ CheckCenters(Relation index, VectorArray centers, KmeansState * kmeansstate)
 
 			if (isinf(scratch[j]))
 				elog(ERROR, "Infinite value detected. Please report a bug.");
-		}
-	}
-
-	if (kmeansstate->checkDuplicates)
-	{
-		/* Ensure no duplicate centers */
-		SortVectorArray(centers, kmeansstate);
-
-		for (int i = 1; i < centers->length; i++)
-		{
-			if (datumIsEqual(PointerGetDatum(VectorArrayGet(centers, i)), PointerGetDatum(VectorArrayGet(centers, i - 1)), false, -1))
-				elog(ERROR, "Duplicate centers detected. Please report a bug.");
 		}
 	}
 
@@ -743,37 +592,11 @@ CheckCenters(Relation index, VectorArray centers, KmeansState * kmeansstate)
 }
 
 static void
-InitKmeansState(KmeansState * kmeansstate, IvfflatType type)
+InitKmeansState(KmeansState * kmeansstate, Relation index, int dimensions)
 {
-	if (type == IVFFLAT_TYPE_VECTOR)
-	{
-		kmeansstate->initCenter = VectorInitCenter;
-		kmeansstate->updateCenter = VectorUpdateCenter;
-		kmeansstate->sumCenter = VectorSumCenter;
-		kmeansstate->comp = CompareVectors;
-		kmeansstate->separateAgg = false;
-		kmeansstate->checkDuplicates = true;
-	}
-	else if (type == IVFFLAT_TYPE_HALFVEC)
-	{
-		kmeansstate->initCenter = HalfvecInitCenter;
-		kmeansstate->updateCenter = HalfvecUpdateCenter;
-		kmeansstate->sumCenter = HalfvecSumCenter;
-		kmeansstate->comp = CompareHalfVectors;
-		kmeansstate->separateAgg = true;
-		kmeansstate->checkDuplicates = true;
-	}
-	else if (type == IVFFLAT_TYPE_BIT)
-	{
-		kmeansstate->initCenter = BitInitCenter;
-		kmeansstate->updateCenter = BitUpdateCenter;
-		kmeansstate->sumCenter = BitSumCenter;
-		kmeansstate->comp = CompareBitVectors;
-		kmeansstate->separateAgg = true;
-		kmeansstate->checkDuplicates = false;
-	}
-	else
-		elog(ERROR, "Unsupported type");
+	kmeansstate->dimensions = dimensions;
+	kmeansstate->updatecenterprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_UPDATE_CENTER_PROC);
+	kmeansstate->sumcenterprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_SUM_CENTER_PROC);
 }
 
 /*
@@ -781,14 +604,14 @@ InitKmeansState(KmeansState * kmeansstate, IvfflatType type)
  * We use spherical k-means for inner product and cosine
  */
 void
-IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatType type)
+IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers)
 {
 	KmeansState kmeansstate;
 
-	InitKmeansState(&kmeansstate, type);
+	InitKmeansState(&kmeansstate, index, centers->dim);
 
-	if (samples->length <= centers->maxlen)
-		QuickCenters(index, samples, centers, &kmeansstate);
+	if (samples->length == 0)
+		RandomCenters(index, centers, &kmeansstate);
 	else
 		ElkanKmeans(index, samples, centers, &kmeansstate);
 

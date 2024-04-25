@@ -30,7 +30,8 @@
 #define IVFFLAT_KMEANS_NORM_PROC 4
 #define IVFFLAT_NORMALIZE_PROC 5
 #define IVFFLAT_MAX_DIMS_PROC 6
-#define IVFFLAT_TYPE_SUPPORT_PROC 7
+#define IVFFLAT_UPDATE_CENTER_PROC 7
+#define IVFFLAT_SUM_CENTER_PROC 8
 
 #define IVFFLAT_VERSION	1
 #define IVFFLAT_MAGIC_NUMBER 0x14FF1A7
@@ -45,14 +46,6 @@
 #define IVFFLAT_MIN_LISTS		1
 #define IVFFLAT_MAX_LISTS		32768
 #define IVFFLAT_DEFAULT_PROBES	1
-
-typedef enum IvfflatType
-{
-	IVFFLAT_TYPE_VECTOR,
-	IVFFLAT_TYPE_HALFVEC,
-	IVFFLAT_TYPE_BIT,
-	IVFFLAT_TYPE_UNSUPPORTED
-}			IvfflatType;
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
@@ -165,7 +158,6 @@ typedef struct IvfflatBuildState
 	Relation	heap;
 	Relation	index;
 	IndexInfo  *indexInfo;
-	IvfflatType type;
 
 	/* Settings */
 	int			dimensions;
@@ -279,7 +271,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatType type);
+void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 Datum		IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);

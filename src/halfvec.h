@@ -44,6 +44,5 @@ typedef struct HalfVector
 }			HalfVector;
 
 HalfVector *InitHalfVector(int dim);
-int			halfvec_cmp_internal(HalfVector * a, HalfVector * b);
 
 #endif

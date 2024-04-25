@@ -978,7 +978,7 @@ halfvec_subvector(PG_FUNCTION_ARGS)
 /*
  * Internal helper to compare half vectors
  */
-int
+static int
 halfvec_cmp_internal(HalfVector * a, HalfVector * b)
 {
 	int			dim = Min(a->dim, b->dim);

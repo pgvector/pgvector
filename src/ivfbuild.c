@@ -320,27 +320,6 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 }
 
 /*
- * Get type
- */
-static IvfflatType
-IvfflatGetType(Relation index)
-{
-	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_TYPE_SUPPORT_PROC);
-	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
-	IvfflatType result;
-
-	if (procinfo == NULL)
-		return IVFFLAT_TYPE_VECTOR;
-
-	result = (IvfflatType) DatumGetInt32(FunctionCall1(procinfo, ObjectIdGetDatum(typid)));
-
-	if (result == IVFFLAT_TYPE_UNSUPPORTED)
-		elog(ERROR, "type not supported for ivfflat index");
-
-	return result;
-}
-
-/*
  * Get max dimensions
  */
 static int
@@ -358,13 +337,14 @@ GetMaxDimensions(Relation index)
  * Get item size
  */
 static Size
-GetItemSize(IvfflatType type, int dimensions)
+GetItemSize(int maxDimensions, int dimensions)
 {
-	if (type == IVFFLAT_TYPE_VECTOR)
+	/* TODO Improve */
+	if (maxDimensions == IVFFLAT_MAX_DIM)
 		return VECTOR_SIZE(dimensions);
-	else if (type == IVFFLAT_TYPE_HALFVEC)
+	else if (maxDimensions == IVFFLAT_MAX_DIM * 2)
 		return HALFVEC_SIZE(dimensions);
-	else if (type == IVFFLAT_TYPE_BIT)
+	else if (maxDimensions == IVFFLAT_MAX_DIM * 32)
 		return VARBITTOTALLEN(dimensions);
 	else
 		elog(ERROR, "Unsupported type");
@@ -381,7 +361,6 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
-	buildstate->type = IvfflatGetType(index);
 
 	buildstate->lists = IvfflatGetLists(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
@@ -421,7 +400,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
 
-	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, GetItemSize(buildstate->type, buildstate->dimensions));
+	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, GetItemSize(maxDimensions, buildstate->dimensions));
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
@@ -491,7 +470,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	}
 
 	/* Calculate centers */
-	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers, buildstate->type));
+	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers));
 
 	/* Free samples before we allocate more memory */
 	VectorArrayFree(buildstate->samples);
