@@ -612,7 +612,7 @@ static void
 HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 {
 	Datum		value;
-	FmgrInfo   *checkvalueprocinfo = HnswOptionalProcInfo(index, HNSW_CHECK_VALUE_PROC);
+	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
 	FmgrInfo   *normprocinfo;
 	Oid			collation = index->rd_indcollation[0];
 
@@ -620,8 +620,8 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Check value */
-	if (checkvalueprocinfo != NULL)
-		HnswCheckValue(checkvalueprocinfo, collation, value);
+	if (typeInfo->checkValue != NULL)
+		typeInfo->checkValue(DatumGetPointer(value));
 
 	/* Normalize if needed */
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);

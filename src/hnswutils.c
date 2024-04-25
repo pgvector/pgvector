@@ -174,15 +174,6 @@ HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
 }
 
 /*
- * Check if a value can be indexed
- */
-void
-HnswCheckValue(FmgrInfo *procinfo, Oid collation, Datum value)
-{
-	FunctionCall1Coll(procinfo, collation, value);
-}
-
-/*
  * New buffer
  */
 Buffer
@@ -1276,35 +1267,68 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	}
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_halfvec_max_dims);
-Datum
-hnsw_halfvec_max_dims(PG_FUNCTION_ARGS)
+static void
+SparsevecCheckValue(Pointer v)
 {
-	PG_RETURN_INT32(HNSW_MAX_DIM * 2);
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_bit_max_dims);
-Datum
-hnsw_bit_max_dims(PG_FUNCTION_ARGS)
-{
-	PG_RETURN_INT32(HNSW_MAX_DIM * 32);
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_sparsevec_max_dims);
-Datum
-hnsw_sparsevec_max_dims(PG_FUNCTION_ARGS)
-{
-	PG_RETURN_INT32(SPARSEVEC_MAX_DIM);
-};
-
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_sparsevec_check_value);
-Datum
-hnsw_sparsevec_check_value(PG_FUNCTION_ARGS)
-{
-	SparseVector *vec = PG_GETARG_SPARSEVEC_P(0);
+	SparseVector *vec = (SparseVector *) v;
 
 	if (vec->nnz > HNSW_MAX_NNZ)
 		elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
-
-	PG_RETURN_VOID();
 }
+
+/*
+ * Get type info
+ */
+const		HnswTypeInfo *
+HnswGetTypeInfo(Relation index)
+{
+	FmgrInfo   *procinfo = HnswOptionalProcInfo(index, HNSW_TYPE_INFO_PROC);
+
+	if (procinfo == NULL)
+	{
+		static const HnswTypeInfo typeInfo = {
+			.maxDimensions = HNSW_MAX_DIM,
+			.checkValue = NULL
+		};
+
+		return (&typeInfo);
+	}
+	else
+		return (const HnswTypeInfo *) DatumGetPointer(FunctionCall0Coll(procinfo, InvalidOid));
+}
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_halfvec_support);
+Datum
+hnsw_halfvec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = HNSW_MAX_DIM * 2,
+		.checkValue = NULL
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_bit_support);
+Datum
+hnsw_bit_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = HNSW_MAX_DIM * 32,
+		.checkValue = NULL
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_sparsevec_support);
+Datum
+hnsw_sparsevec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = SPARSEVEC_MAX_DIM,
+		.checkValue = SparsevecCheckValue
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};

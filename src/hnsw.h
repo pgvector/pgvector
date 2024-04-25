@@ -23,8 +23,7 @@
 #define HNSW_DISTANCE_PROC 1
 #define HNSW_NORM_PROC 2
 #define HNSW_NORMALIZE_PROC 3
-#define HNSW_MAX_DIMS_PROC 4
-#define HNSW_CHECK_VALUE_PROC 5
+#define HNSW_TYPE_INFO_PROC 4
 
 #define HNSW_VERSION	1
 #define HNSW_MAGIC_NUMBER 0xA953A953
@@ -239,6 +238,12 @@ typedef struct HnswAllocator
 	void	   *state;
 }			HnswAllocator;
 
+typedef struct HnswTypeInfo
+{
+	int			maxDimensions;
+	void		(*checkValue) (Pointer v);
+}			HnswTypeInfo;
+
 typedef struct HnswBuildState
 {
 	/* Info */
@@ -246,6 +251,7 @@ typedef struct HnswBuildState
 	Relation	index;
 	IndexInfo  *indexInfo;
 	ForkNumber	forkNum;
+	const		HnswTypeInfo *typeInfo;
 
 	/* Settings */
 	int			dimensions;
@@ -260,7 +266,6 @@ typedef struct HnswBuildState
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	FmgrInfo   *normalizeprocinfo;
-	FmgrInfo   *checkvalueprocinfo;
 	Oid			collation;
 
 	/* Variables */
@@ -375,7 +380,6 @@ int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
 Datum		HnswNormValue(FmgrInfo *procinfo, Oid collation, Datum value);
 bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
-void		HnswCheckValue(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
@@ -399,6 +403,7 @@ void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element
 void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 void		HnswInitLockTranche(void);
+const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */

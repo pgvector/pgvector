@@ -28,16 +28,13 @@ CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 CREATE FUNCTION ivfflat_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
-CREATE FUNCTION hnsw_bit_max_dims(internal) RETURNS internal
+CREATE FUNCTION hnsw_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
-CREATE FUNCTION hnsw_halfvec_max_dims(internal) RETURNS internal
+CREATE FUNCTION hnsw_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
-CREATE FUNCTION hnsw_sparsevec_max_dims(internal) RETURNS internal
-	AS 'MODULE_PATHNAME' LANGUAGE C;
-
-CREATE FUNCTION hnsw_sparsevec_check_value(internal) RETURNS internal
+CREATE FUNCTION hnsw_sparsevec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
 CREATE OPERATOR CLASS vector_l1_ops
@@ -72,13 +69,13 @@ CREATE OPERATOR CLASS bit_hamming_ops
 	FOR TYPE bit USING hnsw AS
 	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
 	FUNCTION 1 hamming_distance(bit, bit),
-	FUNCTION 4 hnsw_bit_max_dims(internal);
+	FUNCTION 4 hnsw_bit_support(internal);
 
 CREATE OPERATOR CLASS bit_jaccard_ops
 	FOR TYPE bit USING hnsw AS
 	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
 	FUNCTION 1 jaccard_distance(bit, bit),
-	FUNCTION 4 hnsw_bit_max_dims(internal);
+	FUNCTION 4 hnsw_bit_support(internal);
 
 CREATE TYPE halfvec;
 
@@ -358,13 +355,13 @@ CREATE OPERATOR CLASS halfvec_l2_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <-> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_l2_squared_distance(halfvec, halfvec),
-	FUNCTION 4 hnsw_halfvec_max_dims(internal);
+	FUNCTION 4 hnsw_halfvec_support(internal);
 
 CREATE OPERATOR CLASS halfvec_ip_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
-	FUNCTION 4 hnsw_halfvec_max_dims(internal);
+	FUNCTION 4 hnsw_halfvec_support(internal);
 
 CREATE OPERATOR CLASS halfvec_cosine_ops
 	FOR TYPE halfvec USING hnsw AS
@@ -372,13 +369,13 @@ CREATE OPERATOR CLASS halfvec_cosine_ops
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 2 l2_norm(halfvec),
 	FUNCTION 3 l2_normalize(halfvec),
-	FUNCTION 4 hnsw_halfvec_max_dims(internal);
+	FUNCTION 4 hnsw_halfvec_support(internal);
 
 CREATE OPERATOR CLASS halfvec_l1_ops
 	FOR TYPE halfvec USING hnsw AS
 	OPERATOR 1 <+> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(halfvec, halfvec),
-	FUNCTION 4 hnsw_halfvec_max_dims(internal);
+	FUNCTION 4 hnsw_halfvec_support(internal);
 
 CREATE TYPE sparsevec;
 
@@ -550,15 +547,13 @@ CREATE OPERATOR CLASS sparsevec_l2_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <-> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 sparsevec_l2_squared_distance(sparsevec, sparsevec),
-	FUNCTION 4 hnsw_sparsevec_max_dims(internal),
-	FUNCTION 5 hnsw_sparsevec_check_value(internal);
+	FUNCTION 4 hnsw_sparsevec_support(internal);
 
 CREATE OPERATOR CLASS sparsevec_ip_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <#> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
-	FUNCTION 4 hnsw_sparsevec_max_dims(internal),
-	FUNCTION 5 hnsw_sparsevec_check_value(internal);
+	FUNCTION 4 hnsw_sparsevec_support(internal);
 
 CREATE OPERATOR CLASS sparsevec_cosine_ops
 	FOR TYPE sparsevec USING hnsw AS
@@ -566,12 +561,10 @@ CREATE OPERATOR CLASS sparsevec_cosine_ops
 	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
 	FUNCTION 2 l2_norm(sparsevec),
 	FUNCTION 3 l2_normalize(sparsevec),
-	FUNCTION 4 hnsw_sparsevec_max_dims(internal),
-	FUNCTION 5 hnsw_sparsevec_check_value(internal);
+	FUNCTION 4 hnsw_sparsevec_support(internal);
 
 CREATE OPERATOR CLASS sparsevec_l1_ops
 	FOR TYPE sparsevec USING hnsw AS
 	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(sparsevec, sparsevec),
-	FUNCTION 4 hnsw_sparsevec_max_dims(internal),
-	FUNCTION 5 hnsw_sparsevec_check_value(internal);
+	FUNCTION 4 hnsw_sparsevec_support(internal);

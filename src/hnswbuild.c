@@ -488,8 +488,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Check value */
-	if (buildstate->checkvalueprocinfo != NULL)
-		HnswCheckValue(buildstate->checkvalueprocinfo, buildstate->collation, value);
+	if (buildstate->typeInfo->checkValue != NULL)
+		buildstate->typeInfo->checkValue(DatumGetPointer(value));
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -673,31 +673,16 @@ HnswSharedMemoryAlloc(Size size, void *state)
 }
 
 /*
- * Get max dimensions
- */
-static int
-GetMaxDimensions(Relation index)
-{
-	FmgrInfo   *procinfo = HnswOptionalProcInfo(index, HNSW_MAX_DIMS_PROC);
-
-	if (procinfo == NULL)
-		return HNSW_MAX_DIM;
-
-	return DatumGetInt32(FunctionCall1(procinfo, PointerGetDatum(NULL)));
-}
-
-/*
  * Initialize the build state
  */
 static void
 InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo, ForkNumber forkNum)
 {
-	int			maxDimensions;
-
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
 	buildstate->forkNum = forkNum;
+	buildstate->typeInfo = HnswGetTypeInfo(index);
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
@@ -707,14 +692,12 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
 		elog(ERROR, "type not supported for hnsw index");
 
-	maxDimensions = GetMaxDimensions(index);
-
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
-	if (buildstate->dimensions > maxDimensions)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", maxDimensions);
+	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
+		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions);
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
 		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");
@@ -726,7 +709,6 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	buildstate->normalizeprocinfo = HnswOptionalProcInfo(index, HNSW_NORMALIZE_PROC);
-	buildstate->checkvalueprocinfo = HnswOptionalProcInfo(index, HNSW_CHECK_VALUE_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
 	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * 1024L);
