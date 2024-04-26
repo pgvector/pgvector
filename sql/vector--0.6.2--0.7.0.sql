@@ -178,11 +178,14 @@ CREATE FUNCTION halfvec_accum(double precision[], halfvec) RETURNS double precis
 CREATE FUNCTION halfvec_avg(double precision[]) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION halfvec_combine(double precision[], double precision[]) RETURNS double precision[]
+	AS 'MODULE_PATHNAME', 'vector_combine' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE AGGREGATE avg(halfvec) (
 	SFUNC = halfvec_accum,
 	STYPE = double precision[],
 	FINALFUNC = halfvec_avg,
-	COMBINEFUNC = vector_combine,
+	COMBINEFUNC = halfvec_combine,
 	INITCOND = '{0}',
 	PARALLEL = SAFE
 );
