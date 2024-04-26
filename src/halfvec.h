@@ -4,10 +4,15 @@
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 
 #include <float.h>
+#include <arm_sve.h>
 
 #include "bitutils.h"
 #include "fmgr.h"
 #include "vector.h"
+
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+#define ARM_SVE
+#endif
 
 #if defined(USE_DISPATCH)
 #define HALFVEC_DISPATCH
@@ -20,13 +25,18 @@
 #define FLT16_SUPPORT
 #endif
 
-#ifdef FLT16_SUPPORT
+#if defined(ARM_SVE)
+#define half __fp16
+#define HALF_MAX FLT16_MAX
+#elif defined FLT16_SUPPORT
 #define half _Float16
 #define HALF_MAX FLT16_MAX
 #else
 #define half uint16
 #define HALF_MAX 65504
 #endif
+
+
 
 #define HALFVEC_MAX_DIM VECTOR_MAX_DIM
 

@@ -15,7 +15,7 @@
 #ifdef _MSC_VER
 #define TARGET_F16C
 #else
-#define TARGET_F16C __attribute__((target("avx,f16c,fma")))
+#define TARGET_F16C __attribute__((target("avx,f16c,fma,sve,fp16")))
 #endif
 #endif
 
@@ -72,6 +72,25 @@ HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 	}
 
 	return distance;
+}
+#endif
+
+#ifdef ARM_SVE
+static float
+HalfvecInnerProductSVE(int dim, half * ax, half * bx)
+{
+	svfloat16_t 	dist = svdupq_n_f16(0, 0, 0, 0, 0, 0, 0, 0);
+
+	for (int i = 0; i < dim; i += svcnth())
+	{
+		svbool_t layout = svwhilelt_b16((unsigned int)i, (unsigned int)dim);
+		svfloat16_t vax = svld1_f16(layout, ax + i);
+		svfloat16_t vbx = svld1_f16(layout, bx + i);
+
+		dist = svmla_f16_m(layout, dist, vax, vbx);
+	}
+
+	return svaddv_f16(svptrue_b16(), dist);
 }
 #endif
 
@@ -238,7 +257,10 @@ HalfvecInit(void)
 	HalfvecInnerProduct = HalfvecInnerProductDefault;
 	HalfvecCosineSimilarity = HalfvecCosineSimilarityDefault;
 
-#ifdef HALFVEC_DISPATCH
+#ifdef ARM_SVE
+	HalfvecInnerProduct = HalfvecInnerProductSVE;
+
+#elif defined(HALFVEC_DISPATCH)
 	if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_F16C | CPU_FEATURE_FMA))
 	{
 		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16c;
