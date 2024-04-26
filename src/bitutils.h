@@ -3,6 +3,7 @@
 
 #include "postgres.h"
 
+/* Check version in first header */
 #if PG_VERSION_NUM < 120000
 #error "Requires PostgreSQL 12+"
 #endif
