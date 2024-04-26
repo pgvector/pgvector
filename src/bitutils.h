@@ -1,6 +1,12 @@
 #ifndef BITUTILS_H
 #define BITUTILS_H
 
+#include "postgres.h"
+
+#if PG_VERSION_NUM < 120000
+#error "Requires PostgreSQL 12+"
+#endif
+
 /* We use two types of dispatching: intrinsics and target_clones */
 /* TODO Move to better place */
 #ifndef DISABLE_DISPATCH

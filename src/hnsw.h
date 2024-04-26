@@ -12,10 +12,6 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM < 120000
-#error "Requires PostgreSQL 12+"
-#endif
-
 #define HNSW_MAX_DIM 2000
 #define HNSW_MAX_NNZ 1000
 
