@@ -3,12 +3,12 @@
 
 #include "postgres.h"
 
-#include "halfvec.h"			/* for USE_DISPATCH and USE_TARGET_CLONES */
-
 /* Check version in first header */
 #if PG_VERSION_NUM < 120000
 #error "Requires PostgreSQL 12+"
 #endif
+
+#include "halfvec.h"			/* for USE_DISPATCH and USE_TARGET_CLONES */
 
 #if defined(USE_DISPATCH)
 #define BIT_DISPATCH
