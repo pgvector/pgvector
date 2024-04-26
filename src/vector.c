@@ -1203,6 +1203,7 @@ PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_combine);
 Datum
 vector_combine(PG_FUNCTION_ARGS)
 {
+	/* Must also update parameters of halfvec_combine if modifying */
 	ArrayType  *statearray1 = PG_GETARG_ARRAYTYPE_P(0);
 	ArrayType  *statearray2 = PG_GETARG_ARRAYTYPE_P(1);
 	float8	   *statevalues1;
