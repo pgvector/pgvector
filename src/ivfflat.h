@@ -271,6 +271,8 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 
 #define VECTOR_ARRAY_SIZE(_length, _size) (sizeof(VectorArrayData) + (_length) * MAXALIGN(_size))
 
+/* Use functions instead of macros to avoid double evaluation */
+
 static inline Pointer
 VectorArrayGet(VectorArray arr, int offset)
 {
