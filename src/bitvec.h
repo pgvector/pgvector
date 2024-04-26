@@ -1,5 +1,5 @@
-#ifndef BITVECTOR_H
-#define BITVECTOR_H
+#ifndef BITVEC_H
+#define BITVEC_H
 
 #include "utils/varbit.h"
 
