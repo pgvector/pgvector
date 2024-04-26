@@ -59,7 +59,7 @@ GetScanValue(IndexScanDesc scan)
 		Assert(!VARATT_IS_COMPRESSED(DatumGetPointer(value)));
 		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
 
-		/* Fine if normalization fails */
+		/* Normalize if needed */
 		if (so->normprocinfo != NULL)
 			value = HnswNormValue(so->typeInfo, so->collation, value);
 	}
