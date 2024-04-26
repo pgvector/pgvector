@@ -3,7 +3,7 @@
 
 #include "postgres.h"
 
-#include "halfvec.h"			/* for USE_DISPATCH */
+#include "halfvec.h"			/* for USE_DISPATCH and USE_TARGET_CLONES */
 
 /* Check version in first header */
 #if PG_VERSION_NUM < 120000
