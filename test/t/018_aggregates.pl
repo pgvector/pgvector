@@ -41,6 +41,15 @@ sub test_aggregate
 	# Test explain
 	my $explain = $node->safe_psql("postgres", "EXPLAIN SELECT $agg(v) FROM tst;");
 	like($explain, qr/Partial Aggregate/);
+
+	# Test halfvec
+	$res = $node->safe_psql("postgres", "SELECT $agg(v::halfvec) FROM tst;");
+	if ($agg eq 'avg')
+	{
+		like($res, qr/\[1\.5/);
+		like($res, qr/,2\.5/);
+		like($res, qr/,3\.5/);
+	}
 }
 
 test_aggregate('avg');
