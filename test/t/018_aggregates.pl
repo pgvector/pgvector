@@ -50,6 +50,11 @@ sub test_aggregate
 		like($res, qr/,2\.5/);
 		like($res, qr/,3\.5/);
 	}
+	else
+	{
+		# Does not raise overflow error in this instance due to loss of precision
+		is($res, "[24576,24576,49152]")
+	}
 }
 
 test_aggregate('avg');
