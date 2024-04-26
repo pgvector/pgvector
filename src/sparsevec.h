@@ -1,8 +1,6 @@
 #ifndef SPARSEVEC_H
 #define SPARSEVEC_H
 
-#include "fmgr.h"
-
 #define SPARSEVEC_MAX_DIM 1000000000
 #define SPARSEVEC_MAX_NNZ 16000
 

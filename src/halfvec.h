@@ -6,7 +6,6 @@
 #include <float.h>
 
 #include "bitutils.h"
-#include "fmgr.h"
 #include "vector.h"
 
 #if defined(USE_DISPATCH)
