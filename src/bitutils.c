@@ -1,7 +1,12 @@
 #include "postgres.h"
 
 #include "bitutils.h"
+#include "halfvec.h"			/* for USE_DISPATCH and USE_TARGET_CLONES */
 #include "port/pg_bitutils.h"
+
+#if defined(USE_DISPATCH)
+#define BIT_DISPATCH
+#endif
 
 #ifdef BIT_DISPATCH
 #include <immintrin.h>
