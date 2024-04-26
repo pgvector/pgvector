@@ -8,6 +8,7 @@ my $node;
 my @queries = ();
 my @expected;
 my $limit = 20;
+my $array_sql = join(",", ('random() * random()') x 3);
 
 sub test_recall
 {
@@ -54,7 +55,7 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector(3));");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[random(), random(), random()] FROM generate_series(1, 10000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 10000) i;"
 );
 
 # Generate queries
@@ -90,7 +91,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	my $min = $operator eq "<#>" ? 0.80 : 0.99;
+	my $min = 0.99;
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");

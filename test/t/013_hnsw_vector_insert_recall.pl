@@ -8,6 +8,7 @@ my $node;
 my @queries = ();
 my @expected;
 my $limit = 20;
+my $array_sql = join(",", ('random() * random()') x 3);
 
 sub test_recall
 {
@@ -83,7 +84,7 @@ for my $i (0 .. $#operators)
 		[qr{^$}],
 		"concurrent INSERTs",
 		{
-			"013_hnsw_insert_recall_$opclass" => "INSERT INTO tst (v) VALUES (ARRAY[random(), random(), random()]);"
+			"013_hnsw_insert_recall_$opclass" => "INSERT INTO tst (v) VALUES (ARRAY[$array_sql]);"
 		}
 	);
 
@@ -99,7 +100,7 @@ for my $i (0 .. $#operators)
 	}
 
 	# Test approximate results
-	my $min = $operator eq "<#>" ? 0.80 : 0.99;
+	my $min = 0.99;
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");

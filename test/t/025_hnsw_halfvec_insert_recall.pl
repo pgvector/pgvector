@@ -9,7 +9,7 @@ my @queries = ();
 my @expected;
 my $limit = 20;
 my $dim = 10;
-my $array_sql = join(",", ('random()') x $dim);
+my $array_sql = join(",", ('2 * random() * random()') x $dim);
 
 sub test_recall
 {
@@ -103,7 +103,7 @@ for my $i (0 .. $#operators)
 	}
 
 	# Test approximate results
-	my $min = $operator eq "<#>" ? 0.94 : 0.98;
+	my $min = 0.98;
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
