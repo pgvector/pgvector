@@ -3,27 +3,11 @@
 
 #include "postgres.h"
 
+#include "halfvec.h"			/* for USE_DISPATCH */
+
 /* Check version in first header */
 #if PG_VERSION_NUM < 120000
 #error "Requires PostgreSQL 12+"
-#endif
-
-/* We use two types of dispatching: intrinsics and target_clones */
-/* TODO Move to better place */
-#ifndef DISABLE_DISPATCH
-/* Only enable for more recent compilers to keep build process simple */
-#if defined(__x86_64__) && defined(__GNUC__) && __GNUC__ >= 8
-#define USE_DISPATCH
-#elif defined(__x86_64__) && defined(__clang_major__) && __clang_major__ >= 7
-#define USE_DISPATCH
-#elif defined(_M_AMD64) && defined(_MSC_VER) && _MSC_VER >= 1920
-#define USE_DISPATCH
-#endif
-#endif
-
-/* target_clones requires glibc */
-#if defined(USE_DISPATCH) && defined(__gnu_linux__)
-#define USE_TARGET_CLONES
 #endif
 
 #if defined(USE_DISPATCH)
