@@ -270,9 +270,18 @@ typedef struct IvfflatScanOpaqueData
 typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 
 #define VECTOR_ARRAY_SIZE(_length, _size) (sizeof(VectorArrayData) + (_length) * MAXALIGN(_size))
-#define VECTOR_ARRAY_OFFSET(_arr, _offset) ((char*) (_arr)->items + (_offset) * (_arr)->itemsize)
-#define VectorArrayGet(_arr, _offset) VECTOR_ARRAY_OFFSET(_arr, _offset)
-#define VectorArraySet(_arr, _offset, _val) memcpy(VECTOR_ARRAY_OFFSET(_arr, _offset), _val, VARSIZE_ANY(_val))
+
+static inline Pointer
+VectorArrayGet(VectorArray arr, int offset)
+{
+	return ((char *) arr->items) + (offset * arr->itemsize);
+}
+
+static inline void
+VectorArraySet(VectorArray arr, int offset, Pointer val)
+{
+	memcpy(VectorArrayGet(arr, offset), val, VARSIZE_ANY(val));
+}
 
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
