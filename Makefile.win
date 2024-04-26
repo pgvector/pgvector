@@ -4,7 +4,7 @@ EXTVERSION = 0.6.2
 OBJS = src\bitutils.obj src\bitvec.obj src\halfutils.obj src\halfvec.obj src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\sparsevec.obj src\vector.obj
 HEADERS = src\halfvec.h src\sparsevec.h src\vector.h
 
-REGRESS = bit_functions btree_halfvec btree_sparsevec btree_vector cast copy halfvec_functions halfvec_input hnsw_bit_hamming hnsw_bit_jaccard hnsw_halfvec_cosine hnsw_halfvec_ip hnsw_halfvec_l2 hnsw_options hnsw_sparsevec_cosine hnsw_sparsevec_ip hnsw_sparsevec_l2 hnsw_unlogged hnsw_vector_cosine hnsw_vector_ip hnsw_vector_l2 ivfflat_halfvec_cosine ivfflat_halfvec_ip ivfflat_halfvec_l2 ivfflat_options ivfflat_unlogged ivfflat_vector_cosine ivfflat_vector_ip ivfflat_vector_l2 sparsevec_functions sparsevec_input vector_functions vector_input
+REGRESS = bit btree cast copy halfvec hnsw_bit hnsw_halfvec hnsw_sparsevec hnsw_vector ivfflat_bit ivfflat_halfvec ivfflat_vector sparsevec vector
 REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
 # For /arch flags
