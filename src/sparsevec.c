@@ -539,6 +539,7 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	result = InitSparseVector(dim, nnz);
 	values = SPARSEVEC_VALUES(result);
 
+	/* Binary representation uses zero-based numbering for indices */
 	for (int i = 0; i < nnz; i++)
 	{
 		result->indices[i] = pq_getmsgint(buf, sizeof(int32));
@@ -549,6 +550,7 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	{
 		values[i] = pq_getmsgfloat4(buf);
 		CheckElement(values[i]);
+
 		if (values[i] == 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
@@ -573,8 +575,11 @@ sparsevec_send(PG_FUNCTION_ARGS)
 	pq_sendint(&buf, svec->dim, sizeof(int32));
 	pq_sendint(&buf, svec->nnz, sizeof(int32));
 	pq_sendint(&buf, svec->unused, sizeof(int32));
+
+	/* Binary representation uses zero-based numbering for indices */
 	for (int i = 0; i < svec->nnz; i++)
 		pq_sendint(&buf, svec->indices[i], sizeof(int32));
+
 	for (int i = 0; i < svec->nnz; i++)
 		pq_sendfloat4(&buf, values[i]);
 
