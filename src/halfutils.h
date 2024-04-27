@@ -67,9 +67,6 @@ HalfToFloat4(half num)
 #elif defined(FLT16_SUPPORT)
 	return (float) num;
 #else
-	/* TODO Improve performance */
-
-	/* Assumes same endianness for floats and integers */
 	union
 	{
 		float		f;
@@ -154,9 +151,6 @@ Float4ToHalfUnchecked(float num)
 #elif defined(FLT16_SUPPORT)
 	return (_Float16) num;
 #else
-	/* TODO Improve performance */
-
-	/* Assumes same endianness for floats and integers */
 	union
 	{
 		float		f;

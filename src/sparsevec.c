@@ -244,7 +244,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			long		index;
 			float		value;
 
-			/* TODO Better error */
 			if (nnz == maxNnz)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
