@@ -94,33 +94,45 @@ CheckNnz(int nnz, int dim)
  * Ensure valid index
  */
 static inline void
-CheckIndex(int32 *indices, int i, int dim)
+CheckIndex(int32 *indices, int i, int dim, bool text)
 {
 	int32		index = indices[i];
 
-	/* TODO Better error message for binary format */
 	if (index < 0)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("index must be greater than zero")));
+	{
+		if (text)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("sparsevec index out of bounds (< 1)")));
+		else
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("sparsevec index out of bounds for binary representation (< 0)")));
+	}
 
-	/* TODO Better error message for binary format */
 	if (index >= dim)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("index must be less than or equal to dimensions")));
+	{
+		if (text)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("sparsevec index out of bounds (> dimensions)")));
+		else
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("sparsevec index out of bounds for binary representation (>= dimensions)")));
+	}
 
 	if (i > 0)
 	{
 		if (index < indices[i - 1])
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("indexes must be in ascending order")));
+					 errmsg("sparsevec indices must be in ascending order")));
 
 		if (index == indices[i - 1])
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("indexes must not contain duplicates")));
+					 errmsg("sparsevec indices must not contain duplicates")));
 	}
 }
 
@@ -392,7 +404,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		result->indices[i] = elements[i].index;
 		rvalues[i] = elements[i].value;
 
-		CheckIndex(result->indices, i, dim);
+		CheckIndex(result->indices, i, dim, true);
 	}
 
 	PG_RETURN_POINTER(result);
@@ -530,7 +542,7 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	for (int i = 0; i < nnz; i++)
 	{
 		result->indices[i] = pq_getmsgint(buf, sizeof(int32));
-		CheckIndex(result->indices, i, dim);
+		CheckIndex(result->indices, i, dim, false);
 	}
 
 	for (int i = 0; i < nnz; i++)
