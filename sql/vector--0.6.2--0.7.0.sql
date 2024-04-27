@@ -22,16 +22,16 @@ CREATE OPERATOR || (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_concat
 );
 
-CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
-	AS 'MODULE_PATHNAME' LANGUAGE C;
-
 CREATE FUNCTION ivfflat_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
-CREATE FUNCTION hnsw_bit_support(internal) RETURNS internal
+CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
 CREATE FUNCTION hnsw_halfvec_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+CREATE FUNCTION hnsw_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
 CREATE FUNCTION hnsw_sparsevec_support(internal) RETURNS internal
@@ -41,41 +41,6 @@ CREATE OPERATOR CLASS vector_l1_ops
 	FOR TYPE vector USING hnsw AS
 	OPERATOR 1 <+> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(vector, vector);
-
-CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE FUNCTION jaccard_distance(bit, bit) RETURNS float8
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE OPERATOR <~> (
-	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = hamming_distance,
-	COMMUTATOR = '<~>'
-);
-
-CREATE OPERATOR <%> (
-	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = jaccard_distance,
-	COMMUTATOR = '<%>'
-);
-
-CREATE OPERATOR CLASS bit_hamming_ops
-	FOR TYPE bit USING ivfflat AS
-	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
-	FUNCTION 1 hamming_distance(bit, bit),
-	FUNCTION 3 hamming_distance(bit, bit),
-	FUNCTION 5 ivfflat_bit_support(internal);
-
-CREATE OPERATOR CLASS bit_hamming_ops
-	FOR TYPE bit USING hnsw AS
-	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
-	FUNCTION 1 hamming_distance(bit, bit),
-	FUNCTION 3 hnsw_bit_support(internal);
-
-CREATE OPERATOR CLASS bit_jaccard_ops
-	FOR TYPE bit USING hnsw AS
-	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
-	FUNCTION 1 jaccard_distance(bit, bit),
-	FUNCTION 3 hnsw_bit_support(internal);
 
 CREATE TYPE halfvec;
 
@@ -376,6 +341,41 @@ CREATE OPERATOR CLASS halfvec_l1_ops
 	OPERATOR 1 <+> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(halfvec, halfvec),
 	FUNCTION 3 hnsw_halfvec_support(internal);
+
+CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION jaccard_distance(bit, bit) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE OPERATOR <~> (
+	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = hamming_distance,
+	COMMUTATOR = '<~>'
+);
+
+CREATE OPERATOR <%> (
+	LEFTARG = bit, RIGHTARG = bit, PROCEDURE = jaccard_distance,
+	COMMUTATOR = '<%>'
+);
+
+CREATE OPERATOR CLASS bit_hamming_ops
+	FOR TYPE bit USING ivfflat AS
+	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 hamming_distance(bit, bit),
+	FUNCTION 3 hamming_distance(bit, bit),
+	FUNCTION 5 ivfflat_bit_support(internal);
+
+CREATE OPERATOR CLASS bit_hamming_ops
+	FOR TYPE bit USING hnsw AS
+	OPERATOR 1 <~> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 hamming_distance(bit, bit),
+	FUNCTION 3 hnsw_bit_support(internal);
+
+CREATE OPERATOR CLASS bit_jaccard_ops
+	FOR TYPE bit USING hnsw AS
+	OPERATOR 1 <%> (bit, bit) FOR ORDER BY float_ops,
+	FUNCTION 1 jaccard_distance(bit, bit),
+	FUNCTION 3 hnsw_bit_support(internal);
 
 CREATE TYPE sparsevec;
 
