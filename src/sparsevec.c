@@ -94,32 +94,15 @@ CheckNnz(int nnz, int dim)
  * Ensure valid index
  */
 static inline void
-CheckIndex(int32 *indices, int i, int dim, bool text)
+CheckIndex(int32 *indices, int i, int dim)
 {
 	int32		index = indices[i];
 
-	if (index < 0)
+	if (index < 0 || index >= dim)
 	{
-		if (text)
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("sparsevec index out of bounds (< 1)")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("sparsevec index out of bounds for binary representation (< 0)")));
-	}
-
-	if (index >= dim)
-	{
-		if (text)
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("sparsevec index out of bounds (> dimensions)")));
-		else
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("sparsevec index out of bounds for binary representation (>= dimensions)")));
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("sparsevec index out of bounds")));
 	}
 
 	if (i > 0)
@@ -404,7 +387,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		result->indices[i] = elements[i].index;
 		rvalues[i] = elements[i].value;
 
-		CheckIndex(result->indices, i, dim, true);
+		CheckIndex(result->indices, i, dim);
 	}
 
 	PG_RETURN_POINTER(result);
@@ -543,7 +526,7 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	for (int i = 0; i < nnz; i++)
 	{
 		result->indices[i] = pq_getmsgint(buf, sizeof(int32));
-		CheckIndex(result->indices, i, dim, false);
+		CheckIndex(result->indices, i, dim);
 	}
 
 	for (int i = 0; i < nnz; i++)

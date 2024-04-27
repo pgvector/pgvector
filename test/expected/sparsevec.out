@@ -208,27 +208,27 @@ ERROR:  sparsevec must have at least 1 dimension
 LINE 1: SELECT '{}/-9223372036854775809'::sparsevec;
                ^
 SELECT '{2147483647:1}/1'::sparsevec;
-ERROR:  sparsevec index out of bounds (> dimensions)
+ERROR:  sparsevec index out of bounds
 LINE 1: SELECT '{2147483647:1}/1'::sparsevec;
                ^
 SELECT '{2147483648:1}/1'::sparsevec;
-ERROR:  sparsevec index out of bounds (> dimensions)
+ERROR:  sparsevec index out of bounds
 LINE 1: SELECT '{2147483648:1}/1'::sparsevec;
                ^
 SELECT '{-2147483648:1}/1'::sparsevec;
-ERROR:  sparsevec index out of bounds (< 1)
+ERROR:  sparsevec index out of bounds
 LINE 1: SELECT '{-2147483648:1}/1'::sparsevec;
                ^
 SELECT '{-2147483649:1}/1'::sparsevec;
-ERROR:  sparsevec index out of bounds (< 1)
+ERROR:  sparsevec index out of bounds
 LINE 1: SELECT '{-2147483649:1}/1'::sparsevec;
                ^
 SELECT '{0:1}/1'::sparsevec;
-ERROR:  sparsevec index out of bounds (< 1)
+ERROR:  sparsevec index out of bounds
 LINE 1: SELECT '{0:1}/1'::sparsevec;
                ^
 SELECT '{2:1}/1'::sparsevec;
-ERROR:  sparsevec index out of bounds (> dimensions)
+ERROR:  sparsevec index out of bounds
 LINE 1: SELECT '{2:1}/1'::sparsevec;
                ^
 SELECT '{}/3'::sparsevec(3);
