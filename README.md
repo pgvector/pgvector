@@ -455,7 +455,7 @@ CREATE TABLE items (id bigserial PRIMARY KEY, embedding halfvec(3));
 
 *Added in 0.7.0*
 
-Index vectors at half precision for smaller indexes and faster build times
+Index vectors at half precision for smaller indexes
 
 ```sql
 CREATE INDEX ON items USING hnsw ((embedding::halfvec(3)) halfvec_l2_ops);
