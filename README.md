@@ -5,7 +5,8 @@ Open-source vector similarity search for Postgres
 Store your vectors with the rest of your data. Supports:
 
 - exact and approximate nearest neighbor search
-- L2 distance, inner product, and cosine distance
+- single-precision, half-precision, binary, and sparse vectors
+- L2 distance, inner product, cosine distance, L1 distance, Hamming distance, and Jaccard distance
 - any [language](#languages) with a Postgres client
 
 Plus [ACID](https://en.wikipedia.org/wiki/ACID) compliance, point-in-time recovery, JOINs, and all of the other [great features](https://www.postgresql.org/about/) of Postgres
@@ -81,7 +82,7 @@ Get the nearest neighbors by L2 distance
 SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
-Also supports inner product (`<#>`), cosine distance (`<=>`), and L1 distance (`<+>`, unreleased)
+Also supports inner product (`<#>`), cosine distance (`<=>`), and L1 distance (`<+>`, added in 0.7.0)
 
 Note: `<#>` returns the negative inner product since Postgres only supports `ASC` order index scans on operators
 
@@ -143,7 +144,7 @@ Supported distance functions are:
 - `<->` - L2 distance
 - `<#>` - (negative) inner product
 - `<=>` - cosine distance
-- `<+>` - L1 distance (unreleased)
+- `<+>` - L1 distance (added in 0.7.0)
 
 Get the nearest neighbors to a row
 
@@ -228,19 +229,19 @@ Cosine distance
 CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
 ```
 
-L1 distance - unreleased
+L1 distance - added in 0.7.0
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding vector_l1_ops);
 ```
 
-Hamming distance - unreleased
+Hamming distance - added in 0.7.0
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding bit_hamming_ops);
 ```
 
-Jaccard distance - unreleased
+Jaccard distance - added in 0.7.0
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
@@ -249,9 +250,9 @@ CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
 Supported types are:
 
 - `vector` - up to 2,000 dimensions
-- `halfvec` - up to 4,000 dimensions (unreleased)
-- `bit` - up to 64,000 dimensions (unreleased)
-- `sparsevec` - up to 1,000 non-zero elements (unreleased)
+- `halfvec` - up to 4,000 dimensions (added in 0.7.0)
+- `bit` - up to 64,000 dimensions (added in 0.7.0)
+- `sparsevec` - up to 1,000 non-zero elements (added in 0.7.0)
 
 ### Index Options
 
@@ -356,7 +357,7 @@ Cosine distance
 CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
 
-Hamming distance - unreleased
+Hamming distance - added in 0.7.0
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding bit_hamming_ops) WITH (lists = 100);
@@ -365,8 +366,8 @@ CREATE INDEX ON items USING ivfflat (embedding bit_hamming_ops) WITH (lists = 10
 Supported types are:
 
 - `vector` - up to 2,000 dimensions
-- `halfvec` - up to 4,000 dimensions (unreleased)
-- `bit` - up to 64,000 dimensions (unreleased)
+- `halfvec` - up to 4,000 dimensions (added in 0.7.0)
+- `bit` - up to 64,000 dimensions (added in 0.7.0)
 
 ### Query Options
 
@@ -440,9 +441,9 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
-## Half Vectors
+## Half-Precision Vectors
 
-*Unreleased*
+*Added in 0.7.0*
 
 Use the `halfvec` type to store half-precision vectors
 
@@ -450,9 +451,9 @@ Use the `halfvec` type to store half-precision vectors
 CREATE TABLE items (id bigserial PRIMARY KEY, embedding halfvec(3));
 ```
 
-## Half Indexing
+## Half-Precision Indexing
 
-*Unreleased*
+*Added in 0.7.0*
 
 Index vectors at half precision for smaller indexes and faster build times
 
@@ -475,23 +476,23 @@ CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
 INSERT INTO items (embedding) VALUES ('000'), ('111');
 ```
 
-Get the nearest neighbors by Hamming distance
-
-```sql
-SELECT * FROM items ORDER BY bit_count(embedding # '101') LIMIT 5;
-```
-
-Or (unreleased)
+Get the nearest neighbors by Hamming distance (added in 0.7.0)
 
 ```sql
 SELECT * FROM items ORDER BY embedding <~> '101' LIMIT 5;
+```
+
+Or (before 0.7.0)
+
+```sql
+SELECT * FROM items ORDER BY bit_count(embedding # '101') LIMIT 5;
 ```
 
 Also supports Jaccard distance (`<%>`)
 
 ## Binary Quantization
 
-*Unreleased*
+*Added in 0.7.0*
 
 Use expression indexing for binary quantization
 
@@ -515,7 +516,7 @@ SELECT * FROM (
 
 ## Sparse Vectors
 
-*Unreleased*
+*Added in 0.7.0*
 
 Use the `sparsevec` type to store sparse vectors
 
@@ -550,7 +551,7 @@ You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python
 
 ## Indexing Subvectors
 
-*Unreleased*
+*Added in 0.7.0*
 
 Use expression indexing to index subvectors
 
@@ -864,23 +865,23 @@ Operator | Description | Added
 \+ | element-wise addition |
 \- | element-wise subtraction |
 \* | element-wise multiplication | 0.5.0
-\|\| | concatenate | unreleased
+\|\| | concatenate | 0.7.0
 <-> | Euclidean distance |
 <#> | negative inner product |
 <=> | cosine distance |
-<+> | taxicab distance | unreleased
+<+> | taxicab distance | 0.7.0
 
 ### Vector Functions
 
 Function | Description | Added
 --- | --- | ---
-binary_quantize(vector) → bit | binary quantize | unreleased
+binary_quantize(vector) → bit | binary quantize | 0.7.0
 cosine_distance(vector, vector) → double precision | cosine distance |
 inner_product(vector, vector) → double precision | inner product |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
 l2_distance(vector, vector) → double precision | Euclidean distance |
-l2_normalize(vector) → vector | Normalize with Euclidean norm | unreleased
-subvector(vector, integer, integer) → vector | subvector | unreleased
+l2_normalize(vector) → vector | Normalize with Euclidean norm | 0.7.0
+subvector(vector, integer, integer) → vector | subvector | 0.7.0
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
 
@@ -899,35 +900,35 @@ Each half vector takes `2 * dimensions + 8` bytes of storage. Each element is a 
 
 Operator | Description | Added
 --- | --- | ---
-\+ | element-wise addition | unreleased
-\- | element-wise subtraction | unreleased
-\* | element-wise multiplication | unreleased
-\|\| | concatenate | unreleased
-<-> | Euclidean distance | unreleased
-<#> | negative inner product | unreleased
-<=> | cosine distance | unreleased
-<+> | taxicab distance | unreleased
+\+ | element-wise addition | 0.7.0
+\- | element-wise subtraction | 0.7.0
+\* | element-wise multiplication | 0.7.0
+\|\| | concatenate | 0.7.0
+<-> | Euclidean distance | 0.7.0
+<#> | negative inner product | 0.7.0
+<=> | cosine distance | 0.7.0
+<+> | taxicab distance | 0.7.0
 
 ### Halfvec Functions
 
 Function | Description | Added
 --- | --- | ---
-binary_quantize(halfvec) → bit | binary quantize | unreleased
-cosine_distance(halfvec, halfvec) → double precision | cosine distance | unreleased
-inner_product(halfvec, halfvec) → double precision | inner product | unreleased
-l1_distance(halfvec, halfvec) → double precision | taxicab distance | unreleased
-l2_distance(halfvec, halfvec) → double precision | Euclidean distance | unreleased
-l2_norm(halfvec) → double precision | Euclidean norm | unreleased
-l2_normalize(halfvec) → halfvec | Normalize with Euclidean norm | unreleased
-subvector(halfvec, integer, integer) → halfvec | subvector | unreleased
-vector_dims(halfvec) → integer | number of dimensions | unreleased
+binary_quantize(halfvec) → bit | binary quantize | 0.7.0
+cosine_distance(halfvec, halfvec) → double precision | cosine distance | 0.7.0
+inner_product(halfvec, halfvec) → double precision | inner product | 0.7.0
+l1_distance(halfvec, halfvec) → double precision | taxicab distance | 0.7.0
+l2_distance(halfvec, halfvec) → double precision | Euclidean distance | 0.7.0
+l2_norm(halfvec) → double precision | Euclidean norm | 0.7.0
+l2_normalize(halfvec) → halfvec | Normalize with Euclidean norm | 0.7.0
+subvector(halfvec, integer, integer) → halfvec | subvector | 0.7.0
+vector_dims(halfvec) → integer | number of dimensions | 0.7.0
 
 ### Halfvec Aggregate Functions
 
 Function | Description | Added
 --- | --- | ---
-avg(halfvec) → halfvec | average | unreleased
-sum(halfvec) → halfvec | sum | unreleased
+avg(halfvec) → halfvec | average | 0.7.0
+sum(halfvec) → halfvec | sum | 0.7.0
 
 ### Bit Type
 
@@ -937,15 +938,15 @@ Each bit vector takes `dimensions / 8 + 8` bytes of storage. See the [Postgres d
 
 Operator | Description | Added
 --- | --- | ---
-<~> | Hamming distance | unreleased
-<%> | Jaccard distance | unreleased
+<~> | Hamming distance | 0.7.0
+<%> | Jaccard distance | 0.7.0
 
 ### Bit Functions
 
 Function | Description | Added
 --- | --- | ---
-hamming_distance(bit, bit) → double precision | Hamming distance | unreleased
-jaccard_distance(bit, bit) → double precision | Jaccard distance | unreleased
+hamming_distance(bit, bit) → double precision | Hamming distance | 0.7.0
+jaccard_distance(bit, bit) → double precision | Jaccard distance | 0.7.0
 
 ### Sparsevec Type
 
@@ -955,21 +956,21 @@ Each sparse vector takes `8 * non-zero elements + 16` bytes of storage. Each ele
 
 Operator | Description | Added
 --- | --- | ---
-<-> | Euclidean distance | unreleased
-<#> | negative inner product | unreleased
-<=> | cosine distance | unreleased
-<+> | taxicab distance | unreleased
+<-> | Euclidean distance | 0.7.0
+<#> | negative inner product | 0.7.0
+<=> | cosine distance | 0.7.0
+<+> | taxicab distance | 0.7.0
 
 ### Sparsevec Functions
 
 Function | Description | Added
 --- | --- | ---
-cosine_distance(sparsevec, sparsevec) → double precision | cosine distance | unreleased
-inner_product(sparsevec, sparsevec) → double precision | inner product | unreleased
-l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | unreleased
-l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | unreleased
-l2_norm(sparsevec) → double precision | Euclidean norm | unreleased
-l2_normalize(sparsevec) → sparsevec | Normalize with Euclidean norm | unreleased
+cosine_distance(sparsevec, sparsevec) → double precision | cosine distance | 0.7.0
+inner_product(sparsevec, sparsevec) → double precision | inner product | 0.7.0
+l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | 0.7.0
+l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | 0.7.0
+l2_norm(sparsevec) → double precision | Euclidean norm | 0.7.0
+l2_normalize(sparsevec) → sparsevec | Normalize with Euclidean norm | 0.7.0
 
 ## Installation Notes - Linux and Mac
 
