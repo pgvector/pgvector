@@ -1,0 +1,672 @@
+SELECT '[1,2,3]'::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[-1,-2,-3]'::vector;
+   vector   
+------------
+ [-1,-2,-3]
+(1 row)
+
+SELECT '[1.,2.,3.]'::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT ' [ 1,  2 ,    3  ] '::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1.23456]'::vector;
+  vector   
+-----------
+ [1.23456]
+(1 row)
+
+SELECT '[hello,1]'::vector;
+ERROR:  invalid input syntax for type vector: "[hello,1]"
+LINE 1: SELECT '[hello,1]'::vector;
+               ^
+SELECT '[NaN,1]'::vector;
+ERROR:  NaN not allowed in vector
+LINE 1: SELECT '[NaN,1]'::vector;
+               ^
+SELECT '[Infinity,1]'::vector;
+ERROR:  infinite value not allowed in vector
+LINE 1: SELECT '[Infinity,1]'::vector;
+               ^
+SELECT '[-Infinity,1]'::vector;
+ERROR:  infinite value not allowed in vector
+LINE 1: SELECT '[-Infinity,1]'::vector;
+               ^
+SELECT '[1.5e38,-1.5e38]'::vector;
+       vector       
+--------------------
+ [1.5e+38,-1.5e+38]
+(1 row)
+
+SELECT '[1.5e+38,-1.5e+38]'::vector;
+       vector       
+--------------------
+ [1.5e+38,-1.5e+38]
+(1 row)
+
+SELECT '[1.5e-38,-1.5e-38]'::vector;
+       vector       
+--------------------
+ [1.5e-38,-1.5e-38]
+(1 row)
+
+SELECT '[4e38,1]'::vector;
+ERROR:  "4e38" is out of range for type vector
+LINE 1: SELECT '[4e38,1]'::vector;
+               ^
+SELECT '[-4e38,1]'::vector;
+ERROR:  "-4e38" is out of range for type vector
+LINE 1: SELECT '[-4e38,1]'::vector;
+               ^
+SELECT '[1e-46,1]'::vector;
+ vector 
+--------
+ [0,1]
+(1 row)
+
+SELECT '[-1e-46,1]'::vector;
+ vector 
+--------
+ [-0,1]
+(1 row)
+
+SELECT '[1,2,3'::vector;
+ERROR:  invalid input syntax for type vector: "[1,2,3"
+LINE 1: SELECT '[1,2,3'::vector;
+               ^
+SELECT '[1,2,3]9'::vector;
+ERROR:  invalid input syntax for type vector: "[1,2,3]9"
+LINE 1: SELECT '[1,2,3]9'::vector;
+               ^
+DETAIL:  Junk after closing right brace.
+SELECT '1,2,3'::vector;
+ERROR:  invalid input syntax for type vector: "1,2,3"
+LINE 1: SELECT '1,2,3'::vector;
+               ^
+DETAIL:  Vector contents must start with "[".
+SELECT ''::vector;
+ERROR:  invalid input syntax for type vector: ""
+LINE 1: SELECT ''::vector;
+               ^
+DETAIL:  Vector contents must start with "[".
+SELECT '['::vector;
+ERROR:  invalid input syntax for type vector: "["
+LINE 1: SELECT '['::vector;
+               ^
+SELECT '[ '::vector;
+ERROR:  invalid input syntax for type vector: "[ "
+LINE 1: SELECT '[ '::vector;
+               ^
+SELECT '[,'::vector;
+ERROR:  invalid input syntax for type vector: "[,"
+LINE 1: SELECT '[,'::vector;
+               ^
+SELECT '[]'::vector;
+ERROR:  vector must have at least 1 dimension
+LINE 1: SELECT '[]'::vector;
+               ^
+SELECT '[ ]'::vector;
+ERROR:  vector must have at least 1 dimension
+LINE 1: SELECT '[ ]'::vector;
+               ^
+SELECT '[,]'::vector;
+ERROR:  invalid input syntax for type vector: "[,]"
+LINE 1: SELECT '[,]'::vector;
+               ^
+SELECT '[1,]'::vector;
+ERROR:  invalid input syntax for type vector: "[1,]"
+LINE 1: SELECT '[1,]'::vector;
+               ^
+SELECT '[1a]'::vector;
+ERROR:  invalid input syntax for type vector: "[1a]"
+LINE 1: SELECT '[1a]'::vector;
+               ^
+SELECT '[1,,3]'::vector;
+ERROR:  invalid input syntax for type vector: "[1,,3]"
+LINE 1: SELECT '[1,,3]'::vector;
+               ^
+SELECT '[1, ,3]'::vector;
+ERROR:  invalid input syntax for type vector: "[1, ,3]"
+LINE 1: SELECT '[1, ,3]'::vector;
+               ^
+SELECT '[1,2,3]'::vector(3);
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::vector(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '[1,2,3]'::vector(3, 2);
+ERROR:  invalid type modifier
+LINE 1: SELECT '[1,2,3]'::vector(3, 2);
+                          ^
+SELECT '[1,2,3]'::vector('a');
+ERROR:  invalid input syntax for type integer: "a"
+LINE 1: SELECT '[1,2,3]'::vector('a');
+                          ^
+SELECT '[1,2,3]'::vector(0);
+ERROR:  dimensions for type vector must be at least 1
+LINE 1: SELECT '[1,2,3]'::vector(0);
+                          ^
+SELECT '[1,2,3]'::vector(16001);
+ERROR:  dimensions for type vector cannot exceed 16000
+LINE 1: SELECT '[1,2,3]'::vector(16001);
+                          ^
+SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::vector[]);
+ unnest  
+---------
+ [1,2,3]
+ [4,5,6]
+(2 rows)
+
+SELECT '{"[1,2,3]"}'::vector(2)[];
+ERROR:  expected 2 dimensions, not 3
+SELECT '[1,2,3]'::vector + '[4,5,6]';
+ ?column? 
+----------
+ [5,7,9]
+(1 row)
+
+SELECT '[3e38]'::vector + '[3e38]';
+ERROR:  value out of range: overflow
+SELECT '[1,2]'::vector + '[3]';
+ERROR:  different vector dimensions 2 and 1
+SELECT '[1,2,3]'::vector - '[4,5,6]';
+  ?column?  
+------------
+ [-3,-3,-3]
+(1 row)
+
+SELECT '[-3e38]'::vector - '[3e38]';
+ERROR:  value out of range: overflow
+SELECT '[1,2]'::vector - '[3]';
+ERROR:  different vector dimensions 2 and 1
+SELECT '[1,2,3]'::vector * '[4,5,6]';
+ ?column?  
+-----------
+ [4,10,18]
+(1 row)
+
+SELECT '[1e37]'::vector * '[1e37]';
+ERROR:  value out of range: overflow
+SELECT '[1e-37]'::vector * '[1e-37]';
+ERROR:  value out of range: underflow
+SELECT '[1,2]'::vector * '[3]';
+ERROR:  different vector dimensions 2 and 1
+SELECT '[1,2,3]'::vector || '[4,5]';
+  ?column?   
+-------------
+ [1,2,3,4,5]
+(1 row)
+
+SELECT array_fill(0, ARRAY[16000])::vector || '[1]';
+ERROR:  vector cannot have more than 16000 dimensions
+SELECT '[1,2,3]'::vector < '[1,2,3]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::vector < '[1,2]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::vector <= '[1,2,3]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::vector <= '[1,2]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::vector = '[1,2,3]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::vector = '[1,2]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::vector != '[1,2,3]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::vector != '[1,2]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::vector >= '[1,2,3]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::vector >= '[1,2]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::vector > '[1,2,3]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::vector > '[1,2]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT vector_cmp('[1,2,3]', '[1,2,3]');
+ vector_cmp 
+------------
+          0
+(1 row)
+
+SELECT vector_cmp('[1,2,3]', '[0,0,0]');
+ vector_cmp 
+------------
+          1
+(1 row)
+
+SELECT vector_cmp('[0,0,0]', '[1,2,3]');
+ vector_cmp 
+------------
+         -1
+(1 row)
+
+SELECT vector_cmp('[1,2]', '[1,2,3]');
+ vector_cmp 
+------------
+         -1
+(1 row)
+
+SELECT vector_cmp('[1,2,3]', '[1,2]');
+ vector_cmp 
+------------
+          1
+(1 row)
+
+SELECT vector_cmp('[1,2]', '[2,3,4]');
+ vector_cmp 
+------------
+         -1
+(1 row)
+
+SELECT vector_cmp('[2,3]', '[1,2,3]');
+ vector_cmp 
+------------
+          1
+(1 row)
+
+SELECT vector_dims('[1,2,3]'::vector);
+ vector_dims 
+-------------
+           3
+(1 row)
+
+SELECT round(vector_norm('[1,1]')::numeric, 5);
+  round  
+---------
+ 1.41421
+(1 row)
+
+SELECT vector_norm('[3,4]');
+ vector_norm 
+-------------
+           5
+(1 row)
+
+SELECT vector_norm('[0,1]');
+ vector_norm 
+-------------
+           1
+(1 row)
+
+SELECT vector_norm('[3e37,4e37]')::real;
+ vector_norm 
+-------------
+       5e+37
+(1 row)
+
+SELECT vector_norm('[0,0]');
+ vector_norm 
+-------------
+           0
+(1 row)
+
+SELECT vector_norm('[2]');
+ vector_norm 
+-------------
+           2
+(1 row)
+
+SELECT l2_distance('[0,0]'::vector, '[3,4]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
+SELECT l2_distance('[0,0]'::vector, '[0,1]');
+ l2_distance 
+-------------
+           1
+(1 row)
+
+SELECT l2_distance('[1,2]'::vector, '[3]');
+ERROR:  different vector dimensions 2 and 1
+SELECT l2_distance('[3e38]'::vector, '[-3e38]');
+ l2_distance 
+-------------
+    Infinity
+(1 row)
+
+SELECT l2_distance('[1,1,1,1,1,1,1,1,1]'::vector, '[1,1,1,1,1,1,1,4,5]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
+SELECT '[0,0]'::vector <-> '[3,4]';
+ ?column? 
+----------
+        5
+(1 row)
+
+SELECT inner_product('[1,2]'::vector, '[3,4]');
+ inner_product 
+---------------
+            11
+(1 row)
+
+SELECT inner_product('[1,2]'::vector, '[3]');
+ERROR:  different vector dimensions 2 and 1
+SELECT inner_product('[3e38]'::vector, '[3e38]');
+ inner_product 
+---------------
+      Infinity
+(1 row)
+
+SELECT inner_product('[1,1,1,1,1,1,1,1,1]'::vector, '[1,2,3,4,5,6,7,8,9]');
+ inner_product 
+---------------
+            45
+(1 row)
+
+SELECT '[1,2]'::vector <#> '[3,4]';
+ ?column? 
+----------
+      -11
+(1 row)
+
+SELECT cosine_distance('[1,2]'::vector, '[2,4]');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('[1,2]'::vector, '[0,0]');
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
+SELECT cosine_distance('[1,1]'::vector, '[1,1]');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('[1,0]'::vector, '[0,2]');
+ cosine_distance 
+-----------------
+               1
+(1 row)
+
+SELECT cosine_distance('[1,1]'::vector, '[-1,-1]');
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
+SELECT cosine_distance('[1,2]'::vector, '[3]');
+ERROR:  different vector dimensions 2 and 1
+SELECT cosine_distance('[1,1]'::vector, '[1.1,1.1]');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('[1,1]'::vector, '[-1.1,-1.1]');
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
+SELECT cosine_distance('[3e38]'::vector, '[3e38]');
+ cosine_distance 
+-----------------
+             NaN
+(1 row)
+
+SELECT cosine_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[1,2,3,4,5,6,7,8,9]');
+ cosine_distance 
+-----------------
+               0
+(1 row)
+
+SELECT cosine_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[-1,-2,-3,-4,-5,-6,-7,-8,-9]');
+ cosine_distance 
+-----------------
+               2
+(1 row)
+
+SELECT '[1,2]'::vector <=> '[2,4]';
+ ?column? 
+----------
+        0
+(1 row)
+
+SELECT l1_distance('[0,0]'::vector, '[3,4]');
+ l1_distance 
+-------------
+           7
+(1 row)
+
+SELECT l1_distance('[0,0]'::vector, '[0,1]');
+ l1_distance 
+-------------
+           1
+(1 row)
+
+SELECT l1_distance('[1,2]'::vector, '[3]');
+ERROR:  different vector dimensions 2 and 1
+SELECT l1_distance('[3e38]'::vector, '[-3e38]');
+ l1_distance 
+-------------
+    Infinity
+(1 row)
+
+SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[1,2,3,4,5,6,7,8,9]');
+ l1_distance 
+-------------
+           0
+(1 row)
+
+SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::vector, '[0,3,2,5,4,7,6,9,8]');
+ l1_distance 
+-------------
+           9
+(1 row)
+
+SELECT '[0,0]'::vector <+> '[3,4]';
+ ?column? 
+----------
+        7
+(1 row)
+
+SELECT l2_normalize('[3,4]'::vector);
+ l2_normalize 
+--------------
+ [0.6,0.8]
+(1 row)
+
+SELECT l2_normalize('[3,0]'::vector);
+ l2_normalize 
+--------------
+ [1,0]
+(1 row)
+
+SELECT l2_normalize('[0,0.1]'::vector);
+ l2_normalize 
+--------------
+ [0,1]
+(1 row)
+
+SELECT l2_normalize('[0,0]'::vector);
+ l2_normalize 
+--------------
+ [0,0]
+(1 row)
+
+SELECT l2_normalize('[3e38]'::vector);
+ l2_normalize 
+--------------
+ [1]
+(1 row)
+
+SELECT binary_quantize('[1,0,-1]'::vector);
+ binary_quantize 
+-----------------
+ 100
+(1 row)
+
+SELECT binary_quantize('[0,0.1,-0.2,-0.3,0.4,0.5,0.6,-0.7,0.8,-0.9,1]'::vector);
+ binary_quantize 
+-----------------
+ 01001110101
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]'::vector, 1, 3);
+ subvector 
+-----------
+ [1,2,3]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]'::vector, 3, 2);
+ subvector 
+-----------
+ [3,4]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]'::vector, -1, 3);
+ subvector 
+-----------
+ [1]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]'::vector, 3, 9);
+ subvector 
+-----------
+ [3,4,5]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]'::vector, 1, 0);
+ERROR:  vector must have at least 1 dimension
+SELECT subvector('[1,2,3,4,5]'::vector, 3, -1);
+ERROR:  vector must have at least 1 dimension
+SELECT subvector('[1,2,3,4,5]'::vector, -1, 2);
+ERROR:  vector must have at least 1 dimension
+SELECT subvector('[1,2,3,4,5]'::vector, 2147483647, 10);
+ERROR:  vector must have at least 1 dimension
+SELECT subvector('[1,2,3,4,5]'::vector, 3, 2147483647);
+ subvector 
+-----------
+ [3,4,5]
+(1 row)
+
+SELECT subvector('[1,2,3,4,5]'::vector, -2147483644, 2147483647);
+ subvector 
+-----------
+ [1,2]
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
+    avg    
+-----------
+ [2,3.5,5]
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
+    avg    
+-----------
+ [2,3.5,5]
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY[]::vector[]) v;
+ avg 
+-----
+ 
+(1 row)
+
+SELECT avg(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
+ERROR:  expected 2 dimensions, not 1
+SELECT avg(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
+   avg   
+---------
+ [3e+38]
+(1 row)
+
+SELECT vector_avg(array_agg(n)) FROM generate_series(1, 16002) n;
+ERROR:  vector cannot have more than 16000 dimensions
+SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
+   sum    
+----------
+ [4,7,10]
+(1 row)
+
+SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
+   sum    
+----------
+ [4,7,10]
+(1 row)
+
+SELECT sum(v) FROM unnest(ARRAY[]::vector[]) v;
+ sum 
+-----
+ 
+(1 row)
+
+SELECT sum(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
+ERROR:  different vector dimensions 2 and 1
+SELECT sum(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
+ERROR:  value out of range: overflow

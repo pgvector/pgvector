@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "bitvector.h"
+#include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -328,6 +328,10 @@ halfvec_out(PG_FUNCTION_ARGS)
 		if (i > 0)
 			AppendChar(ptr, ',');
 
+		/*
+		 * Use shortest decimal representation of single-precision float for
+		 * simplicity
+		 */
 		AppendFloat(ptr, HalfToFloat4(vector->x[i]));
 	}
 
@@ -683,17 +687,10 @@ halfvec_l1_distance(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	HalfVector *b = PG_GETARG_HALFVEC_P(1);
-	half	   *ax = a->x;
-	half	   *bx = b->x;
-	float		distance = 0.0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) HalfvecL1Distance(a->dim, a->x, b->x));
 }
 
 /*
@@ -941,17 +938,32 @@ halfvec_subvector(PG_FUNCTION_ARGS)
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	int32		start = PG_GETARG_INT32(1);
 	int32		count = PG_GETARG_INT32(2);
-	int32		end = start + count;
+	int32		end;
 	half	   *ax = a->x;
 	HalfVector *result;
-	int			dim;
+	int32		dim;
+
+	if (count < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("halfvec must have at least 1 dimension")));
+
+	/*
+	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
+	 * and count are both positive, so a->dim - count won't overflow.
+	 */
+	if (start > a->dim - count)
+		end = a->dim + 1;
+	else
+		end = start + count;
 
 	/* Indexing starts at 1, like substring */
 	if (start < 1)
 		start = 1;
-
-	if (end > a->dim)
-		end = a->dim + 1;
+	else if (start > a->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("halfvec must have at least 1 dimension")));
 
 	dim = end - start;
 	CheckDim(dim);
@@ -966,7 +978,7 @@ halfvec_subvector(PG_FUNCTION_ARGS)
 /*
  * Internal helper to compare half vectors
  */
-int
+static int
 halfvec_cmp_internal(HalfVector * a, HalfVector * b)
 {
 	int			dim = Min(a->dim, b->dim);
@@ -1194,7 +1206,7 @@ sparsevec_to_halfvec(PG_FUNCTION_ARGS)
 
 	result = InitHalfVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
-		result->x[svec->indices[i] - 1] = Float4ToHalf(values[i]);
+		result->x[svec->indices[i]] = Float4ToHalf(values[i]);
 
 	PG_RETURN_POINTER(result);
 }

@@ -70,8 +70,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<~>", "<\%>");
-my @opclasses = ("bit_hamming_ops", "bit_jaccard_ops");
+my @operators = ("<~>");
+my @opclasses = ("bit_hamming_ops");
 
 for my $i (0 .. $#operators)
 {

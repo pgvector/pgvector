@@ -3,7 +3,7 @@
 #include <math.h>
 
 #include "bitutils.h"
-#include "bitvector.h"
+#include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -729,7 +729,8 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(acos(distance) / M_PI);
 }
 
-static float
+/* Does not require FMA, but keep logic simple */
+VECTOR_TARGET_CLONES static float
 VectorL1Distance(int dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
@@ -979,17 +980,32 @@ subvector(PG_FUNCTION_ARGS)
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	int32		start = PG_GETARG_INT32(1);
 	int32		count = PG_GETARG_INT32(2);
-	int32		end = start + count;
+	int32		end;
 	float	   *ax = a->x;
 	Vector	   *result;
 	int			dim;
 
+	if (count < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
+
+	/*
+	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
+	 * and count are both positive, so a->dim - count won't overflow.
+	 */
+	if (start > a->dim - count)
+		end = a->dim + 1;
+	else
+		end = start + count;
+
 	/* Indexing starts at 1, like substring */
 	if (start < 1)
 		start = 1;
-
-	if (end > a->dim)
-		end = a->dim + 1;
+	else if (start > a->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
 
 	dim = end - start;
 	CheckDim(dim);
@@ -1181,12 +1197,13 @@ vector_accum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Combine vectors or half vectors
+ * Combine vectors or half vectors (also used for halfvec_combine)
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_combine);
 Datum
 vector_combine(PG_FUNCTION_ARGS)
 {
+	/* Must also update parameters of halfvec_combine if modifying */
 	ArrayType  *statearray1 = PG_GETARG_ARRAYTYPE_P(0);
 	ArrayType  *statearray2 = PG_GETARG_ARRAYTYPE_P(1);
 	float8	   *statevalues1;
@@ -1302,7 +1319,7 @@ sparsevec_to_vector(PG_FUNCTION_ARGS)
 
 	result = InitVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
-		result->x[svec->indices[i] - 1] = values[i];
+		result->x[svec->indices[i]] = values[i];
 
 	PG_RETURN_POINTER(result);
 }

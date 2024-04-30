@@ -476,6 +476,7 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 static bool
 InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, HnswBuildState * buildstate)
 {
+	const		HnswTypeInfo *typeInfo = buildstate->typeInfo;
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
@@ -488,7 +489,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Check value */
-	HnswCheckValue(value, buildstate->type);
+	if (typeInfo->checkValue != NULL)
+		typeInfo->checkValue(DatumGetPointer(value));
 
 	/* Normalize if needed */
 	if (buildstate->normprocinfo != NULL)
@@ -496,7 +498,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 		if (!HnswCheckNorm(buildstate->normprocinfo, buildstate->collation, value))
 			return false;
 
-		value = HnswNormValue(value, buildstate->type);
+		value = HnswNormValue(typeInfo, buildstate->collation, value);
 	}
 
 	/* Get datum size */
@@ -672,49 +674,31 @@ HnswSharedMemoryAlloc(Size size, void *state)
 }
 
 /*
- * Get max dimensions
- */
-static int
-GetMaxDimensions(HnswType type)
-{
-	int			maxDimensions = HNSW_MAX_DIM;
-
-	if (type == HNSW_TYPE_HALFVEC)
-		maxDimensions *= 2;
-	else if (type == HNSW_TYPE_BIT)
-		maxDimensions *= 32;
-	else if (type == HNSW_TYPE_SPARSEVEC)
-		maxDimensions = INT_MAX;
-
-	return maxDimensions;
-}
-
-/*
  * Initialize the build state
  */
 static void
 InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, IndexInfo *indexInfo, ForkNumber forkNum)
 {
-	int			maxDimensions;
-
 	buildstate->heap = heap;
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
 	buildstate->forkNum = forkNum;
-	buildstate->type = HnswGetType(index);
+	buildstate->typeInfo = HnswGetTypeInfo(index);
 
 	buildstate->m = HnswGetM(index);
 	buildstate->efConstruction = HnswGetEfConstruction(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
 
-	maxDimensions = GetMaxDimensions(buildstate->type);
+	/* Disallow varbit since require fixed dimensions */
+	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
+		elog(ERROR, "type not supported for hnsw index");
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		elog(ERROR, "column does not have dimensions");
 
-	if (buildstate->dimensions > maxDimensions)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", maxDimensions);
+	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
+		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions);
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
 		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");

@@ -6,7 +6,6 @@
 #include "catalog/pg_type.h"
 #include "catalog/pg_type_d.h"
 #include "fmgr.h"
-#include "halfvec.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
 #include "sparsevec.h"
@@ -14,8 +13,6 @@
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
-#include "utils/syscache.h"
-#include "vector.h"
 
 #if PG_VERSION_NUM >= 130000
 #include "common/hashfn.h"
@@ -156,56 +153,12 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
- * Get type
- */
-HnswType
-HnswGetType(Relation index)
-{
-	Oid			typid = TupleDescAttr(index->rd_att, 0)->atttypid;
-	HeapTuple	tuple;
-	Form_pg_type type;
-	HnswType	result;
-
-	if (typid == BITOID)
-		return HNSW_TYPE_BIT;
-
-	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(typid));
-	if (!HeapTupleIsValid(tuple))
-		elog(ERROR, "cache lookup failed for type %u", typid);
-
-	type = (Form_pg_type) GETSTRUCT(tuple);
-	if (strcmp(NameStr(type->typname), "vector") == 0)
-		result = HNSW_TYPE_VECTOR;
-	else if (strcmp(NameStr(type->typname), "halfvec") == 0)
-		result = HNSW_TYPE_HALFVEC;
-	else if (strcmp(NameStr(type->typname), "sparsevec") == 0)
-		result = HNSW_TYPE_SPARSEVEC;
-	else
-	{
-		ReleaseSysCache(tuple);
-		elog(ERROR, "type not supported for hnsw index");
-	}
-
-	ReleaseSysCache(tuple);
-
-	return result;
-}
-
-/*
  * Normalize value
  */
 Datum
-HnswNormValue(Datum value, HnswType type)
+HnswNormValue(const HnswTypeInfo * typeInfo, Oid collation, Datum value)
 {
-	/* TODO Remove type-specific code */
-	if (type == HNSW_TYPE_VECTOR)
-		return DirectFunctionCall1(l2_normalize, value);
-	else if (type == HNSW_TYPE_HALFVEC)
-		return DirectFunctionCall1(halfvec_l2_normalize, value);
-	else if (type == HNSW_TYPE_SPARSEVEC)
-		return DirectFunctionCall1(sparsevec_l2_normalize, value);
-	else
-		elog(ERROR, "Unsupported type");
+	return DirectFunctionCall1Coll(typeInfo->normalize, collation, value);
 }
 
 /*
@@ -215,21 +168,6 @@ bool
 HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
 {
 	return DatumGetFloat8(FunctionCall1Coll(procinfo, collation, value)) > 0;
-}
-
-/*
- * Check if a value can be indexed
- */
-void
-HnswCheckValue(Datum value, HnswType type)
-{
-	if (type == HNSW_TYPE_SPARSEVEC)
-	{
-		SparseVector *vec = DatumGetSparseVector(value);
-
-		if (vec->nnz > HNSW_MAX_NNZ)
-			elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
-	}
 }
 
 /*
@@ -1325,3 +1263,77 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		ep = w;
 	}
 }
+
+PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
+
+static void
+SparsevecCheckValue(Pointer v)
+{
+	SparseVector *vec = (SparseVector *) v;
+
+	if (vec->nnz > HNSW_MAX_NNZ)
+		elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
+}
+
+/*
+ * Get type info
+ */
+const		HnswTypeInfo *
+HnswGetTypeInfo(Relation index)
+{
+	FmgrInfo   *procinfo = HnswOptionalProcInfo(index, HNSW_TYPE_INFO_PROC);
+
+	if (procinfo == NULL)
+	{
+		static const HnswTypeInfo typeInfo = {
+			.maxDimensions = HNSW_MAX_DIM,
+			.normalize = l2_normalize,
+			.checkValue = NULL
+		};
+
+		return (&typeInfo);
+	}
+	else
+		return (const HnswTypeInfo *) DatumGetPointer(FunctionCall0Coll(procinfo, InvalidOid));
+}
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_halfvec_support);
+Datum
+hnsw_halfvec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = HNSW_MAX_DIM * 2,
+		.normalize = halfvec_l2_normalize,
+		.checkValue = NULL
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_bit_support);
+Datum
+hnsw_bit_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = HNSW_MAX_DIM * 32,
+		.normalize = NULL,
+		.checkValue = NULL
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_sparsevec_support);
+Datum
+hnsw_sparsevec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = SPARSEVEC_MAX_DIM,
+		.normalize = sparsevec_l2_normalize,
+		.checkValue = SparsevecCheckValue
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};

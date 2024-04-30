@@ -1,8 +1,6 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
-#include "fmgr.h"
-
 #define VECTOR_MAX_DIM 16000
 
 #define VECTOR_SIZE(_dim)		(offsetof(Vector, x) + sizeof(float)*(_dim))
@@ -14,13 +12,12 @@ typedef struct Vector
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int16		dim;			/* number of dimensions */
-	int16		unused;
+	int16		unused;			/* reserved for future use, always zero */
 	float		x[FLEXIBLE_ARRAY_MEMBER];
 }			Vector;
 
 Vector	   *InitVector(int dim);
 void		PrintVector(char *msg, Vector * vector);
 int			vector_cmp_internal(Vector * a, Vector * b);
-PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 
 #endif

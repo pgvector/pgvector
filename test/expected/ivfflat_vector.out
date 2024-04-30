@@ -1,0 +1,112 @@
+SET enable_seqscan = off;
+-- L2
+CREATE TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 1);
+INSERT INTO t (val) VALUES ('[1,2,4]');
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+   val   
+---------
+ [1,2,3]
+ [1,2,4]
+ [1,1,1]
+ [0,0,0]
+(4 rows)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <-> (SELECT NULL::vector)) t2;
+ count 
+-------
+     4
+(1 row)
+
+SELECT COUNT(*) FROM t;
+ count 
+-------
+     5
+(1 row)
+
+TRUNCATE t;
+NOTICE:  ivfflat index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+ val 
+-----
+(0 rows)
+
+DROP TABLE t;
+-- inner product
+CREATE TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t USING ivfflat (val vector_ip_ops) WITH (lists = 1);
+INSERT INTO t (val) VALUES ('[1,2,4]');
+SELECT * FROM t ORDER BY val <#> '[3,3,3]';
+   val   
+---------
+ [1,2,4]
+ [1,2,3]
+ [1,1,1]
+ [0,0,0]
+(4 rows)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <#> (SELECT NULL::vector)) t2;
+ count 
+-------
+     4
+(1 row)
+
+DROP TABLE t;
+-- cosine
+CREATE TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t USING ivfflat (val vector_cosine_ops) WITH (lists = 1);
+INSERT INTO t (val) VALUES ('[1,2,4]');
+SELECT * FROM t ORDER BY val <=> '[3,3,3]';
+   val   
+---------
+ [1,1,1]
+ [1,2,3]
+ [1,2,4]
+(3 rows)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> '[0,0,0]') t2;
+ count 
+-------
+     3
+(1 row)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector)) t2;
+ count 
+-------
+     3
+(1 row)
+
+DROP TABLE t;
+-- unlogged
+CREATE UNLOGGED TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 1);
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+   val   
+---------
+ [1,2,3]
+ [1,1,1]
+ [0,0,0]
+(3 rows)
+
+DROP TABLE t;
+-- options
+CREATE TABLE t (val vector(3));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 0);
+ERROR:  value 0 out of bounds for option "lists"
+DETAIL:  Valid values are between "1" and "32768".
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 32769);
+ERROR:  value 32769 out of bounds for option "lists"
+DETAIL:  Valid values are between "1" and "32768".
+SHOW ivfflat.probes;
+ ivfflat.probes 
+----------------
+ 1
+(1 row)
+
+DROP TABLE t;

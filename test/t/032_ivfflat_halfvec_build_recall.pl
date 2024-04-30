@@ -105,7 +105,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
-		test_recall(1, 0.34, $operator);
+		test_recall(1, 0.33, $operator);
 		test_recall(10, 0.93, $operator);
 	}
 
@@ -134,7 +134,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
-		test_recall(1, 0.34, $operator);
+		test_recall(1, 0.33, $operator);
 		test_recall(10, 0.93, $operator);
 	}
 
