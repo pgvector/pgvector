@@ -1,3 +1,7 @@
+## 0.7.1 (unreleased)
+
+- Fixed `undefined symbol` error with GCC 8
+
 ## 0.7.0 (2024-04-29)
 
 - Added `halfvec` type

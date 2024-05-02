@@ -9,7 +9,7 @@
 /* TODO Move to better place */
 #ifndef DISABLE_DISPATCH
 /* Only enable for more recent compilers to keep build process simple */
-#if defined(__x86_64__) && defined(__GNUC__) && __GNUC__ >= 8
+#if defined(__x86_64__) && defined(__GNUC__) && __GNUC__ >= 9
 #define USE_DISPATCH
 #elif defined(__x86_64__) && defined(__clang_major__) && __clang_major__ >= 7
 #define USE_DISPATCH
