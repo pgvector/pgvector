@@ -6,7 +6,7 @@
 #ifdef HALFVEC_DISPATCH
 #include <immintrin.h>
 
-#if defined(HAVE__GET_CPUID)
+#if defined(USE__GET_CPUID)
 #include <cpuid.h>
 #else
 #include <intrin.h>
@@ -254,7 +254,7 @@ SupportsCpuFeature(unsigned int feature)
 {
 	unsigned int exx[4] = {0, 0, 0, 0};
 
-#if defined(HAVE__GET_CPUID)
+#if defined(USE__GET_CPUID)
 	__get_cpuid(1, &exx[0], &exx[1], &exx[2], &exx[3]);
 #else
 	__cpuid(exx, 1);
