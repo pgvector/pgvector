@@ -1,6 +1,7 @@
 ## 0.7.1 (unreleased)
 
 - Fixed `undefined symbol` error with GCC 8
+- Fixed error with cross-compiling / universal binaries on Mac
 
 ## 0.7.0 (2024-04-29)
 

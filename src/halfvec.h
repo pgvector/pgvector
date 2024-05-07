@@ -23,6 +23,11 @@
 #define USE_TARGET_CLONES
 #endif
 
+/* Needed for cross-compiling / universal binaries on Mac */
+#if defined(USE_DISPATCH) && !defined(HAVE__GET_CPUID) && defined(__APPLE_CC__)
+#define HAVE__GET_CPUID
+#endif
+
 #if defined(USE_DISPATCH)
 #define HALFVEC_DISPATCH
 #endif
