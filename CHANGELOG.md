@@ -2,6 +2,7 @@
 
 - Fixed `undefined symbol` error with GCC 8
 - Fixed compilation error with universal binaries on Mac
+- Fixed compilation warning with Clang < 14
 
 ## 0.7.0 (2024-04-29)
 

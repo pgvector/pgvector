@@ -19,8 +19,11 @@
 #endif
 
 /* target_clones requires glibc */
-#if defined(USE_DISPATCH) && defined(__gnu_linux__)
+#if defined(USE_DISPATCH) && defined(__gnu_linux__) && defined(__has_attribute)
+/* Use separate line for portability */
+#if __has_attribute(target_clones)
 #define USE_TARGET_CLONES
+#endif
 #endif
 
 /* Apple clang check needed for universal binaries on Mac */
