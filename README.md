@@ -790,7 +790,7 @@ SELECT pg_size_pretty(pg_relation_size('index_name'));
 
 #### Why isn’t a query using an index?
 
-The query needs to have an `ORDER BY` and `LIMIT`, and the `ORDER BY` must be the result of a distance operator, not an expression.
+The query needs to have an `ORDER BY` and `LIMIT`, and the `ORDER BY` must be the result of a distance operator (not an expression) in ascending order.
 
 ```sql
 -- index
