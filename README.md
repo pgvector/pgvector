@@ -1026,6 +1026,22 @@ To compile for portability, use:
 make OPTFLAGS=""
 ```
 
+### Optimized Versions of Certain Distance Functions
+
+By default, pgvector uses [function multiversioning][gcc:fmv] for certain distance
+computations to enable [automatic vectorization][wiki:av]. Currently, pgvector
+generates two clones for each of these functions: `default` and `fma`.
+
+To generate different clone targets for these functions (e.g., for `default`, `fma`,
+`avx`, `avx2`, and `avx512f`), use:
+
+```sh
+make OPTFLAGS="" CPPFLAGS='-D VECTOR_TARGET_CLONES_TARGETS=\'"default", "fma", "avx", "avx2", "avx512f"\''
+```
+
+[gcc:fmv]: https://gcc.gnu.org/onlinedocs/gcc/Function-Multiversioning.html
+[wiki:av]: https://en.wikipedia.org/wiki/Automatic_vectorization
+
 ## Installation Notes - Windows
 
 ### Missing Header

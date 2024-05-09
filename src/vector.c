@@ -35,7 +35,10 @@
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
 #if defined(USE_TARGET_CLONES) && !defined(__FMA__)
-#define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma")))
+#ifndef VECTOR_TARGET_CLONES_TARGETS
+#define VECTOR_TARGET_CLONES_TARGETS "default", "fma"
+#endif
+#define VECTOR_TARGET_CLONES __attribute__((target_clones(VECTOR_TARGET_CLONES_TARGETS)))
 #else
 #define VECTOR_TARGET_CLONES
 #endif
