@@ -545,7 +545,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
  * Load an element and optionally get its distance from q
  */
 void
-HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, float *loadVecDistance)
+HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, float *maxDistance)
 {
 	Buffer		buf;
 	Page		page;
@@ -567,13 +567,11 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 			*distance = 0;
 		else
 			*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
-
-		if (loadVecDistance != NULL && *distance < *loadVecDistance)
-			loadVec = true;
 	}
 
 	/* Load element */
-	HnswLoadElementFromTuple(element, etup, true, loadVec);
+	if (distance == NULL || maxDistance == NULL || *distance < *maxDistance)
+		HnswLoadElementFromTuple(element, etup, true, loadVec);
 
 	UnlockReleaseBuffer(buf);
 }
@@ -804,13 +802,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
 				else
-					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting && wlen < ef, inserting ? &f->distance : NULL);
-
-				Assert(!eElement->deleted);
-
-				/* Make robust to issues */
-				if (eElement->level < lc)
-					continue;
+					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, wlen >= ef ? &f->distance : NULL);
 
 				if (eDistance < f->distance || wlen < ef)
 				{
