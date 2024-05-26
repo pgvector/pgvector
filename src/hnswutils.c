@@ -806,9 +806,16 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 
 				if (eDistance < f->distance || wlen < ef)
 				{
-					/* Copy e */
-					HnswCandidate *ec = palloc(sizeof(HnswCandidate));
+					HnswCandidate *ec;
 
+					Assert(!eElement->deleted);
+
+					/* Make robust to issues */
+					if (eElement->level < lc)
+						continue;
+
+					/* Copy e */
+					ec = palloc(sizeof(HnswCandidate));
 					HnswPtrStore(base, ec->element, eElement);
 					ec->distance = eDistance;
 
