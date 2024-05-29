@@ -1,5 +1,6 @@
 ## 0.7.1 (unreleased)
 
+- Improved performance of on-disk HNSW index builds
 - Fixed `undefined symbol` error with GCC 8
 - Fixed compilation error with universal binaries on Mac
 - Fixed compilation warning with Clang < 14

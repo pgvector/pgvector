@@ -545,7 +545,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
  * Load an element and optionally get its distance from q
  */
 void
-HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
+HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, float *maxDistance)
 {
 	Buffer		buf;
 	Page		page;
@@ -560,9 +560,6 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 
 	Assert(HnswIsElementTuple(etup));
 
-	/* Load element */
-	HnswLoadElementFromTuple(element, etup, true, loadVec);
-
 	/* Calculate distance */
 	if (distance != NULL)
 	{
@@ -571,6 +568,10 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 		else
 			*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
 	}
+
+	/* Load element */
+	if (distance == NULL || maxDistance == NULL || *distance < *maxDistance)
+		HnswLoadElementFromTuple(element, etup, true, loadVec);
 
 	UnlockReleaseBuffer(buf);
 }
@@ -599,7 +600,7 @@ HnswEntryCandidate(char *base, HnswElement entryPoint, Datum q, Relation index, 
 	if (index == NULL)
 		hc->distance = GetCandidateDistance(base, hc, q, procinfo, collation);
 	else
-		HnswLoadElement(entryPoint, &hc->distance, &q, index, procinfo, collation, loadVec);
+		HnswLoadElement(entryPoint, &hc->distance, &q, index, procinfo, collation, loadVec, NULL);
 	return hc;
 }
 
@@ -801,19 +802,20 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
 				else
-					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting);
-
-				Assert(!eElement->deleted);
-
-				/* Make robust to issues */
-				if (eElement->level < lc)
-					continue;
+					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, wlen >= ef ? &f->distance : NULL);
 
 				if (eDistance < f->distance || wlen < ef)
 				{
-					/* Copy e */
-					HnswCandidate *ec = palloc(sizeof(HnswCandidate));
+					HnswCandidate *ec;
 
+					Assert(!eElement->deleted);
+
+					/* Make robust to issues */
+					if (eElement->level < lc)
+						continue;
+
+					/* Copy e */
+					ec = palloc(sizeof(HnswCandidate));
 					HnswPtrStore(base, ec->element, eElement);
 					ec->distance = eDistance;
 
@@ -1102,7 +1104,7 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm
 				HnswElement hc3Element = HnswPtrAccess(base, hc3->element);
 
 				if (HnswPtrIsNull(base, hc3Element->value))
-					HnswLoadElement(hc3Element, &hc3->distance, &q, index, procinfo, collation, true);
+					HnswLoadElement(hc3Element, &hc3->distance, &q, index, procinfo, collation, true, NULL);
 				else
 					hc3->distance = GetCandidateDistance(base, hc3, q, procinfo, collation);
 
