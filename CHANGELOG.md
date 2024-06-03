@@ -1,4 +1,4 @@
-## 0.7.1 (unreleased)
+## 0.7.1 (2024-06-03)
 
 - Improved performance of on-disk HNSW index builds
 - Fixed `undefined symbol` error with GCC 8
