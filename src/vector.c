@@ -1323,3 +1323,53 @@ sparsevec_to_vector(PG_FUNCTION_ARGS)
 
 	PG_RETURN_POINTER(result);
 }
+
+static inline float sum_float(const float *matrix, int start, int stop) {
+    float result = 0.0;
+    for (int i = start; i < stop; i++) {
+        result += matrix[i];
+    }
+    return result;
+}
+
+/*
+ * reduce vector dims by norm in fixed ranges
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_norm_reduce);
+
+Datum
+vector_norm_reduce(PG_FUNCTION_ARGS) {
+    Vector *vec = PG_GETARG_VECTOR_P(0);
+    int32 reduce_to = PG_GETARG_INT32(1);
+    Vector *result;
+    int dim = vec->dim;
+    float *values = vec->x;
+
+    if (reduce_to < 2)
+        ereport(ERROR,
+                (errcode(ERRCODE_DATA_EXCEPTION),
+                        errmsg("vector cannot reduce to a vector less than 2 by shear")));
+
+    if (reduce_to >= dim)
+        ereport(ERROR,
+                (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+                        errmsg("vector cannot reduce to more than %d dimensions", dim)));
+
+    CheckDim(dim);
+    CheckDim(reduce_to);
+
+    result = InitVector(reduce_to);
+
+    int step = vec->dim / reduce_to;
+    for (int idx = 0; idx < reduce_to; idx++) {
+        int start = idx * step;
+        int stop = (idx + 1) * step - 1;
+        if (stop > reduce_to - 1) {
+            stop = reduce_to - 1;
+        }
+        float range = stop - start;
+        result->x[idx] = sum_float(vec->x, start, stop) / range;
+    }
+
+    PG_RETURN_POINTER(result);
+}
