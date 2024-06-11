@@ -580,16 +580,91 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 }
 
 /*
- * Get the distance for a candidate
+ * Get the distance between an element and 'q'
  */
 static float
-GetCandidateDistance(char *base, HnswCandidate * hc, Datum q, FmgrInfo *procinfo, Oid collation)
+GetElementDistance(char *base, HnswElement he, Datum q, FmgrInfo *procinfo, Oid collation)
 {
-	HnswElement hce = HnswPtrAccess(base, hc->element);
-	Datum		value = HnswGetValue(base, hce);
+	Datum		value = HnswGetValue(base, he);
 
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, value));
 }
+
+
+extern Datum vector_negative_inner_product(PG_FUNCTION_ARGS);
+extern Datum vector_negative_inner_product4(PG_FUNCTION_ARGS);
+
+/*
+ * Fill in the 'distance' field in an array of candidates, with the distance
+ * of each candidate from 'q'.
+ */
+static void
+CalculateCandidateDistances(char *base, HnswCandidate *tovisit, int num_tovisit, Datum q,
+							bool inserting, Relation index, FmgrInfo *procinfo, Oid collation,
+							float *maxDistance)
+{
+	int			i;
+
+	if (index == NULL)
+	{
+		i = 0;
+
+		/*
+		 * Fast-path: Calculate 4 distances in one call
+		 *
+		 * XXX: I only implemented an array version for
+		 * vector_negative_inner_product().  For a proper implementation, this
+		 * ought to be defined as an extra support function. Or perhaps
+		 * something like btree sortsupport machinery
+		 */
+		if (procinfo->fn_addr == vector_negative_inner_product)
+		{
+			for (; i < num_tovisit - 4; i += 4)
+			{
+				HnswElement e[4];
+				double		result[4];
+
+				e[0] = HnswPtrAccess(base, tovisit[i].element);
+				e[1] = HnswPtrAccess(base, tovisit[i + 1].element);
+				e[2] = HnswPtrAccess(base, tovisit[i + 2].element);
+				e[3] = HnswPtrAccess(base, tovisit[i + 3].element);
+				DirectFunctionCall6Coll(vector_negative_inner_product4,
+										collation,
+										q,
+										HnswGetValue(base, e[0]),
+										HnswGetValue(base, e[1]),
+										HnswGetValue(base, e[2]),
+										HnswGetValue(base, e[3]),
+										PointerGetDatum(result));
+				tovisit[i].distance = result[0];
+				tovisit[i + 1].distance = result[1];
+				tovisit[i + 2].distance = result[2];
+				tovisit[i + 3].distance = result[3];
+			}
+		}
+
+		/* Process the remaining elements one by one */
+		for (; i < num_tovisit; i++)
+		{
+			float eDistance;
+
+			eDistance = GetElementDistance(base, HnswPtrAccess(base, tovisit[i].element), q, procinfo, collation);
+			tovisit[i].distance = eDistance;
+		}
+	}
+	else
+	{
+		for (i = 0; i < num_tovisit; i++)
+		{
+			float eDistance;
+			HnswElement eElement = HnswPtrAccess(base, tovisit[i].element);
+
+			HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, maxDistance);
+			tovisit[i].distance = eDistance;
+		}
+	}
+}
+
 
 /*
  * Create a candidate for the entry point
@@ -601,7 +676,7 @@ HnswEntryCandidate(char *base, HnswElement entryPoint, Datum q, Relation index, 
 
 	HnswPtrStore(base, hc->element, entryPoint);
 	if (index == NULL)
-		hc->distance = GetCandidateDistance(base, hc, q, procinfo, collation);
+		hc->distance = GetElementDistance(base, HnswPtrAccess(base, hc->element), q, procinfo, collation);
 	else
 		HnswLoadElement(entryPoint, &hc->distance, &q, index, procinfo, collation, loadVec, NULL);
 	return hc;
@@ -703,18 +778,114 @@ AddToVisited(char *base, visited_hash * v, HnswCandidate * hc, Relation index, b
  * Count element towards ef
  */
 static inline bool
-CountElement(char *base, HnswElement skipElement, HnswCandidate * hc)
+CountElement(char *base, HnswElement skipElement, HnswElement e)
 {
-	HnswElement e;
-
 	if (skipElement == NULL)
 		return true;
 
 	/* Ensure does not access heaptidsLength during in-memory build */
 	pg_memory_barrier();
 
-	e = HnswPtrAccess(base, hc->element);
 	return e->heaptidsLength != 0;
+}
+
+/*
+ * Like AddToVisited, but for an array of candidates. This is slightly faster
+ * than calling AddToVisited separately for each one.
+ *
+ * The candidates that were not previously visited are stored in the
+ * caller-supplied 'tovisit' array. It must be at least as large as the
+ * 'candidates' array.
+ */
+static void
+AddToVisitedMulti(char *base,
+				  visited_hash v,
+				  const HnswCandidate *candidates, int num_candidates,
+				  Relation index,
+				  HnswCandidate *tovisit, int *num_tovisit_p)
+{
+	int			num_tovisit = 0;
+
+	if (index == NULL)
+	{
+		/*
+		 * Fetch the hashes of all the neighbors first. Accessing the hashes
+		 * causes a lot of cache misses, and by initiating them all now, the
+		 * CPU pipeline can look ahead and perform them in parallel.
+		 *
+		 * Alternatively, we could recalculate the hashes from the pointer
+		 * values, and avoid the cache misses from following the pointers.
+		 * However, that just kicks the can down the road: all the unvisited
+		 * elements need to be accessed anyway and the visited elements are
+		 * already in cache, so we will just suffer the cache misses slightly
+		 * later. It's better to start fetching them into the cache now in
+		 * bulk.
+		 */
+#if PG_VERSION_NUM >= 130000
+		uint32		hash[HNSW_MAX_M * 2];
+
+		Assert(num_candidates <= HNSW_MAX_M * 2);
+		for (int i = 0; i < num_candidates; i++)
+		{
+			HnswElement hce = HnswPtrAccess(base, candidates[i].element);
+
+			hash[i] = hce->hash;
+		}
+#endif
+
+		if (base != NULL)
+		{
+			for (int i = 0; i < num_candidates; i++)
+			{
+				HnswElementPtr hep = candidates[i].element;
+				bool		visited;
+
+#if PG_VERSION_NUM >= 130000
+				offsethash_insert_hash(v.offsets, HnswPtrOffset(hep), hash[i], &visited);
+#else
+				offsethash_insert(v.offsets, HnswPtrOffset(hep), &visited);
+#endif
+
+				if (!visited)
+					tovisit[num_tovisit++].element = hep;
+			}
+		}
+		else
+		{
+			for (int i = 0; i < num_candidates; i++)
+			{
+				HnswElementPtr hep = candidates[i].element;
+				bool		visited;
+
+#if PG_VERSION_NUM >= 130000
+				pointerhash_insert_hash(v.pointers, (uintptr_t) HnswPtrPointer(hep), hash[i], &visited);
+#else
+				pointerhash_insert(v.pointers, (uintptr_t) HnswPtrPointer(hep), &visited);
+#endif
+
+				if (!visited)
+					tovisit[num_tovisit++].element = hep;
+			}
+		}
+	}
+	else
+	{
+		for (int i = 0; i < num_candidates; i++)
+		{
+			HnswElementPtr hep = candidates[i].element;
+			HnswElement e = HnswPtrAccess(base, hep);
+			ItemPointerData indextid;
+			bool		visited;
+
+			ItemPointerSet(&indextid, e->blkno, e->offno);
+			tidhash_insert(v.tids, indextid, &visited);
+
+			if (!visited)
+				tovisit[num_tovisit++].element = hep;
+		}
+	}
+
+	*num_tovisit_p = num_tovisit;
 }
 
 /*
@@ -729,17 +900,8 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	int			wlen = 0;
 	visited_hash v;
 	ListCell   *lc2;
-	HnswNeighborArray *neighborhoodData = NULL;
-	Size		neighborhoodSize;
 
 	InitVisited(base, &v, index, ef, m);
-
-	/* Create local memory for neighborhood if needed */
-	if (index == NULL)
-	{
-		neighborhoodSize = HNSW_NEIGHBOR_ARRAY_SIZE(HnswGetLayerM(m, lc));
-		neighborhoodData = palloc(neighborhoodSize);
-	}
 
 	/* Add entry points to v, C, and W */
 	foreach(lc2, ep)
@@ -757,7 +919,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		 * would be ideal to do this for inserts as well, but this could
 		 * affect insert performance.
 		 */
-		if (CountElement(base, skipElement, hc))
+		if (CountElement(base, skipElement, HnswPtrAccess(base, hc->element)))
 			wlen++;
 	}
 
@@ -767,6 +929,8 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_remove_first(C))->inner;
 		HnswCandidate *f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 		HnswElement cElement;
+		int			num_tovisit;
+		HnswCandidate tovisit[HNSW_MAX_M * 2];
 
 		if (c->distance > f->distance)
 			break;
@@ -776,36 +940,28 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		if (HnswPtrIsNull(base, cElement->neighbors))
 			HnswLoadNeighbors(cElement, index, m);
 
-		/* Get the neighborhood at layer lc */
+		/* Get all the unvisited neighbors at layer lc */
 		neighborhood = HnswGetNeighbors(base, cElement, lc);
-
-		/* Copy neighborhood to local memory if needed */
 		if (index == NULL)
-		{
 			LWLockAcquire(&cElement->lock, LW_SHARED);
-			memcpy(neighborhoodData, neighborhood, neighborhoodSize);
+		Assert(neighborhood->length <= HNSW_MAX_M * 2);
+		AddToVisitedMulti(base, v, neighborhood->items, neighborhood->length, index,
+						  tovisit, &num_tovisit);
+		if (index == NULL)
 			LWLockRelease(&cElement->lock);
-			neighborhood = neighborhoodData;
-		}
 
-		for (int i = 0; i < neighborhood->length; i++)
+		CalculateCandidateDistances(base, tovisit, num_tovisit, q,
+									inserting, index, procinfo, collation,
+									wlen >= ef ? &f->distance : NULL);
+
+		for (int i = 0; i < num_tovisit; i++)
 		{
-			HnswCandidate *e = &neighborhood->items[i];
-			bool		visited;
-
-			AddToVisited(base, &v, e, index, &visited);
-
-			if (!visited)
+			/* FIXME: funny indentation, just to keep the diff small. Re-indent before merging. */
 			{
-				float		eDistance;
-				HnswElement eElement = HnswPtrAccess(base, e->element);
+				HnswElement eElement = HnswPtrAccess(base, tovisit[i].element);
+				float		eDistance = tovisit[i].distance;
 
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
-
-				if (index == NULL)
-					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
-				else
-					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, wlen >= ef ? &f->distance : NULL);
 
 				if (eDistance < f->distance || wlen < ef)
 				{
@@ -830,7 +986,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 					 * vacuuming. It would be ideal to do this for inserts as
 					 * well, but this could affect insert performance.
 					 */
-					if (CountElement(base, skipElement, e))
+					if (CountElement(base, skipElement, eElement))
 					{
 						wlen++;
 
@@ -1109,7 +1265,7 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm
 				if (HnswPtrIsNull(base, hc3Element->value))
 					HnswLoadElement(hc3Element, &hc3->distance, &q, index, procinfo, collation, true, NULL);
 				else
-					hc3->distance = GetCandidateDistance(base, hc3, q, procinfo, collation);
+					hc3->distance = GetElementDistance(base, hc3Element, q, procinfo, collation);
 
 				/* Prune element if being deleted */
 				if (hc3Element->heaptidsLength == 0)
