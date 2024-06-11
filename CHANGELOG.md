@@ -1,3 +1,7 @@
+## 0.7.2 (unreleased)
+
+- Fixed initialization fork for HNSW indexes on unlogged tables
+
 ## 0.7.1 (2024-06-03)
 
 - Improved performance of on-disk HNSW index builds
