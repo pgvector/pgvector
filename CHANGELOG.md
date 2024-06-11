@@ -1,6 +1,6 @@
 ## 0.7.2 (unreleased)
 
-- Fixed initialization fork for HNSW indexes on unlogged tables
+- Fixed initialization fork for indexes on unlogged tables
 
 ## 0.7.1 (2024-06-03)
 
