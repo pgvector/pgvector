@@ -1006,7 +1006,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 	CreateListPages(index, buildstate->centers, buildstate->dimensions, buildstate->lists, forkNum, &buildstate->listInfo);
 	CreateEntryPages(buildstate, forkNum);
 
-	/* GenericXLog functions skip unlogged tables */
+	/* Write WAL for initialization fork since GenericXLog functions do not */
 	if (forkNum == INIT_FORKNUM)
 		log_newpage_range(index, forkNum, 0, RelationGetNumberOfBlocksInFork(index, forkNum), true);
 
