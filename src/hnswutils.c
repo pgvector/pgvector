@@ -799,15 +799,16 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			{
 				float		eDistance;
 				HnswElement eElement = HnswPtrAccess(base, e->element);
+				bool		alwaysAdd = wlen < ef;
 
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
 				else
-					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, wlen >= ef ? &f->distance : NULL);
+					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, alwaysAdd ? NULL : &f->distance);
 
-				if (eDistance < f->distance || wlen < ef)
+				if (eDistance < f->distance || alwaysAdd)
 				{
 					HnswCandidate *ec;
 
