@@ -300,6 +300,9 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 	page = BufferGetPage(buf);
 	metap = HnswPageGetMeta(page);
 
+	if (unlikely(metap->magicNumber != HNSW_MAGIC_NUMBER))
+		elog(ERROR, "hnsw index is not valid");
+
 	if (m != NULL)
 		*m = metap->m;
 

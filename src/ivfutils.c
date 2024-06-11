@@ -170,7 +170,11 @@ IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
 	page = BufferGetPage(buf);
 	metap = IvfflatPageGetMeta(page);
 
-	*lists = metap->lists;
+	if (unlikely(metap->magicNumber != IVFFLAT_MAGIC_NUMBER))
+		elog(ERROR, "ivfflat index is not valid");
+
+	if (lists != NULL)
+		*lists = metap->lists;
 
 	if (dimensions != NULL)
 		*dimensions = metap->dimensions;

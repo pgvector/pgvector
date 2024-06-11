@@ -19,6 +19,9 @@ FindInsertPage(Relation index, Datum *values, BlockNumber *insertPage, ListInfo 
 	FmgrInfo   *procinfo;
 	Oid			collation;
 
+	/* Ensure index is valid */
+	IvfflatGetMetaPageInfo(index, NULL, NULL);
+
 	/* Avoid compiler warning */
 	listInfo->blkno = nextblkno;
 	listInfo->offno = FirstOffsetNumber;
