@@ -543,6 +543,22 @@ GetElementDistance(char *base, HnswElement element, Datum q, FmgrInfo *procinfo,
 }
 
 /*
+ * Fill in the 'distance' field in an array of candidates, with the distance
+ * of each candidate from 'q'.
+ */
+static void
+CalculateCandidateDistances(char *base, HnswUnvisited *unvisited, int unvisitedLength, Datum q,
+							FmgrInfo *procinfo, Oid collation,
+							double *distances)
+{
+	for (int i = 0; i < unvisitedLength; i++)
+	{
+		distances[i] = GetElementDistance(base, unvisited[i].element, q, procinfo, collation);
+	}
+}
+
+
+/*
  * Create a candidate for the entry point
  */
 HnswSearchCandidate *
@@ -805,6 +821,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	Size		neighborhoodSize = 0;
 	int			lm = HnswGetLayerM(m, lc);
 	HnswUnvisited *unvisited = palloc(lm * sizeof(HnswUnvisited));
+	double	   *unvisitedDistances = palloc(lm * sizeof(double));
 	int			unvisitedLength;
 
 	InitVisited(base, &v, index, ef, m);
@@ -852,6 +869,10 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		else
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, &v, index, m, lm, lc);
 
+		if (index == NULL)
+			CalculateCandidateDistances(base, unvisited, unvisitedLength, q,
+										procinfo, collation, unvisitedDistances);
+
 		for (int i = 0; i < unvisitedLength; i++)
 		{
 			HnswElement eElement;
@@ -864,7 +885,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			if (index == NULL)
 			{
 				eElement = unvisited[i].element;
-				eDistance = GetElementDistance(base, eElement, q, procinfo, collation);
+				eDistance = unvisitedDistances[i];
 			}
 			else
 			{
