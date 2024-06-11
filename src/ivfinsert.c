@@ -19,9 +19,6 @@ FindInsertPage(Relation index, Datum *values, BlockNumber *insertPage, ListInfo 
 	FmgrInfo   *procinfo;
 	Oid			collation;
 
-	/* Ensure index is valid */
-	IvfflatGetMetaPageInfo(index, NULL, NULL);
-
 	/* Avoid compiler warning */
 	listInfo->blkno = nextblkno;
 	listInfo->offno = FirstOffsetNumber;
@@ -96,6 +93,9 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 
 		value = IvfflatNormValue(typeInfo, collation, value);
 	}
+
+	/* Ensure index is valid */
+	IvfflatGetMetaPageInfo(index, NULL, NULL);
 
 	/* Find the insert page - sets the page and list info */
 	FindInsertPage(index, values, &insertPage, &listInfo);
