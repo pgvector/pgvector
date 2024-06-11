@@ -591,6 +591,41 @@ GetElementDistance(char *base, HnswElement he, Datum q, FmgrInfo *procinfo, Oid 
 }
 
 /*
+ * Fill in the 'distance' field in an array of candidates, with the distance
+ * of each candidate from 'q'.
+ */
+static void
+CalculateCandidateDistances(char *base, HnswCandidate *tovisit, int num_tovisit, Datum q,
+							bool inserting, Relation index, FmgrInfo *procinfo, Oid collation,
+							float *maxDistance)
+{
+	int			i;
+
+	if (index == NULL)
+	{
+		for (i = 0; i < num_tovisit; i++)
+		{
+			float eDistance;
+
+			eDistance = GetElementDistance(base, HnswPtrAccess(base, tovisit[i].element), q, procinfo, collation);
+			tovisit[i].distance = eDistance;
+		}
+	}
+	else
+	{
+		for (i = 0; i < num_tovisit; i++)
+		{
+			float eDistance;
+			HnswElement eElement = HnswPtrAccess(base, tovisit[i].element);
+
+			HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, maxDistance);
+			tovisit[i].distance = eDistance;
+		}
+	}
+}
+
+
+/*
  * Create a candidate for the entry point
  */
 HnswCandidate *
@@ -726,7 +761,7 @@ AddToVisitedMulti(char *base,
 				  visited_hash v,
 				  const HnswCandidate *candidates, int num_candidates,
 				  Relation index,
-				  HnswElement *tovisit, int *num_tovisit_p)
+				  HnswCandidate *tovisit, int *num_tovisit_p)
 {
 	int			num_tovisit = 0;
 
@@ -771,7 +806,7 @@ AddToVisitedMulti(char *base,
 #endif
 
 				if (!visited)
-					tovisit[num_tovisit++] = HnswPtrAccess(base, hep);
+					tovisit[num_tovisit++].element = hep;
 			}
 		}
 		else
@@ -788,7 +823,7 @@ AddToVisitedMulti(char *base,
 #endif
 
 				if (!visited)
-					tovisit[num_tovisit++] = HnswPtrAccess(base, hep);
+					tovisit[num_tovisit++].element = hep;
 			}
 		}
 	}
@@ -796,7 +831,8 @@ AddToVisitedMulti(char *base,
 	{
 		for (int i = 0; i < num_candidates; i++)
 		{
-			HnswElement e = HnswPtrAccess(base, candidates[i].element);
+			HnswElementPtr hep = candidates[i].element;
+			HnswElement e = HnswPtrAccess(base, hep);
 			ItemPointerData indextid;
 			bool		visited;
 
@@ -804,7 +840,7 @@ AddToVisitedMulti(char *base,
 			tidhash_insert(v.tids, indextid, &visited);
 
 			if (!visited)
-				tovisit[num_tovisit++] = e;
+				tovisit[num_tovisit++].element = hep;
 		}
 	}
 
@@ -853,7 +889,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		HnswCandidate *f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 		HnswElement cElement;
 		int			num_tovisit;
-		HnswElement tovisit[HNSW_MAX_M * 2];
+		HnswCandidate tovisit[HNSW_MAX_M * 2];
 
 		if (c->distance > f->distance)
 			break;
@@ -873,19 +909,18 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		if (index == NULL)
 			LWLockRelease(&cElement->lock);
 
+		CalculateCandidateDistances(base, tovisit, num_tovisit, q,
+									inserting, index, procinfo, collation,
+									wlen >= ef ? &f->distance : NULL);
+
 		for (int i = 0; i < num_tovisit; i++)
 		{
 			/* FIXME: funny indentation, just to keep the diff small. Re-indent before merging. */
 			{
-				float		eDistance;
-				HnswElement eElement = tovisit[i];
+				HnswElement eElement = HnswPtrAccess(base, tovisit[i].element);
+				float		eDistance = tovisit[i].distance;
 
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
-
-				if (index == NULL)
-					eDistance = GetElementDistance(base, eElement, q, procinfo, collation);
-				else
-					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, wlen >= ef ? &f->distance : NULL);
 
 				if (eDistance < f->distance || wlen < ef)
 				{
