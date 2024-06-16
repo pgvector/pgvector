@@ -20,4 +20,11 @@ Vector	   *InitVector(int dim);
 void		PrintVector(char *msg, Vector * vector);
 int			vector_cmp_internal(Vector * a, Vector * b);
 
+/* TODO Move to better place */
+#if PG_VERSION_NUM >= 160000
+#define FUNCTION_PREFIX
+#else
+#define FUNCTION_PREFIX PGDLLEXPORT
+#endif
+
 #endif

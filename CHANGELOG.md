@@ -1,3 +1,7 @@
+## 0.7.3 (unreleased)
+
+- Fixed compilation warning with MSVC and Postgres 16
+
 ## 0.7.2 (2024-06-11)
 
 - Fixed initialization fork for indexes on unlogged tables

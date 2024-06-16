@@ -1305,7 +1305,7 @@ HnswGetTypeInfo(Relation index)
 		return (const HnswTypeInfo *) DatumGetPointer(FunctionCall0Coll(procinfo, InvalidOid));
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_halfvec_support);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_halfvec_support);
 Datum
 hnsw_halfvec_support(PG_FUNCTION_ARGS)
 {
@@ -1318,7 +1318,7 @@ hnsw_halfvec_support(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(&typeInfo);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_bit_support);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_bit_support);
 Datum
 hnsw_bit_support(PG_FUNCTION_ARGS)
 {
@@ -1331,7 +1331,7 @@ hnsw_bit_support(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(&typeInfo);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnsw_sparsevec_support);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_sparsevec_support);
 Datum
 hnsw_sparsevec_support(PG_FUNCTION_ARGS)
 {

@@ -3,6 +3,7 @@
 #include "bitutils.h"
 #include "bitvec.h"
 #include "utils/varbit.h"
+#include "vector.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
@@ -40,7 +41,7 @@ CheckDims(VarBit *a, VarBit *b)
 /*
  * Get the Hamming distance between two bit vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hamming_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hamming_distance);
 Datum
 hamming_distance(PG_FUNCTION_ARGS)
 {
@@ -55,7 +56,7 @@ hamming_distance(PG_FUNCTION_ARGS)
 /*
  * Get the Jaccard distance between two bit vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(jaccard_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(jaccard_distance);
 Datum
 jaccard_distance(PG_FUNCTION_ARGS)
 {
