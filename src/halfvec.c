@@ -185,7 +185,7 @@ float_underflow_error(void)
 /*
  * Convert textual representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_in);
+PG_FUNCTION_INFO_V1(halfvec_in);
 Datum
 halfvec_in(PG_FUNCTION_ARGS)
 {
@@ -299,7 +299,7 @@ halfvec_in(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to textual representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_out);
+PG_FUNCTION_INFO_V1(halfvec_out);
 Datum
 halfvec_out(PG_FUNCTION_ARGS)
 {
@@ -345,7 +345,7 @@ halfvec_out(PG_FUNCTION_ARGS)
 /*
  * Convert type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_typmod_in);
+PG_FUNCTION_INFO_V1(halfvec_typmod_in);
 Datum
 halfvec_typmod_in(PG_FUNCTION_ARGS)
 {
@@ -376,7 +376,7 @@ halfvec_typmod_in(PG_FUNCTION_ARGS)
 /*
  * Convert external binary representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_recv);
+PG_FUNCTION_INFO_V1(halfvec_recv);
 Datum
 halfvec_recv(PG_FUNCTION_ARGS)
 {
@@ -410,7 +410,7 @@ halfvec_recv(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to the external binary representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_send);
+PG_FUNCTION_INFO_V1(halfvec_send);
 Datum
 halfvec_send(PG_FUNCTION_ARGS)
 {
@@ -430,7 +430,7 @@ halfvec_send(PG_FUNCTION_ARGS)
  * Convert half vector to half vector
  * This is needed to check the type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec);
+PG_FUNCTION_INFO_V1(halfvec);
 Datum
 halfvec(PG_FUNCTION_ARGS)
 {
@@ -445,7 +445,7 @@ halfvec(PG_FUNCTION_ARGS)
 /*
  * Convert array to half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(array_to_halfvec);
+PG_FUNCTION_INFO_V1(array_to_halfvec);
 Datum
 array_to_halfvec(PG_FUNCTION_ARGS)
 {
@@ -519,7 +519,7 @@ array_to_halfvec(PG_FUNCTION_ARGS)
 /*
  * Convert half vector to float4[]
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_float4);
+PG_FUNCTION_INFO_V1(halfvec_to_float4);
 Datum
 halfvec_to_float4(PG_FUNCTION_ARGS)
 {
@@ -543,7 +543,7 @@ halfvec_to_float4(PG_FUNCTION_ARGS)
 /*
  * Convert vector to half vec
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_to_halfvec);
+PG_FUNCTION_INFO_V1(vector_to_halfvec);
 Datum
 vector_to_halfvec(PG_FUNCTION_ARGS)
 {
@@ -565,7 +565,7 @@ vector_to_halfvec(PG_FUNCTION_ARGS)
 /*
  * Get the L2 distance between half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_distance);
+PG_FUNCTION_INFO_V1(halfvec_l2_distance);
 Datum
 halfvec_l2_distance(PG_FUNCTION_ARGS)
 {
@@ -580,7 +580,7 @@ halfvec_l2_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L2 squared distance between half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_squared_distance);
+PG_FUNCTION_INFO_V1(halfvec_l2_squared_distance);
 Datum
 halfvec_l2_squared_distance(PG_FUNCTION_ARGS)
 {
@@ -595,7 +595,7 @@ halfvec_l2_squared_distance(PG_FUNCTION_ARGS)
 /*
  * Get the inner product of two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_inner_product);
+PG_FUNCTION_INFO_V1(halfvec_inner_product);
 Datum
 halfvec_inner_product(PG_FUNCTION_ARGS)
 {
@@ -610,7 +610,7 @@ halfvec_inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the negative inner product of two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_negative_inner_product);
+PG_FUNCTION_INFO_V1(halfvec_negative_inner_product);
 Datum
 halfvec_negative_inner_product(PG_FUNCTION_ARGS)
 {
@@ -625,7 +625,7 @@ halfvec_negative_inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the cosine distance between two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_cosine_distance);
+PG_FUNCTION_INFO_V1(halfvec_cosine_distance);
 Datum
 halfvec_cosine_distance(PG_FUNCTION_ARGS)
 {
@@ -657,7 +657,7 @@ halfvec_cosine_distance(PG_FUNCTION_ARGS)
  * Currently uses angular distance since needs to satisfy triangle inequality
  * Assumes inputs are unit vectors (skips norm)
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_spherical_distance);
+PG_FUNCTION_INFO_V1(halfvec_spherical_distance);
 Datum
 halfvec_spherical_distance(PG_FUNCTION_ARGS)
 {
@@ -681,7 +681,7 @@ halfvec_spherical_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L1 distance between two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l1_distance);
+PG_FUNCTION_INFO_V1(halfvec_l1_distance);
 Datum
 halfvec_l1_distance(PG_FUNCTION_ARGS)
 {
@@ -696,7 +696,7 @@ halfvec_l1_distance(PG_FUNCTION_ARGS)
 /*
  * Get the dimensions of a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_vector_dims);
+PG_FUNCTION_INFO_V1(halfvec_vector_dims);
 Datum
 halfvec_vector_dims(PG_FUNCTION_ARGS)
 {
@@ -708,7 +708,7 @@ halfvec_vector_dims(PG_FUNCTION_ARGS)
 /*
  * Get the L2 norm of a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_norm);
+PG_FUNCTION_INFO_V1(halfvec_l2_norm);
 Datum
 halfvec_l2_norm(PG_FUNCTION_ARGS)
 {
@@ -730,7 +730,7 @@ halfvec_l2_norm(PG_FUNCTION_ARGS)
 /*
  * Normalize a half vector with the L2 norm
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_normalize);
+PG_FUNCTION_INFO_V1(halfvec_l2_normalize);
 Datum
 halfvec_l2_normalize(PG_FUNCTION_ARGS)
 {
@@ -769,7 +769,7 @@ halfvec_l2_normalize(PG_FUNCTION_ARGS)
 /*
  * Add half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_add);
+PG_FUNCTION_INFO_V1(halfvec_add);
 Datum
 halfvec_add(PG_FUNCTION_ARGS)
 {
@@ -808,7 +808,7 @@ halfvec_add(PG_FUNCTION_ARGS)
 /*
  * Subtract half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_sub);
+PG_FUNCTION_INFO_V1(halfvec_sub);
 Datum
 halfvec_sub(PG_FUNCTION_ARGS)
 {
@@ -847,7 +847,7 @@ halfvec_sub(PG_FUNCTION_ARGS)
 /*
  * Multiply half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_mul);
+PG_FUNCTION_INFO_V1(halfvec_mul);
 Datum
 halfvec_mul(PG_FUNCTION_ARGS)
 {
@@ -889,7 +889,7 @@ halfvec_mul(PG_FUNCTION_ARGS)
 /*
  * Concatenate half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_concat);
+PG_FUNCTION_INFO_V1(halfvec_concat);
 Datum
 halfvec_concat(PG_FUNCTION_ARGS)
 {
@@ -913,7 +913,7 @@ halfvec_concat(PG_FUNCTION_ARGS)
 /*
  * Quantize a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_binary_quantize);
+PG_FUNCTION_INFO_V1(halfvec_binary_quantize);
 Datum
 halfvec_binary_quantize(PG_FUNCTION_ARGS)
 {
@@ -931,7 +931,7 @@ halfvec_binary_quantize(PG_FUNCTION_ARGS)
 /*
  * Get a subvector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_subvector);
+PG_FUNCTION_INFO_V1(halfvec_subvector);
 Datum
 halfvec_subvector(PG_FUNCTION_ARGS)
 {
@@ -1005,7 +1005,7 @@ halfvec_cmp_internal(HalfVector * a, HalfVector * b)
 /*
  * Less than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_lt);
+PG_FUNCTION_INFO_V1(halfvec_lt);
 Datum
 halfvec_lt(PG_FUNCTION_ARGS)
 {
@@ -1018,7 +1018,7 @@ halfvec_lt(PG_FUNCTION_ARGS)
 /*
  * Less than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_le);
+PG_FUNCTION_INFO_V1(halfvec_le);
 Datum
 halfvec_le(PG_FUNCTION_ARGS)
 {
@@ -1031,7 +1031,7 @@ halfvec_le(PG_FUNCTION_ARGS)
 /*
  * Equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_eq);
+PG_FUNCTION_INFO_V1(halfvec_eq);
 Datum
 halfvec_eq(PG_FUNCTION_ARGS)
 {
@@ -1044,7 +1044,7 @@ halfvec_eq(PG_FUNCTION_ARGS)
 /*
  * Not equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_ne);
+PG_FUNCTION_INFO_V1(halfvec_ne);
 Datum
 halfvec_ne(PG_FUNCTION_ARGS)
 {
@@ -1057,7 +1057,7 @@ halfvec_ne(PG_FUNCTION_ARGS)
 /*
  * Greater than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_ge);
+PG_FUNCTION_INFO_V1(halfvec_ge);
 Datum
 halfvec_ge(PG_FUNCTION_ARGS)
 {
@@ -1070,7 +1070,7 @@ halfvec_ge(PG_FUNCTION_ARGS)
 /*
  * Greater than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_gt);
+PG_FUNCTION_INFO_V1(halfvec_gt);
 Datum
 halfvec_gt(PG_FUNCTION_ARGS)
 {
@@ -1083,7 +1083,7 @@ halfvec_gt(PG_FUNCTION_ARGS)
 /*
  * Compare half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_cmp);
+PG_FUNCTION_INFO_V1(halfvec_cmp);
 Datum
 halfvec_cmp(PG_FUNCTION_ARGS)
 {
@@ -1096,7 +1096,7 @@ halfvec_cmp(PG_FUNCTION_ARGS)
 /*
  * Accumulate half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_accum);
+PG_FUNCTION_INFO_V1(halfvec_accum);
 Datum
 halfvec_accum(PG_FUNCTION_ARGS)
 {
@@ -1157,7 +1157,7 @@ halfvec_accum(PG_FUNCTION_ARGS)
 /*
  * Average half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_avg);
+PG_FUNCTION_INFO_V1(halfvec_avg);
 Datum
 halfvec_avg(PG_FUNCTION_ARGS)
 {
@@ -1191,7 +1191,7 @@ halfvec_avg(PG_FUNCTION_ARGS)
 /*
  * Convert sparse vector to half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_to_halfvec);
+PG_FUNCTION_INFO_V1(sparsevec_to_halfvec);
 Datum
 sparsevec_to_halfvec(PG_FUNCTION_ARGS)
 {

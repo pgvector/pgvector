@@ -188,7 +188,7 @@ CompareIndices(const void *a, const void *b)
 /*
  * Convert textual representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_in);
+PG_FUNCTION_INFO_V1(sparsevec_in);
 Datum
 sparsevec_in(PG_FUNCTION_ARGS)
 {
@@ -409,7 +409,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to textual representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_out);
+PG_FUNCTION_INFO_V1(sparsevec_out);
 Datum
 sparsevec_out(PG_FUNCTION_ARGS)
 {
@@ -462,7 +462,7 @@ sparsevec_out(PG_FUNCTION_ARGS)
 /*
  * Convert type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_typmod_in);
+PG_FUNCTION_INFO_V1(sparsevec_typmod_in);
 Datum
 sparsevec_typmod_in(PG_FUNCTION_ARGS)
 {
@@ -493,7 +493,7 @@ sparsevec_typmod_in(PG_FUNCTION_ARGS)
 /*
  * Convert external binary representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_recv);
+PG_FUNCTION_INFO_V1(sparsevec_recv);
 Datum
 sparsevec_recv(PG_FUNCTION_ARGS)
 {
@@ -545,7 +545,7 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to the external binary representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_send);
+PG_FUNCTION_INFO_V1(sparsevec_send);
 Datum
 sparsevec_send(PG_FUNCTION_ARGS)
 {
@@ -572,7 +572,7 @@ sparsevec_send(PG_FUNCTION_ARGS)
  * Convert sparse vector to sparse vector
  * This is needed to check the type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec);
+PG_FUNCTION_INFO_V1(sparsevec);
 Datum
 sparsevec(PG_FUNCTION_ARGS)
 {
@@ -587,7 +587,7 @@ sparsevec(PG_FUNCTION_ARGS)
 /*
  * Convert dense vector to sparse vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_to_sparsevec);
+PG_FUNCTION_INFO_V1(vector_to_sparsevec);
 Datum
 vector_to_sparsevec(PG_FUNCTION_ARGS)
 {
@@ -630,7 +630,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 /*
  * Convert half vector to sparse vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_sparsevec);
+PG_FUNCTION_INFO_V1(halfvec_to_sparsevec);
 Datum
 halfvec_to_sparsevec(PG_FUNCTION_ARGS)
 {
@@ -721,7 +721,7 @@ SparsevecL2SquaredDistance(SparseVector * a, SparseVector * b)
 /*
  * Get the L2 distance between sparse vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l2_distance);
+PG_FUNCTION_INFO_V1(sparsevec_l2_distance);
 Datum
 sparsevec_l2_distance(PG_FUNCTION_ARGS)
 {
@@ -737,7 +737,7 @@ sparsevec_l2_distance(PG_FUNCTION_ARGS)
  * Get the L2 squared distance between sparse vectors
  * This saves a sqrt calculation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l2_squared_distance);
+PG_FUNCTION_INFO_V1(sparsevec_l2_squared_distance);
 Datum
 sparsevec_l2_squared_distance(PG_FUNCTION_ARGS)
 {
@@ -788,7 +788,7 @@ SparsevecInnerProduct(SparseVector * a, SparseVector * b)
 /*
  * Get the inner product of two sparse vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_inner_product);
+PG_FUNCTION_INFO_V1(sparsevec_inner_product);
 Datum
 sparsevec_inner_product(PG_FUNCTION_ARGS)
 {
@@ -803,7 +803,7 @@ sparsevec_inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the negative inner product of two sparse vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_negative_inner_product);
+PG_FUNCTION_INFO_V1(sparsevec_negative_inner_product);
 Datum
 sparsevec_negative_inner_product(PG_FUNCTION_ARGS)
 {
@@ -818,7 +818,7 @@ sparsevec_negative_inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the cosine distance between two sparse vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_cosine_distance);
+PG_FUNCTION_INFO_V1(sparsevec_cosine_distance);
 Datum
 sparsevec_cosine_distance(PG_FUNCTION_ARGS)
 {
@@ -863,7 +863,7 @@ sparsevec_cosine_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L1 distance between two sparse vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l1_distance);
+PG_FUNCTION_INFO_V1(sparsevec_l1_distance);
 Datum
 sparsevec_l1_distance(PG_FUNCTION_ARGS)
 {
@@ -912,7 +912,7 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L2 norm of a sparse vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l2_norm);
+PG_FUNCTION_INFO_V1(sparsevec_l2_norm);
 Datum
 sparsevec_l2_norm(PG_FUNCTION_ARGS)
 {
@@ -930,7 +930,7 @@ sparsevec_l2_norm(PG_FUNCTION_ARGS)
 /*
  * Normalize a sparse vector with the L2 norm
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_l2_normalize);
+PG_FUNCTION_INFO_V1(sparsevec_l2_normalize);
 Datum
 sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 {
@@ -1040,7 +1040,7 @@ sparsevec_cmp_internal(SparseVector * a, SparseVector * b)
 /*
  * Less than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_lt);
+PG_FUNCTION_INFO_V1(sparsevec_lt);
 Datum
 sparsevec_lt(PG_FUNCTION_ARGS)
 {
@@ -1053,7 +1053,7 @@ sparsevec_lt(PG_FUNCTION_ARGS)
 /*
  * Less than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_le);
+PG_FUNCTION_INFO_V1(sparsevec_le);
 Datum
 sparsevec_le(PG_FUNCTION_ARGS)
 {
@@ -1066,7 +1066,7 @@ sparsevec_le(PG_FUNCTION_ARGS)
 /*
  * Equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_eq);
+PG_FUNCTION_INFO_V1(sparsevec_eq);
 Datum
 sparsevec_eq(PG_FUNCTION_ARGS)
 {
@@ -1079,7 +1079,7 @@ sparsevec_eq(PG_FUNCTION_ARGS)
 /*
  * Not equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_ne);
+PG_FUNCTION_INFO_V1(sparsevec_ne);
 Datum
 sparsevec_ne(PG_FUNCTION_ARGS)
 {
@@ -1092,7 +1092,7 @@ sparsevec_ne(PG_FUNCTION_ARGS)
 /*
  * Greater than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_ge);
+PG_FUNCTION_INFO_V1(sparsevec_ge);
 Datum
 sparsevec_ge(PG_FUNCTION_ARGS)
 {
@@ -1105,7 +1105,7 @@ sparsevec_ge(PG_FUNCTION_ARGS)
 /*
  * Greater than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_gt);
+PG_FUNCTION_INFO_V1(sparsevec_gt);
 Datum
 sparsevec_gt(PG_FUNCTION_ARGS)
 {
@@ -1118,7 +1118,7 @@ sparsevec_gt(PG_FUNCTION_ARGS)
 /*
  * Compare sparse vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_cmp);
+PG_FUNCTION_INFO_V1(sparsevec_cmp);
 Datum
 sparsevec_cmp(PG_FUNCTION_ARGS)
 {

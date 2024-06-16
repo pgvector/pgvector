@@ -229,9 +229,9 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 	}
 }
 
-PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
+Datum l2_normalize(PG_FUNCTION_ARGS);
+Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
+Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
 
 static Size
 VectorItemSize(int dimensions)
@@ -342,7 +342,7 @@ IvfflatGetTypeInfo(Relation index)
 		return (const IvfflatTypeInfo *) DatumGetPointer(FunctionCall0Coll(procinfo, InvalidOid));
 }
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_support);
+PG_FUNCTION_INFO_V1(ivfflat_halfvec_support);
 Datum
 ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 {
@@ -357,7 +357,7 @@ ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(&typeInfo);
 };
 
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_support);
+PG_FUNCTION_INFO_V1(ivfflat_bit_support);
 Datum
 ivfflat_bit_support(PG_FUNCTION_ARGS)
 {
