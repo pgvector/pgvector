@@ -26,7 +26,7 @@ cd pgvector
 make
 make install # may need sudo
 ```
-
+Set USE_512BIT_VECTORS=1 when running make to instruct the compiler to use 512-bit registers/instructions in auto-vectorized code (e.g., for distance functions).
 See the [installation notes](#installation-notes---linux-and-mac) if you run into issues
 
 You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), [pkg](#pkg), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres). There are also instructions for [GitHub Actions](https://github.com/pgvector/setup-pgvector).

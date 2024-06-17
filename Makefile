@@ -12,6 +12,11 @@ REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
 # To compile for portability, run: make OPTFLAGS=""
 OPTFLAGS = -march=native
+ifeq ($(shell uname -m), x86_64)
+        ifeq ($(USE_512BIT_VECTORS), 1)
+            OPTFLAGS += -mprefer-vector-width=512
+        endif
+endif
 
 # Mac ARM doesn't always support -march=native
 ifeq ($(shell uname -s), Darwin)
