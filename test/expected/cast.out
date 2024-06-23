@@ -225,9 +225,17 @@ ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT ARRAY[NULL]::real[]::sparsevec;
-ERROR:  array must not contain nulls
+ array 
+-------
+ {}/1
+(1 row)
+
 SELECT ARRAY[NULL,1,2,3]::sparsevec;
-ERROR:  array must not contain nulls
+      array      
+-----------------
+ {2:1,3:2,4:3}/4
+(1 row)
+
 SELECT ARRAY[1,2,3]::sparsevec;
       array      
 -----------------

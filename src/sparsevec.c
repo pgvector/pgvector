@@ -643,6 +643,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	bool		typbyval;
 	char		typalign;
 	Datum	   *elemsp;
+	bool	   *nullsp;
 	int			nelemsp;
 	int			nnz = 0;
 	float	   *sparsevec_values;
@@ -653,13 +654,8 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("array must be 1-D")));
 
-	if (ARR_HASNULL(array) && array_contains_nulls(array))
-		ereport(ERROR,
-				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
-				 errmsg("array must not contain nulls")));
-
 	get_typlenbyvalalign(ARR_ELEMTYPE(array), &typlen, &typbyval, &typalign);
-	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, NULL, &nelemsp);
+	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, &nullsp, &nelemsp);
 
 	CheckDim(nelemsp);
 	CheckExpectedDim(typmod, nelemsp);
@@ -667,22 +663,22 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += (DatumGetInt32(elemsp[i]) != 0);
+			nnz += (!nullsp[i] && DatumGetInt32(elemsp[i]) != 0);
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += (DatumGetFloat8(elemsp[i]) != 0);
+			nnz += (!nullsp[i] && DatumGetFloat8(elemsp[i]) != 0);
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += (DatumGetFloat4(elemsp[i]) != 0);
+			nnz += (!nullsp[i] && DatumGetFloat4(elemsp[i]) != 0);
 	}
 	else if (ARR_ELEMTYPE(array) == NUMERICOID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += (DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])) != 0);
+			nnz += (!nullsp[i] && DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])) != 0);
 	}
 	else
 	{
@@ -711,22 +707,22 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			PROCESS_ARRAY_ELEM(DatumGetInt32(elemsp[i]));
+			PROCESS_ARRAY_ELEM(nullsp[i] ? 0 : DatumGetInt32(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			PROCESS_ARRAY_ELEM(DatumGetFloat8(elemsp[i]));
+			PROCESS_ARRAY_ELEM(nullsp[i] ? 0 : DatumGetFloat8(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			PROCESS_ARRAY_ELEM(DatumGetFloat4(elemsp[i]));
+			PROCESS_ARRAY_ELEM(nullsp[i] ? 0 : DatumGetFloat4(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == NUMERICOID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			PROCESS_ARRAY_ELEM(DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])));
+			PROCESS_ARRAY_ELEM(nullsp[i] ? 0 : DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])));
 	}
 	else
 	{
