@@ -463,8 +463,8 @@ array_to_vector(PG_FUNCTION_ARGS)
 
 	if (ARR_NDIM(array) > 1)
 		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("array must be 1-D")));
+				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
+				 errmsg("array must be one-dimensional")));
 
 	if (ARR_HASNULL(array) && array_contains_nulls(array))
 		ereport(ERROR,

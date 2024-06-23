@@ -59,7 +59,7 @@ ERROR:  infinite value not allowed in vector
 SELECT '{}'::real[]::vector;
 ERROR:  vector must have at least 1 dimension
 SELECT '{{1}}'::real[]::vector;
-ERROR:  array must be 1-D
+ERROR:  array must be one-dimensional
 SELECT '{1,2,3}'::double precision[]::vector;
  vector  
 ---------
