@@ -64,6 +64,8 @@ SELECT array_length('{}/16001'::sparsevec::real[], 1);
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
 
+SELECT ARRAY[NULL]::real[]::sparsevec;
+SELECT ARRAY[NULL,1,2,3]::sparsevec;
 SELECT ARRAY[1,2,3]::sparsevec;
 SELECT ARRAY[.1,2,3]::sparsevec;
 SELECT ARRAY[1,2,3]::float4[]::sparsevec;
