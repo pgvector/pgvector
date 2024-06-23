@@ -746,6 +746,32 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
+/*
+ * Convert sparse vector to float4[]
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_to_float4);
+Datum
+sparsevec_to_float4(PG_FUNCTION_ARGS)
+{
+	SparseVector *svec = PG_GETARG_SPARSEVEC_P(0);
+	ArrayType  *result;
+	Datum	   *datums;
+	int			dim = svec->dim;
+	float	   *values = SPARSEVEC_VALUES(svec);
+
+	CheckDim(dim);
+
+	datums = (Datum *) palloc0(sizeof(Datum) * dim);
+
+	for (int i = 0; i < svec->nnz; i++)
+		datums[svec->indices[i]] = Float4GetDatum(values[i]);
+
+	/* Use TYPALIGN_INT for float4 */
+	result = construct_array(datums, dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
+	pfree(datums);
+
+	PG_RETURN_POINTER(result);
+}
 
 /*
  * Convert half vector to sparse vector

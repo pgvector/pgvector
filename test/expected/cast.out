@@ -208,6 +208,18 @@ SELECT '{1:1e-8}/1'::sparsevec::halfvec;
  [0]
 (1 row)
 
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::real[];
+     float4      
+-----------------
+ {0,1.5,0,3.5,0}
+(1 row)
+
+SELECT array_length('{}/16001'::sparsevec::real[], 1);
+ array_length 
+--------------
+        16001
+(1 row)
+
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;

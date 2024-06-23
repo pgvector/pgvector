@@ -794,7 +794,13 @@ CREATE FUNCTION array_to_sparsevec(double precision[], integer, boolean) RETURNS
 CREATE FUNCTION array_to_sparsevec(numeric[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION sparsevec_to_float4(sparsevec, integer, boolean) RETURNS real[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- sparsevec casts
+
+CREATE CAST (sparsevec AS real[])
+	WITH FUNCTION sparsevec_to_float4(sparsevec, integer, boolean) AS ASSIGNMENT;
 
 CREATE CAST (integer[] AS sparsevec)
 	WITH FUNCTION array_to_sparsevec(integer[], integer, boolean) AS ASSIGNMENT;

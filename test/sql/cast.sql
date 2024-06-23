@@ -58,6 +58,9 @@ SELECT '{}/16001'::sparsevec::halfvec;
 SELECT '{1:65520}/1'::sparsevec::halfvec;
 SELECT '{1:1e-8}/1'::sparsevec::halfvec;
 
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::real[];
+SELECT array_length('{}/16001'::sparsevec::real[], 1);
+
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
 
