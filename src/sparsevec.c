@@ -23,6 +23,10 @@
 #include "utils/builtins.h"
 #endif
 
+#if PG_VERSION_NUM < 130000
+#define TYPALIGN_INT 'i'
+#endif
+
 typedef struct SparseInputElement
 {
 	int32		index;
