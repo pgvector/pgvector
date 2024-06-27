@@ -19,11 +19,6 @@
 #include "utils/numeric.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM < 130000
-#define TYPALIGN_DOUBLE 'd'
-#define TYPALIGN_INT 'i'
-#endif
-
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 

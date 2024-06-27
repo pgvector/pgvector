@@ -27,4 +27,9 @@ int			vector_cmp_internal(Vector * a, Vector * b);
 #define FUNCTION_PREFIX PGDLLEXPORT
 #endif
 
+#if PG_VERSION_NUM < 130000
+#define TYPALIGN_DOUBLE 'd'
+#define TYPALIGN_INT 'i'
+#endif
+
 #endif
