@@ -2,44 +2,51 @@
 
 #include <float.h>
 
+#include "access/generic_xlog.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "storage/lmgr.h"
 #include "utils/memutils.h"
 
 /*
  * Find the list that minimizes the distance function
  */
 static void
-FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * listInfo)
+FindInsertPage(Relation index, Datum *values, BlockNumber *insertPage, ListInfo * listInfo)
 {
-	Buffer		cbuf;
-	Page		cpage;
-	IvfflatList list;
-	double		distance;
 	double		minDistance = DBL_MAX;
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
 	FmgrInfo   *procinfo;
 	Oid			collation;
-	OffsetNumber offno;
-	OffsetNumber maxoffno;
 
-	procinfo = index_getprocinfo(rel, 1, IVFFLAT_DISTANCE_PROC);
-	collation = rel->rd_indcollation[0];
+	/* Avoid compiler warning */
+	listInfo->blkno = nextblkno;
+	listInfo->offno = FirstOffsetNumber;
+
+	procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
+	collation = index->rd_indcollation[0];
 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
 	{
-		cbuf = ReadBuffer(rel, nextblkno);
+		Buffer		cbuf;
+		Page		cpage;
+		OffsetNumber maxoffno;
+
+		cbuf = ReadBuffer(index, nextblkno);
 		LockBuffer(cbuf, BUFFER_LOCK_SHARE);
 		cpage = BufferGetPage(cbuf);
 		maxoffno = PageGetMaxOffsetNumber(cpage);
 
-		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+		for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
+			IvfflatList list;
+			double		distance;
+
 			list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
 			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, values[0], PointerGetDatum(&list->center)));
 
-			if (distance < minDistance)
+			if (distance < minDistance || !BlockNumberIsValid(*insertPage))
 			{
 				*insertPage = list->insertPage;
 				listInfo->blkno = nextblkno;
@@ -58,8 +65,9 @@ FindInsertPage(Relation rel, Datum *values, BlockNumber *insertPage, ListInfo * 
  * Insert a tuple into the index
  */
 static void
-InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel)
+InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heapRel)
 {
+	const		IvfflatTypeInfo *typeInfo = IvfflatGetTypeInfo(index);
 	IndexTuple	itup;
 	Datum		value;
 	FmgrInfo   *normprocinfo;
@@ -75,33 +83,40 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Normalize if needed */
-	normprocinfo = IvfflatOptionalProcInfo(rel, IVFFLAT_NORM_PROC);
+	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		if (!IvfflatNormValue(normprocinfo, rel->rd_indcollation[0], &value, NULL))
+		Oid			collation = index->rd_indcollation[0];
+
+		if (!IvfflatCheckNorm(normprocinfo, collation, value))
 			return;
+
+		value = IvfflatNormValue(typeInfo, collation, value);
 	}
 
+	/* Ensure index is valid */
+	IvfflatGetMetaPageInfo(index, NULL, NULL);
+
 	/* Find the insert page - sets the page and list info */
-	FindInsertPage(rel, values, &insertPage, &listInfo);
+	FindInsertPage(index, values, &insertPage, &listInfo);
 	Assert(BlockNumberIsValid(insertPage));
 	originalInsertPage = insertPage;
 
 	/* Form tuple */
-	itup = index_form_tuple(RelationGetDescr(rel), &value, isnull);
+	itup = index_form_tuple(RelationGetDescr(index), &value, isnull);
 	itup->t_tid = *heap_tid;
 
 	/* Get tuple size */
 	itemsz = MAXALIGN(IndexTupleSize(itup));
-	Assert(itemsz <= BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(IvfflatPageOpaqueData)));
+	Assert(itemsz <= BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(IvfflatPageOpaqueData)) - sizeof(ItemIdData));
 
 	/* Find a page to insert the item */
 	for (;;)
 	{
-		buf = ReadBuffer(rel, insertPage);
+		buf = ReadBuffer(index, insertPage);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
-		state = GenericXLogStart(rel);
+		state = GenericXLogStart(index);
 		page = GenericXLogRegisterBuffer(state, buf, 0);
 
 		if (PageGetFreeSpace(page) >= itemsz)
@@ -117,23 +132,16 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 		}
 		else
 		{
-			Buffer		metabuf;
 			Buffer		newbuf;
 			Page		newpage;
 
-			/*
-			 * From ReadBufferExtended: Caller is responsible for ensuring
-			 * that only one backend tries to extend a relation at the same
-			 * time!
-			 */
-			metabuf = ReadBuffer(rel, IVFFLAT_METAPAGE_BLKNO);
-			LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
-
 			/* Add a new page */
-			newbuf = IvfflatNewBuffer(rel, MAIN_FORKNUM);
-			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
+			LockRelationForExtension(index, ExclusiveLock);
+			newbuf = IvfflatNewBuffer(index, MAIN_FORKNUM);
+			UnlockRelationForExtension(index, ExclusiveLock);
 
 			/* Init new page */
+			newpage = GenericXLogRegisterBuffer(state, newbuf, GENERIC_XLOG_FULL_IMAGE);
 			IvfflatInitPage(newbuf, newpage);
 
 			/* Update insert page */
@@ -143,18 +151,13 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 			IvfflatPageGetOpaque(page)->nextblkno = insertPage;
 
 			/* Commit */
-			MarkBufferDirty(newbuf);
-			MarkBufferDirty(buf);
 			GenericXLogFinish(state);
-
-			/* Unlock extend relation lock as early as possible */
-			UnlockReleaseBuffer(metabuf);
 
 			/* Unlock previous buffer */
 			UnlockReleaseBuffer(buf);
 
 			/* Prepare new buffer */
-			state = GenericXLogStart(rel);
+			state = GenericXLogStart(index);
 			buf = newbuf;
 			page = GenericXLogRegisterBuffer(state, buf, 0);
 			break;
@@ -163,13 +166,13 @@ InsertTuple(Relation rel, Datum *values, bool *isnull, ItemPointer heap_tid, Rel
 
 	/* Add to next offset */
 	if (PageAddItem(page, (Item) itup, itemsz, InvalidOffsetNumber, false, false) == InvalidOffsetNumber)
-		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(rel));
+		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 
 	IvfflatCommitBuffer(buf, state);
 
 	/* Update the insert page */
 	if (insertPage != originalInsertPage)
-		IvfflatUpdateList(rel, state, listInfo, insertPage, originalInsertPage, InvalidBlockNumber, MAIN_FORKNUM);
+		IvfflatUpdateList(index, listInfo, insertPage, originalInsertPage, InvalidBlockNumber, MAIN_FORKNUM);
 }
 
 /*

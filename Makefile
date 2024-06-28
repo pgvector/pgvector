@@ -1,21 +1,29 @@
 EXTENSION = vector
-EXTVERSION = 0.4.0
+EXTVERSION = 0.7.2
 
 MODULE_big = vector
 DATA = $(wildcard sql/*--*.sql)
-OBJS = src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/vector.o
+OBJS = src/bitutils.o src/bitvec.o src/halfutils.o src/halfvec.o src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/sparsevec.o src/vector.o
+HEADERS = src/halfvec.h src/sparsevec.h src/vector.h
 
 TESTS = $(wildcard test/sql/*.sql)
 REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
-REGRESS_OPTS = --inputdir=test --load-extension=vector
+REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
+# To compile for portability, run: make OPTFLAGS=""
 OPTFLAGS = -march=native
 
-# Mac ARM doesn't support -march=native
+# Mac ARM doesn't always support -march=native
 ifeq ($(shell uname -s), Darwin)
 	ifeq ($(shell uname -p), arm)
+		# no difference with -march=armv8.5-a
 		OPTFLAGS =
 	endif
+endif
+
+# PowerPC doesn't support -march=native
+ifneq ($(filter ppc64%, $(shell uname -m)), )
+	OPTFLAGS =
 endif
 
 # For auto-vectorization:
@@ -58,7 +66,15 @@ dist:
 	mkdir -p dist
 	git archive --format zip --prefix=$(EXTENSION)-$(EXTVERSION)/ --output dist/$(EXTENSION)-$(EXTVERSION).zip master
 
+# for Docker
+PG_MAJOR ?= 16
+
 .PHONY: docker
 
 docker:
-	docker build --pull --no-cache --platform linux/amd64 -t ankane/pgvector:latest .
+	docker build --pull --no-cache --build-arg PG_MAJOR=$(PG_MAJOR) -t pgvector/pgvector:pg$(PG_MAJOR) -t pgvector/pgvector:$(EXTVERSION)-pg$(PG_MAJOR) .
+
+.PHONY: docker-release
+
+docker-release:
+	docker buildx build --push --pull --no-cache --platform linux/amd64,linux/arm64 --build-arg PG_MAJOR=$(PG_MAJOR) -t pgvector/pgvector:pg$(PG_MAJOR) -t pgvector/pgvector:$(EXTVERSION)-pg$(PG_MAJOR) .

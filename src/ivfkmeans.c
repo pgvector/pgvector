@@ -1,9 +1,17 @@
 #include "postgres.h"
 
 #include <float.h>
+#include <math.h>
 
+#include "bitvec.h"
+#include "halfutils.h"
+#include "halfvec.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "utils/builtins.h"
+#include "utils/datum.h"
+#include "utils/memutils.h"
+#include "vector.h"
 
 /*
  * Initialize with kmeans++
@@ -15,12 +23,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 {
 	FmgrInfo   *procinfo;
 	Oid			collation;
-	int			i;
 	int64		j;
-	double		distance;
-	double		sum;
-	double		choice;
-	Vector	   *vec;
 	float	   *weight = palloc(samples->length * sizeof(float));
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
@@ -33,21 +36,25 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	centers->length++;
 
 	for (j = 0; j < numSamples; j++)
-		weight[j] = DBL_MAX;
+		weight[j] = FLT_MAX;
 
-	for (i = 0; i < numCenters; i++)
+	for (int i = 0; i < numCenters; i++)
 	{
+		double		sum;
+		double		choice;
+
 		CHECK_FOR_INTERRUPTS();
 
 		sum = 0.0;
 
 		for (j = 0; j < numSamples; j++)
 		{
-			vec = VectorArrayGet(samples, j);
+			Datum		vec = PointerGetDatum(VectorArrayGet(samples, j));
+			double		distance;
 
 			/* Only need to compute distance for new center */
 			/* TODO Use triangle inequality to reduce distance calculations */
-			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, i))));
+			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, i))));
 
 			/* Set lower bound */
 			lowerBound[j * numCenters + i] = distance;
@@ -82,77 +89,166 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 }
 
 /*
- * Apply norm to vector
- */
-static inline void
-ApplyNorm(FmgrInfo *normprocinfo, Oid collation, Vector * vec)
-{
-	int			i;
-	double		norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(vec)));
-
-	/* TODO Handle zero norm */
-	if (norm > 0)
-	{
-		for (i = 0; i < vec->dim; i++)
-			vec->x[i] /= norm;
-	}
-}
-
-/*
- * Compare vectors
- */
-static int
-CompareVectors(const void *a, const void *b)
-{
-	return vector_cmp_internal((Vector *) a, (Vector *) b);
-}
-
-/*
- * Quick approach if we have little data
+ * Norm centers
  */
 static void
-QuickCenters(Relation index, VectorArray samples, VectorArray centers)
+NormCenters(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray centers)
 {
-	int			i;
-	int			j;
-	Vector	   *vec;
-	int			dimensions = centers->dim;
-	Oid			collation = index->rd_indcollation[0];
-	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
+	MemoryContext normCtx = AllocSetContextCreate(CurrentMemoryContext,
+												  "Ivfflat norm temporary context",
+												  ALLOCSET_DEFAULT_SIZES);
+	MemoryContext oldCtx = MemoryContextSwitchTo(normCtx);
 
-	/* Copy existing vectors while avoiding duplicates */
-	if (samples->length > 0)
+	for (int j = 0; j < centers->length; j++)
 	{
-		qsort(samples->items, samples->length, VECTOR_SIZE(samples->dim), CompareVectors);
-		for (i = 0; i < samples->length; i++)
-		{
-			vec = VectorArrayGet(samples, i);
+		Datum		center = PointerGetDatum(VectorArrayGet(centers, j));
+		Datum		newCenter = IvfflatNormValue(typeInfo, collation, center);
+		Size		size = VARSIZE_ANY(DatumGetPointer(newCenter));
 
-			if (i == 0 || CompareVectors(vec, VectorArrayGet(samples, i - 1)) != 0)
-			{
-				VectorArraySet(centers, centers->length, vec);
-				centers->length++;
-			}
-		}
+		if (size > centers->itemsize)
+			elog(ERROR, "safety check failed");
+
+		memcpy(DatumGetPointer(center), DatumGetPointer(newCenter), size);
+		MemoryContextReset(normCtx);
 	}
 
-	/* Fill remaining with random data */
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextDelete(normCtx);
+}
+
+/*
+ * Quick approach if we have no data
+ */
+static void
+RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
+{
+	int			dimensions = centers->dim;
+	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
+	Oid			collation = index->rd_indcollation[0];
+	float	   *x = (float *) palloc(sizeof(float) * dimensions);
+
+	/* Fill with random data */
 	while (centers->length < centers->maxlen)
 	{
-		vec = VectorArrayGet(centers, centers->length);
+		Pointer		center = VectorArrayGet(centers, centers->length);
 
-		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-		vec->dim = dimensions;
+		for (int i = 0; i < dimensions; i++)
+			x[i] = (float) RandomDouble();
 
-		for (j = 0; j < dimensions; j++)
-			vec->x[j] = RandomDouble();
-
-		/* Normalize if needed (only needed for random centers) */
-		if (normprocinfo != NULL)
-			ApplyNorm(normprocinfo, collation, vec);
+		typeInfo->updateCenter(center, dimensions, x);
 
 		centers->length++;
 	}
+
+	if (normprocinfo != NULL)
+		NormCenters(typeInfo, collation, centers);
+}
+
+#ifdef IVFFLAT_MEMORY
+/*
+ * Show memory usage
+ */
+static void
+ShowMemoryUsage(MemoryContext context, Size estimatedSize)
+{
+#if PG_VERSION_NUM >= 130000
+	elog(INFO, "total memory: %zu MB",
+		 MemoryContextMemAllocated(context, true) / (1024 * 1024));
+#else
+	MemoryContextStats(context);
+#endif
+	elog(INFO, "estimated memory: %zu MB", estimatedSize / (1024 * 1024));
+}
+#endif
+
+/*
+ * Sum centers
+ */
+static void
+SumCenters(VectorArray samples, float *agg, int *closestCenters, const IvfflatTypeInfo * typeInfo)
+{
+	for (int j = 0; j < samples->length; j++)
+	{
+		float	   *x = agg + ((int64) closestCenters[j] * samples->dim);
+
+		typeInfo->sumCenter(VectorArrayGet(samples, j), x);
+	}
+}
+
+/*
+ * Update centers
+ */
+static void
+UpdateCenters(float *agg, VectorArray centers, const IvfflatTypeInfo * typeInfo)
+{
+	for (int j = 0; j < centers->length; j++)
+	{
+		float	   *x = agg + ((int64) j * centers->dim);
+
+		typeInfo->updateCenter(VectorArrayGet(centers, j), centers->dim, x);
+	}
+}
+
+/*
+ * Compute new centers
+ */
+static void
+ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, Oid collation, const IvfflatTypeInfo * typeInfo)
+{
+	int			dimensions = newCenters->dim;
+	int			numCenters = newCenters->length;
+	int			numSamples = samples->length;
+
+	/* Reset sum and count */
+	for (int j = 0; j < numCenters; j++)
+	{
+		float	   *x = agg + ((int64) j * dimensions);
+
+		for (int k = 0; k < dimensions; k++)
+			x[k] = 0.0;
+
+		centerCounts[j] = 0;
+	}
+
+	/* Increment sum of closest center */
+	SumCenters(samples, agg, closestCenters, typeInfo);
+
+	/* Increment count of closest center */
+	for (int j = 0; j < numSamples; j++)
+		centerCounts[closestCenters[j]] += 1;
+
+	/* Divide sum by count */
+	for (int j = 0; j < numCenters; j++)
+	{
+		float	   *x = agg + ((int64) j * dimensions);
+
+		if (centerCounts[j] > 0)
+		{
+			/* Double avoids overflow, but requires more memory */
+			/* TODO Update bounds */
+			for (int k = 0; k < dimensions; k++)
+			{
+				if (isinf(x[k]))
+					x[k] = x[k] > 0 ? FLT_MAX : -FLT_MAX;
+			}
+
+			for (int k = 0; k < dimensions; k++)
+				x[k] /= centerCounts[j];
+		}
+		else
+		{
+			/* TODO Handle empty centers properly */
+			for (int k = 0; k < dimensions; k++)
+				x[k] = RandomDouble();
+		}
+	}
+
+	/* Set new centers */
+	UpdateCenters(agg, newCenters, typeInfo);
+
+	/* Normalize if needed */
+	if (normprocinfo != NULL)
+		NormCenters(typeInfo, collation, newCenters);
 }
 
 /*
@@ -164,20 +260,16 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers)
  * https://www.aaai.org/Papers/ICML/2003/ICML03-022.pdf
  */
 static void
-ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
+ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
-	Vector	   *vec;
-	Vector	   *newCenter;
-	int			iteration;
-	int64		j;
-	int64		k;
 	int			dimensions = centers->dim;
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
 	VectorArray newCenters;
+	float	   *agg;
 	int		   *centerCounts;
 	int		   *closestCenters;
 	float	   *lowerBound;
@@ -185,19 +277,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	float	   *s;
 	float	   *halfcdist;
 	float	   *newcdist;
-	int			changes;
-	double		minDistance;
-	int			closestCenter;
-	double		distance;
-	bool		rj;
-	bool		rjreset;
-	double		dxcx;
-	double		dxc;
 
 	/* Calculate allocation sizes */
-	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->dim);
-	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->dim);
-	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, dimensions);
+	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->itemsize);
+	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->itemsize);
+	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
+	Size		aggSize = sizeof(float) * (int64) numCenters * dimensions;
 	Size		centerCountsSize = sizeof(int) * numCenters;
 	Size		closestCentersSize = sizeof(int) * numSamples;
 	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
@@ -207,11 +292,11 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	Size		newcdistSize = sizeof(float) * numCenters;
 
 	/* Calculate total size */
-	Size		totalSize = samplesSize + centersSize + newCentersSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
+	Size		totalSize = samplesSize + centersSize + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
 
 	/* Check memory requirements */
 	/* Add one to error message to ceil */
-	if (totalSize / 1024 > maintenance_work_mem)
+	if (totalSize > (Size) maintenance_work_mem * 1024L)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("memory required is %zu MB, maintenance_work_mem is %d MB",
@@ -228,6 +313,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 	/* Allocate space */
 	/* Use float instead of double to save memory */
+	agg = palloc(aggSize);
 	centerCounts = palloc(centerCountsSize);
 	closestCenters = palloc(closestCentersSize);
 	lowerBound = palloc_extended(lowerBoundSize, MCXT_ALLOC_HUGE);
@@ -236,28 +322,28 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	halfcdist = palloc_extended(halfcdistSize, MCXT_ALLOC_HUGE);
 	newcdist = palloc(newcdistSize);
 
-	newCenters = VectorArrayInit(numCenters, dimensions);
-	for (j = 0; j < numCenters; j++)
-	{
-		vec = VectorArrayGet(newCenters, j);
-		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-		vec->dim = dimensions;
-	}
+	/* Initialize new centers */
+	newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
+	newCenters->length = numCenters;
+
+#ifdef IVFFLAT_MEMORY
+	ShowMemoryUsage(MemoryContextGetParent(CurrentMemoryContext));
+#endif
 
 	/* Pick initial centers */
 	InitCenters(index, samples, centers, lowerBound);
 
 	/* Assign each x to its closest initial center c(x) = argmin d(x,c) */
-	for (j = 0; j < numSamples; j++)
+	for (int64 j = 0; j < numSamples; j++)
 	{
-		minDistance = DBL_MAX;
-		closestCenter = -1;
+		float		minDistance = FLT_MAX;
+		int			closestCenter = 0;
 
 		/* Find closest center */
-		for (k = 0; k < numCenters; k++)
+		for (int64 k = 0; k < numCenters; k++)
 		{
 			/* TODO Use Lemma 1 in k-means++ initialization */
-			distance = lowerBound[j * numCenters + k];
+			float		distance = lowerBound[j * numCenters + k];
 
 			if (distance < minDistance)
 			{
@@ -271,33 +357,37 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 	}
 
 	/* Give 500 iterations to converge */
-	for (iteration = 0; iteration < 500; iteration++)
+	for (int iteration = 0; iteration < 500; iteration++)
 	{
+		int			changes = 0;
+		bool		rjreset;
+
 		/* Can take a while, so ensure we can interrupt */
 		CHECK_FOR_INTERRUPTS();
 
-		changes = 0;
-
 		/* Step 1: For all centers, compute distance */
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 		{
-			vec = VectorArrayGet(centers, j);
+			Datum		vec = PointerGetDatum(VectorArrayGet(centers, j));
 
-			for (k = j + 1; k < numCenters; k++)
+			for (int64 k = j + 1; k < numCenters; k++)
 			{
-				distance = 0.5 * DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, k))));
+				float		distance = 0.5 * DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, k))));
+
 				halfcdist[j * numCenters + k] = distance;
 				halfcdist[k * numCenters + j] = distance;
 			}
 		}
 
 		/* For all centers c, compute s(c) */
-		for (j = 0; j < numCenters; j++)
+		for (int64 j = 0; j < numCenters; j++)
 		{
-			minDistance = DBL_MAX;
+			float		minDistance = FLT_MAX;
 
-			for (k = 0; k < numCenters; k++)
+			for (int64 k = 0; k < numCenters; k++)
 			{
+				float		distance;
+
 				if (j == k)
 					continue;
 
@@ -311,16 +401,21 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		rjreset = iteration != 0;
 
-		for (j = 0; j < numSamples; j++)
+		for (int64 j = 0; j < numSamples; j++)
 		{
+			bool		rj;
+
 			/* Step 2: Identify all points x such that u(x) <= s(c(x)) */
 			if (upperBound[j] <= s[closestCenters[j]])
 				continue;
 
 			rj = rjreset;
 
-			for (k = 0; k < numCenters; k++)
+			for (int64 k = 0; k < numCenters; k++)
 			{
+				Datum		vec;
+				float		dxcx;
+
 				/* Step 3: For all remaining points x and centers c */
 				if (k == closestCenters[j])
 					continue;
@@ -331,12 +426,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 				if (upperBound[j] <= halfcdist[closestCenters[j] * numCenters + k])
 					continue;
 
-				vec = VectorArrayGet(samples, j);
+				vec = PointerGetDatum(VectorArrayGet(samples, j));
 
 				/* Step 3a */
 				if (rj)
 				{
-					dxcx = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, closestCenters[j]))));
+					dxcx = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, closestCenters[j]))));
 
 					/* d(x,c(x)) computed, which is a form of d(x,c) */
 					lowerBound[j * numCenters + closestCenters[j]] = dxcx;
@@ -350,7 +445,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 				/* Step 3b */
 				if (dxcx > lowerBound[j * numCenters + k] || dxcx > halfcdist[closestCenters[j] * numCenters + k])
 				{
-					dxc = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(vec), PointerGetDatum(VectorArrayGet(centers, k))));
+					float		dxc = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, k))));
 
 					/* d(x,c) calculated */
 					lowerBound[j * numCenters + k] = dxc;
@@ -364,64 +459,22 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 						changes++;
 					}
-
 				}
 			}
 		}
 
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
-		for (j = 0; j < numCenters; j++)
-		{
-			vec = VectorArrayGet(newCenters, j);
-			for (k = 0; k < dimensions; k++)
-				vec->x[k] = 0.0;
-
-			centerCounts[j] = 0;
-		}
-
-		for (j = 0; j < numSamples; j++)
-		{
-			vec = VectorArrayGet(samples, j);
-			closestCenter = closestCenters[j];
-
-			/* Increment sum and count of closest center */
-			newCenter = VectorArrayGet(newCenters, closestCenter);
-			for (k = 0; k < dimensions; k++)
-				newCenter->x[k] += vec->x[k];
-
-			centerCounts[closestCenter] += 1;
-		}
-
-		for (j = 0; j < numCenters; j++)
-		{
-			vec = VectorArrayGet(newCenters, j);
-
-			if (centerCounts[j] > 0)
-			{
-				for (k = 0; k < dimensions; k++)
-					vec->x[k] /= centerCounts[j];
-			}
-			else
-			{
-				/* TODO Handle empty centers properly */
-				for (k = 0; k < dimensions; k++)
-					vec->x[k] = RandomDouble();
-			}
-
-			/* Normalize if needed */
-			if (normprocinfo != NULL)
-				ApplyNorm(normprocinfo, collation, vec);
-		}
+		ComputeNewCenters(samples, agg, newCenters, centerCounts, closestCenters, normprocinfo, collation, typeInfo);
 
 		/* Step 5 */
-		for (j = 0; j < numCenters; j++)
+		for (int j = 0; j < numCenters; j++)
 			newcdist[j] = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, PointerGetDatum(VectorArrayGet(centers, j)), PointerGetDatum(VectorArrayGet(newCenters, j))));
 
-		for (j = 0; j < numSamples; j++)
+		for (int64 j = 0; j < numSamples; j++)
 		{
-			for (k = 0; k < numCenters; k++)
+			for (int64 k = 0; k < numCenters; k++)
 			{
-				distance = lowerBound[j * numCenters + k] - newcdist[k];
+				float		distance = lowerBound[j * numCenters + k] - newcdist[k];
 
 				if (distance < 0)
 					distance = 0;
@@ -432,64 +485,78 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers)
 
 		/* Step 6 */
 		/* We reset r(x) before Step 3 in the next iteration */
-		for (j = 0; j < numSamples; j++)
+		for (int j = 0; j < numSamples; j++)
 			upperBound[j] += newcdist[closestCenters[j]];
 
 		/* Step 7 */
-		for (j = 0; j < numCenters; j++)
-			memcpy(VectorArrayGet(centers, j), VectorArrayGet(newCenters, j), VECTOR_SIZE(dimensions));
+		for (int j = 0; j < numCenters; j++)
+			VectorArraySet(centers, j, VectorArrayGet(newCenters, j));
 
 		if (changes == 0 && iteration != 0)
 			break;
 	}
+}
 
-	VectorArrayFree(newCenters);
-	pfree(centerCounts);
-	pfree(closestCenters);
-	pfree(lowerBound);
-	pfree(upperBound);
-	pfree(s);
-	pfree(halfcdist);
-	pfree(newcdist);
+/*
+ * Ensure no NaN or infinite values
+ */
+static void
+CheckElements(VectorArray centers, const IvfflatTypeInfo * typeInfo)
+{
+	float	   *scratch = palloc(sizeof(float) * centers->dim);
+
+	for (int i = 0; i < centers->length; i++)
+	{
+		for (int j = 0; j < centers->dim; j++)
+			scratch[j] = 0;
+
+		/* /fp:fast may not propagate NaN with MSVC, but that's alright */
+		typeInfo->sumCenter(VectorArrayGet(centers, i), scratch);
+
+		for (int j = 0; j < centers->dim; j++)
+		{
+			if (isnan(scratch[j]))
+				elog(ERROR, "NaN detected. Please report a bug.");
+
+			if (isinf(scratch[j]))
+				elog(ERROR, "Infinite value detected. Please report a bug.");
+		}
+	}
+}
+
+/*
+ * Ensure no zero vectors for cosine distance
+ */
+static void
+CheckNorms(VectorArray centers, Relation index)
+{
+	/* Check NORM_PROC instead of KMEANS_NORM_PROC */
+	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
+	Oid			collation = index->rd_indcollation[0];
+
+	if (normprocinfo == NULL)
+		return;
+
+	for (int i = 0; i < centers->length; i++)
+	{
+		double		norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(VectorArrayGet(centers, i))));
+
+		if (norm == 0)
+			elog(ERROR, "Zero norm detected. Please report a bug.");
+	}
 }
 
 /*
  * Detect issues with centers
  */
 static void
-CheckCenters(Relation index, VectorArray centers)
+CheckCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
-	FmgrInfo   *normprocinfo;
-	Oid			collation;
-	int			i;
-	double		norm;
-
 	if (centers->length != centers->maxlen)
 		elog(ERROR, "Not enough centers. Please report a bug.");
 
-	/* Ensure no duplicate centers */
-	/* Fine to sort in-place */
-	qsort(centers->items, centers->length, VECTOR_SIZE(centers->dim), CompareVectors);
-	for (i = 1; i < centers->length; i++)
-	{
-		if (CompareVectors(VectorArrayGet(centers, i), VectorArrayGet(centers, i - 1)) == 0)
-			elog(ERROR, "Duplicate centers detected. Please report a bug.");
-	}
-
-	/* Ensure no zero vectors for cosine distance */
-	/* Check NORM_PROC instead of KMEANS_NORM_PROC */
-	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		collation = index->rd_indcollation[0];
-
-		for (i = 0; i < centers->length; i++)
-		{
-			norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(VectorArrayGet(centers, i))));
-			if (norm == 0)
-				elog(ERROR, "Zero norm detected. Please report a bug.");
-		}
-	}
+	CheckElements(centers, typeInfo);
+	CheckNorms(centers, index);
 }
 
 /*
@@ -497,12 +564,20 @@ CheckCenters(Relation index, VectorArray centers)
  * We use spherical k-means for inner product and cosine
  */
 void
-IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers)
+IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
-	if (samples->length <= centers->maxlen)
-		QuickCenters(index, samples, centers);
-	else
-		ElkanKmeans(index, samples, centers);
+	MemoryContext kmeansCtx = AllocSetContextCreate(CurrentMemoryContext,
+													"Ivfflat kmeans temporary context",
+													ALLOCSET_DEFAULT_SIZES);
+	MemoryContext oldCtx = MemoryContextSwitchTo(kmeansCtx);
 
-	CheckCenters(index, centers);
+	if (samples->length == 0)
+		RandomCenters(index, centers, typeInfo);
+	else
+		ElkanKmeans(index, samples, centers, typeInfo);
+
+	CheckCenters(index, centers, typeInfo);
+
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextDelete(kmeansCtx);
 }

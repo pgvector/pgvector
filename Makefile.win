@@ -1,10 +1,11 @@
 EXTENSION = vector
-EXTVERSION = 0.4.0
+EXTVERSION = 0.7.2
 
-OBJS = src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\vector.obj
+OBJS = src\bitutils.obj src\bitvec.obj src\halfutils.obj src\halfvec.obj src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\sparsevec.obj src\vector.obj
+HEADERS = src\halfvec.h src\sparsevec.h src\vector.h
 
-REGRESS = btree cast copy functions input ivfflat_cosine ivfflat_ip ivfflat_l2 ivfflat_options ivfflat_unlogged
-REGRESS_OPTS = --inputdir=test --load-extension=vector
+REGRESS = bit btree cast copy halfvec hnsw_bit hnsw_halfvec hnsw_sparsevec hnsw_vector ivfflat_bit ivfflat_halfvec ivfflat_vector sparsevec vector_type
+REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
 # For /arch flags
 # https://learn.microsoft.com/en-us/cpp/build/reference/arch-minimum-cpu-architecture
@@ -54,6 +55,8 @@ install:
 	copy $(SHLIB) "$(PKGLIBDIR)"
 	copy $(EXTENSION).control "$(SHAREDIR)\extension"
 	copy sql\$(EXTENSION)--*.sql "$(SHAREDIR)\extension"
+	mkdir "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
+	for %f in ($(HEADERS)) do copy %f "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
 installcheck:
 	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
@@ -61,7 +64,9 @@ installcheck:
 uninstall:
 	del /f "$(PKGLIBDIR)\$(SHLIB)"
 	del /f "$(SHAREDIR)\extension\$(EXTENSION).control"
-	del /f "$(SHAREDIR)\extension\vector--*.sql"
+	del /f "$(SHAREDIR)\extension\$(EXTENSION)--*.sql"
+	del /f "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)\*.h"
+	rmdir "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
 clean:
 	del /f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp

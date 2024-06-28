@@ -1,21 +1,30 @@
 #include "postgres.h"
 
+#include "access/generic_xlog.h"
+#include "bitvec.h"
+#include "catalog/pg_type.h"
+#include "fmgr.h"
+#include "halfutils.h"
+#include "halfvec.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
-#include "vector.h"
 
 /*
  * Allocate a vector array
  */
 VectorArray
-VectorArrayInit(int maxlen, int dimensions)
+VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 {
 	VectorArray res = palloc(sizeof(VectorArrayData));
+
+	/* Ensure items are aligned to prevent UB */
+	itemsize = MAXALIGN(itemsize);
 
 	res->length = 0;
 	res->maxlen = maxlen;
 	res->dim = dimensions;
-	res->items = palloc_extended(maxlen * VECTOR_SIZE(dimensions), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
+	res->itemsize = itemsize;
+	res->items = palloc_extended(maxlen * itemsize, MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
 	return res;
 }
 
@@ -27,18 +36,6 @@ VectorArrayFree(VectorArray arr)
 {
 	pfree(arr->items);
 	pfree(arr);
-}
-
-/*
- * Print vector array - useful for debugging
- */
-void
-PrintVectorArray(char *msg, VectorArray arr)
-{
-	int			i;
-
-	for (i = 0; i < arr->length; i++)
-		PrintVector(msg, VectorArrayGet(arr, i));
 }
 
 /*
@@ -59,47 +56,30 @@ IvfflatGetLists(Relation index)
  * Get proc
  */
 FmgrInfo *
-IvfflatOptionalProcInfo(Relation rel, uint16 procnum)
+IvfflatOptionalProcInfo(Relation index, uint16 procnum)
 {
-	if (!OidIsValid(index_getprocid(rel, 1, procnum)))
+	if (!OidIsValid(index_getprocid(index, 1, procnum)))
 		return NULL;
 
-	return index_getprocinfo(rel, 1, procnum);
+	return index_getprocinfo(index, 1, procnum);
 }
 
 /*
- * Divide by the norm
- *
- * Returns false if value should not be indexed
- *
- * The caller needs to free the pointer stored in value
- * if it's different than the original value
+ * Normalize value
+ */
+Datum
+IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value)
+{
+	return DirectFunctionCall1Coll(typeInfo->normalize, collation, value);
+}
+
+/*
+ * Check if non-zero norm
  */
 bool
-IvfflatNormValue(FmgrInfo *procinfo, Oid collation, Datum *value, Vector * result)
+IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
 {
-	Vector	   *v;
-	int			i;
-	double		norm;
-
-	norm = DatumGetFloat8(FunctionCall1Coll(procinfo, collation, *value));
-
-	if (norm > 0)
-	{
-		v = DatumGetVector(*value);
-
-		if (result == NULL)
-			result = InitVector(v->dim);
-
-		for (i = 0; i < v->dim; i++)
-			result->x[i] = v->x[i] / norm;
-
-		*value = PointerGetDatum(result);
-
-		return true;
-	}
-
-	return false;
+	return DatumGetFloat8(FunctionCall1Coll(procinfo, collation, value)) > 0;
 }
 
 /*
@@ -142,7 +122,6 @@ IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogStat
 void
 IvfflatCommitBuffer(Buffer buf, GenericXLogState *state)
 {
-	MarkBufferDirty(buf);
 	GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
 }
@@ -166,8 +145,6 @@ IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **st
 	IvfflatInitPage(newbuf, newpage);
 
 	/* Commit */
-	MarkBufferDirty(*buf);
-	MarkBufferDirty(newbuf);
 	GenericXLogFinish(*state);
 
 	/* Unlock */
@@ -179,15 +156,43 @@ IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **st
 }
 
 /*
+ * Get the metapage info
+ */
+void
+IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
+{
+	Buffer		buf;
+	Page		page;
+	IvfflatMetaPage metap;
+
+	buf = ReadBuffer(index, IVFFLAT_METAPAGE_BLKNO);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+	metap = IvfflatPageGetMeta(page);
+
+	if (unlikely(metap->magicNumber != IVFFLAT_MAGIC_NUMBER))
+		elog(ERROR, "ivfflat index is not valid");
+
+	if (lists != NULL)
+		*lists = metap->lists;
+
+	if (dimensions != NULL)
+		*dimensions = metap->dimensions;
+
+	UnlockReleaseBuffer(buf);
+}
+
+/*
  * Update the start or insert page of a list
  */
 void
-IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo,
+IvfflatUpdateList(Relation index, ListInfo listInfo,
 				  BlockNumber insertPage, BlockNumber originalInsertPage,
 				  BlockNumber startPage, ForkNumber forkNum)
 {
 	Buffer		buf;
 	Page		page;
+	GenericXLogState *state;
 	IvfflatList list;
 	bool		changed = false;
 
@@ -223,3 +228,146 @@ IvfflatUpdateList(Relation index, GenericXLogState *state, ListInfo listInfo,
 		UnlockReleaseBuffer(buf);
 	}
 }
+
+PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
+
+static Size
+VectorItemSize(int dimensions)
+{
+	return VECTOR_SIZE(dimensions);
+}
+
+static Size
+HalfvecItemSize(int dimensions)
+{
+	return HALFVEC_SIZE(dimensions);
+}
+
+static Size
+BitItemSize(int dimensions)
+{
+	return VARBITTOTALLEN(dimensions);
+}
+
+static void
+VectorUpdateCenter(Pointer v, int dimensions, float *x)
+{
+	Vector	   *vec = (Vector *) v;
+
+	SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
+	vec->dim = dimensions;
+
+	for (int k = 0; k < dimensions; k++)
+		vec->x[k] = x[k];
+}
+
+static void
+HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
+{
+	HalfVector *vec = (HalfVector *) v;
+
+	SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
+	vec->dim = dimensions;
+
+	for (int k = 0; k < dimensions; k++)
+		vec->x[k] = Float4ToHalfUnchecked(x[k]);
+}
+
+static void
+BitUpdateCenter(Pointer v, int dimensions, float *x)
+{
+	VarBit	   *vec = (VarBit *) v;
+	unsigned char *nx = VARBITS(vec);
+
+	SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
+	VARBITLEN(vec) = dimensions;
+
+	for (uint32 k = 0; k < VARBITBYTES(vec); k++)
+		nx[k] = 0;
+
+	for (int k = 0; k < dimensions; k++)
+		nx[k / 8] |= (x[k] > 0.5 ? 1 : 0) << (7 - (k % 8));
+}
+
+static void
+VectorSumCenter(Pointer v, float *x)
+{
+	Vector	   *vec = (Vector *) v;
+
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += vec->x[k];
+}
+
+static void
+HalfvecSumCenter(Pointer v, float *x)
+{
+	HalfVector *vec = (HalfVector *) v;
+
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += HalfToFloat4(vec->x[k]);
+}
+
+static void
+BitSumCenter(Pointer v, float *x)
+{
+	VarBit	   *vec = (VarBit *) v;
+
+	for (int k = 0; k < VARBITLEN(vec); k++)
+		x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
+}
+
+/*
+ * Get type info
+ */
+const		IvfflatTypeInfo *
+IvfflatGetTypeInfo(Relation index)
+{
+	FmgrInfo   *procinfo = IvfflatOptionalProcInfo(index, IVFFLAT_TYPE_INFO_PROC);
+
+	if (procinfo == NULL)
+	{
+		static const IvfflatTypeInfo typeInfo = {
+			.maxDimensions = IVFFLAT_MAX_DIM,
+			.normalize = l2_normalize,
+			.itemSize = VectorItemSize,
+			.updateCenter = VectorUpdateCenter,
+			.sumCenter = VectorSumCenter
+		};
+
+		return (&typeInfo);
+	}
+	else
+		return (const IvfflatTypeInfo *) DatumGetPointer(FunctionCall0Coll(procinfo, InvalidOid));
+}
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_halfvec_support);
+Datum
+ivfflat_halfvec_support(PG_FUNCTION_ARGS)
+{
+	static const IvfflatTypeInfo typeInfo = {
+		.maxDimensions = IVFFLAT_MAX_DIM * 2,
+		.normalize = halfvec_l2_normalize,
+		.itemSize = HalfvecItemSize,
+		.updateCenter = HalfvecUpdateCenter,
+		.sumCenter = HalfvecSumCenter
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
+PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflat_bit_support);
+Datum
+ivfflat_bit_support(PG_FUNCTION_ARGS)
+{
+	static const IvfflatTypeInfo typeInfo = {
+		.maxDimensions = IVFFLAT_MAX_DIM * 32,
+		.normalize = NULL,
+		.itemSize = BitItemSize,
+		.updateCenter = BitUpdateCenter,
+		.sumCenter = BitSumCenter
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
