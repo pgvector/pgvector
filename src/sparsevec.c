@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "common/string.h"
+#include "catalog/pg_type.h"
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
@@ -11,6 +12,7 @@
 #include "sparsevec.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
+#include "utils/lsyscache.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 120000
@@ -623,6 +625,150 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 			j++;
 		}
 	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert real array to sparse vector
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(array_to_sparsevec);
+Datum
+array_to_sparsevec(PG_FUNCTION_ARGS)
+{
+	ArrayType  *array = PG_GETARG_ARRAYTYPE_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	SparseVector *result;
+	int16		typlen;
+	bool		typbyval;
+	char		typalign;
+	Datum	   *elemsp;
+	int			nelemsp;
+	int			nnz = 0;
+	float	   *sparsevec_values;
+	int			j = 0;
+
+	if (ARR_NDIM(array) > 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
+				 errmsg("array must be one-dimensional")));
+
+	if (ARR_HASNULL(array) && array_contains_nulls(array))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("array must not contain nulls")));
+
+	get_typlenbyvalalign(ARR_ELEMTYPE(array), &typlen, &typbyval, &typalign);
+	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, NULL, &nelemsp);
+
+	CheckDim(nelemsp);
+	CheckExpectedDim(typmod, nelemsp);
+
+	if (ARR_ELEMTYPE(array) == INT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			nnz += (DatumGetInt32(elemsp[i]) != 0);
+	}
+	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			nnz += (DatumGetFloat8(elemsp[i]) != 0);
+	}
+	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			nnz += (DatumGetFloat4(elemsp[i]) != 0);
+	}
+	else if (ARR_ELEMTYPE(array) == NUMERICOID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			nnz += (DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])) != 0);
+	}
+	else
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("unsupported array type")));
+	}
+
+	CheckNnz(nnz, nelemsp);
+
+	result = InitSparseVector(nelemsp, nnz);
+	sparsevec_values = SPARSEVEC_VALUES(result);
+
+#define PROCESS_ARRAY_ELEM(elem) \
+    do { \
+        if ((elem) != 0) { \
+            /* Safety check */ \
+            if (j >= result->nnz) \
+                elog(ERROR, "safety check failed"); \
+            result->indices[j] = i; \
+            sparsevec_values[j] = (elem); \
+            j++; \
+        } \
+    } while (0)
+
+	if (ARR_ELEMTYPE(array) == INT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			PROCESS_ARRAY_ELEM(DatumGetInt32(elemsp[i]));
+	}
+	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			PROCESS_ARRAY_ELEM(DatumGetFloat8(elemsp[i]));
+	}
+	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			PROCESS_ARRAY_ELEM(DatumGetFloat4(elemsp[i]));
+	}
+	else if (ARR_ELEMTYPE(array) == NUMERICOID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			PROCESS_ARRAY_ELEM(DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])));
+	}
+	else
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("unsupported array type")));
+	}
+
+#undef PROCESS_ARRAY_ELEM
+
+	/*
+	 * Free allocation from deconstruct_array. Do not free individual elements
+	 * when pass-by-reference since they point to original array.
+	 */
+	pfree(elemsp);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert sparse vector to float4[]
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_to_float4);
+Datum
+sparsevec_to_float4(PG_FUNCTION_ARGS)
+{
+	SparseVector *svec = PG_GETARG_SPARSEVEC_P(0);
+	ArrayType  *result;
+	Datum	   *datums;
+	int			dim = svec->dim;
+	float	   *values = SPARSEVEC_VALUES(svec);
+
+	CheckDim(dim);
+
+	datums = (Datum *) palloc0(sizeof(Datum) * dim);
+
+	for (int i = 0; i < svec->nnz; i++)
+		datums[svec->indices[i]] = Float4GetDatum(values[i]);
+
+	/* Use TYPALIGN_INT for float4 */
+	result = construct_array(datums, dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
+	pfree(datums);
 
 	PG_RETURN_POINTER(result);
 }

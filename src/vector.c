@@ -26,11 +26,6 @@
 #include "varatt.h"
 #endif
 
-#if PG_VERSION_NUM < 130000
-#define TYPALIGN_DOUBLE 'd'
-#define TYPALIGN_INT 'i'
-#endif
-
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
@@ -463,8 +458,8 @@ array_to_vector(PG_FUNCTION_ARGS)
 
 	if (ARR_NDIM(array) > 1)
 		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("array must be 1-D")));
+				(errcode(ERRCODE_ARRAY_SUBSCRIPT_ERROR),
+				 errmsg("array must be one-dimensional")));
 
 	if (ARR_HASNULL(array) && array_contains_nulls(array))
 		ereport(ERROR,
