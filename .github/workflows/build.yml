@@ -97,7 +97,7 @@ jobs:
       - if: ${{ failure() }}
         run: cat regression.diffs
       - name: Collect artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: artifacts
           path: build-artifacts/
@@ -111,6 +111,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.ref_name }}
           files: |
             build_artifacts_to_release/*
       - name: Get the release ID
