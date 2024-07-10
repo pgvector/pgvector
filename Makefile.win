@@ -58,6 +58,14 @@ install:
 	mkdir "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 	for %f in ($(HEADERS)) do copy %f "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
+artifacts:
+	-mkdir build-artifacts
+	copy $(SHLIB) build-artifacts
+	copy $(EXTENSION).control build-artifacts
+	copy sql\$(EXTENSION)--*.sql build-artifacts
+	-mkdir build-artifacts\include
+	for %f in ($(HEADERS)) do copy %f build-artifacts\include
+
 installcheck:
 	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
 

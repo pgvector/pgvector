@@ -89,12 +89,33 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
           nmake /NOLOGO /F Makefile.win && ^
           nmake /NOLOGO /F Makefile.win install && ^
+          nmake /NOLOGO /F Makefile.win artifacts && ^
           nmake /NOLOGO /F Makefile.win installcheck && ^
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
       - if: ${{ failure() }}
         run: cat regression.diffs
+      - name: Collect artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifacts
+          path: build-artifacts/
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: artifacts
+          path: build_artifacts_to_release
+
+      - name: Create release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build_artifacts_to_release/*
+      - name: Get the release ID
+        run: echo "Release ID - ${{ steps.create_release.outputs.id }}"
+
   i386:
     if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
     runs-on: ubuntu-latest
