@@ -31,13 +31,23 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
 
+#ifdef HNSW_STATS
+	hnsw_tuples = 1;
+#endif
+
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
 		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	w = HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+
+#ifdef HNSW_STATS
+	elog(INFO, "total tuples = %d", hnsw_tuples);
+#endif
+
+	return w;
 }
 
 /*

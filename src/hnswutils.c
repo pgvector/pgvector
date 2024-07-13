@@ -801,6 +801,11 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				HnswElement eElement = HnswPtrAccess(base, e->element);
 				bool		alwaysAdd = wlen < ef;
 
+#ifdef HNSW_STATS
+				if (!inserting)
+					hnsw_tuples++;
+#endif
+
 				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
 
 				if (index == NULL)

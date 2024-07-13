@@ -113,6 +113,10 @@
 extern int	hnsw_ef_search;
 extern int	hnsw_lock_tranche_id;
 
+#ifdef HNSW_STATS
+extern int	hnsw_tuples;
+#endif
+
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
 

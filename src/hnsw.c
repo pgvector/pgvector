@@ -20,6 +20,10 @@ int			hnsw_ef_search;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
+#ifdef HNSW_STATS
+int			hnsw_tuples;
+#endif
+
 /*
  * Assign a tranche ID for our LWLocks. This only needs to be done by one
  * backend, as the tranche ID is remembered in shared memory.
@@ -134,6 +138,10 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	costs.numIndexTuples = (entryLevel + 2) * m;
 
 	genericcostestimate(root, path, loop_count, &costs);
+
+#ifdef HNSW_STATS
+	elog(INFO, "estimated tuples = %0.f", costs.numIndexTuples);
+#endif
 
 	/* Use total cost since most work happens before first tuple is returned */
 	*indexStartupCost = costs.indexTotalCost;
