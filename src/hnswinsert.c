@@ -36,14 +36,15 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
 
 	for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 	{
-		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+		ItemId		eitemid = PageGetItemId(page, offno);
+		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, eitemid);
 
 		/* Skip neighbor tuples */
 		if (!HnswIsElementTuple(etup))
@@ -54,7 +55,9 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			BlockNumber elementPage = BufferGetBlockNumber(buf);
 			BlockNumber neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
-			ItemId		itemid;
+			ItemId		nitemid;
+			Size		pageFree;
+			Size		npageFree;
 
 			if (!BlockNumberIsValid(*newInsertPage))
 				*newInsertPage = elementPage;
@@ -73,10 +76,21 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 				*npage = BufferGetPage(*nbuf);
 			}
 
-			itemid = PageGetItemId(*npage, neighborOffno);
+			nitemid = PageGetItemId(*npage, neighborOffno);
 
-			/* Check for space on neighbor tuple page */
-			if (PageGetFreeSpace(*npage) + ItemIdGetLength(itemid) - sizeof(ItemIdData) >= ntupSize)
+			/*
+			 * Calculate free space individually since tuples are overwritten
+			 * individually (in separate calls to PageIndexTupleOverwrite)
+			 */
+			pageFree = ItemIdGetLength(eitemid) + PageGetExactFreeSpace(page);
+			npageFree = ItemIdGetLength(nitemid);
+			if (neighborPage != elementPage)
+				npageFree += PageGetExactFreeSpace(*npage);
+			else if (pageFree >= etupSize)
+				npageFree += pageFree - etupSize;
+
+			/* Check for space */
+			if (pageFree >= etupSize && npageFree >= ntupSize)
 			{
 				*freeOffno = offno;
 				*freeNeighborOffno = neighborOffno;
@@ -184,7 +198,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		/* Next, try space from a deleted element */
-		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage))
+		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage))
 		{
 			if (nbuf != buf)
 			{
