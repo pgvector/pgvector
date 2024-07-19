@@ -78,6 +78,10 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 
 			nitemid = PageGetItemId(*npage, neighborOffno);
 
+			/* Ensure aligned for space check */
+			Assert(etupSize == MAXALIGN(etupSize));
+			Assert(ntupSize == MAXALIGN(ntupSize));
+
 			/*
 			 * Calculate free space individually since tuples are overwritten
 			 * individually (in separate calls to PageIndexTupleOverwrite)
