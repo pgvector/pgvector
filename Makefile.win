@@ -51,7 +51,7 @@ $(SHLIB): $(OBJS)
 
 all: $(SHLIB)
 
-install:
+install: all
 	copy $(SHLIB) "$(PKGLIBDIR)"
 	copy $(EXTENSION).control "$(SHAREDIR)\extension"
 	copy sql\$(EXTENSION)--*.sql "$(SHAREDIR)\extension"
