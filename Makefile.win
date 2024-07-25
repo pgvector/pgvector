@@ -1,6 +1,7 @@
 EXTENSION = vector
 EXTVERSION = 0.7.3
 
+DATA_built = sql\$(EXTENSION)--$(EXTVERSION).sql
 OBJS = src\bitutils.obj src\bitvec.obj src\halfutils.obj src\halfvec.obj src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\sparsevec.obj src\vector.obj
 HEADERS = src\halfvec.h src\sparsevec.h src\vector.h
 
@@ -18,11 +19,6 @@ PG_CFLAGS = $(PG_CFLAGS) $(OPTFLAGS) /O2 /fp:fast
 # Debug MSVC auto-vectorization
 # https://learn.microsoft.com/en-us/cpp/error-messages/tool-errors/vectorizer-and-parallelizer-messages
 # PG_CFLAGS = $(PG_CFLAGS) /Qvec-report:2
-
-all: sql\$(EXTENSION)--$(EXTVERSION).sql
-
-sql\$(EXTENSION)--$(EXTVERSION).sql: sql\$(EXTENSION).sql
-	copy sql\$(EXTENSION).sql $@
 
 # TODO use pg_config
 !ifndef PGROOT
@@ -43,13 +39,16 @@ SHLIB = $(EXTENSION).dll
 
 LIBS = "$(LIBDIR)\postgres.lib"
 
+all: $(SHLIB) $(DATA_built)
+
 .c.obj:
 	$(CC) $(CFLAGS) /c $< /Fo$@
 
 $(SHLIB): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LIBS) /link /DLL /OUT:$(SHLIB)
 
-all: $(SHLIB)
+sql\$(EXTENSION)--$(EXTVERSION).sql: sql\$(EXTENSION).sql
+	copy sql\$(EXTENSION).sql $@
 
 install: all
 	copy $(SHLIB) "$(PKGLIBDIR)"
@@ -70,6 +69,6 @@ uninstall:
 
 clean:
 	del /f $(SHLIB) $(EXTENSION).lib $(EXTENSION).exp
+	del /f $(DATA_built)
 	del /f $(OBJS)
-	del /f sql\$(EXTENSION)--$(EXTVERSION).sql
 	del /f /s /q results regression.diffs regression.out tmp_check tmp_check_iso log output_iso
