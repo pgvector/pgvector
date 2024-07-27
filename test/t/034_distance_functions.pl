@@ -1,7 +1,7 @@
 use strict;
 use warnings;
-use PostgresNode;
-use TestLib;
+use PostgreSQL::Test::Cluster;
+use PostgreSQL::Test::Utils;
 use Test::More;
 
 my $node;
@@ -10,7 +10,7 @@ my $dim = 5;
 my $array_sql = join(",", ('floor(random() * 4)::int - 2') x $dim);
 
 # Initialize node
-$node = get_new_node('node');
+$node = PostgreSQL::Test::Cluster->new('node');
 $node->init;
 $node->start;
 

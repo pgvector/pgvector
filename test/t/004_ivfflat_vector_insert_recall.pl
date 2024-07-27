@@ -1,7 +1,7 @@
 use strict;
 use warnings;
-use PostgresNode;
-use TestLib;
+use PostgreSQL::Test::Cluster;
+use PostgreSQL::Test::Utils;
 use Test::More;
 
 my $node;
@@ -48,7 +48,7 @@ sub test_recall
 }
 
 # Initialize node
-$node = get_new_node('node');
+$node = PostgreSQL::Test::Cluster->new('node');
 $node->init;
 $node->start;
 

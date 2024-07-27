@@ -52,7 +52,7 @@ ifeq ($(PROVE),)
 	PROVE = prove
 endif
 
-# for Postgres 15+
+# for Postgres < 15
 PROVE_FLAGS += -I ./test/perl
 
 prove_installcheck:

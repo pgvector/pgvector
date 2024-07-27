@@ -1,14 +1,14 @@
 use strict;
 use warnings;
-use PostgresNode;
-use TestLib;
+use PostgreSQL::Test::Cluster;
+use PostgreSQL::Test::Utils;
 use Test::More;
 
 my $node;
 my $array_sql = join(",", ('floor(random() * 2)::int - 1') x 3);
 
 # Initialize node
-$node = get_new_node('node');
+$node = PostgreSQL::Test::Cluster->new('node');
 $node->init;
 $node->start;
 
