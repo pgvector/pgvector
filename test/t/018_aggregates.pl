@@ -53,7 +53,7 @@ sub test_aggregate
 	else
 	{
 		# Does not raise overflow error in this instance due to loss of precision
-		is($res, "[24576,24576,49152]")
+		is($res, "[24576,24576,49152]");
 	}
 }
 
