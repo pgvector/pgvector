@@ -395,7 +395,6 @@ UpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswEleme
 			/* Keep scan-build happy on Mac x86-64 */
 			Assert(neighborElement);
 
-			/* Use element for lock instead of hc since hc can be replaced */
 			LWLockAcquire(&neighborElement->lock, LW_EXCLUSIVE);
 			HnswUpdateConnection(base, e, hc, lm, lc, NULL, NULL, procinfo, collation);
 			LWLockRelease(&neighborElement->lock);
