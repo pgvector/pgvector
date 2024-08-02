@@ -381,6 +381,18 @@ UpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswEleme
 		int			lm = HnswGetLayerM(m, lc);
 		HnswNeighborArray *neighbors = HnswGetNeighbors(base, e, lc);
 
+		/* Copy neighbors to local memory if needed */
+		if (base != NULL)
+		{
+			Size		neighborsSize = HNSW_NEIGHBOR_ARRAY_SIZE(HnswGetLayerM(m, lc));
+			HnswNeighborArray *neighborsData = palloc(neighborsSize);
+
+			LWLockAcquire(&e->lock, LW_SHARED);
+			memcpy(neighborsData, neighbors, neighborsSize);
+			LWLockRelease(&e->lock);
+			neighbors = neighborsData;
+		}
+
 		for (int i = 0; i < neighbors->length; i++)
 		{
 			HnswCandidate *hc = &neighbors->items[i];
