@@ -379,7 +379,13 @@ UpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswEleme
 	for (int lc = e->level; lc >= 0; lc--)
 	{
 		int			lm = HnswGetLayerM(m, lc);
-		HnswNeighborArray *neighbors = HnswGetNeighbors(base, e, lc);
+		Size		neighborsSize = HNSW_NEIGHBOR_ARRAY_SIZE(lm);
+		HnswNeighborArray *neighbors = palloc(neighborsSize);
+
+		/* Copy neighbors to local memory */
+		LWLockAcquire(&e->lock, LW_SHARED);
+		memcpy(neighbors, HnswGetNeighbors(base, e, lc), neighborsSize);
+		LWLockRelease(&e->lock);
 
 		for (int i = 0; i < neighbors->length; i++)
 		{
@@ -389,7 +395,6 @@ UpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswEleme
 			/* Keep scan-build happy on Mac x86-64 */
 			Assert(neighborElement);
 
-			/* Use element for lock instead of hc since hc can be replaced */
 			LWLockAcquire(&neighborElement->lock, LW_EXCLUSIVE);
 			HnswUpdateConnection(base, e, hc, lm, lc, NULL, NULL, procinfo, collation);
 			LWLockRelease(&neighborElement->lock);

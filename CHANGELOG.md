@@ -1,5 +1,6 @@
 ## 0.7.4 (unreleased)
 
+- Fixed locking for parallel HNSW index builds
 - Fixed compilation error with GCC 14 on i386 when SSE2 is not enabled
 
 ## 0.7.3 (2024-07-22)
