@@ -379,8 +379,12 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
 			OffsetNumber offno = neighborElement->neighborOffno;
 
-			/* Get latest neighbors since they may have changed */
-			/* Do not lock yet since selecting neighbors can take time */
+			/*
+			 * Get latest neighbors since they may have changed. Do not lock
+			 * yet since selecting neighbors can take time. Could use
+			 * optimistic locking to retry if another update occurs before
+			 * getting exclusive lock.
+			 */
 			HnswLoadNeighbors(neighborElement, index, m);
 
 			/*
