@@ -813,11 +813,10 @@ l2_normalize(PG_FUNCTION_ARGS)
 	if (norm > 0)
 	{
 		for (int i = 0; i < a->dim; i++)
+		{
 			rx[i] = ax[i] / norm;
 
-		/* Check for overflow */
-		for (int i = 0; i < a->dim; i++)
-		{
+			/* Check for overflow */
 			if (isinf(rx[i]))
 				float_overflow_error();
 		}
@@ -847,11 +846,10 @@ vector_add(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
 		rx[i] = ax[i] + bx[i];
 
-	/* Check for overflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
+		/* Check for overflow */
 		if (isinf(rx[i]))
 			float_overflow_error();
 	}
@@ -880,11 +878,10 @@ vector_sub(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
 		rx[i] = ax[i] - bx[i];
 
-	/* Check for overflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
+		/* Check for overflow */
 		if (isinf(rx[i]))
 			float_overflow_error();
 	}
@@ -913,11 +910,10 @@ vector_mul(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
 		rx[i] = ax[i] * bx[i];
 
-	/* Check for overflow and underflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
+		/* Check for overflow and underflow */
 		if (isinf(rx[i]))
 			float_overflow_error();
 

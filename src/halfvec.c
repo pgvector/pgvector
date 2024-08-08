@@ -753,11 +753,10 @@ halfvec_l2_normalize(PG_FUNCTION_ARGS)
 	if (norm > 0)
 	{
 		for (int i = 0; i < a->dim; i++)
+		{
 			rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) / norm);
 
-		/* Check for overflow */
-		for (int i = 0; i < a->dim; i++)
-		{
+			/* Check for overflow */
 			if (HalfIsInf(rx[i]))
 				float_overflow_error();
 		}
@@ -793,11 +792,7 @@ halfvec_add(PG_FUNCTION_ARGS)
 #else
 		rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) + HalfToFloat4(bx[i]));
 #endif
-	}
-
-	/* Check for overflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
+		/* Check for overflow */
 		if (HalfIsInf(rx[i]))
 			float_overflow_error();
 	}
@@ -832,12 +827,8 @@ halfvec_sub(PG_FUNCTION_ARGS)
 #else
 		rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
 #endif
-	}
-
-	/* Check for overflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
-		if (HalfIsInf(rx[i]))
+		/* Check for overflow */
+                if (HalfIsInf(rx[i]))
 			float_overflow_error();
 	}
 
@@ -871,11 +862,7 @@ halfvec_mul(PG_FUNCTION_ARGS)
 #else
 		rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]));
 #endif
-	}
-
-	/* Check for overflow and underflow */
-	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
+		/* Check for overflow and underflow */
 		if (HalfIsInf(rx[i]))
 			float_overflow_error();
 
