@@ -828,7 +828,7 @@ halfvec_sub(PG_FUNCTION_ARGS)
 		rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
 #endif
 		/* Check for overflow */
-                if (HalfIsInf(rx[i]))
+		if (HalfIsInf(rx[i]))
 			float_overflow_error();
 	}
 
