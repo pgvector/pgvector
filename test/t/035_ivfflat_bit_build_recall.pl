@@ -1,7 +1,7 @@
 use strict;
-use warnings;
-use PostgresNode;
-use TestLib;
+use warnings FATAL => 'all';
+use PostgreSQL::Test::Cluster;
+use PostgreSQL::Test::Utils;
 use Test::More;
 
 my $node;
@@ -51,7 +51,7 @@ sub test_recall
 }
 
 # Initialize node
-$node = get_new_node('node');
+$node = PostgreSQL::Test::Cluster->new('node');
 $node->init;
 $node->start;
 
@@ -70,8 +70,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<~>", "<\%>");
-my @opclasses = ("bit_hamming_ops", "bit_jaccard_ops");
+my @operators = ("<~>");
+my @opclasses = ("bit_hamming_ops");
 
 for my $i (0 .. $#operators)
 {

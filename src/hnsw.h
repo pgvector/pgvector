@@ -12,16 +12,13 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM < 120000
-#error "Requires PostgreSQL 12+"
-#endif
-
 #define HNSW_MAX_DIM 2000
 #define HNSW_MAX_NNZ 1000
 
 /* Support functions */
 #define HNSW_DISTANCE_PROC 1
 #define HNSW_NORM_PROC 2
+#define HNSW_TYPE_INFO_PROC 3
 
 #define HNSW_VERSION	1
 #define HNSW_MAGIC_NUMBER 0xA953A953
@@ -55,14 +52,6 @@
 
 #define HNSW_UPDATE_ENTRY_GREATER 1
 #define HNSW_UPDATE_ENTRY_ALWAYS 2
-
-typedef enum HnswType
-{
-	HNSW_TYPE_VECTOR,
-	HNSW_TYPE_HALFVEC,
-	HNSW_TYPE_BIT,
-	HNSW_TYPE_SPARSEVEC
-}			HnswType;
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
@@ -245,6 +234,13 @@ typedef struct HnswAllocator
 	void	   *state;
 }			HnswAllocator;
 
+typedef struct HnswTypeInfo
+{
+	int			maxDimensions;
+	Datum		(*normalize) (PG_FUNCTION_ARGS);
+	void		(*checkValue) (Pointer v);
+}			HnswTypeInfo;
+
 typedef struct HnswBuildState
 {
 	/* Info */
@@ -252,7 +248,7 @@ typedef struct HnswBuildState
 	Relation	index;
 	IndexInfo  *indexInfo;
 	ForkNumber	forkNum;
-	HnswType	type;
+	const		HnswTypeInfo *typeInfo;
 
 	/* Settings */
 	int			dimensions;
@@ -341,6 +337,7 @@ typedef struct HnswNextElement
 
 typedef struct HnswScanOpaqueData
 {
+	const		HnswTypeInfo *typeInfo;
 	bool		first;
 	List	   *w;
 	MemoryContext tmpCtx;
@@ -391,10 +388,8 @@ typedef struct HnswVacuumState
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
-HnswType	HnswGetType(Relation index);
-Datum		HnswNormValue(Datum value, HnswType type);
+Datum		HnswNormValue(const HnswTypeInfo * typeInfo, Oid collation, Datum value);
 bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
-void		HnswCheckValue(Datum value, HnswType type);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
@@ -415,11 +410,12 @@ void		HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * 
 bool		HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, bool building);
 void		HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting, bool building);
 void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec);
-void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec);
+void		HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, float *maxDistance);
 void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element);
 void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 void		HnswInitLockTranche(void);
+const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 /* Index access methods */

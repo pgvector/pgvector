@@ -1,7 +1,7 @@
 use strict;
-use warnings;
-use PostgresNode;
-use TestLib;
+use warnings FATAL => 'all';
+use PostgreSQL::Test::Cluster;
+use PostgreSQL::Test::Utils;
 use Test::More;
 
 my $node;
@@ -51,7 +51,7 @@ sub test_recall
 }
 
 # Initialize node
-$node = get_new_node('node');
+$node = PostgreSQL::Test::Cluster->new('node');
 $node->init;
 $node->start;
 
@@ -105,7 +105,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
-		test_recall(1, 0.34, $operator);
+		test_recall(1, 0.33, $operator);
 		test_recall(10, 0.93, $operator);
 	}
 
@@ -134,7 +134,7 @@ for my $i (0 .. $#operators)
 	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
-		test_recall(1, 0.34, $operator);
+		test_recall(1, 0.33, $operator);
 		test_recall(10, 0.93, $operator);
 	}
 

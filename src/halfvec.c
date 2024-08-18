@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#include "bitvector.h"
+#include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -11,6 +11,7 @@
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
+#include "sparsevec.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/float.h"
@@ -184,7 +185,7 @@ float_underflow_error(void)
 /*
  * Convert textual representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_in);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_in);
 Datum
 halfvec_in(PG_FUNCTION_ARGS)
 {
@@ -298,7 +299,7 @@ halfvec_in(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to textual representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_out);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_out);
 Datum
 halfvec_out(PG_FUNCTION_ARGS)
 {
@@ -327,6 +328,10 @@ halfvec_out(PG_FUNCTION_ARGS)
 		if (i > 0)
 			AppendChar(ptr, ',');
 
+		/*
+		 * Use shortest decimal representation of single-precision float for
+		 * simplicity
+		 */
 		AppendFloat(ptr, HalfToFloat4(vector->x[i]));
 	}
 
@@ -340,7 +345,7 @@ halfvec_out(PG_FUNCTION_ARGS)
 /*
  * Convert type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_typmod_in);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_typmod_in);
 Datum
 halfvec_typmod_in(PG_FUNCTION_ARGS)
 {
@@ -371,7 +376,7 @@ halfvec_typmod_in(PG_FUNCTION_ARGS)
 /*
  * Convert external binary representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_recv);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_recv);
 Datum
 halfvec_recv(PG_FUNCTION_ARGS)
 {
@@ -405,7 +410,7 @@ halfvec_recv(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to the external binary representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_send);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_send);
 Datum
 halfvec_send(PG_FUNCTION_ARGS)
 {
@@ -425,7 +430,7 @@ halfvec_send(PG_FUNCTION_ARGS)
  * Convert half vector to half vector
  * This is needed to check the type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec);
 Datum
 halfvec(PG_FUNCTION_ARGS)
 {
@@ -440,7 +445,7 @@ halfvec(PG_FUNCTION_ARGS)
 /*
  * Convert array to half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(array_to_halfvec);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(array_to_halfvec);
 Datum
 array_to_halfvec(PG_FUNCTION_ARGS)
 {
@@ -514,7 +519,7 @@ array_to_halfvec(PG_FUNCTION_ARGS)
 /*
  * Convert half vector to float4[]
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_float4);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_to_float4);
 Datum
 halfvec_to_float4(PG_FUNCTION_ARGS)
 {
@@ -538,7 +543,7 @@ halfvec_to_float4(PG_FUNCTION_ARGS)
 /*
  * Convert vector to half vec
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_to_halfvec);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_to_halfvec);
 Datum
 vector_to_halfvec(PG_FUNCTION_ARGS)
 {
@@ -560,7 +565,7 @@ vector_to_halfvec(PG_FUNCTION_ARGS)
 /*
  * Get the L2 distance between half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_l2_distance);
 Datum
 halfvec_l2_distance(PG_FUNCTION_ARGS)
 {
@@ -575,7 +580,7 @@ halfvec_l2_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L2 squared distance between half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_squared_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_l2_squared_distance);
 Datum
 halfvec_l2_squared_distance(PG_FUNCTION_ARGS)
 {
@@ -590,7 +595,7 @@ halfvec_l2_squared_distance(PG_FUNCTION_ARGS)
 /*
  * Get the inner product of two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_inner_product);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_inner_product);
 Datum
 halfvec_inner_product(PG_FUNCTION_ARGS)
 {
@@ -605,7 +610,7 @@ halfvec_inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the negative inner product of two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_negative_inner_product);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_negative_inner_product);
 Datum
 halfvec_negative_inner_product(PG_FUNCTION_ARGS)
 {
@@ -620,7 +625,7 @@ halfvec_negative_inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the cosine distance between two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_cosine_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_cosine_distance);
 Datum
 halfvec_cosine_distance(PG_FUNCTION_ARGS)
 {
@@ -652,7 +657,7 @@ halfvec_cosine_distance(PG_FUNCTION_ARGS)
  * Currently uses angular distance since needs to satisfy triangle inequality
  * Assumes inputs are unit vectors (skips norm)
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_spherical_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_spherical_distance);
 Datum
 halfvec_spherical_distance(PG_FUNCTION_ARGS)
 {
@@ -676,29 +681,22 @@ halfvec_spherical_distance(PG_FUNCTION_ARGS)
 /*
  * Get the L1 distance between two half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l1_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_l1_distance);
 Datum
 halfvec_l1_distance(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	HalfVector *b = PG_GETARG_HALFVEC_P(1);
-	half	   *ax = a->x;
-	half	   *bx = b->x;
-	float		distance = 0.0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) HalfvecL1Distance(a->dim, a->x, b->x));
 }
 
 /*
  * Get the dimensions of a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_vector_dims);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_vector_dims);
 Datum
 halfvec_vector_dims(PG_FUNCTION_ARGS)
 {
@@ -710,7 +708,7 @@ halfvec_vector_dims(PG_FUNCTION_ARGS)
 /*
  * Get the L2 norm of a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_norm);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_l2_norm);
 Datum
 halfvec_l2_norm(PG_FUNCTION_ARGS)
 {
@@ -732,7 +730,7 @@ halfvec_l2_norm(PG_FUNCTION_ARGS)
 /*
  * Normalize a half vector with the L2 norm
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_l2_normalize);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_l2_normalize);
 Datum
 halfvec_l2_normalize(PG_FUNCTION_ARGS)
 {
@@ -771,7 +769,7 @@ halfvec_l2_normalize(PG_FUNCTION_ARGS)
 /*
  * Add half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_add);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_add);
 Datum
 halfvec_add(PG_FUNCTION_ARGS)
 {
@@ -810,7 +808,7 @@ halfvec_add(PG_FUNCTION_ARGS)
 /*
  * Subtract half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_sub);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_sub);
 Datum
 halfvec_sub(PG_FUNCTION_ARGS)
 {
@@ -849,7 +847,7 @@ halfvec_sub(PG_FUNCTION_ARGS)
 /*
  * Multiply half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_mul);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_mul);
 Datum
 halfvec_mul(PG_FUNCTION_ARGS)
 {
@@ -891,7 +889,7 @@ halfvec_mul(PG_FUNCTION_ARGS)
 /*
  * Concatenate half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_concat);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_concat);
 Datum
 halfvec_concat(PG_FUNCTION_ARGS)
 {
@@ -915,7 +913,7 @@ halfvec_concat(PG_FUNCTION_ARGS)
 /*
  * Quantize a half vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_binary_quantize);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_binary_quantize);
 Datum
 halfvec_binary_quantize(PG_FUNCTION_ARGS)
 {
@@ -933,24 +931,39 @@ halfvec_binary_quantize(PG_FUNCTION_ARGS)
 /*
  * Get a subvector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_subvector);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_subvector);
 Datum
 halfvec_subvector(PG_FUNCTION_ARGS)
 {
 	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	int32		start = PG_GETARG_INT32(1);
 	int32		count = PG_GETARG_INT32(2);
-	int32		end = start + count;
+	int32		end;
 	half	   *ax = a->x;
 	HalfVector *result;
-	int			dim;
+	int32		dim;
+
+	if (count < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("halfvec must have at least 1 dimension")));
+
+	/*
+	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
+	 * and count are both positive, so a->dim - count won't overflow.
+	 */
+	if (start > a->dim - count)
+		end = a->dim + 1;
+	else
+		end = start + count;
 
 	/* Indexing starts at 1, like substring */
 	if (start < 1)
 		start = 1;
-
-	if (end > a->dim)
-		end = a->dim + 1;
+	else if (start > a->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("halfvec must have at least 1 dimension")));
 
 	dim = end - start;
 	CheckDim(dim);
@@ -965,7 +978,7 @@ halfvec_subvector(PG_FUNCTION_ARGS)
 /*
  * Internal helper to compare half vectors
  */
-int
+static int
 halfvec_cmp_internal(HalfVector * a, HalfVector * b)
 {
 	int			dim = Min(a->dim, b->dim);
@@ -992,7 +1005,7 @@ halfvec_cmp_internal(HalfVector * a, HalfVector * b)
 /*
  * Less than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_lt);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_lt);
 Datum
 halfvec_lt(PG_FUNCTION_ARGS)
 {
@@ -1005,7 +1018,7 @@ halfvec_lt(PG_FUNCTION_ARGS)
 /*
  * Less than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_le);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_le);
 Datum
 halfvec_le(PG_FUNCTION_ARGS)
 {
@@ -1018,7 +1031,7 @@ halfvec_le(PG_FUNCTION_ARGS)
 /*
  * Equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_eq);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_eq);
 Datum
 halfvec_eq(PG_FUNCTION_ARGS)
 {
@@ -1031,7 +1044,7 @@ halfvec_eq(PG_FUNCTION_ARGS)
 /*
  * Not equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_ne);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_ne);
 Datum
 halfvec_ne(PG_FUNCTION_ARGS)
 {
@@ -1044,7 +1057,7 @@ halfvec_ne(PG_FUNCTION_ARGS)
 /*
  * Greater than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_ge);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_ge);
 Datum
 halfvec_ge(PG_FUNCTION_ARGS)
 {
@@ -1057,7 +1070,7 @@ halfvec_ge(PG_FUNCTION_ARGS)
 /*
  * Greater than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_gt);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_gt);
 Datum
 halfvec_gt(PG_FUNCTION_ARGS)
 {
@@ -1070,7 +1083,7 @@ halfvec_gt(PG_FUNCTION_ARGS)
 /*
  * Compare half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_cmp);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_cmp);
 Datum
 halfvec_cmp(PG_FUNCTION_ARGS)
 {
@@ -1083,7 +1096,7 @@ halfvec_cmp(PG_FUNCTION_ARGS)
 /*
  * Accumulate half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_accum);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_accum);
 Datum
 halfvec_accum(PG_FUNCTION_ARGS)
 {
@@ -1144,7 +1157,7 @@ halfvec_accum(PG_FUNCTION_ARGS)
 /*
  * Average half vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_avg);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_avg);
 Datum
 halfvec_avg(PG_FUNCTION_ARGS)
 {
@@ -1171,6 +1184,29 @@ halfvec_avg(PG_FUNCTION_ARGS)
 		result->x[i] = Float4ToHalf(statevalues[i + 1] / n);
 		CheckElement(result->x[i]);
 	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert sparse vector to half vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_to_halfvec);
+Datum
+sparsevec_to_halfvec(PG_FUNCTION_ARGS)
+{
+	SparseVector *svec = PG_GETARG_SPARSEVEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	HalfVector *result;
+	int			dim = svec->dim;
+	float	   *values = SPARSEVEC_VALUES(svec);
+
+	CheckDim(dim);
+	CheckExpectedDim(typmod, dim);
+
+	result = InitHalfVector(dim);
+	for (int i = 0; i < svec->nnz; i++)
+		result->x[svec->indices[i]] = Float4ToHalf(values[i]);
 
 	PG_RETURN_POINTER(result);
 }

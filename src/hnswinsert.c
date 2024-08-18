@@ -36,14 +36,15 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
 
 	for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 	{
-		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+		ItemId		eitemid = PageGetItemId(page, offno);
+		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, eitemid);
 
 		/* Skip neighbor tuples */
 		if (!HnswIsElementTuple(etup))
@@ -54,7 +55,9 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			BlockNumber elementPage = BufferGetBlockNumber(buf);
 			BlockNumber neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 			OffsetNumber neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
-			ItemId		itemid;
+			ItemId		nitemid;
+			Size		pageFree;
+			Size		npageFree;
 
 			if (!BlockNumberIsValid(*newInsertPage))
 				*newInsertPage = elementPage;
@@ -73,10 +76,25 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 				*npage = BufferGetPage(*nbuf);
 			}
 
-			itemid = PageGetItemId(*npage, neighborOffno);
+			nitemid = PageGetItemId(*npage, neighborOffno);
 
-			/* Check for space on neighbor tuple page */
-			if (PageGetFreeSpace(*npage) + ItemIdGetLength(itemid) - sizeof(ItemIdData) >= ntupSize)
+			/* Ensure aligned for space check */
+			Assert(etupSize == MAXALIGN(etupSize));
+			Assert(ntupSize == MAXALIGN(ntupSize));
+
+			/*
+			 * Calculate free space individually since tuples are overwritten
+			 * individually (in separate calls to PageIndexTupleOverwrite)
+			 */
+			pageFree = ItemIdGetLength(eitemid) + PageGetExactFreeSpace(page);
+			npageFree = ItemIdGetLength(nitemid);
+			if (neighborPage != elementPage)
+				npageFree += PageGetExactFreeSpace(*npage);
+			else if (pageFree >= etupSize)
+				npageFree += pageFree - etupSize;
+
+			/* Check for space */
+			if (pageFree >= etupSize && npageFree >= ntupSize)
 			{
 				*freeOffno = offno;
 				*freeNeighborOffno = neighborOffno;
@@ -184,7 +202,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		/* Next, try space from a deleted element */
-		if (HnswFreeOffset(index, buf, page, e, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage))
+		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage))
 		{
 			if (nbuf != buf)
 			{
@@ -361,8 +379,12 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
 			OffsetNumber offno = neighborElement->neighborOffno;
 
-			/* Get latest neighbors since they may have changed */
-			/* Do not lock yet since selecting neighbors can take time */
+			/*
+			 * Get latest neighbors since they may have changed. Do not lock
+			 * yet since selecting neighbors can take time. Could use
+			 * optimistic locking to retry if another update occurs before
+			 * getting exclusive lock.
+			 */
 			HnswLoadNeighbors(neighborElement, index, m);
 
 			/*
@@ -612,15 +634,16 @@ static void
 HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 {
 	Datum		value;
+	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
 	FmgrInfo   *normprocinfo;
 	Oid			collation = index->rd_indcollation[0];
-	HnswType	type = HnswGetType(index);
 
 	/* Detoast once for all calls */
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
 	/* Check value */
-	HnswCheckValue(value, type);
+	if (typeInfo->checkValue != NULL)
+		typeInfo->checkValue(DatumGetPointer(value));
 
 	/* Normalize if needed */
 	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
@@ -629,7 +652,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_ti
 		if (!HnswCheckNorm(normprocinfo, collation, value))
 			return;
 
-		value = HnswNormValue(value, type);
+		value = HnswNormValue(typeInfo, collation, value);
 	}
 
 	HnswInsertTupleOnDisk(index, value, values, isnull, heap_tid, false);

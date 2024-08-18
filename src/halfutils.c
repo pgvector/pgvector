@@ -6,7 +6,7 @@
 #ifdef HALFVEC_DISPATCH
 #include <immintrin.h>
 
-#if defined(HAVE__GET_CPUID)
+#if defined(USE__GET_CPUID)
 #include <cpuid.h>
 #else
 #include <intrin.h>
@@ -22,6 +22,7 @@
 float		(*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 float		(*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 double		(*HalfvecCosineSimilarity) (int dim, half * ax, half * bx);
+float		(*HalfvecL1Distance) (int dim, half * ax, half * bx);
 
 static float
 HalfvecL2SquaredDistanceDefault(int dim, half * ax, half * bx)
@@ -191,6 +192,51 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 }
 #endif
 
+static float
+HalfvecL1DistanceDefault(int dim, half * ax, half * bx)
+{
+	float		distance = 0.0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
+
+	return distance;
+}
+
+#ifdef HALFVEC_DISPATCH
+/* Does not require FMA, but keep logic simple */
+TARGET_F16C static float
+HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
+{
+	float		distance;
+	int			i;
+	float		s[8];
+	int			count = (dim / 8) * 8;
+	__m256		dist = _mm256_setzero_ps();
+	__m256		sign = _mm256_set1_ps(-0.0);
+
+	for (i = 0; i < count; i += 8)
+	{
+		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
+		__m256		axs = _mm256_cvtph_ps(axi);
+		__m256		bxs = _mm256_cvtph_ps(bxi);
+
+		dist = _mm256_add_ps(dist, _mm256_andnot_ps(sign, _mm256_sub_ps(axs, bxs)));
+	}
+
+	_mm256_storeu_ps(s, dist);
+
+	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
+
+	for (; i < dim; i++)
+		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
+
+	return distance;
+}
+#endif
+
 #ifdef HALFVEC_DISPATCH
 #define CPU_FEATURE_FMA     (1 << 12)
 #define CPU_FEATURE_OSXSAVE (1 << 27)
@@ -208,7 +254,7 @@ SupportsCpuFeature(unsigned int feature)
 {
 	unsigned int exx[4] = {0, 0, 0, 0};
 
-#if defined(HAVE__GET_CPUID)
+#if defined(USE__GET_CPUID)
 	__get_cpuid(1, &exx[0], &exx[1], &exx[2], &exx[3]);
 #else
 	__cpuid(exx, 1);
@@ -237,6 +283,7 @@ HalfvecInit(void)
 	HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceDefault;
 	HalfvecInnerProduct = HalfvecInnerProductDefault;
 	HalfvecCosineSimilarity = HalfvecCosineSimilarityDefault;
+	HalfvecL1Distance = HalfvecL1DistanceDefault;
 
 #ifdef HALFVEC_DISPATCH
 	if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_F16C | CPU_FEATURE_FMA))
@@ -244,6 +291,8 @@ HalfvecInit(void)
 		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16c;
 		HalfvecInnerProduct = HalfvecInnerProductF16c;
 		HalfvecCosineSimilarity = HalfvecCosineSimilarityF16c;
+		/* Does not require FMA, but keep logic simple */
+		HalfvecL1Distance = HalfvecL1DistanceF16c;
 	}
 #endif
 }

@@ -2,9 +2,9 @@
 
 # Test generic xlog record work for hnsw index replication.
 use strict;
-use warnings;
-use PostgresNode;
-use TestLib;
+use warnings FATAL => 'all';
+use PostgreSQL::Test::Cluster;
+use PostgreSQL::Test::Utils;
 use Test::More;
 
 my $dim = 32;
@@ -49,7 +49,7 @@ sub test_index_replay
 my $array_sql = join(",", ('random()') x $dim);
 
 # Initialize primary node
-$node_primary = get_new_node('primary');
+$node_primary = PostgreSQL::Test::Cluster->new('primary');
 $node_primary->init(allows_streaming => 1);
 if ($dim > 32)
 {
@@ -67,7 +67,7 @@ my $backup_name = 'my_backup';
 $node_primary->backup($backup_name);
 
 # Create streaming replica linking to primary
-$node_replica = get_new_node('replica');
+$node_replica = PostgreSQL::Test::Cluster->new('replica');
 $node_replica->init_from_backup($node_primary, $backup_name, has_streaming => 1);
 $node_replica->start;
 

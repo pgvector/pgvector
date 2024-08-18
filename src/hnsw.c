@@ -191,14 +191,14 @@ hnswvalidate(Oid opclassoid)
  *
  * See https://www.postgresql.org/docs/current/index-api.html
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(hnswhandler);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnswhandler);
 Datum
 hnswhandler(PG_FUNCTION_ARGS)
 {
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
 
 	amroutine->amstrategies = 0;
-	amroutine->amsupport = 2;
+	amroutine->amsupport = 3;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amoptsprocnum = 0;
 #endif

@@ -3,7 +3,7 @@
 #include <float.h>
 #include <math.h>
 
-#include "bitvector.h"
+#include "bitvec.h"
 #include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"
@@ -89,140 +89,59 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 }
 
 /*
- * Apply norm to vector
- */
-static inline void
-ApplyNorm(FmgrInfo *normprocinfo, Oid collation, Datum value, IvfflatType type)
-{
-	double		norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, value));
-
-	/* TODO Handle zero norm */
-	if (norm > 0)
-	{
-		if (type == IVFFLAT_TYPE_VECTOR)
-		{
-			Vector	   *vec = DatumGetVector(value);
-
-			for (int i = 0; i < vec->dim; i++)
-				vec->x[i] /= norm;
-		}
-		else if (type == IVFFLAT_TYPE_HALFVEC)
-		{
-			HalfVector *vec = DatumGetHalfVector(value);
-
-			for (int i = 0; i < vec->dim; i++)
-				vec->x[i] = Float4ToHalfUnchecked(HalfToFloat4(vec->x[i]) / norm);
-		}
-		else
-			elog(ERROR, "Unsupported type");
-	}
-}
-
-/*
- * Compare vectors
- */
-static int
-CompareVectors(const void *a, const void *b)
-{
-	return vector_cmp_internal((Vector *) a, (Vector *) b);
-}
-
-/*
- * Compare half vectors
- */
-static int
-CompareHalfVectors(const void *a, const void *b)
-{
-	return halfvec_cmp_internal((HalfVector *) a, (HalfVector *) b);
-}
-
-/*
- * Compare bit vectors
- */
-static int
-CompareBitVectors(const void *a, const void *b)
-{
-	return DirectFunctionCall2(bitcmp, VarBitPGetDatum((VarBit *) a), VarBitPGetDatum((VarBit *) b));
-}
-
-/*
- * Quick approach if we have little data
+ * Norm centers
  */
 static void
-QuickCenters(Relation index, VectorArray samples, VectorArray centers, IvfflatType type)
+NormCenters(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray centers)
 {
-	int			dimensions = centers->dim;
-	Oid			collation = index->rd_indcollation[0];
-	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
+	MemoryContext normCtx = AllocSetContextCreate(CurrentMemoryContext,
+												  "Ivfflat norm temporary context",
+												  ALLOCSET_DEFAULT_SIZES);
+	MemoryContext oldCtx = MemoryContextSwitchTo(normCtx);
 
-	/* Copy existing vectors while avoiding duplicates */
-	if (samples->length > 0)
+	for (int j = 0; j < centers->length; j++)
 	{
-		if (type == IVFFLAT_TYPE_VECTOR)
-			qsort(samples->items, samples->length, samples->itemsize, CompareVectors);
-		else if (type == IVFFLAT_TYPE_HALFVEC)
-			qsort(samples->items, samples->length, samples->itemsize, CompareHalfVectors);
-		else if (type == IVFFLAT_TYPE_BIT)
-			qsort(samples->items, samples->length, samples->itemsize, CompareBitVectors);
-		else
-			elog(ERROR, "Unsupported type");
+		Datum		center = PointerGetDatum(VectorArrayGet(centers, j));
+		Datum		newCenter = IvfflatNormValue(typeInfo, collation, center);
+		Size		size = VARSIZE_ANY(DatumGetPointer(newCenter));
 
-		for (int i = 0; i < samples->length; i++)
-		{
-			Datum		vec = PointerGetDatum(VectorArrayGet(samples, i));
+		if (size > centers->itemsize)
+			elog(ERROR, "safety check failed");
 
-			if (i == 0 || !datumIsEqual(vec, PointerGetDatum(VectorArrayGet(samples, i - 1)), false, -1))
-			{
-				VectorArraySet(centers, centers->length, DatumGetPointer(vec));
-				centers->length++;
-			}
-		}
+		memcpy(DatumGetPointer(center), DatumGetPointer(newCenter), size);
+		MemoryContextReset(normCtx);
 	}
 
-	/* Fill remaining with random data */
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextDelete(normCtx);
+}
+
+/*
+ * Quick approach if we have no data
+ */
+static void
+RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
+{
+	int			dimensions = centers->dim;
+	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
+	Oid			collation = index->rd_indcollation[0];
+	float	   *x = (float *) palloc(sizeof(float) * dimensions);
+
+	/* Fill with random data */
 	while (centers->length < centers->maxlen)
 	{
-		Datum		center = PointerGetDatum(VectorArrayGet(centers, centers->length));
+		Pointer		center = VectorArrayGet(centers, centers->length);
 
-		if (type == IVFFLAT_TYPE_VECTOR)
-		{
-			Vector	   *vec = DatumGetVector(center);
+		for (int i = 0; i < dimensions; i++)
+			x[i] = (float) RandomDouble();
 
-			SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-			vec->dim = dimensions;
-
-			for (int j = 0; j < dimensions; j++)
-				vec->x[j] = RandomDouble();
-		}
-		else if (type == IVFFLAT_TYPE_HALFVEC)
-		{
-			HalfVector *vec = DatumGetHalfVector(center);
-
-			SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
-			vec->dim = dimensions;
-
-			for (int j = 0; j < dimensions; j++)
-				vec->x[j] = Float4ToHalfUnchecked((float) RandomDouble());
-		}
-		else if (type == IVFFLAT_TYPE_BIT)
-		{
-			VarBit	   *vec = DatumGetVarBitP(center);
-
-			SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
-			VARBITLEN(vec) = dimensions;
-
-			for (int j = 0; j < dimensions; j++)
-				VARBITS(vec)[j / dimensions] |= (RandomDouble() > 0.5 ? 1 : 0) << (7 - (j % 8));
-		}
-		else
-			elog(ERROR, "Unsupported type");
-
-		/* Normalize if needed (only needed for random centers) */
-		if (normprocinfo != NULL)
-			ApplyNorm(normprocinfo, collation, center, type);
+		typeInfo->updateCenter(center, dimensions, x);
 
 		centers->length++;
 	}
+
+	if (normprocinfo != NULL)
+		NormCenters(typeInfo, collation, centers);
 }
 
 #ifdef IVFFLAT_MEMORY
@@ -243,62 +162,56 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 #endif
 
 /*
+ * Sum centers
+ */
+static void
+SumCenters(VectorArray samples, float *agg, int *closestCenters, const IvfflatTypeInfo * typeInfo)
+{
+	for (int j = 0; j < samples->length; j++)
+	{
+		float	   *x = agg + ((int64) closestCenters[j] * samples->dim);
+
+		typeInfo->sumCenter(VectorArrayGet(samples, j), x);
+	}
+}
+
+/*
+ * Update centers
+ */
+static void
+UpdateCenters(float *agg, VectorArray centers, const IvfflatTypeInfo * typeInfo)
+{
+	for (int j = 0; j < centers->length; j++)
+	{
+		float	   *x = agg + ((int64) j * centers->dim);
+
+		typeInfo->updateCenter(VectorArrayGet(centers, j), centers->dim, x);
+	}
+}
+
+/*
  * Compute new centers
  */
 static void
-ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, Oid collation, IvfflatType type)
+ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, Oid collation, const IvfflatTypeInfo * typeInfo)
 {
-	int			dimensions = aggCenters->dim;
-	int			numCenters = aggCenters->maxlen;
+	int			dimensions = newCenters->dim;
+	int			numCenters = newCenters->length;
 	int			numSamples = samples->length;
 
 	/* Reset sum and count */
 	for (int j = 0; j < numCenters; j++)
 	{
-		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
+		float	   *x = agg + ((int64) j * dimensions);
 
 		for (int k = 0; k < dimensions; k++)
-			vec->x[k] = 0.0;
+			x[k] = 0.0;
 
 		centerCounts[j] = 0;
 	}
 
 	/* Increment sum of closest center */
-	if (type == IVFFLAT_TYPE_VECTOR)
-	{
-		for (int j = 0; j < numSamples; j++)
-		{
-			Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, closestCenters[j]);
-			Vector	   *vec = (Vector *) VectorArrayGet(samples, j);
-
-			for (int k = 0; k < dimensions; k++)
-				aggCenter->x[k] += vec->x[k];
-		}
-	}
-	else if (type == IVFFLAT_TYPE_HALFVEC)
-	{
-		for (int j = 0; j < numSamples; j++)
-		{
-			Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, closestCenters[j]);
-			HalfVector *vec = (HalfVector *) VectorArrayGet(samples, j);
-
-			for (int k = 0; k < dimensions; k++)
-				aggCenter->x[k] += HalfToFloat4(vec->x[k]);
-		}
-	}
-	else if (type == IVFFLAT_TYPE_BIT)
-	{
-		for (int j = 0; j < numSamples; j++)
-		{
-			Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, closestCenters[j]);
-			VarBit	   *vec = (VarBit *) VectorArrayGet(samples, j);
-
-			for (int k = 0; k < dimensions; k++)
-				aggCenter->x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
-		}
-	}
-	else
-		elog(ERROR, "Unsupported type");
+	SumCenters(samples, agg, closestCenters, typeInfo);
 
 	/* Increment count of closest center */
 	for (int j = 0; j < numSamples; j++)
@@ -307,7 +220,7 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 	/* Divide sum by count */
 	for (int j = 0; j < numCenters; j++)
 	{
-		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
+		float	   *x = agg + ((int64) j * dimensions);
 
 		if (centerCounts[j] > 0)
 		{
@@ -315,59 +228,27 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
 			/* TODO Update bounds */
 			for (int k = 0; k < dimensions; k++)
 			{
-				if (isinf(vec->x[k]))
-					vec->x[k] = vec->x[k] > 0 ? FLT_MAX : -FLT_MAX;
+				if (isinf(x[k]))
+					x[k] = x[k] > 0 ? FLT_MAX : -FLT_MAX;
 			}
 
 			for (int k = 0; k < dimensions; k++)
-				vec->x[k] /= centerCounts[j];
+				x[k] /= centerCounts[j];
 		}
 		else
 		{
 			/* TODO Handle empty centers properly */
 			for (int k = 0; k < dimensions; k++)
-				vec->x[k] = RandomDouble();
+				x[k] = RandomDouble();
 		}
 	}
 
-	/* Set new centers if different from agg centers */
-	if (type == IVFFLAT_TYPE_HALFVEC)
-	{
-		for (int j = 0; j < numCenters; j++)
-		{
-			Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, j);
-			HalfVector *newCenter = (HalfVector *) VectorArrayGet(newCenters, j);
-
-			for (int k = 0; k < dimensions; k++)
-				newCenter->x[k] = Float4ToHalfUnchecked(aggCenter->x[k]);
-		}
-	}
-	else if (type == IVFFLAT_TYPE_BIT)
-	{
-		for (int j = 0; j < numCenters; j++)
-		{
-			Vector	   *aggCenter = (Vector *) VectorArrayGet(aggCenters, j);
-			VarBit	   *newCenter = (VarBit *) VectorArrayGet(newCenters, j);
-			unsigned char *nx = VARBITS(newCenter);
-
-			for (uint32 k = 0; k < VARBITBYTES(newCenter); k++)
-				nx[k] = 0;
-
-			for (int k = 0; k < dimensions; k++)
-				nx[k / 8] |= (aggCenter->x[k] > 0.5) << (7 - (k % 8));
-		}
-	}
+	/* Set new centers */
+	UpdateCenters(agg, newCenters, typeInfo);
 
 	/* Normalize if needed */
 	if (normprocinfo != NULL)
-	{
-		for (int j = 0; j < numCenters; j++)
-		{
-			Datum		newCenter = PointerGetDatum(VectorArrayGet(newCenters, j));
-
-			ApplyNorm(normprocinfo, collation, newCenter, type);
-		}
-	}
+		NormCenters(typeInfo, collation, newCenters);
 }
 
 /*
@@ -379,7 +260,7 @@ ComputeNewCenters(VectorArray samples, VectorArray aggCenters, VectorArray newCe
  * https://www.aaai.org/Papers/ICML/2003/ICML03-022.pdf
  */
 static void
-ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatType type)
+ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
@@ -388,7 +269,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
 	VectorArray newCenters;
-	VectorArray aggCenters;
+	float	   *agg;
 	int		   *centerCounts;
 	int		   *closestCenters;
 	float	   *lowerBound;
@@ -396,14 +277,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	float	   *s;
 	float	   *halfcdist;
 	float	   *newcdist;
-	MemoryContext kmeansCtx;
-	MemoryContext oldCtx;
 
 	/* Calculate allocation sizes */
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->itemsize);
 	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->itemsize);
 	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
-	Size		aggCentersSize = type == IVFFLAT_TYPE_VECTOR ? 0 : VECTOR_ARRAY_SIZE(numCenters, VECTOR_SIZE(dimensions));
+	Size		aggSize = sizeof(float) * (int64) numCenters * dimensions;
 	Size		centerCountsSize = sizeof(int) * numCenters;
 	Size		closestCentersSize = sizeof(int) * numSamples;
 	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
@@ -413,7 +292,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	Size		newcdistSize = sizeof(float) * numCenters;
 
 	/* Calculate total size */
-	Size		totalSize = samplesSize + centersSize + newCentersSize + aggCentersSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
+	Size		totalSize = samplesSize + centersSize + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
 
 	/* Check memory requirements */
 	/* Add one to error message to ceil */
@@ -432,14 +311,9 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	collation = index->rd_indcollation[0];
 
-	/* Use memory context */
-	kmeansCtx = AllocSetContextCreate(CurrentMemoryContext,
-									  "Ivfflat kmeans temporary context",
-									  ALLOCSET_DEFAULT_SIZES);
-	oldCtx = MemoryContextSwitchTo(kmeansCtx);
-
 	/* Allocate space */
 	/* Use float instead of double to save memory */
+	agg = palloc(aggSize);
 	centerCounts = palloc(centerCountsSize);
 	closestCenters = palloc(closestCentersSize);
 	lowerBound = palloc_extended(lowerBoundSize, MCXT_ALLOC_HUGE);
@@ -448,49 +322,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 	halfcdist = palloc_extended(halfcdistSize, MCXT_ALLOC_HUGE);
 	newcdist = palloc(newcdistSize);
 
-	aggCenters = VectorArrayInit(numCenters, dimensions, VECTOR_SIZE(dimensions));
-	for (int j = 0; j < numCenters; j++)
-	{
-		Vector	   *vec = (Vector *) VectorArrayGet(aggCenters, j);
-
-		SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-		vec->dim = dimensions;
-	}
-
-	if (type == IVFFLAT_TYPE_VECTOR)
-	{
-		/* Use same centers to save memory */
-		newCenters = aggCenters;
-	}
-	else if (type == IVFFLAT_TYPE_HALFVEC)
-	{
-		newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
-
-		for (int j = 0; j < numCenters; j++)
-		{
-			HalfVector *vec = (HalfVector *) VectorArrayGet(newCenters, j);
-
-			SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
-			vec->dim = dimensions;
-		}
-	}
-	else if (type == IVFFLAT_TYPE_BIT)
-	{
-		newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
-
-		for (int j = 0; j < numCenters; j++)
-		{
-			VarBit	   *vec = (VarBit *) VectorArrayGet(newCenters, j);
-
-			SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
-			VARBITLEN(vec) = dimensions;
-		}
-	}
-	else
-		elog(ERROR, "Unsupported type");
+	/* Initialize new centers */
+	newCenters = VectorArrayInit(numCenters, dimensions, centers->itemsize);
+	newCenters->length = numCenters;
 
 #ifdef IVFFLAT_MEMORY
-	ShowMemoryUsage(oldCtx, totalSize);
+	ShowMemoryUsage(MemoryContextGetParent(CurrentMemoryContext));
 #endif
 
 	/* Pick initial centers */
@@ -627,7 +464,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 		}
 
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
-		ComputeNewCenters(samples, aggCenters, newCenters, centerCounts, closestCenters, normprocinfo, collation, type);
+		ComputeNewCenters(samples, agg, newCenters, centerCounts, closestCenters, normprocinfo, collation, typeInfo);
 
 		/* Step 5 */
 		for (int j = 0; j < numCenters; j++)
@@ -658,88 +495,68 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatTyp
 		if (changes == 0 && iteration != 0)
 			break;
 	}
+}
 
-	MemoryContextSwitchTo(oldCtx);
-	MemoryContextDelete(kmeansCtx);
+/*
+ * Ensure no NaN or infinite values
+ */
+static void
+CheckElements(VectorArray centers, const IvfflatTypeInfo * typeInfo)
+{
+	float	   *scratch = palloc(sizeof(float) * centers->dim);
+
+	for (int i = 0; i < centers->length; i++)
+	{
+		for (int j = 0; j < centers->dim; j++)
+			scratch[j] = 0;
+
+		/* /fp:fast may not propagate NaN with MSVC, but that's alright */
+		typeInfo->sumCenter(VectorArrayGet(centers, i), scratch);
+
+		for (int j = 0; j < centers->dim; j++)
+		{
+			if (isnan(scratch[j]))
+				elog(ERROR, "NaN detected. Please report a bug.");
+
+			if (isinf(scratch[j]))
+				elog(ERROR, "Infinite value detected. Please report a bug.");
+		}
+	}
+}
+
+/*
+ * Ensure no zero vectors for cosine distance
+ */
+static void
+CheckNorms(VectorArray centers, Relation index)
+{
+	/* Check NORM_PROC instead of KMEANS_NORM_PROC */
+	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
+	Oid			collation = index->rd_indcollation[0];
+
+	if (normprocinfo == NULL)
+		return;
+
+	for (int i = 0; i < centers->length; i++)
+	{
+		double		norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(VectorArrayGet(centers, i))));
+
+		if (norm == 0)
+			elog(ERROR, "Zero norm detected. Please report a bug.");
+	}
 }
 
 /*
  * Detect issues with centers
  */
 static void
-CheckCenters(Relation index, VectorArray centers, IvfflatType type)
+CheckCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
-	FmgrInfo   *normprocinfo;
-
 	if (centers->length != centers->maxlen)
 		elog(ERROR, "Not enough centers. Please report a bug.");
 
-	/* Ensure no NaN or infinite values */
-	for (int i = 0; i < centers->length; i++)
-	{
-		if (type == IVFFLAT_TYPE_VECTOR)
-		{
-			Vector	   *vec = (Vector *) VectorArrayGet(centers, i);
-
-			for (int j = 0; j < vec->dim; j++)
-			{
-				if (isnan(vec->x[j]))
-					elog(ERROR, "NaN detected. Please report a bug.");
-
-				if (isinf(vec->x[j]))
-					elog(ERROR, "Infinite value detected. Please report a bug.");
-			}
-		}
-		else if (type == IVFFLAT_TYPE_HALFVEC)
-		{
-			HalfVector *vec = (HalfVector *) VectorArrayGet(centers, i);
-
-			for (int j = 0; j < vec->dim; j++)
-			{
-				if (HalfIsNan(vec->x[j]))
-					elog(ERROR, "NaN detected. Please report a bug.");
-
-				if (HalfIsInf(vec->x[j]))
-					elog(ERROR, "Infinite value detected. Please report a bug.");
-			}
-		}
-		else if (type != IVFFLAT_TYPE_BIT)
-			elog(ERROR, "Unsupported type");
-	}
-
-	if (type != IVFFLAT_TYPE_BIT)
-	{
-		/* Ensure no duplicate centers */
-		/* Fine to sort in-place */
-		if (type == IVFFLAT_TYPE_VECTOR)
-			qsort(centers->items, centers->length, centers->itemsize, CompareVectors);
-		else if (type == IVFFLAT_TYPE_HALFVEC)
-			qsort(centers->items, centers->length, centers->itemsize, CompareHalfVectors);
-		else
-			elog(ERROR, "Unsupported type");
-
-		for (int i = 1; i < centers->length; i++)
-		{
-			if (datumIsEqual(PointerGetDatum(VectorArrayGet(centers, i)), PointerGetDatum(VectorArrayGet(centers, i - 1)), false, -1))
-				elog(ERROR, "Duplicate centers detected. Please report a bug.");
-		}
-	}
-
-	/* Ensure no zero vectors for cosine distance */
-	/* Check NORM_PROC instead of KMEANS_NORM_PROC */
-	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		Oid			collation = index->rd_indcollation[0];
-
-		for (int i = 0; i < centers->length; i++)
-		{
-			double		norm = DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, PointerGetDatum(VectorArrayGet(centers, i))));
-
-			if (norm == 0)
-				elog(ERROR, "Zero norm detected. Please report a bug.");
-		}
-	}
+	CheckElements(centers, typeInfo);
+	CheckNorms(centers, index);
 }
 
 /*
@@ -747,12 +564,20 @@ CheckCenters(Relation index, VectorArray centers, IvfflatType type)
  * We use spherical k-means for inner product and cosine
  */
 void
-IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, IvfflatType type)
+IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
-	if (samples->length <= centers->maxlen)
-		QuickCenters(index, samples, centers, type);
-	else
-		ElkanKmeans(index, samples, centers, type);
+	MemoryContext kmeansCtx = AllocSetContextCreate(CurrentMemoryContext,
+													"Ivfflat kmeans temporary context",
+													ALLOCSET_DEFAULT_SIZES);
+	MemoryContext oldCtx = MemoryContextSwitchTo(kmeansCtx);
 
-	CheckCenters(index, centers, type);
+	if (samples->length == 0)
+		RandomCenters(index, centers, typeInfo);
+	else
+		ElkanKmeans(index, samples, centers, typeInfo);
+
+	CheckCenters(index, centers, typeInfo);
+
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextDelete(kmeansCtx);
 }

@@ -1,8 +1,31 @@
-## 0.7.0 (unreleased)
+## 0.7.4 (2024-08-05)
+
+- Fixed locking for parallel HNSW index builds
+- Fixed compilation error with GCC 14 on i386 when SSE2 is not enabled
+
+## 0.7.3 (2024-07-22)
+
+- Fixed `failed to add index item` error with `sparsevec`
+- Fixed compilation error with FreeBSD ARM
+- Fixed compilation warning with MSVC and Postgres 16
+
+## 0.7.2 (2024-06-11)
+
+- Fixed initialization fork for indexes on unlogged tables
+
+## 0.7.1 (2024-06-03)
+
+- Improved performance of on-disk HNSW index builds
+- Fixed `undefined symbol` error with GCC 8
+- Fixed compilation error with universal binaries on Mac
+- Fixed compilation warning with Clang < 14
+
+## 0.7.0 (2024-04-29)
 
 - Added `halfvec` type
 - Added `sparsevec` type
 - Added support for indexing `bit` type
+- Added support for indexing L1 distance with HNSW
 - Added `binary_quantize` function
 - Added `hamming_distance` function
 - Added `jaccard_distance` function

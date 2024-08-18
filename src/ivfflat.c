@@ -181,14 +181,14 @@ ivfflatvalidate(Oid opclassoid)
  *
  * See https://www.postgresql.org/docs/current/index-api.html
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(ivfflathandler);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ivfflathandler);
 Datum
 ivfflathandler(PG_FUNCTION_ARGS)
 {
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
 
 	amroutine->amstrategies = 0;
-	amroutine->amsupport = 4;
+	amroutine->amsupport = 5;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amoptsprocnum = 0;
 #endif

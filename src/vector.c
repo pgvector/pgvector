@@ -2,7 +2,8 @@
 
 #include <math.h>
 
-#include "bitvector.h"
+#include "bitutils.h"
+#include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -33,18 +34,10 @@
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
-/* target_clones requires glibc */
-#if defined(__gnu_linux__) && defined(__has_attribute)
-/* Use separate line for portability */
-#if __has_attribute(target_clones)
-#define HAVE_TARGET_CLONES
-#endif
-#endif
-
-#if defined(__x86_64__) && defined(HAVE_TARGET_CLONES) && !defined(__FMA__)
-#define VECTOR_DISPATCH __attribute__((target_clones("default", "fma")))
+#if defined(USE_TARGET_CLONES) && !defined(__FMA__)
+#define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma")))
 #else
-#define VECTOR_DISPATCH
+#define VECTOR_TARGET_CLONES
 #endif
 
 PG_MODULE_MAGIC;
@@ -56,6 +49,7 @@ PGDLLEXPORT void _PG_init(void);
 void
 _PG_init(void)
 {
+	BitvecInit();
 	HalfvecInit();
 	HnswInit();
 	IvfflatInit();
@@ -187,7 +181,7 @@ float_underflow_error(void)
 /*
  * Convert textual representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_in);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_in);
 Datum
 vector_in(PG_FUNCTION_ARGS)
 {
@@ -300,7 +294,7 @@ vector_in(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to textual representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_out);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_out);
 Datum
 vector_out(PG_FUNCTION_ARGS)
 {
@@ -354,7 +348,7 @@ PrintVector(char *msg, Vector * vector)
 /*
  * Convert type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_typmod_in);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_typmod_in);
 Datum
 vector_typmod_in(PG_FUNCTION_ARGS)
 {
@@ -385,7 +379,7 @@ vector_typmod_in(PG_FUNCTION_ARGS)
 /*
  * Convert external binary representation to internal representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_recv);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_recv);
 Datum
 vector_recv(PG_FUNCTION_ARGS)
 {
@@ -419,7 +413,7 @@ vector_recv(PG_FUNCTION_ARGS)
 /*
  * Convert internal representation to the external binary representation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_send);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_send);
 Datum
 vector_send(PG_FUNCTION_ARGS)
 {
@@ -439,7 +433,7 @@ vector_send(PG_FUNCTION_ARGS)
  * Convert vector to vector
  * This is needed to check the type modifier
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector);
 Datum
 vector(PG_FUNCTION_ARGS)
 {
@@ -454,7 +448,7 @@ vector(PG_FUNCTION_ARGS)
 /*
  * Convert array to vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(array_to_vector);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(array_to_vector);
 Datum
 array_to_vector(PG_FUNCTION_ARGS)
 {
@@ -528,7 +522,7 @@ array_to_vector(PG_FUNCTION_ARGS)
 /*
  * Convert vector to float4[]
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_to_float4);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_to_float4);
 Datum
 vector_to_float4(PG_FUNCTION_ARGS)
 {
@@ -552,7 +546,7 @@ vector_to_float4(PG_FUNCTION_ARGS)
 /*
  * Convert half vector to vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(halfvec_to_vector);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_to_vector);
 Datum
 halfvec_to_vector(PG_FUNCTION_ARGS)
 {
@@ -571,7 +565,7 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
-VECTOR_DISPATCH static float
+VECTOR_TARGET_CLONES static float
 VectorL2SquaredDistance(int dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
@@ -590,7 +584,7 @@ VectorL2SquaredDistance(int dim, float *ax, float *bx)
 /*
  * Get the L2 distance between vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(l2_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(l2_distance);
 Datum
 l2_distance(PG_FUNCTION_ARGS)
 {
@@ -606,7 +600,7 @@ l2_distance(PG_FUNCTION_ARGS)
  * Get the L2 squared distance between vectors
  * This saves a sqrt calculation
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_l2_squared_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_l2_squared_distance);
 Datum
 vector_l2_squared_distance(PG_FUNCTION_ARGS)
 {
@@ -618,7 +612,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) VectorL2SquaredDistance(a->dim, a->x, b->x));
 }
 
-VECTOR_DISPATCH static float
+VECTOR_TARGET_CLONES static float
 VectorInnerProduct(int dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
@@ -633,7 +627,7 @@ VectorInnerProduct(int dim, float *ax, float *bx)
 /*
  * Get the inner product of two vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(inner_product);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(inner_product);
 Datum
 inner_product(PG_FUNCTION_ARGS)
 {
@@ -648,7 +642,7 @@ inner_product(PG_FUNCTION_ARGS)
 /*
  * Get the negative inner product of two vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_negative_inner_product);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_negative_inner_product);
 Datum
 vector_negative_inner_product(PG_FUNCTION_ARGS)
 {
@@ -660,7 +654,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) -VectorInnerProduct(a->dim, a->x, b->x));
 }
 
-VECTOR_DISPATCH static double
+VECTOR_TARGET_CLONES static double
 VectorCosineSimilarity(int dim, float *ax, float *bx)
 {
 	float		similarity = 0.0;
@@ -682,7 +676,7 @@ VectorCosineSimilarity(int dim, float *ax, float *bx)
 /*
  * Get the cosine distance between two vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(cosine_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(cosine_distance);
 Datum
 cosine_distance(PG_FUNCTION_ARGS)
 {
@@ -714,7 +708,7 @@ cosine_distance(PG_FUNCTION_ARGS)
  * Currently uses angular distance since needs to satisfy triangle inequality
  * Assumes inputs are unit vectors (skips norm)
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_spherical_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_spherical_distance);
 Datum
 vector_spherical_distance(PG_FUNCTION_ARGS)
 {
@@ -735,7 +729,8 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(acos(distance) / M_PI);
 }
 
-static float
+/* Does not require FMA, but keep logic simple */
+VECTOR_TARGET_CLONES static float
 VectorL1Distance(int dim, float *ax, float *bx)
 {
 	float		distance = 0.0;
@@ -750,7 +745,7 @@ VectorL1Distance(int dim, float *ax, float *bx)
 /*
  * Get the L1 distance between two vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(l1_distance);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(l1_distance);
 Datum
 l1_distance(PG_FUNCTION_ARGS)
 {
@@ -765,7 +760,7 @@ l1_distance(PG_FUNCTION_ARGS)
 /*
  * Get the dimensions of a vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_dims);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_dims);
 Datum
 vector_dims(PG_FUNCTION_ARGS)
 {
@@ -777,7 +772,7 @@ vector_dims(PG_FUNCTION_ARGS)
 /*
  * Get the L2 norm of a vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_norm);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_norm);
 Datum
 vector_norm(PG_FUNCTION_ARGS)
 {
@@ -795,7 +790,7 @@ vector_norm(PG_FUNCTION_ARGS)
 /*
  * Normalize a vector with the L2 norm
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(l2_normalize);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(l2_normalize);
 Datum
 l2_normalize(PG_FUNCTION_ARGS)
 {
@@ -834,7 +829,7 @@ l2_normalize(PG_FUNCTION_ARGS)
 /*
  * Add vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_add);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_add);
 Datum
 vector_add(PG_FUNCTION_ARGS)
 {
@@ -867,7 +862,7 @@ vector_add(PG_FUNCTION_ARGS)
 /*
  * Subtract vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_sub);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_sub);
 Datum
 vector_sub(PG_FUNCTION_ARGS)
 {
@@ -900,7 +895,7 @@ vector_sub(PG_FUNCTION_ARGS)
 /*
  * Multiply vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_mul);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_mul);
 Datum
 vector_mul(PG_FUNCTION_ARGS)
 {
@@ -936,7 +931,7 @@ vector_mul(PG_FUNCTION_ARGS)
 /*
  * Concatenate vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_concat);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_concat);
 Datum
 vector_concat(PG_FUNCTION_ARGS)
 {
@@ -960,7 +955,7 @@ vector_concat(PG_FUNCTION_ARGS)
 /*
  * Quantize a vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(binary_quantize);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(binary_quantize);
 Datum
 binary_quantize(PG_FUNCTION_ARGS)
 {
@@ -978,24 +973,39 @@ binary_quantize(PG_FUNCTION_ARGS)
 /*
  * Get a subvector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(subvector);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(subvector);
 Datum
 subvector(PG_FUNCTION_ARGS)
 {
 	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	int32		start = PG_GETARG_INT32(1);
 	int32		count = PG_GETARG_INT32(2);
-	int32		end = start + count;
+	int32		end;
 	float	   *ax = a->x;
 	Vector	   *result;
 	int			dim;
 
+	if (count < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
+
+	/*
+	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
+	 * and count are both positive, so a->dim - count won't overflow.
+	 */
+	if (start > a->dim - count)
+		end = a->dim + 1;
+	else
+		end = start + count;
+
 	/* Indexing starts at 1, like substring */
 	if (start < 1)
 		start = 1;
-
-	if (end > a->dim)
-		end = a->dim + 1;
+	else if (start > a->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
 
 	dim = end - start;
 	CheckDim(dim);
@@ -1037,7 +1047,7 @@ vector_cmp_internal(Vector * a, Vector * b)
 /*
  * Less than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_lt);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_lt);
 Datum
 vector_lt(PG_FUNCTION_ARGS)
 {
@@ -1050,7 +1060,7 @@ vector_lt(PG_FUNCTION_ARGS)
 /*
  * Less than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_le);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_le);
 Datum
 vector_le(PG_FUNCTION_ARGS)
 {
@@ -1063,7 +1073,7 @@ vector_le(PG_FUNCTION_ARGS)
 /*
  * Equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_eq);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_eq);
 Datum
 vector_eq(PG_FUNCTION_ARGS)
 {
@@ -1076,7 +1086,7 @@ vector_eq(PG_FUNCTION_ARGS)
 /*
  * Not equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_ne);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_ne);
 Datum
 vector_ne(PG_FUNCTION_ARGS)
 {
@@ -1089,7 +1099,7 @@ vector_ne(PG_FUNCTION_ARGS)
 /*
  * Greater than or equal
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_ge);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_ge);
 Datum
 vector_ge(PG_FUNCTION_ARGS)
 {
@@ -1102,7 +1112,7 @@ vector_ge(PG_FUNCTION_ARGS)
 /*
  * Greater than
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_gt);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_gt);
 Datum
 vector_gt(PG_FUNCTION_ARGS)
 {
@@ -1115,7 +1125,7 @@ vector_gt(PG_FUNCTION_ARGS)
 /*
  * Compare vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_cmp);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_cmp);
 Datum
 vector_cmp(PG_FUNCTION_ARGS)
 {
@@ -1128,7 +1138,7 @@ vector_cmp(PG_FUNCTION_ARGS)
 /*
  * Accumulate vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_accum);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_accum);
 Datum
 vector_accum(PG_FUNCTION_ARGS)
 {
@@ -1187,12 +1197,13 @@ vector_accum(PG_FUNCTION_ARGS)
 }
 
 /*
- * Combine vectors or half vectors
+ * Combine vectors or half vectors (also used for halfvec_combine)
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_combine);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_combine);
 Datum
 vector_combine(PG_FUNCTION_ARGS)
 {
+	/* Must also update parameters of halfvec_combine if modifying */
 	ArrayType  *statearray1 = PG_GETARG_ARRAYTYPE_P(0);
 	ArrayType  *statearray2 = PG_GETARG_ARRAYTYPE_P(1);
 	float8	   *statevalues1;
@@ -1259,7 +1270,7 @@ vector_combine(PG_FUNCTION_ARGS)
 /*
  * Average vectors
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_avg);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_avg);
 Datum
 vector_avg(PG_FUNCTION_ARGS)
 {
@@ -1293,7 +1304,7 @@ vector_avg(PG_FUNCTION_ARGS)
 /*
  * Convert sparse vector to dense vector
  */
-PGDLLEXPORT PG_FUNCTION_INFO_V1(sparsevec_to_vector);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_to_vector);
 Datum
 sparsevec_to_vector(PG_FUNCTION_ARGS)
 {
@@ -1308,7 +1319,7 @@ sparsevec_to_vector(PG_FUNCTION_ARGS)
 
 	result = InitVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
-		result->x[svec->indices[i] - 1] = values[i];
+		result->x[svec->indices[i]] = values[i];
 
 	PG_RETURN_POINTER(result);
 }
