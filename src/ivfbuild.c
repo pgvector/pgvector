@@ -335,14 +335,20 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	/* Disallow varbit since require fixed dimensions */
 	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
-		elog(ERROR, "type not supported for ivfflat index");
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("type not supported for ivfflat index")));
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
-		elog(ERROR, "column does not have dimensions");
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("column does not have dimensions")));
 
 	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
-		elog(ERROR, "column cannot have more than %d dimensions for ivfflat index", buildstate->typeInfo->maxDimensions);
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("column cannot have more than %d dimensions for ivfflat index", buildstate->typeInfo->maxDimensions)));
 
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;
@@ -355,7 +361,9 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	/* Require more than one dimension for spherical k-means */
 	if (buildstate->kmeansnormprocinfo != NULL && buildstate->dimensions == 1)
-		elog(ERROR, "dimensions must be greater than one for this opclass");
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("dimensions must be greater than one for this opclass")));
 
 	/* Create tuple description for sorting */
 	buildstate->tupdesc = CreateTemplateTupleDesc(3);

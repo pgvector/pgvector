@@ -192,7 +192,9 @@ CreateGraphPages(HnswBuildState * buildstate)
 
 		/* Initial size check */
 		if (etupSize > HNSW_TUPLE_ALLOC_SIZE)
-			elog(ERROR, "index tuple too large");
+			ereport(ERROR,
+					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+					 errmsg("index tuple too large")));
 
 		HnswSetElementTuple(base, etup, element);
 
@@ -696,17 +698,25 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 
 	/* Disallow varbit since require fixed dimensions */
 	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
-		elog(ERROR, "type not supported for hnsw index");
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("type not supported for hnsw index")));
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
-		elog(ERROR, "column does not have dimensions");
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("column does not have dimensions")));
 
 	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions);
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions)));
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
-		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("ef_construction must be greater than or equal to 2 * m")));
 
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;

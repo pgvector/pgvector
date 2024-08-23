@@ -1280,7 +1280,9 @@ SparsevecCheckValue(Pointer v)
 	SparseVector *vec = (SparseVector *) v;
 
 	if (vec->nnz > HNSW_MAX_NNZ)
-		elog(ERROR, "sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ);
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("sparsevec cannot have more than %d non-zero elements for hnsw index", HNSW_MAX_NNZ)));
 }
 
 /*
