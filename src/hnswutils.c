@@ -730,7 +730,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	visited_hash v;
 	ListCell   *lc2;
 	HnswNeighborArray *neighborhoodData = NULL;
-	Size		neighborhoodSize;
+	Size		neighborhoodSize = 0;
 
 	InitVisited(base, &v, index, ef, m);
 
