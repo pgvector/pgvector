@@ -9,6 +9,7 @@
 #include "commands/vacuum.h"
 #include "hnsw.h"
 #include "miscadmin.h"
+#include "utils/float.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
 
@@ -112,8 +113,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	/* Never use index without order */
 	if (path->indexorderbys == NULL)
 	{
-		*indexStartupCost = DBL_MAX;
-		*indexTotalCost = DBL_MAX;
+		*indexStartupCost = get_float8_infinity();
+		*indexTotalCost = get_float8_infinity();
 		*indexSelectivity = 0;
 		*indexCorrelation = 0;
 		*indexPages = 0;
