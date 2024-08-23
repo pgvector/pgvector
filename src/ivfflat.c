@@ -204,9 +204,17 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amclusterable = false;
 	amroutine->ampredlocks = false;
 	amroutine->amcanparallel = false;
+#if PG_VERSION_NUM >= 170000
+	amroutine->amcanbuildparallel = true;
+#endif
 	amroutine->amcaninclude = false;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
+#endif
+#if PG_VERSION_NUM >= 160000
+	amroutine->amsummarizing = false;
+#endif
+#if PG_VERSION_NUM >= 130000
 	amroutine->amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL;
 #endif
 	amroutine->amkeytype = InvalidOid;
@@ -215,6 +223,9 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->ambuild = ivfflatbuild;
 	amroutine->ambuildempty = ivfflatbuildempty;
 	amroutine->aminsert = ivfflatinsert;
+#if PG_VERSION_NUM >= 170000
+	amroutine->aminsertcleanup = NULL;
+#endif
 	amroutine->ambulkdelete = ivfflatbulkdelete;
 	amroutine->amvacuumcleanup = ivfflatvacuumcleanup;
 	amroutine->amcanreturn = NULL;	/* tuple not included in heapsort */

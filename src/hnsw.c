@@ -210,9 +210,17 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amclusterable = false;
 	amroutine->ampredlocks = false;
 	amroutine->amcanparallel = false;
+#if PG_VERSION_NUM >= 170000
+	amroutine->amcanbuildparallel = true;
+#endif
 	amroutine->amcaninclude = false;
 #if PG_VERSION_NUM >= 130000
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
+#endif
+#if PG_VERSION_NUM >= 160000
+	amroutine->amsummarizing = false;
+#endif
+#if PG_VERSION_NUM >= 130000
 	amroutine->amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL;
 #endif
 	amroutine->amkeytype = InvalidOid;
@@ -221,6 +229,9 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->ambuild = hnswbuild;
 	amroutine->ambuildempty = hnswbuildempty;
 	amroutine->aminsert = hnswinsert;
+#if PG_VERSION_NUM >= 170000
+	amroutine->aminsertcleanup = NULL;
+#endif
 	amroutine->ambulkdelete = hnswbulkdelete;
 	amroutine->amvacuumcleanup = hnswvacuumcleanup;
 	amroutine->amcanreturn = NULL;
