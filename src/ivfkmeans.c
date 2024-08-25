@@ -327,7 +327,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	newCenters->length = numCenters;
 
 #ifdef IVFFLAT_MEMORY
-	ShowMemoryUsage(MemoryContextGetParent(CurrentMemoryContext));
+	ShowMemoryUsage(MemoryContextGetParent(CurrentMemoryContext), totalSize);
 #endif
 
 	/* Pick initial centers */
