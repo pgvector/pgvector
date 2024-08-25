@@ -170,6 +170,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		}
 	}
 
+	ExecDropSingleTupleTableSlot(slot);
 	FreeAccessStrategy(bas);
 
 	if (tuples < 100)
@@ -372,7 +373,9 @@ ivfflatendscan(IndexScanDesc scan)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
 	pairingheap_free(so->listQueue);
+	FreeTupleDesc(so->tupdesc);
 	tuplesort_end(so->sortstate);
+	ExecDropSingleTupleTableSlot(so->slot);
 
 	pfree(so);
 	scan->opaque = NULL;
