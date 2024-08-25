@@ -222,10 +222,10 @@ GetScanValue(IndexScanDesc scan)
 }
 
 /*
- * Initialize sort state
+ * Initialize scan sort state
  */
 static Tuplesortstate *
-InitSortState(TupleDesc tupdesc)
+InitScanSortState(TupleDesc tupdesc)
 {
 	AttrNumber	attNums[] = {1};
 	Oid			sortOperators[] = {Float8LessOperator};
@@ -272,7 +272,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
 
 	/* Prep sort */
-	so->sortstate = InitSortState(so->tupdesc);
+	so->sortstate = InitScanSortState(so->tupdesc);
 
 	so->slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
 
