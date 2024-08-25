@@ -11,6 +11,10 @@
 #include "pgstat.h"
 #include "storage/bufmgr.h"
 
+#ifdef IVFFLAT_MEMORY
+#include "utils/memutils.h"
+#endif
+
 /*
  * Compare list distances
  */
@@ -326,6 +330,10 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
+
+#if defined(IVFFLAT_MEMORY) && PG_VERSION_NUM >= 130000
+		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
+#endif
 
 		/* Clean up if we allocated a new value */
 		if (value != scan->orderByData->sk_argument)
