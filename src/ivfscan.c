@@ -222,6 +222,20 @@ GetScanValue(IndexScanDesc scan)
 }
 
 /*
+ * Initialize sort state
+ */
+static Tuplesortstate *
+InitSortState(TupleDesc tupdesc)
+{
+	AttrNumber	attNums[] = {1};
+	Oid			sortOperators[] = {Float8LessOperator};
+	Oid			sortCollations[] = {InvalidOid};
+	bool		nullsFirstFlags[] = {false};
+
+	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -231,10 +245,6 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	IvfflatScanOpaque so;
 	int			lists;
 	int			dimensions;
-	AttrNumber	attNums[] = {1};
-	Oid			sortOperators[] = {Float8LessOperator};
-	Oid			sortCollations[] = {InvalidOid};
-	bool		nullsFirstFlags[] = {false};
 	int			probes = ivfflat_probes;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
@@ -262,7 +272,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
 
 	/* Prep sort */
-	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
+	so->sortstate = InitSortState(so->tupdesc);
 
 	so->slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
 
