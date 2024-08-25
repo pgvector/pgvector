@@ -292,10 +292,15 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
-#if PG_VERSION_NUM >= 130000
 	if (!so->first)
+	{
+#if PG_VERSION_NUM >= 130000
 		tuplesort_reset(so->sortstate);
+#else
+		tuplesort_end(so->sortstate);
+		so->sortstate = InitScanSortState(so->tupdesc);
 #endif
+	}
 
 	so->first = true;
 	pairingheap_reset(so->listQueue);
