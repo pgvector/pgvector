@@ -106,7 +106,7 @@ Insert vectors
 INSERT INTO items (embedding) VALUES ('[1,2,3]'), ('[4,5,6]');
 ```
 
-Or load vectors in bulk using `COPY` ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/bulk_loading.py))
+Or load vectors in bulk using `COPY` ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/loading/example.py))
 
 ```sql
 COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
@@ -473,7 +473,7 @@ SELECT * FROM items ORDER BY embedding::halfvec(3) <-> '[1,2,3]' LIMIT 5;
 
 ## Binary Vectors
 
-Use the `bit` type to store binary vectors ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/hash_image_search.py))
+Use the `bit` type to store binary vectors ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/imagehash/example.py))
 
 ```sql
 CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
@@ -551,7 +551,7 @@ SELECT id, content FROM items, plainto_tsquery('hello search') query
     WHERE textsearch @@ query ORDER BY ts_rank_cd(textsearch, query) DESC LIMIT 5;
 ```
 
-You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search_rrf.py) or a [cross-encoder](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search.py) to combine results.
+You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search/rrf.py) or a [cross-encoder](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search/cross_encoder.py) to combine results.
 
 ## Indexing Subvectors
 
@@ -597,7 +597,7 @@ Be sure to restart Postgres for changes to take effect.
 
 ### Loading
 
-Use `COPY` for bulk loading data ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/bulk_loading.py)).
+Use `COPY` for bulk loading data ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/loading/example.py)).
 
 ```sql
 COPY items (embedding) FROM STDIN WITH (FORMAT BINARY);
@@ -687,7 +687,7 @@ Scale pgvector the same way you scale Postgres.
 
 Scale vertically by increasing memory, CPU, and storage on a single instance. Use existing tools to [tune parameters](#tuning) and [monitor performance](#monitoring).
 
-Scale horizontally with [replicas](https://www.postgresql.org/docs/current/hot-standby.html), or use [Citus](https://github.com/citusdata/citus) or another approach for sharding ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/citus.py)).
+Scale horizontally with [replicas](https://www.postgresql.org/docs/current/hot-standby.html), or use [Citus](https://github.com/citusdata/citus) or another approach for sharding ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/citus/example.py)).
 
 ## Languages
 
