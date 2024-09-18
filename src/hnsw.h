@@ -42,6 +42,7 @@
 #define HNSW_DEFAULT_EF_SEARCH	40
 #define HNSW_MIN_EF_SEARCH		1
 #define HNSW_MAX_EF_SEARCH		1000
+#define HNSW_DEFAULT_STREAMING	false
 
 /* Tuple types */
 #define HNSW_ELEMENT_TUPLE_TYPE  1
@@ -111,6 +112,7 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
+extern bool hnsw_streaming;
 extern int	hnsw_lock_tranche_id;
 
 typedef struct HnswElementData HnswElementData;
@@ -328,11 +330,22 @@ typedef struct HnswNeighborTupleData
 
 typedef HnswNeighborTupleData * HnswNeighborTuple;
 
+typedef union
+{
+	struct pointerhash_hash *pointers;
+	struct offsethash_hash *offsets;
+	struct tidhash_hash *tids;
+}			visited_hash;
+
 typedef struct HnswScanOpaqueData
 {
 	const		HnswTypeInfo *typeInfo;
 	bool		first;
 	List	   *w;
+	visited_hash v;
+	List	   *discarded;
+	Datum		q;
+	int			m;
 	MemoryContext tmpCtx;
 
 	/* Support functions */
@@ -378,7 +391,7 @@ bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
+List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement, visited_hash * v, List **discarded, bool initVisited);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);

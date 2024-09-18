@@ -26,6 +26,9 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
+	so->q = q;
+	so->m = m;
+
 	if (entryPoint == NULL)
 		return NIL;
 
@@ -33,11 +36,32 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, NULL, NULL, true);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, &so->discarded, true);
+}
+
+/*
+ * Resume scan at ground level with discarded candidates
+ */
+static List *
+ResumeScanItems(IndexScanDesc scan)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	Relation	index = scan->indexRelation;
+	FmgrInfo   *procinfo = so->procinfo;
+	Oid			collation = so->collation;
+	List	   *ep;
+	char	   *base = NULL;
+
+	if (list_length(so->discarded) == 0)
+		return NIL;
+
+	ep = so->discarded;
+	so->discarded = NIL;
+	return HnswSearchLayer(base, so->q, ep, hnsw_ef_search, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false);
 }
 
 /*
@@ -103,7 +127,10 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
+	if (!so->first)
+		tidhash_reset(so->v.tids);
 	so->first = true;
+	so->discarded = NIL;
 	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -165,12 +192,35 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 #endif
 	}
 
-	while (list_length(so->w) > 0)
+	for (;;)
 	{
 		char	   *base = NULL;
-		HnswCandidate *hc = llast(so->w);
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswCandidate *hc;
+		HnswElement element;
 		ItemPointer heaptid;
+
+		if (list_length(so->w) == 0)
+		{
+			if (!hnsw_streaming)
+				break;
+
+			/* TODO figure out locking */
+			LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+			so->w = ResumeScanItems(scan);
+
+			UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+#if defined(HNSW_MEMORY) && PG_VERSION_NUM >= 130000
+			elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(so->tmpCtx, false) / (1024 * 1024));
+#endif
+
+			if (list_length(so->w) == 0)
+				break;
+		}
+
+		hc = llast(so->w);
+		element = HnswPtrAccess(base, hc->element);
 
 		/* Move to next element if no valid heap TIDs */
 		if (element->heaptidsLength == 0)

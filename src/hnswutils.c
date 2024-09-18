@@ -105,13 +105,6 @@ hash_offset(Size offset)
 #define SH_DEFINE
 #include "lib/simplehash.h"
 
-typedef union
-{
-	pointerhash_hash *pointers;
-	offsethash_hash *offsets;
-	tidhash_hash *tids;
-}			visited_hash;
-
 /*
  * Get the max number of connections in an upper layer for each element in the index
  */
@@ -721,18 +714,22 @@ CountElement(char *base, HnswElement skipElement, HnswCandidate * hc)
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement)
+HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement, visited_hash * v, List **discarded, bool initVisited)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
 	int			wlen = 0;
-	visited_hash v;
+	visited_hash v2;
 	ListCell   *lc2;
 	HnswNeighborArray *neighborhoodData = NULL;
 	Size		neighborhoodSize = 0;
 
-	InitVisited(base, &v, index, ef, m);
+	if (v == NULL)
+		v = &v2;
+
+	if (initVisited)
+		InitVisited(base, v, index, ef, m);
 
 	/* Create local memory for neighborhood if needed */
 	if (index == NULL)
@@ -747,7 +744,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
 		bool		found;
 
-		AddToVisited(base, &v, hc, index, &found);
+		AddToVisited(base, v, hc, index, &found);
 
 		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
 		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
@@ -793,7 +790,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			HnswCandidate *e = &neighborhood->items[i];
 			bool		visited;
 
-			AddToVisited(base, &v, e, index, &visited);
+			AddToVisited(base, v, e, index, &visited);
 
 			if (!visited)
 			{
@@ -806,13 +803,14 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
 				else
-					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, alwaysAdd ? NULL : &f->distance);
+					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance);
 
 				if (eDistance < f->distance || alwaysAdd)
 				{
 					HnswCandidate *ec;
 
 					Assert(!eElement->deleted);
+					Assert(eElement->level >= lc);
 
 					/* Make robust to issues */
 					if (eElement->level < lc)
@@ -837,8 +835,24 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 
 						/* No need to decrement wlen */
 						if (wlen > ef)
-							pairingheap_remove_first(W);
+						{
+							HnswCandidate *hc = ((HnswPairingHeapNode *) pairingheap_remove_first(W))->inner;
+
+							if (discarded != NULL)
+								*discarded = lappend(*discarded, hc);
+						}
 					}
+				}
+				else if (discarded != NULL)
+				{
+					HnswCandidate *ec;
+
+					/* Copy e */
+					ec = palloc(sizeof(HnswCandidate));
+					HnswPtrStore(base, ec->element, eElement);
+					ec->distance = eDistance;
+
+					*discarded = lappend(*discarded, ec);
 				}
 			}
 		}
@@ -1230,7 +1244,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, true, skipElement, NULL, NULL, true);
 		ep = w;
 	}
 
@@ -1248,7 +1262,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *neighbors;
 		List	   *lw;
 
-		w = HnswSearchLayer(base, q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(base, q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement, NULL, NULL, true);
 
 		/* Elements being deleted or skipped can help with search */
 		/* but should be removed before selecting neighbors */
