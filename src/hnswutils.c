@@ -725,7 +725,7 @@ AddToVisited(char *base, visited_hash * v, HnswElementPtr elementPtr, Relation i
  * Count element towards ef
  */
 static inline bool
-CountElement(char *base, HnswElement skipElement, HnswElement e)
+CountElement(HnswElement skipElement, HnswElement e)
 {
 	if (skipElement == NULL)
 		return true;
@@ -851,7 +851,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		 * would be ideal to do this for inserts as well, but this could
 		 * affect insert performance.
 		 */
-		if (CountElement(base, skipElement, HnswPtrAccess(base, hc->element)))
+		if (CountElement(skipElement, HnswPtrAccess(base, hc->element)))
 			wlen++;
 	}
 
@@ -923,7 +923,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			 * It would be ideal to do this for inserts as well, but this
 			 * could affect insert performance.
 			 */
-			if (CountElement(base, skipElement, eElement))
+			if (CountElement(skipElement, eElement))
 			{
 				wlen++;
 
