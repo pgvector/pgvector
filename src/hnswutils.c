@@ -669,11 +669,11 @@ InitVisited(char *base, visited_hash * v, Relation index, int ef, int m)
  * Add to visited
  */
 static inline void
-AddToVisited(char *base, visited_hash * v, HnswCandidate * hc, Relation index, bool *found)
+AddToVisited(char *base, visited_hash * v, HnswElementPtr elementPtr, Relation index, bool *found)
 {
 	if (index != NULL)
 	{
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswElement element = HnswPtrAccess(base, elementPtr);
 		ItemPointerData indextid;
 
 		ItemPointerSet(&indextid, element->blkno, element->offno);
@@ -682,21 +682,21 @@ AddToVisited(char *base, visited_hash * v, HnswCandidate * hc, Relation index, b
 	else if (base != NULL)
 	{
 #if PG_VERSION_NUM >= 130000
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswElement element = HnswPtrAccess(base, elementPtr);
 
-		offsethash_insert_hash(v->offsets, HnswPtrOffset(hc->element), element->hash, found);
+		offsethash_insert_hash(v->offsets, HnswPtrOffset(elementPtr), element->hash, found);
 #else
-		offsethash_insert(v->offsets, HnswPtrOffset(hc->element), found);
+		offsethash_insert(v->offsets, HnswPtrOffset(elementPtr), found);
 #endif
 	}
 	else
 	{
 #if PG_VERSION_NUM >= 130000
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswElement element = HnswPtrAccess(base, elementPtr);
 
-		pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(hc->element), element->hash, found);
+		pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(elementPtr), element->hash, found);
 #else
-		pointerhash_insert(v->pointers, (uintptr_t) HnswPtrPointer(hc->element), found);
+		pointerhash_insert(v->pointers, (uintptr_t) HnswPtrPointer(elementPtr), found);
 #endif
 	}
 }
@@ -738,7 +738,7 @@ HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswElement * unvis
 		HnswCandidate *hc = &neighborhood->items[i];
 		bool		found;
 
-		AddToVisited(base, v, hc, NULL, &found);
+		AddToVisited(base, v, hc->element, NULL, &found);
 
 		if (!found)
 			unvisited[(*unvisitedLength)++] = HnswPtrAccess(base, hc->element);
@@ -820,7 +820,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		bool		found;
 		HnswPairingHeapNode *node;
 
-		AddToVisited(base, &v, hc, index, &found);
+		AddToVisited(base, &v, hc->element, index, &found);
 
 		node = CreatePairingHeapNode(hc);
 		pairingheap_add(C, &node->c_node);
