@@ -749,13 +749,12 @@ HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unv
 	LWLockAcquire(&element->lock, LW_SHARED);
 	memcpy(neighborhoodData, neighborhood, neighborhoodSize);
 	LWLockRelease(&element->lock);
-	neighborhood = neighborhoodData;
 
 	*unvisitedLength = 0;
 
-	for (int i = 0; i < neighborhood->length; i++)
+	for (int i = 0; i < neighborhoodData->length; i++)
 	{
-		HnswCandidate *hc = &neighborhood->items[i];
+		HnswCandidate *hc = &neighborhoodData->items[i];
 		bool		found;
 
 		AddToVisited(base, v, hc->element, NULL, &found);
