@@ -874,6 +874,8 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		for (int i = 0; i < unvisitedLength; i++)
 		{
 			HnswElement eElement;
+			HnswCandidate *e;
+			HnswPairingHeapNode *node;
 			float		eDistance;
 			bool		alwaysAdd = wlen < ef;
 
@@ -883,6 +885,9 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			{
 				eElement = unvisited[i].element;
 				eDistance = GetElementDistance(base, eElement, q, procinfo, collation);
+
+				if (!(eDistance < f->distance || alwaysAdd))
+					continue;
 			}
 			else
 			{
@@ -893,41 +898,38 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
 				HnswLoadElementImpl(blkno, offno, &eDistance, &q, index, procinfo, collation, inserting, alwaysAdd ? NULL : &f->distance, &eElement);
+
+				if (eElement == NULL)
+					continue;
 			}
 
-			if (eDistance < f->distance || alwaysAdd)
+			Assert(!eElement->deleted);
+
+			/* Make robust to issues */
+			if (eElement->level < lc)
+				continue;
+
+			/* Create a new candidate */
+			e = palloc(sizeof(HnswCandidate));
+			HnswPtrStore(base, e->element, eElement);
+			e->distance = eDistance;
+
+			node = CreatePairingHeapNode(e);
+			pairingheap_add(C, &node->c_node);
+			pairingheap_add(W, &node->w_node);
+
+			/*
+			 * Do not count elements being deleted towards ef when vacuuming.
+			 * It would be ideal to do this for inserts as well, but this
+			 * could affect insert performance.
+			 */
+			if (CountElement(base, skipElement, eElement))
 			{
-				HnswCandidate *e;
-				HnswPairingHeapNode *node;
+				wlen++;
 
-				Assert(!eElement->deleted);
-
-				/* Make robust to issues */
-				if (eElement->level < lc)
-					continue;
-
-				/* Create a new candidate */
-				e = palloc(sizeof(HnswCandidate));
-				HnswPtrStore(base, e->element, eElement);
-				e->distance = eDistance;
-
-				node = CreatePairingHeapNode(e);
-				pairingheap_add(C, &node->c_node);
-				pairingheap_add(W, &node->w_node);
-
-				/*
-				 * Do not count elements being deleted towards ef when
-				 * vacuuming. It would be ideal to do this for inserts as
-				 * well, but this could affect insert performance.
-				 */
-				if (CountElement(base, skipElement, eElement))
-				{
-					wlen++;
-
-					/* No need to decrement wlen */
-					if (wlen > ef)
-						pairingheap_remove_first(W);
-				}
+				/* No need to decrement wlen */
+				if (wlen > ef)
+					pairingheap_remove_first(W);
 			}
 		}
 	}
