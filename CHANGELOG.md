@@ -1,3 +1,7 @@
+## 0.7.5 (unreleased)
+
+- Reduced memory usage for HNSW index scans
+
 ## 0.7.4 (2024-08-05)
 
 - Fixed locking for parallel HNSW index builds
