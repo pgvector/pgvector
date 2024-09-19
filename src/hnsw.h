@@ -162,8 +162,9 @@ struct HnswNeighborArray
 
 typedef struct HnswPairingHeapNode
 {
-	pairingheap_node ph_node;
 	HnswCandidate *inner;
+	pairingheap_node c_node;
+	pairingheap_node w_node;
 }			HnswPairingHeapNode;
 
 /* HNSW index options */

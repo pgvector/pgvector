@@ -607,16 +607,19 @@ HnswEntryCandidate(char *base, HnswElement entryPoint, Datum q, Relation index, 
 	return hc;
 }
 
+#define HnswGetPairingHeapCandidate(membername, ptr) (pairingheap_container(HnswPairingHeapNode, membername, ptr)->inner)
+#define HnswGetPairingHeapCandidateConst(membername, ptr) (pairingheap_const_container(HnswPairingHeapNode, membername, ptr)->inner)
+
 /*
  * Compare candidate distances
  */
 static int
 CompareNearestCandidates(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	if (((const HnswPairingHeapNode *) a)->inner->distance < ((const HnswPairingHeapNode *) b)->inner->distance)
+	if (HnswGetPairingHeapCandidateConst(c_node, a)->distance < HnswGetPairingHeapCandidateConst(c_node, b)->distance)
 		return 1;
 
-	if (((const HnswPairingHeapNode *) a)->inner->distance > ((const HnswPairingHeapNode *) b)->inner->distance)
+	if (HnswGetPairingHeapCandidateConst(c_node, a)->distance > HnswGetPairingHeapCandidateConst(c_node, b)->distance)
 		return -1;
 
 	return 0;
@@ -628,10 +631,10 @@ CompareNearestCandidates(const pairingheap_node *a, const pairingheap_node *b, v
 static int
 CompareFurthestCandidates(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	if (((const HnswPairingHeapNode *) a)->inner->distance < ((const HnswPairingHeapNode *) b)->inner->distance)
+	if (HnswGetPairingHeapCandidateConst(w_node, a)->distance < HnswGetPairingHeapCandidateConst(w_node, b)->distance)
 		return -1;
 
-	if (((const HnswPairingHeapNode *) a)->inner->distance > ((const HnswPairingHeapNode *) b)->inner->distance)
+	if (HnswGetPairingHeapCandidateConst(w_node, a)->distance > HnswGetPairingHeapCandidateConst(w_node, b)->distance)
 		return 1;
 
 	return 0;
@@ -746,11 +749,13 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	{
 		HnswCandidate *hc = (HnswCandidate *) lfirst(lc2);
 		bool		found;
+		HnswPairingHeapNode *node;
 
 		AddToVisited(base, &v, hc, index, &found);
 
-		pairingheap_add(C, &(CreatePairingHeapNode(hc)->ph_node));
-		pairingheap_add(W, &(CreatePairingHeapNode(hc)->ph_node));
+		node = CreatePairingHeapNode(hc);
+		pairingheap_add(C, &node->c_node);
+		pairingheap_add(W, &node->w_node);
 
 		/*
 		 * Do not count elements being deleted towards ef when vacuuming. It
@@ -764,8 +769,8 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	while (!pairingheap_is_empty(C))
 	{
 		HnswNeighborArray *neighborhood;
-		HnswCandidate *c = ((HnswPairingHeapNode *) pairingheap_remove_first(C))->inner;
-		HnswCandidate *f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
+		HnswCandidate *c = HnswGetPairingHeapCandidate(c_node, pairingheap_remove_first(C));
+		HnswCandidate *f = HnswGetPairingHeapCandidate(w_node, pairingheap_first(W));
 		HnswElement cElement;
 
 		if (c->distance > f->distance)
@@ -801,7 +806,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				HnswElement eElement = HnswPtrAccess(base, e->element);
 				bool		alwaysAdd = wlen < ef;
 
-				f = ((HnswPairingHeapNode *) pairingheap_first(W))->inner;
+				f = HnswGetPairingHeapCandidate(w_node, pairingheap_first(W));
 
 				if (index == NULL)
 					eDistance = GetCandidateDistance(base, e, q, procinfo, collation);
@@ -811,6 +816,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				if (eDistance < f->distance || alwaysAdd)
 				{
 					HnswCandidate *ec;
+					HnswPairingHeapNode *node;
 
 					Assert(!eElement->deleted);
 
@@ -823,8 +829,9 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 					HnswPtrStore(base, ec->element, eElement);
 					ec->distance = eDistance;
 
-					pairingheap_add(C, &(CreatePairingHeapNode(ec)->ph_node));
-					pairingheap_add(W, &(CreatePairingHeapNode(ec)->ph_node));
+					node = CreatePairingHeapNode(ec);
+					pairingheap_add(C, &node->c_node);
+					pairingheap_add(W, &node->w_node);
 
 					/*
 					 * Do not count elements being deleted towards ef when
@@ -847,7 +854,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	/* Add each element of W to w */
 	while (!pairingheap_is_empty(W))
 	{
-		HnswCandidate *hc = ((HnswPairingHeapNode *) pairingheap_remove_first(W))->inner;
+		HnswCandidate *hc = HnswGetPairingHeapCandidate(w_node, pairingheap_remove_first(W));
 
 		w = lappend(w, hc);
 	}
