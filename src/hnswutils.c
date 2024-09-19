@@ -740,21 +740,21 @@ CountElement(HnswElement skipElement, HnswElement e)
  * Load unvisited neighbors from memory
  */
 static void
-HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, int lc, HnswNeighborArray * neighborhoodData, Size neighborhoodSize)
+HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, int lc, HnswNeighborArray * localNeighborhood, Size neighborhoodSize)
 {
 	/* Get the neighborhood at layer lc */
 	HnswNeighborArray *neighborhood = HnswGetNeighbors(base, element, lc);
 
 	/* Copy neighborhood to local memory */
 	LWLockAcquire(&element->lock, LW_SHARED);
-	memcpy(neighborhoodData, neighborhood, neighborhoodSize);
+	memcpy(localNeighborhood, neighborhood, neighborhoodSize);
 	LWLockRelease(&element->lock);
 
 	*unvisitedLength = 0;
 
-	for (int i = 0; i < neighborhoodData->length; i++)
+	for (int i = 0; i < localNeighborhood->length; i++)
 	{
-		HnswCandidate *hc = &neighborhoodData->items[i];
+		HnswCandidate *hc = &localNeighborhood->items[i];
 		bool		found;
 
 		AddToVisited(base, v, hc->element, NULL, &found);
@@ -817,7 +817,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	int			wlen = 0;
 	visited_hash v;
 	ListCell   *lc2;
-	HnswNeighborArray *neighborhoodData = NULL;
+	HnswNeighborArray *localNeighborhood = NULL;
 	Size		neighborhoodSize = 0;
 	int			lm = HnswGetLayerM(m, lc);
 	HnswUnvisited *unvisited = palloc(lm * sizeof(HnswUnvisited));
@@ -829,7 +829,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	if (index == NULL)
 	{
 		neighborhoodSize = HNSW_NEIGHBOR_ARRAY_SIZE(lm);
-		neighborhoodData = palloc(neighborhoodSize);
+		localNeighborhood = palloc(neighborhoodSize);
 	}
 
 	/* Add entry points to v, C, and W */
@@ -866,7 +866,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		cElement = HnswPtrAccess(base, c->element);
 
 		if (index == NULL)
-			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, &v, lc, neighborhoodData, neighborhoodSize);
+			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, &v, lc, localNeighborhood, neighborhoodSize);
 		else
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, &v, index, m, lm, lc);
 
