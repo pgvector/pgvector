@@ -807,7 +807,12 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	int			unvisitedLength;
 
 	if (v == NULL)
+	{
 		v = &v2;
+
+		/* Keep scan-build happy */
+		initVisited = true;
+	}
 
 	if (initVisited)
 		InitVisited(base, v, index, ef, m);
