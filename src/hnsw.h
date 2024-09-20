@@ -76,11 +76,6 @@
 #define SeedRandom(seed) srandom(seed)
 #endif
 
-#if PG_VERSION_NUM < 130000
-#define list_delete_last(list) list_truncate(list, list_length(list) - 1)
-#define list_sort(list, cmp) ((list) = list_qsort(list, cmp))
-#endif
-
 #define HnswIsElementTuple(tup) ((tup)->type == HNSW_ELEMENT_TUPLE_TYPE)
 #define HnswIsNeighborTuple(tup) ((tup)->type == HNSW_NEIGHBOR_TUPLE_TYPE)
 
@@ -163,8 +158,9 @@ struct HnswNeighborArray
 
 typedef struct HnswPairingHeapNode
 {
-	pairingheap_node ph_node;
 	HnswCandidate *inner;
+	pairingheap_node c_node;
+	pairingheap_node w_node;
 }			HnswPairingHeapNode;
 
 /* HNSW index options */

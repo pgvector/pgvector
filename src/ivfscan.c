@@ -11,6 +11,10 @@
 #include "pgstat.h"
 #include "storage/bufmgr.h"
 
+#ifdef IVFFLAT_MEMORY
+#include "utils/memutils.h"
+#endif
+
 /*
  * Compare list distances
  */
@@ -218,6 +222,20 @@ GetScanValue(IndexScanDesc scan)
 }
 
 /*
+ * Initialize scan sort state
+ */
+static Tuplesortstate *
+InitScanSortState(TupleDesc tupdesc)
+{
+	AttrNumber	attNums[] = {1};
+	Oid			sortOperators[] = {Float8LessOperator};
+	Oid			sortCollations[] = {InvalidOid};
+	bool		nullsFirstFlags[] = {false};
+
+	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -227,10 +245,6 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	IvfflatScanOpaque so;
 	int			lists;
 	int			dimensions;
-	AttrNumber	attNums[] = {1};
-	Oid			sortOperators[] = {Float8LessOperator};
-	Oid			sortCollations[] = {InvalidOid};
-	bool		nullsFirstFlags[] = {false};
 	int			probes = ivfflat_probes;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
@@ -258,7 +272,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
 
 	/* Prep sort */
-	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
+	so->sortstate = InitScanSortState(so->tupdesc);
 
 	so->slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
 
@@ -277,10 +291,8 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
-#if PG_VERSION_NUM >= 130000
 	if (!so->first)
 		tuplesort_reset(so->sortstate);
-#endif
 
 	so->first = true;
 	pairingheap_reset(so->listQueue);
@@ -326,6 +338,10 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
+
+#if defined(IVFFLAT_MEMORY)
+		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
+#endif
 
 		/* Clean up if we allocated a new value */
 		if (value != scan->orderByData->sk_argument)
