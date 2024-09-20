@@ -8,16 +8,17 @@ my $node;
 my @queries = ();
 my @expected;
 my $limit = 20;
-my $c = 1000;
+my @cs = (100, 1000);
 
 sub test_recall
 {
-	my ($min, $operator) = @_;
+	my ($c, $probes, $min, $operator) = @_;
 	my $correct = 0;
 	my $total = 0;
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
+		SET ivfflat.probes = $probes;
 		SET ivfflat.streaming = on;
 		EXPLAIN ANALYZE SELECT i FROM tst WHERE i % $c = 0 ORDER BY v $operator '$queries[0]' LIMIT $limit;
 	));
@@ -27,6 +28,7 @@ sub test_recall
 	{
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
+			SET ivfflat.probes = $probes;
 			SET ivfflat.streaming = on;
 			SELECT i FROM tst WHERE i % $c = 0 ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
@@ -79,28 +81,42 @@ for my $i (0 .. $#operators)
 	my $operator = $operators[$i];
 	my $opclass = $opclasses[$i];
 
-	# Get exact results
-	@expected = ();
-	foreach (@queries)
-	{
-		my $res = $node->safe_psql("postgres", qq(
-			WITH top AS (
-				SELECT v $operator '$_' AS distance FROM tst WHERE i % $c = 0 ORDER BY distance LIMIT $limit
-			)
-			SELECT i FROM tst WHERE (v $operator '$_') <= (SELECT MAX(distance) FROM top)
-		));
-		push(@expected, $res);
-	}
-
 	$node->safe_psql("postgres", "CREATE INDEX idx ON tst USING ivfflat (v $opclass);");
 
-	if ($operator eq "<->")
+	foreach (@cs)
 	{
-		test_recall(0.80, $operator);
-	}
-	else
-	{
-		test_recall(0.90, $operator);
+		my $c = $_;
+
+		# Get exact results
+		@expected = ();
+		foreach (@queries)
+		{
+			my $res = $node->safe_psql("postgres", qq(
+				SET enable_indexscan = off;
+				WITH top AS (
+					SELECT v $operator '$_' AS distance FROM tst WHERE i % $c = 0 ORDER BY distance LIMIT $limit
+				)
+				SELECT i FROM tst WHERE (v $operator '$_') <= (SELECT MAX(distance) FROM top)
+			));
+			push(@expected, $res);
+		}
+
+		if ($c == 100)
+		{
+			test_recall($c, 1, 0.60, $operator);
+			test_recall($c, 10, 0.98, $operator);
+		}
+		else
+		{
+			if ($operator eq "<->")
+			{
+				test_recall($c, 1, 0.80, $operator);
+			}
+			else
+			{
+				test_recall($c, 1, 0.88, $operator);
+			}
+		}
 	}
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
