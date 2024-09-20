@@ -1,6 +1,8 @@
-## 0.7.5 (unreleased)
+## 0.8.0 (unreleased)
 
+- Added casts for arrays to `sparsevec`
 - Reduced memory usage for HNSW index scans
+- Dropped support for Postgres 12
 
 ## 0.7.4 (2024-08-05)
 

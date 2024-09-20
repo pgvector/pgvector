@@ -151,12 +151,8 @@ RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeI
 static void
 ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 {
-#if PG_VERSION_NUM >= 130000
 	elog(INFO, "total memory: %zu MB",
 		 MemoryContextMemAllocated(context, true) / (1024 * 1024));
-#else
-	MemoryContextStats(context);
-#endif
 	elog(INFO, "estimated memory: %zu MB", estimatedSize / (1024 * 1024));
 }
 #endif

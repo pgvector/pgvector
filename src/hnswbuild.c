@@ -60,12 +60,6 @@
 #include "pgstat.h"
 #endif
 
-#if PG_VERSION_NUM >= 130000
-#define CALLBACK_ITEM_POINTER ItemPointer tid
-#else
-#define CALLBACK_ITEM_POINTER HeapTuple hup
-#endif
-
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
 #include "utils/wait_event.h"
@@ -74,10 +68,6 @@
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)
 #define PARALLEL_KEY_HNSW_AREA			UINT64CONST(0xA000000000000002)
 #define PARALLEL_KEY_QUERY_TEXT			UINT64CONST(0xA000000000000003)
-
-#if PG_VERSION_NUM < 130000
-#define GENERATIONCHUNK_RAWSIZE (SIZEOF_SIZE_T + SIZEOF_VOID_P * 2)
-#endif
 
 /*
  * Create the metapage
@@ -192,7 +182,9 @@ CreateGraphPages(HnswBuildState * buildstate)
 
 		/* Initial size check */
 		if (etupSize > HNSW_TUPLE_ALLOC_SIZE)
-			elog(ERROR, "index tuple too large");
+			ereport(ERROR,
+					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+					 errmsg("index tuple too large")));
 
 		HnswSetElementTuple(base, etup, element);
 
@@ -583,16 +575,12 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
  * Callback for table_index_build_scan
  */
 static void
-BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
+BuildCallback(Relation index, ItemPointer tid, Datum *values,
 			  bool *isnull, bool tupleIsAlive, void *state)
 {
 	HnswBuildState *buildstate = (HnswBuildState *) state;
 	HnswGraph  *graph = buildstate->graph;
 	MemoryContext oldCtx;
-
-#if PG_VERSION_NUM < 130000
-	ItemPointer tid = &hup->t_self;
-#endif
 
 	/* Skip nulls */
 	if (isnull[0])
@@ -656,11 +644,7 @@ HnswMemoryContextAlloc(Size size, void *state)
 	HnswBuildState *buildstate = (HnswBuildState *) state;
 	void	   *chunk = MemoryContextAlloc(buildstate->graphCtx, size);
 
-#if PG_VERSION_NUM >= 130000
 	buildstate->graphData.memoryUsed = MemoryContextMemAllocated(buildstate->graphCtx, false);
-#else
-	buildstate->graphData.memoryUsed += MAXALIGN(size);
-#endif
 
 	return chunk;
 }
@@ -696,17 +680,25 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 
 	/* Disallow varbit since require fixed dimensions */
 	if (TupleDescAttr(index->rd_att, 0)->atttypid == VARBITOID)
-		elog(ERROR, "type not supported for hnsw index");
+		ereport(ERROR,
+				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+				 errmsg("type not supported for hnsw index")));
 
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
-		elog(ERROR, "column does not have dimensions");
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("column does not have dimensions")));
 
 	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
-		elog(ERROR, "column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions);
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions)));
 
 	if (buildstate->efConstruction < 2 * buildstate->m)
-		elog(ERROR, "ef_construction must be greater than or equal to 2 * m");
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("ef_construction must be greater than or equal to 2 * m")));
 
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;

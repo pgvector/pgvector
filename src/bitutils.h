@@ -4,8 +4,8 @@
 #include "postgres.h"
 
 /* Check version in first header */
-#if PG_VERSION_NUM < 120000
-#error "Requires PostgreSQL 12+"
+#if PG_VERSION_NUM < 130000
+#error "Requires PostgreSQL 13+"
 #endif
 
 extern uint64 (*BitHammingDistance) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance);

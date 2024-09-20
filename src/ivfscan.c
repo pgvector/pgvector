@@ -292,14 +292,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
 	if (!so->first)
-	{
-#if PG_VERSION_NUM >= 130000
 		tuplesort_reset(so->sortstate);
-#else
-		tuplesort_end(so->sortstate);
-		so->sortstate = InitScanSortState(so->tupdesc);
-#endif
-	}
 
 	so->first = true;
 	pairingheap_reset(so->listQueue);
@@ -346,7 +339,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
 
-#if defined(IVFFLAT_MEMORY) && PG_VERSION_NUM >= 130000
+#if defined(IVFFLAT_MEMORY)
 		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
 #endif
 
