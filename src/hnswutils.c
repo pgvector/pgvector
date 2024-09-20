@@ -720,6 +720,9 @@ CountElement(HnswElement skipElement, HnswElement e)
 	/* Ensure does not access heaptidsLength during in-memory build */
 	pg_memory_barrier();
 
+	/* Keep scan-build happy on Mac x86-64 */
+	Assert(e);
+
 	return e->heaptidsLength != 0;
 }
 
