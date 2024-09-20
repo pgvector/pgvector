@@ -707,25 +707,32 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	CheckDim(nelemsp);
 	CheckExpectedDim(typmod, nelemsp);
 
+#ifdef _MSC_VER
+/* /fp:fast may not propagate +/-Infinity or NaN */
+#define IS_NOT_ZERO(v) (isnan((float) v) || isinf((float) v) || ((float) v) != 0)
+#else
+#define IS_NOT_ZERO(v) (((float) (v)) != 0)
+#endif
+
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += ((float) DatumGetInt32(elemsp[i])) != 0;
+			nnz += IS_NOT_ZERO(DatumGetInt32(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += ((float) DatumGetFloat8(elemsp[i])) != 0;
+			nnz += IS_NOT_ZERO(DatumGetFloat8(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += (DatumGetFloat4(elemsp[i]) != 0);
+			nnz += IS_NOT_ZERO(DatumGetFloat4(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == NUMERICOID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += (DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])) != 0);
+			nnz += IS_NOT_ZERO(DirectFunctionCall1(numeric_float4, elemsp[i]));
 	}
 	else
 	{
@@ -740,7 +747,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 #define PROCESS_ARRAY_ELEM(elem) \
 	do { \
 		float v = (float) (elem); \
-		if (v != 0) { \
+		if (IS_NOT_ZERO(v)) { \
 			/* Safety check */ \
 			if (j >= result->nnz) \
 				elog(ERROR, "safety check failed"); \
@@ -778,12 +785,16 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	}
 
 #undef PROCESS_ARRAY_ELEM
+#undef IS_NOT_ZERO
 
 	/*
 	 * Free allocation from deconstruct_array. Do not free individual elements
 	 * when pass-by-reference since they point to original array.
 	 */
 	pfree(elemsp);
+
+	if (j != result->nnz)
+		elog(ERROR, "correctness check failed");
 
 	/* Check elements */
 	for (int i = 0; i < result->nnz; i++)
