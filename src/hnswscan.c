@@ -204,7 +204,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (!hnsw_streaming)
 				break;
 
-			/* TODO figure out locking */
 			LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 			so->w = ResumeScanItems(scan);
