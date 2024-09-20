@@ -27,11 +27,7 @@ IvfflatInit(void)
 {
 	ivfflat_relopt_kind = add_reloption_kind();
 	add_int_reloption(ivfflat_relopt_kind, "lists", "Number of inverted lists",
-					  IVFFLAT_DEFAULT_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS
-#if PG_VERSION_NUM >= 130000
-					  ,AccessExclusiveLock
-#endif
-		);
+					  IVFFLAT_DEFAULT_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, AccessExclusiveLock);
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
@@ -149,23 +145,10 @@ ivfflatoptions(Datum reloptions, bool validate)
 		{"lists", RELOPT_TYPE_INT, offsetof(IvfflatOptions, lists)},
 	};
 
-#if PG_VERSION_NUM >= 130000
 	return (bytea *) build_reloptions(reloptions, validate,
 									  ivfflat_relopt_kind,
 									  sizeof(IvfflatOptions),
 									  tab, lengthof(tab));
-#else
-	relopt_value *options;
-	int			numoptions;
-	IvfflatOptions *rdopts;
-
-	options = parseRelOptions(reloptions, validate, ivfflat_relopt_kind, &numoptions);
-	rdopts = allocateReloptStruct(sizeof(IvfflatOptions), options, numoptions);
-	fillRelOptions((void *) rdopts, sizeof(IvfflatOptions), options, numoptions,
-				   validate, tab, lengthof(tab));
-
-	return (bytea *) rdopts;
-#endif
 }
 
 /*
@@ -190,9 +173,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 
 	amroutine->amstrategies = 0;
 	amroutine->amsupport = 5;
-#if PG_VERSION_NUM >= 130000
 	amroutine->amoptsprocnum = 0;
-#endif
 	amroutine->amcanorder = false;
 	amroutine->amcanorderbyop = true;
 	amroutine->amcanbackward = false;	/* can change direction mid-scan */
@@ -209,15 +190,11 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amcanbuildparallel = true;
 #endif
 	amroutine->amcaninclude = false;
-#if PG_VERSION_NUM >= 130000
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
-#endif
 #if PG_VERSION_NUM >= 160000
 	amroutine->amsummarizing = false;
 #endif
-#if PG_VERSION_NUM >= 130000
 	amroutine->amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL;
-#endif
 	amroutine->amkeytype = InvalidOid;
 
 	/* Interface functions */

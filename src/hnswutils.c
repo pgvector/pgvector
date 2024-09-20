@@ -5,6 +5,7 @@
 #include "access/generic_xlog.h"
 #include "catalog/pg_type.h"
 #include "catalog/pg_type_d.h"
+#include "common/hashfn.h"
 #include "fmgr.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
@@ -13,12 +14,6 @@
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
-
-#if PG_VERSION_NUM >= 130000
-#include "common/hashfn.h"
-#else
-#include "utils/hashutils.h"
-#endif
 
 #if PG_VERSION_NUM < 170000
 static inline uint64
@@ -701,23 +696,15 @@ AddToVisited(char *base, visited_hash * v, HnswElementPtr elementPtr, Relation i
 	}
 	else if (base != NULL)
 	{
-#if PG_VERSION_NUM >= 130000
 		HnswElement element = HnswPtrAccess(base, elementPtr);
 
 		offsethash_insert_hash(v->offsets, HnswPtrOffset(elementPtr), element->hash, found);
-#else
-		offsethash_insert(v->offsets, HnswPtrOffset(elementPtr), found);
-#endif
 	}
 	else
 	{
-#if PG_VERSION_NUM >= 130000
 		HnswElement element = HnswPtrAccess(base, elementPtr);
 
 		pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(elementPtr), element->hash, found);
-#else
-		pointerhash_insert(v->pointers, (uintptr_t) HnswPtrPointer(elementPtr), found);
-#endif
 	}
 }
 
@@ -948,17 +935,10 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
  * Compare candidate distances with pointer tie-breaker
  */
 static int
-#if PG_VERSION_NUM >= 130000
 CompareCandidateDistances(const ListCell *a, const ListCell *b)
 {
 	HnswCandidate *hca = lfirst(a);
 	HnswCandidate *hcb = lfirst(b);
-#else
-CompareCandidateDistances(const void *a, const void *b)
-{
-	HnswCandidate *hca = lfirst(*(ListCell **) a);
-	HnswCandidate *hcb = lfirst(*(ListCell **) b);
-#endif
 
 	if (hca->distance < hcb->distance)
 		return 1;
@@ -979,17 +959,10 @@ CompareCandidateDistances(const void *a, const void *b)
  * Compare candidate distances with offset tie-breaker
  */
 static int
-#if PG_VERSION_NUM >= 130000
 CompareCandidateDistancesOffset(const ListCell *a, const ListCell *b)
 {
 	HnswCandidate *hca = lfirst(a);
 	HnswCandidate *hcb = lfirst(b);
-#else
-CompareCandidateDistancesOffset(const void *a, const void *b)
-{
-	HnswCandidate *hca = lfirst(*(ListCell **) a);
-	HnswCandidate *hcb = lfirst(*(ListCell **) b);
-#endif
 
 	if (hca->distance < hcb->distance)
 		return 1;
@@ -1271,7 +1244,6 @@ RemoveElements(char *base, List *w, HnswElement skipElement)
 	return w2;
 }
 
-#if PG_VERSION_NUM >= 130000
 /*
  * Precompute hash
  */
@@ -1287,7 +1259,6 @@ PrecomputeHash(char *base, HnswElement element)
 	else
 		element->hash = hash_offset(HnswPtrOffset(ptr));
 }
-#endif
 
 /*
  * Algorithm 1 from paper
@@ -1302,11 +1273,9 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	Datum		q = HnswGetValue(base, element);
 	HnswElement skipElement = existing ? element : NULL;
 
-#if PG_VERSION_NUM >= 130000
 	/* Precompute hash */
 	if (index == NULL)
 		PrecomputeHash(base, element);
-#endif
 
 	/* No neighbors if no entry point */
 	if (entryPoint == NULL)

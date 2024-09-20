@@ -60,17 +60,9 @@ HnswInit(void)
 
 	hnsw_relopt_kind = add_reloption_kind();
 	add_int_reloption(hnsw_relopt_kind, "m", "Max number of connections",
-					  HNSW_DEFAULT_M, HNSW_MIN_M, HNSW_MAX_M
-#if PG_VERSION_NUM >= 130000
-					  ,AccessExclusiveLock
-#endif
-		);
+					  HNSW_DEFAULT_M, HNSW_MIN_M, HNSW_MAX_M, AccessExclusiveLock);
 	add_int_reloption(hnsw_relopt_kind, "ef_construction", "Size of the dynamic candidate list for construction",
-					  HNSW_DEFAULT_EF_CONSTRUCTION, HNSW_MIN_EF_CONSTRUCTION, HNSW_MAX_EF_CONSTRUCTION
-#if PG_VERSION_NUM >= 130000
-					  ,AccessExclusiveLock
-#endif
-		);
+					  HNSW_DEFAULT_EF_CONSTRUCTION, HNSW_MIN_EF_CONSTRUCTION, HNSW_MAX_EF_CONSTRUCTION, AccessExclusiveLock);
 
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
@@ -155,23 +147,10 @@ hnswoptions(Datum reloptions, bool validate)
 		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, efConstruction)},
 	};
 
-#if PG_VERSION_NUM >= 130000
 	return (bytea *) build_reloptions(reloptions, validate,
 									  hnsw_relopt_kind,
 									  sizeof(HnswOptions),
 									  tab, lengthof(tab));
-#else
-	relopt_value *options;
-	int			numoptions;
-	HnswOptions *rdopts;
-
-	options = parseRelOptions(reloptions, validate, hnsw_relopt_kind, &numoptions);
-	rdopts = allocateReloptStruct(sizeof(HnswOptions), options, numoptions);
-	fillRelOptions((void *) rdopts, sizeof(HnswOptions), options, numoptions,
-				   validate, tab, lengthof(tab));
-
-	return (bytea *) rdopts;
-#endif
 }
 
 /*
@@ -196,9 +175,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 
 	amroutine->amstrategies = 0;
 	amroutine->amsupport = 3;
-#if PG_VERSION_NUM >= 130000
 	amroutine->amoptsprocnum = 0;
-#endif
 	amroutine->amcanorder = false;
 	amroutine->amcanorderbyop = true;
 	amroutine->amcanbackward = false;	/* can change direction mid-scan */
@@ -215,15 +192,11 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amcanbuildparallel = true;
 #endif
 	amroutine->amcaninclude = false;
-#if PG_VERSION_NUM >= 130000
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
-#endif
 #if PG_VERSION_NUM >= 160000
 	amroutine->amsummarizing = false;
 #endif
-#if PG_VERSION_NUM >= 130000
 	amroutine->amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL;
-#endif
 	amroutine->amkeytype = InvalidOid;
 
 	/* Interface functions */

@@ -26,12 +26,6 @@
 #include "pgstat.h"
 #endif
 
-#if PG_VERSION_NUM >= 130000
-#define CALLBACK_ITEM_POINTER ItemPointer tid
-#else
-#define CALLBACK_ITEM_POINTER HeapTuple hup
-#endif
-
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
 #include "utils/wait_event.h"
@@ -96,7 +90,7 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
  * Callback for sampling
  */
 static void
-SampleCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
+SampleCallback(Relation index, ItemPointer tid, Datum *values,
 			   bool *isnull, bool tupleIsAlive, void *state)
 {
 	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
@@ -207,15 +201,11 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState
  * Callback for table_index_build_scan
  */
 static void
-BuildCallback(Relation index, CALLBACK_ITEM_POINTER, Datum *values,
+BuildCallback(Relation index, ItemPointer tid, Datum *values,
 			  bool *isnull, bool tupleIsAlive, void *state)
 {
 	IvfflatBuildState *buildstate = (IvfflatBuildState *) state;
 	MemoryContext oldCtx;
-
-#if PG_VERSION_NUM < 130000
-	ItemPointer tid = &hup->t_self;
-#endif
 
 	/* Skip nulls */
 	if (isnull[0])
