@@ -129,6 +129,7 @@ struct HnswElementData
 	uint8		heaptidsLength;
 	uint8		level;
 	uint8		deleted;
+	uint8		version;
 	uint32		hash;
 	HnswNeighborsPtr neighbors;
 	BlockNumber blkno;
@@ -305,10 +306,10 @@ typedef struct HnswElementTupleData
 	uint8		type;
 	uint8		level;
 	uint8		deleted;
-	uint8		unused;
+	uint8		version;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
-	uint16		unused2;
+	uint16		unused;
 	Vector		data;
 }			HnswElementTupleData;
 
@@ -317,7 +318,7 @@ typedef HnswElementTupleData * HnswElementTuple;
 typedef struct HnswNeighborTupleData
 {
 	uint8		type;
-	uint8		unused;
+	uint8		version;
 	uint16		count;
 	ItemPointerData indextids[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborTupleData;
