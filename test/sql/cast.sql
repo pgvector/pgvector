@@ -58,6 +58,22 @@ SELECT '{}/16001'::sparsevec::halfvec;
 SELECT '{1:65520}/1'::sparsevec::halfvec;
 SELECT '{1:1e-8}/1'::sparsevec::halfvec;
 
+SELECT ARRAY[1,0,2,0,3,0]::sparsevec;
+SELECT ARRAY[1.0,0.0,2.0,0.0,3.0,0.0]::sparsevec;
+SELECT ARRAY[1,0,2,0,3,0]::float4[]::sparsevec;
+SELECT ARRAY[1,0,2,0,3,0]::float8[]::sparsevec;
+SELECT ARRAY[1,0,2,0,3,0]::numeric[]::sparsevec;
+
+SELECT '{1,0,2,0,3,0}'::real[]::sparsevec;
+SELECT '{1,0,2,0,3,0}'::real[]::sparsevec(6);
+SELECT '{1,0,2,0,3,0}'::real[]::sparsevec(5);
+SELECT '{NULL}'::real[]::sparsevec;
+SELECT '{NaN}'::real[]::sparsevec;
+SELECT '{Infinity}'::real[]::sparsevec;
+SELECT '{-Infinity}'::real[]::sparsevec;
+SELECT '{}'::real[]::sparsevec;
+SELECT '{{1}}'::real[]::sparsevec;
+
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
 

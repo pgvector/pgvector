@@ -208,6 +208,62 @@ SELECT '{1:1e-8}/1'::sparsevec::halfvec;
  [0]
 (1 row)
 
+SELECT ARRAY[1,0,2,0,3,0]::sparsevec;
+      array      
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT ARRAY[1.0,0.0,2.0,0.0,3.0,0.0]::sparsevec;
+      array      
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT ARRAY[1,0,2,0,3,0]::float4[]::sparsevec;
+      array      
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT ARRAY[1,0,2,0,3,0]::float8[]::sparsevec;
+      array      
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT ARRAY[1,0,2,0,3,0]::numeric[]::sparsevec;
+      array      
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT '{1,0,2,0,3,0}'::real[]::sparsevec;
+    sparsevec    
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT '{1,0,2,0,3,0}'::real[]::sparsevec(6);
+    sparsevec    
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT '{1,0,2,0,3,0}'::real[]::sparsevec(5);
+ERROR:  expected 5 dimensions, not 6
+SELECT '{NULL}'::real[]::sparsevec;
+ERROR:  array must not contain nulls
+SELECT '{NaN}'::real[]::sparsevec;
+ERROR:  NaN not allowed in sparsevec
+SELECT '{Infinity}'::real[]::sparsevec;
+ERROR:  infinite value not allowed in sparsevec
+SELECT '{-Infinity}'::real[]::sparsevec;
+ERROR:  infinite value not allowed in sparsevec
+SELECT '{}'::real[]::sparsevec;
+ERROR:  sparsevec must have at least 1 dimension
+SELECT '{{1}}'::real[]::sparsevec;
+ERROR:  array must be 1-D
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
