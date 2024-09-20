@@ -709,7 +709,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 
 #ifdef _MSC_VER
 /* /fp:fast may not propagate +/-Infinity or NaN */
-#define IS_NOT_ZERO(v) (isnan((float) v) || isinf((float) v) || ((float) v) != 0)
+#define IS_NOT_ZERO(v) (isnan((float) (v)) || isinf((float) (v)) || ((float) (v)) != 0)
 #else
 #define IS_NOT_ZERO(v) (((float) (v)) != 0)
 #endif
