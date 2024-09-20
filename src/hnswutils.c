@@ -874,9 +874,6 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			{
 				eElement = unvisited[i].element;
 				eDistance = GetElementDistance(base, eElement, q, procinfo, collation);
-
-				if (!(eDistance < f->distance || alwaysAdd))
-					continue;
 			}
 			else
 			{
@@ -891,6 +888,9 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				if (eElement == NULL)
 					continue;
 			}
+
+			if (!(eDistance < f->distance || alwaysAdd))
+				continue;
 
 			Assert(!eElement->deleted);
 
