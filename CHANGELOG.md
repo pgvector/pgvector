@@ -1,4 +1,4 @@
-## 0.7.5 (unreleased)
+## 0.8.0 (unreleased)
 
 - Reduced memory usage for HNSW index scans
 
