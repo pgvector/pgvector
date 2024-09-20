@@ -1468,7 +1468,7 @@ HnswSearchLayerRelaxedNext(char *base, Datum q, Relation index,
 				HnswCandidate *ec;
 
 				if (index == NULL)
-					eDistance = GetElementDistance(base, e->element.ptr , q, procinfo, collation) ; /// GetCandidateDistance(base, e, q, procinfo, collation);
+					eDistance = GetElementDistance(base, e->element.ptr , q, procinfo, collation) ;
 				else
 					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, false, NULL);
 
@@ -1584,7 +1584,7 @@ HnswSearchLayerRelaxed(IndexScanDesc scan, List *ep, int ef)
 				HnswCandidate *ec;
 
 				if (index == NULL)
-					eDistance = GetElementDistance(base, e->element.ptr , q, procinfo, collation); /// GetCandidateDistance(base, e, q, procinfo, collation);
+					eDistance = GetElementDistance(base, e->element.ptr , q, procinfo, collation);
 				else
 					HnswLoadElement(eElement, &eDistance, &q, index, procinfo, collation, false, NULL);
 
