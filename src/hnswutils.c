@@ -884,7 +884,6 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			HnswPairingHeapNode *node;
 			float		eDistance;
 			bool		alwaysAdd = wlen < ef;
-			bool		discard;
 
 			f = HnswGetPairingHeapCandidate(w_node, pairingheap_first(W));
 
@@ -892,8 +891,6 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			{
 				eElement = unvisited[i].element;
 				eDistance = GetElementDistance(base, eElement, q, procinfo, collation);
-
-				discard = !(eDistance < f->distance || alwaysAdd);
 			}
 			else
 			{
@@ -904,11 +901,9 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
 				HnswLoadElementImpl(blkno, offno, &eDistance, &q, index, procinfo, collation, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
-
-				discard = eElement == NULL || !(eDistance < f->distance || alwaysAdd);
 			}
 
-			if (discard)
+			if (eElement == NULL || !(eDistance < f->distance || alwaysAdd))
 			{
 				if (discarded != NULL)
 				{
