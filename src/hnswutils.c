@@ -246,6 +246,8 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 
 	element->level = level;
 	element->deleted = 0;
+	/* Start at one to make it easier to find issues */
+	element->version = 1;
 
 	HnswInitNeighbors(base, element, m, allocator);
 
@@ -398,6 +400,7 @@ HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element)
 	etup->type = HNSW_ELEMENT_TUPLE_TYPE;
 	etup->level = element->level;
 	etup->deleted = 0;
+	etup->version = element->version;
 	for (int i = 0; i < HNSW_HEAPTIDS; i++)
 	{
 		if (i < element->heaptidsLength)
@@ -440,6 +443,7 @@ HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m)
 	}
 
 	ntup->count = idx;
+	ntup->version = e->version;
 }
 
 /*
@@ -513,6 +517,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 {
 	element->level = etup->level;
 	element->deleted = etup->deleted;
+	element->version = etup->version;
 	element->neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
 	element->neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
 	element->heaptidsLength = 0;
@@ -759,19 +764,29 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	int			start;
 	ItemPointerData indextids[HNSW_MAX_M * 2];
 
+	*unvisitedLength = 0;
+
 	buf = ReadBuffer(index, element->neighborPage);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 
 	ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, element->neighborOffno));
-	start = (element->level - lc) * m;
+
+	/*
+	 * Ensure the neighbor tuple has not been deleted or replaced between
+	 * index scan iterations
+	 */
+	if (ntup->version != element->version)
+	{
+		UnlockReleaseBuffer(buf);
+		return;
+	}
 
 	/* Copy to minimize lock time */
+	start = (element->level - lc) * m;
 	memcpy(&indextids, ntup->indextids + start, lm * sizeof(ItemPointerData));
 
 	UnlockReleaseBuffer(buf);
-
-	*unvisitedLength = 0;
 
 	for (int i = 0; i < lm; i++)
 	{
