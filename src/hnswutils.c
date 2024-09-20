@@ -938,14 +938,14 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 				/* No need to decrement wlen */
 				if (wlen > ef)
 				{
-					HnswPairingHeapNode *node = pairingheap_container(HnswPairingHeapNode, w_node, pairingheap_remove_first(W));
-					HnswCandidate *hc = node->inner;
+					HnswPairingHeapNode *furthestNode = pairingheap_container(HnswPairingHeapNode, w_node, pairingheap_remove_first(W));
+					HnswCandidate *hc = furthestNode->inner;
 
 					if (discarded != NULL)
 						*discarded = lappend(*discarded, hc);
 
 					/* TODO */
-					/* pfree(node); */
+					/* pfree(furthestNode); */
 				}
 			}
 		}
