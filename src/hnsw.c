@@ -131,6 +131,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	/* Account for number of tuples (or entry level), m, and ef_search */
 	costs.numIndexTuples = (entryLevel + 2) * m;
 
+	/* TODO Adjust for selectivity for iterative scans */
+
 	genericcostestimate(root, path, loop_count, &costs);
 
 	/* Use total cost since most work happens before first tuple is returned */
