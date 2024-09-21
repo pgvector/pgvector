@@ -82,7 +82,7 @@ EstimateProbes(PlannerInfo *root, IndexPath *path, int lists)
 	{
 		RestrictInfo *rinfo = lfirst(lc);
 
-		/* Skip DEFAULT_INEQ_SEL since it may be distance filter */
+		/* Skip DEFAULT_INEQ_SEL since it may be a distance filter */
 		if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1 && rinfo->norm_selec != (Selectivity) DEFAULT_INEQ_SEL)
 			selectivity *= rinfo->norm_selec;
 	}
