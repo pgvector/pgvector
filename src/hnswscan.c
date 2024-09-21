@@ -3,6 +3,7 @@
 #include "access/relscan.h"
 #include "hnsw.h"
 #include "pgstat.h"
+#include "portability/instr_time.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
@@ -33,11 +34,11 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, &so->start);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->start);
 }
 
 /*
@@ -89,6 +90,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	so->collation = index->rd_indcollation[0];
+
+	if (hnsw_time_budget != -1)
+		INSTR_TIME_SET_CURRENT(so->start);
 
 	scan->opaque = so;
 

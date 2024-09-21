@@ -9,6 +9,7 @@
 #include "fmgr.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
+#include "portability/instr_time.h"
 #include "sparsevec.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
@@ -799,7 +800,7 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement)
+HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement, instr_time *start)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -849,6 +850,17 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		HnswCandidate *c = HnswGetPairingHeapCandidate(c_node, pairingheap_remove_first(C));
 		HnswCandidate *f = HnswGetPairingHeapCandidate(w_node, pairingheap_first(W));
 		HnswElement cElement;
+
+		/* Check time budget */
+		if (hnsw_time_budget != -1)
+		{
+			instr_time	duration;
+
+			INSTR_TIME_SET_CURRENT(duration);
+			INSTR_TIME_SUBTRACT(duration, *start);
+			if (INSTR_TIME_GET_MILLISEC(duration) >= hnsw_time_budget)
+				break;
+		}
 
 		if (c->distance > f->distance)
 			break;
@@ -1291,7 +1303,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, true, skipElement, NULL);
 		ep = w;
 	}
 
@@ -1309,7 +1321,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *neighbors;
 		List	   *lw;
 
-		w = HnswSearchLayer(base, q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement);
+		w = HnswSearchLayer(base, q, ep, efConstruction, lc, index, procinfo, collation, m, true, skipElement, NULL);
 
 		/* Elements being deleted or skipped can help with search */
 		/* but should be removed before selecting neighbors */

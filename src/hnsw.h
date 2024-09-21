@@ -106,6 +106,7 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
+extern int	hnsw_time_budget;
 extern int	hnsw_lock_tranche_id;
 
 typedef struct HnswElementData HnswElementData;
@@ -330,6 +331,7 @@ typedef struct HnswScanOpaqueData
 	bool		first;
 	List	   *w;
 	MemoryContext tmpCtx;
+	instr_time	start;
 
 	/* Support functions */
 	FmgrInfo   *procinfo;
@@ -374,7 +376,7 @@ bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
+List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement, instr_time *start);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
