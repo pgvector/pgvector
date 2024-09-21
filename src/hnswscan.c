@@ -204,6 +204,10 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (!hnsw_streaming)
 				break;
 
+			/*
+			 * Ensure vacuum does not mark tuples as deleted during an
+			 * iteration
+			 */
 			LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 			HnswBench("scan iteration", so->w = ResumeScanItems(scan));
