@@ -226,6 +226,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		{
 			so->w = list_delete_last(so->w);
 
+			/* Mark memory as free for next iteration */
 			if (hnsw_streaming)
 			{
 				pfree(element);
