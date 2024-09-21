@@ -824,8 +824,6 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	if (v == NULL)
 	{
 		v = &v2;
-
-		/* Keep scan-build happy */
 		initVisited = true;
 	}
 
@@ -846,7 +844,8 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		bool		found;
 		HnswPairingHeapNode *node;
 
-		AddToVisited(base, v, hc->element, index, &found);
+		if (initVisited)
+			AddToVisited(base, v, hc->element, index, &found);
 
 		node = CreatePairingHeapNode(hc);
 		pairingheap_add(C, &node->c_node);
