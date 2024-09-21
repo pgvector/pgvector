@@ -225,8 +225,13 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
-			pfree(element);
-			pfree(hc);
+
+			if (hnsw_streaming)
+			{
+				pfree(element);
+				pfree(hc);
+			}
+
 			continue;
 		}
 
