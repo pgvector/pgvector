@@ -852,7 +852,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		HnswElement cElement;
 
 		/* Check time budget */
-		if (hnsw_time_budget != -1)
+		if (start != NULL)
 		{
 			instr_time	duration;
 

@@ -23,6 +23,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	int			m;
 	HnswElement entryPoint;
 	char	   *base = NULL;
+	instr_time *start = hnsw_time_budget == -1 ? NULL : &so->start;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
@@ -34,11 +35,11 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, &so->start);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, start);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->start);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, start);
 }
 
 /*
