@@ -63,6 +63,35 @@ ivfflatbuildphasename(int64 phasenum)
 }
 
 /*
+ * Estimate the number of probes for iterative scans
+ */
+static int
+EstimateProbes(PlannerInfo *root, IndexPath *path, int lists)
+{
+	double		selectivity = 1;
+	ListCell   *lc;
+	double		tuplesPerList;
+
+	/* Cannot estimate without limit */
+	/* limit_tuples includes offset */
+	if (root->limit_tuples < 0)
+		return 0;
+
+	/* Get the selectivity of non-index conditions */
+	foreach(lc, path->indexinfo->indrestrictinfo)
+	{
+		RestrictInfo *rinfo = lfirst(lc);
+
+		/* Skip DEFAULT_INEQ_SEL since it may be distance filter */
+		if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1 && rinfo->norm_selec != (Selectivity) DEFAULT_INEQ_SEL)
+			selectivity *= rinfo->norm_selec;
+	}
+
+	tuplesPerList = path->indexinfo->tuples / (double) lists;
+	return root->limit_tuples / (tuplesPerList * selectivity);
+}
+
+/*
  * Estimate the cost of an index scan
  */
 static void
@@ -73,6 +102,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 {
 	GenericCosts costs;
 	int			lists;
+	int			probes;
 	double		ratio;
 	double		spc_seq_page_cost;
 	Relation	index;
@@ -93,6 +123,10 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	IvfflatGetMetaPageInfo(index, &lists, NULL);
 	index_close(index, NoLock);
+
+	probes = ivfflat_probes;
+	if (ivfflat_streaming)
+		probes = Max(probes, EstimateProbes(root, path, lists));
 
 	/* Get the ratio of lists that we need to visit */
 	ratio = ((double) ivfflat_probes) / lists;
