@@ -235,7 +235,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			{
 				/*
 				 * Ensure vacuum does not mark tuples as deleted during an
-				 * iteration
+				 * iteration. This ensures indextids in NeighborTuple point to
+				 * the correct element without needing version for each one.
 				 */
 				LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
