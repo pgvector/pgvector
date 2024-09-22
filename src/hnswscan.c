@@ -252,11 +252,11 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				HnswBench("scan iteration", so->w = ResumeScanItems(scan));
 
 				UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
-			}
 
 #if defined(HNSW_MEMORY)
-			elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
+				elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
 #endif
+			}
 
 			if (list_length(so->w) == 0)
 				break;
