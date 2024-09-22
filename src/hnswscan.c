@@ -265,8 +265,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		hc = llast(so->w);
 		element = HnswPtrAccess(base, hc->element);
 
-		elog(INFO, "distance = %f", hc->distance);
-
 		/* Move to next element if no valid heap TIDs */
 		if (element->heaptidsLength == 0)
 		{
