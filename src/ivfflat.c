@@ -17,6 +17,7 @@
 #endif
 
 int			ivfflat_probes;
+int			ivfflat_max_probes;
 bool		ivfflat_streaming;
 static relopt_kind ivfflat_relopt_kind;
 
@@ -33,6 +34,10 @@ IvfflatInit(void)
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
 							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative scans",
+							NULL, &ivfflat_max_probes,
+							-1, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	DefineCustomBoolVariable("ivfflat.streaming", "Use streaming mode",
 							 NULL, &ivfflat_streaming,

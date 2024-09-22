@@ -262,7 +262,15 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	if (probes > lists)
 		probes = lists;
 
-	maxProbes = ivfflat_streaming ? lists : probes;
+	if (ivfflat_streaming)
+	{
+		if (ivfflat_max_probes == -1)
+			maxProbes = lists;
+		else
+			maxProbes = ivfflat_max_probes;
+	}
+	else
+		maxProbes = probes;
 
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + maxProbes * sizeof(IvfflatScanList));
 	so->typeInfo = IvfflatGetTypeInfo(index);

@@ -81,6 +81,7 @@
 
 /* Variables */
 extern int	ivfflat_probes;
+extern int	ivfflat_max_probes;
 extern bool ivfflat_streaming;
 
 typedef struct VectorArrayData
