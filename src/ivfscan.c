@@ -34,21 +34,6 @@ CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 }
 
 /*
- * Compare list distances for streaming
- */
-static int
-CompareListsStreaming(const pairingheap_node *a, const pairingheap_node *b, void *arg)
-{
-	if (((const IvfflatScanList *) a)->distance > ((const IvfflatScanList *) b)->distance)
-		return -1;
-
-	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
-		return 1;
-
-	return 0;
-}
-
-/*
  * Get lists and sort by distance
  */
 static void
@@ -117,6 +102,11 @@ GetScanLists(IndexScanDesc scan, Datum value)
 
 		UnlockReleaseBuffer(cbuf);
 	}
+
+	for (int i = listCount - 1; i >= 0; i--)
+		so->startPages[i] = GetScanList(pairingheap_remove_first(so->listQueue))->startPage;
+
+	Assert(pairingheap_is_empty(so->listQueue));
 }
 
 /*
@@ -134,9 +124,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	tuplesort_reset(so->sortstate);
 
 	/* Search closest probes lists */
-	while (!pairingheap_is_empty(so->listQueue) && (++batchProbes) <= so->probes)
+	while (so->currentIndex < so->maxProbes && (++batchProbes) <= so->probes)
 	{
-		BlockNumber searchPage = GetScanList(pairingheap_remove_first(so->listQueue))->startPage;
+		BlockNumber searchPage = so->startPages[so->currentIndex++];
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
@@ -305,11 +295,9 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	 */
 	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
-	/* Order by closest list for streaming */
-	if (ivfflat_streaming)
-		so->listQueue = pairingheap_allocate(CompareListsStreaming, scan);
-	else
-		so->listQueue = pairingheap_allocate(CompareLists, scan);
+	so->listQueue = pairingheap_allocate(CompareLists, scan);
+	so->startPages = palloc(maxProbes * sizeof(BlockNumber));
+	so->currentIndex = 0;
 
 	scan->opaque = so;
 
@@ -326,6 +314,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 
 	so->first = true;
 	pairingheap_reset(so->listQueue);
+	so->currentIndex = 0;
 
 	if (keys && scan->numberOfKeys > 0)
 		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
@@ -377,7 +366,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
 	{
-		if (pairingheap_is_empty(so->listQueue))
+		if (so->currentIndex == so->maxProbes)
 			return false;
 
 		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
@@ -400,6 +389,7 @@ ivfflatendscan(IndexScanDesc scan)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
 	pairingheap_free(so->listQueue);
+	pfree(so->startPages);
 	tuplesort_end(so->sortstate);
 	FreeAccessStrategy(so->bas);
 	FreeTupleDesc(so->tupdesc);
