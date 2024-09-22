@@ -217,7 +217,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (!hnsw_streaming)
 				break;
 
-			if (MemoryContextMemAllocated(so->tmpCtx, false) > (work_mem * 1024L))
+			if (MemoryContextMemAllocated(so->tmpCtx, false) > (Size) work_mem * 1024L)
 			{
 				if (pairingheap_is_empty(so->discarded))
 				{
