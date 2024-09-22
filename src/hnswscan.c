@@ -131,6 +131,7 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 		tidhash_reset(so->v.tids);
 	so->first = true;
 	so->discarded = NIL;
+	so->tuples = 0;
 	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -204,15 +205,34 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (!hnsw_streaming)
 				break;
 
-			/*
-			 * Ensure vacuum does not mark tuples as deleted during an
-			 * iteration
-			 */
-			LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+			if (MemoryContextMemAllocated(so->tmpCtx, false) > (work_mem * 1024L))
+			{
+				if (list_length(so->discarded) == 0)
+				{
+					ereport(NOTICE,
+							(errmsg("iterative search exceeded work_mem after " INT64_FORMAT " tuples", so->tuples),
+							 errhint("Increase work_mem to scan more tuples.")));
 
-			HnswBench("scan iteration", so->w = ResumeScanItems(scan));
+					break;
+				}
 
-			UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+				/* Return remaining tuples and exit */
+				/* TODO sort */
+				so->w = so->discarded;
+				so->discarded = NIL;
+			}
+			else
+			{
+				/*
+				 * Ensure vacuum does not mark tuples as deleted during an
+				 * iteration
+				 */
+				LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+				HnswBench("scan iteration", so->w = ResumeScanItems(scan));
+
+				UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+			}
 
 #if defined(HNSW_MEMORY)
 			elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
@@ -239,6 +259,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 			continue;
 		}
+
+		so->tuples++;
 
 		heaptid = &element->heaptids[--element->heaptidsLength];
 

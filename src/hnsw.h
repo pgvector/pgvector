@@ -363,6 +363,7 @@ typedef struct HnswScanOpaqueData
 	List	   *discarded;
 	Datum		q;
 	int			m;
+	int64		tuples;
 	MemoryContext tmpCtx;
 
 	/* Support functions */
