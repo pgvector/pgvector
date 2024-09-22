@@ -15,16 +15,19 @@
 #include "utils/memutils.h"
 #endif
 
+#define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
+#define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
+
 /*
  * Compare list distances
  */
 static int
 CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	if (((const IvfflatScanList *) a)->distance > ((const IvfflatScanList *) b)->distance)
+	if (GetScanListConst(a)->distance > GetScanListConst(b)->distance)
 		return 1;
 
-	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
+	if (GetScanListConst(a)->distance < GetScanListConst(b)->distance)
 		return -1;
 
 	return 0;
@@ -76,14 +79,14 @@ GetScanLists(IndexScanDesc scan, Datum value)
 
 				/* Calculate max distance */
 				if (listCount == so->probes)
-					maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+					maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
 			}
 			else if (distance < maxDistance)
 			{
 				IvfflatScanList *scanlist;
 
 				/* Remove */
-				scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
+				scanlist = GetScanList(pairingheap_remove_first(so->listQueue));
 
 				/* Reuse */
 				scanlist->startPage = list->startPage;
@@ -91,7 +94,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 				pairingheap_add(so->listQueue, &scanlist->ph_node);
 
 				/* Update max distance */
-				maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+				maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
 			}
 		}
 
@@ -122,7 +125,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	/* Search closest probes lists */
 	while (!pairingheap_is_empty(so->listQueue))
 	{
-		BlockNumber searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
+		BlockNumber searchPage = GetScanList(pairingheap_remove_first(so->listQueue))->startPage;
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
