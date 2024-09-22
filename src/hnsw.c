@@ -69,9 +69,12 @@ HnswInit(void)
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
 
+	/* TODO Figure out name */
 	DefineCustomBoolVariable("hnsw.streaming", "Use streaming mode",
 							 NULL, &hnsw_streaming,
 							 HNSW_DEFAULT_STREAMING, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	/* TODO Add option for limiting iterative search */
 
 	MarkGUCPrefixReserved("hnsw");
 }
