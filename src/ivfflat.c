@@ -131,10 +131,15 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	probes = ivfflat_probes;
 	if (ivfflat_streaming)
+	{
 		probes = Max(probes, EstimateProbes(root, path, lists));
 
+		if (ivfflat_max_probes != -1)
+			probes = Min(probes, ivfflat_max_probes);
+	}
+
 	/* Get the ratio of lists that we need to visit */
-	ratio = ((double) ivfflat_probes) / lists;
+	ratio = ((double) probes) / lists;
 	if (ratio > 1.0)
 		ratio = 1.0;
 
