@@ -128,15 +128,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 	double		tuples = 0;
-	TupleTableSlot *slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
+	TupleTableSlot *slot = so->vslot;
 	int			batchProbes = 0;
-
-	/*
-	 * Reuse same set of shared buffers for scan
-	 *
-	 * See postgres/src/backend/storage/buffer/README for description
-	 */
-	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
 	tuplesort_reset(so->sortstate);
 
@@ -152,7 +145,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			Page		page;
 			OffsetNumber maxoffno;
 
-			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
+			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, so->bas);
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
 			maxoffno = PageGetMaxOffsetNumber(page);
@@ -190,8 +183,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			UnlockReleaseBuffer(buf);
 		}
 	}
-
-	FreeAccessStrategy(bas);
 
 	if (tuples < 100 && !ivfflat_streaming)
 		ereport(DEBUG1,
@@ -303,7 +294,16 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	/* Prep sort */
 	so->sortstate = InitScanSortState(so->tupdesc);
 
-	so->slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+	/* Need separate slots for puttuple and gettuple */
+	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
+	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+
+	/*
+	 * Reuse same set of shared buffers for scan
+	 *
+	 * See postgres/src/backend/storage/buffer/README for description
+	 */
+	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
 	/* Order by closest list for streaming */
 	if (ivfflat_streaming)
@@ -342,6 +342,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	ItemPointer heaptid;
+	bool		isnull;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -374,7 +375,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		/* TODO clean up if we allocated a new value */
 	}
 
-	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
+	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
 	{
 		if (pairingheap_is_empty(so->listQueue))
 			return false;
@@ -382,7 +383,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
 	}
 
-	heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
+	heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
 
 	scan->xs_heaptid = *heaptid;
 	scan->xs_recheck = false;
@@ -400,6 +401,10 @@ ivfflatendscan(IndexScanDesc scan)
 
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);
+	FreeAccessStrategy(so->bas);
+	FreeTupleDesc(so->tupdesc);
+
+	/* TODO Free vslot and mslot without freeing TupleDesc */
 
 	pfree(so);
 	scan->opaque = NULL;
