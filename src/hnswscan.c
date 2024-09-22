@@ -142,6 +142,24 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 }
 
 /*
+ * Compare search candidate distances
+ */
+static int
+CompareSearchCandidateDistances(const ListCell *a, const ListCell *b)
+{
+	HnswSearchCandidate *hca = lfirst(a);
+	HnswSearchCandidate *hcb = lfirst(b);
+
+	if (hca->distance < hcb->distance)
+		return 1;
+
+	if (hca->distance > hcb->distance)
+		return -1;
+
+	return 0;
+}
+
+/*
  * Fetch the next tuple in the given scan
  */
 bool
@@ -216,10 +234,12 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 					break;
 				}
 
-				/* Return remaining tuples and exit */
-				/* TODO sort */
+				/* Return remaining tuples */
 				so->w = so->discarded;
 				so->discarded = NIL;
+
+				/* Sort in reverse order since results are removed from end */
+				list_sort(so->w, CompareSearchCandidateDistances);
 			}
 			else
 			{
@@ -244,6 +264,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		hc = llast(so->w);
 		element = HnswPtrAccess(base, hc->element);
+
+		elog(INFO, "distance = %f", hc->distance);
 
 		/* Move to next element if no valid heap TIDs */
 		if (element->heaptidsLength == 0)
