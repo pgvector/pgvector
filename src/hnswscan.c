@@ -53,14 +53,24 @@ ResumeScanItems(IndexScanDesc scan)
 	Relation	index = scan->indexRelation;
 	FmgrInfo   *procinfo = so->procinfo;
 	Oid			collation = so->collation;
-	List	   *ep;
+	List	   *ep = NIL;
 	char	   *base = NULL;
 
-	if (list_length(so->discarded) == 0)
+	if (pairingheap_is_empty(so->discarded))
 		return NIL;
 
-	ep = so->discarded;
-	so->discarded = NIL;
+	for (int i = 0; i < hnsw_ef_search; i++)
+	{
+		HnswSearchCandidate *hc;
+
+		if (pairingheap_is_empty(so->discarded))
+			break;
+
+		hc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded));
+
+		ep = lappend(ep, hc);
+	}
+
 	return HnswSearchLayer(base, so->q, ep, hnsw_ef_search, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false);
 }
 
@@ -128,9 +138,11 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
 	if (!so->first)
+	{
+		pairingheap_reset(so->discarded);
 		tidhash_reset(so->v.tids);
+	}
 	so->first = true;
-	so->discarded = NIL;
 	so->tuples = 0;
 	MemoryContextReset(so->tmpCtx);
 
@@ -139,24 +151,6 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 
 	if (orderbys && scan->numberOfOrderBys > 0)
 		memmove(scan->orderByData, orderbys, scan->numberOfOrderBys * sizeof(ScanKeyData));
-}
-
-/*
- * Compare search candidate distances
- */
-static int
-CompareSearchCandidateDistances(const ListCell *a, const ListCell *b)
-{
-	HnswSearchCandidate *hca = lfirst(a);
-	HnswSearchCandidate *hcb = lfirst(b);
-
-	if (hca->distance < hcb->distance)
-		return 1;
-
-	if (hca->distance > hcb->distance)
-		return -1;
-
-	return 0;
 }
 
 /*
@@ -225,7 +219,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 			if (MemoryContextMemAllocated(so->tmpCtx, false) > (work_mem * 1024L))
 			{
-				if (list_length(so->discarded) == 0)
+				if (pairingheap_is_empty(so->discarded))
 				{
 					ereport(NOTICE,
 							(errmsg("hnsw iterative search exceeded work_mem after " INT64_FORMAT " tuples", so->tuples),
@@ -235,11 +229,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				}
 
 				/* Return remaining tuples */
-				so->w = so->discarded;
-				so->discarded = NIL;
-
-				/* Sort in reverse order since results are removed from end */
-				list_sort(so->w, CompareSearchCandidateDistances);
+				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
 			}
 			else
 			{

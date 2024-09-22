@@ -185,6 +185,9 @@ typedef struct HnswSearchCandidate
 	float		distance;
 }			HnswSearchCandidate;
 
+#define HnswGetSearchCandidate(membername, ptr) pairingheap_container(HnswSearchCandidate, membername, ptr)
+#define HnswGetSearchCandidateConst(membername, ptr) pairingheap_const_container(HnswSearchCandidate, membername, ptr)
+
 /* HNSW index options */
 typedef struct HnswOptions
 {
@@ -360,7 +363,7 @@ typedef struct HnswScanOpaqueData
 	bool		first;
 	List	   *w;
 	visited_hash v;
-	List	   *discarded;
+	pairingheap *discarded;
 	Datum		q;
 	int			m;
 	int64		tuples;
@@ -409,7 +412,7 @@ bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement, visited_hash * v, List **discarded, bool initVisited);
+List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
