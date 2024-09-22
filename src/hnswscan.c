@@ -233,7 +233,11 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			}
 			else
 			{
-				/* TODO Figure out locking */
+				/*
+				 * Locking ensures when neighbors are read, the elements they
+				 * reference will not be marked as deleted (and replaced)
+				 * during the iteration
+				 */
 				LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 				HnswBench("scan iteration", so->w = ResumeScanItems(scan));
