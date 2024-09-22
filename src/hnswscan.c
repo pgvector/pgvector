@@ -161,14 +161,14 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->first = false;
 
 #if defined(HNSW_MEMORY)
-		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(so->tmpCtx, false) / (1024 * 1024));
+		elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
 #endif
 	}
 
 	while (list_length(so->w) > 0)
 	{
 		char	   *base = NULL;
-		HnswCandidate *hc = llast(so->w);
+		HnswSearchCandidate *hc = llast(so->w);
 		HnswElement element = HnswPtrAccess(base, hc->element);
 		ItemPointer heaptid;
 
