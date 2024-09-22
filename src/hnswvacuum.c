@@ -529,7 +529,10 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Increment version */
 			/* This is used to avoid incorrect reads for iterative scans */
+			/* Only use some bits */
 			etup->version++;
+			if (etup->version > 15)
+				etup->version = 1;
 			ntup->version = etup->version;
 
 			/*
