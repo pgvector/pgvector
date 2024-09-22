@@ -233,13 +233,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			}
 			else
 			{
-				/*
-				 * Ensure vacuum does not mark tuples as deleted during an
-				 * iteration. This ensures indextids in NeighborTuple point to
-				 * the correct element without needing version for each one.
-				 * SearchLayer must load neighbor elements in the same
-				 * iteration as reading NeighborTuple for this to work.
-				 */
+				/* TODO Figure out locking */
 				LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 				HnswBench("scan iteration", so->w = ResumeScanItems(scan));
