@@ -18,6 +18,7 @@
 #endif
 
 int			hnsw_ef_search;
+bool		hnsw_streaming;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
@@ -67,6 +68,13 @@ HnswInit(void)
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	/* TODO Figure out name */
+	DefineCustomBoolVariable("hnsw.streaming", "Use streaming mode",
+							 NULL, &hnsw_streaming,
+							 HNSW_DEFAULT_STREAMING, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	/* TODO Add option for limiting iterative search */
 
 	MarkGUCPrefixReserved("hnsw");
 }
@@ -125,6 +133,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	/* TODO Improve estimate of visited tuples (currently underestimates) */
 	/* Account for number of tuples (or entry level), m, and ef_search */
 	costs.numIndexTuples = (entryLevel + 2) * m;
+
+	/* TODO Adjust for selectivity for iterative scans */
 
 	genericcostestimate(root, path, loop_count, &costs);
 
