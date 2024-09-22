@@ -376,6 +376,9 @@ ivfflatendscan(IndexScanDesc scan)
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);
 	FreeAccessStrategy(so->bas);
+	FreeTupleDesc(so->tupdesc);
+
+	/* TODO Free vslot and mslot without freeing TupleDesc */
 
 	pfree(so);
 	scan->opaque = NULL;
