@@ -55,11 +55,13 @@ ResumeScanItems(IndexScanDesc scan)
 	Oid			collation = so->collation;
 	List	   *ep = NIL;
 	char	   *base = NULL;
+	int			batch_size = hnsw_ef_search;
 
 	if (pairingheap_is_empty(so->discarded))
 		return NIL;
 
-	for (int i = 0; i < hnsw_ef_search; i++)
+	/* Get next batch of candidates */
+	for (int i = 0; i < batch_size; i++)
 	{
 		HnswSearchCandidate *hc;
 
@@ -71,7 +73,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, hc);
 	}
 
-	return HnswSearchLayer(base, so->q, ep, hnsw_ef_search, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false);
+	return HnswSearchLayer(base, so->q, ep, batch_size, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false);
 }
 
 /*
@@ -217,6 +219,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (!hnsw_streaming)
 				break;
 
+			/* Prevent scans from consuming too much memory */
 			if (MemoryContextMemAllocated(so->tmpCtx, false) > (Size) work_mem * 1024L)
 			{
 				if (pairingheap_is_empty(so->discarded))
