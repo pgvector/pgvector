@@ -36,11 +36,11 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, NULL, NULL, true);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_streaming ? &so->discarded : NULL, true);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_streaming ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -73,7 +73,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, hc);
 	}
 
-	return HnswSearchLayer(base, so->q, ep, batch_size, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false);
+	return HnswSearchLayer(base, so->q, ep, batch_size, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
 }
 
 /*
@@ -219,8 +219,17 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (!hnsw_streaming)
 				break;
 
+			/* Reached max number of additional tuples */
+			if (hnsw_ef_stream != -1 && so->tuples >= hnsw_ef_search + hnsw_ef_stream)
+			{
+				if (pairingheap_is_empty(so->discarded))
+					break;
+
+				/* Return remaining tuples */
+				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
+			}
 			/* Prevent scans from consuming too much memory */
-			if (MemoryContextMemAllocated(so->tmpCtx, false) > (Size) work_mem * 1024L)
+			else if (MemoryContextMemAllocated(so->tmpCtx, false) > (Size) work_mem * 1024L)
 			{
 				if (pairingheap_is_empty(so->discarded))
 				{
@@ -277,8 +286,6 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 			continue;
 		}
-
-		so->tuples++;
 
 		heaptid = &element->heaptids[--element->heaptidsLength];
 

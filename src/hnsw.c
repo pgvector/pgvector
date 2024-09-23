@@ -18,6 +18,7 @@
 #endif
 
 int			hnsw_ef_search;
+int			hnsw_ef_stream;
 bool		hnsw_streaming;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
@@ -74,7 +75,10 @@ HnswInit(void)
 							 NULL, &hnsw_streaming,
 							 HNSW_DEFAULT_STREAMING, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	/* TODO Add option for limiting iterative search */
+	/* TODO Figure out name */
+	DefineCustomIntVariable("hnsw.ef_stream", "Sets the max number of additional candidates to visit for streaming search",
+							"-1 means all", &hnsw_ef_stream,
+							HNSW_DEFAULT_EF_STREAM, HNSW_MIN_EF_STREAM, HNSW_MAX_EF_STREAM, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }
