@@ -40,7 +40,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, &so->discarded, true);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_streaming ? &so->discarded : NULL, true);
 }
 
 /*
