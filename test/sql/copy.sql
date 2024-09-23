@@ -28,6 +28,21 @@ SELECT * FROM t2 ORDER BY val;
 DROP TABLE t;
 DROP TABLE t2;
 
+-- intvec
+
+CREATE TABLE t (val intvec(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+
+CREATE TABLE t2 (val intvec(3));
+
+\copy t TO 'results/intvec.bin' WITH (FORMAT binary)
+\copy t2 FROM 'results/intvec.bin' WITH (FORMAT binary)
+
+SELECT * FROM t2 ORDER BY val;
+
+DROP TABLE t;
+DROP TABLE t2;
+
 -- sparsevec
 
 CREATE TABLE t (val sparsevec(3));

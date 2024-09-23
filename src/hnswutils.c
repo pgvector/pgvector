@@ -1375,6 +1375,19 @@ hnsw_halfvec_support(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(&typeInfo);
 };
 
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_intvec_support);
+Datum
+hnsw_intvec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = HNSW_MAX_DIM * 4,
+		.normalize = NULL,
+		.checkValue = NULL
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_bit_support);
 Datum
 hnsw_bit_support(PG_FUNCTION_ARGS)
