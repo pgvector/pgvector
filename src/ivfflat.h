@@ -253,8 +253,9 @@ typedef struct IvfflatScanOpaqueData
 	/* Sorting */
 	Tuplesortstate *sortstate;
 	TupleDesc	tupdesc;
-	TupleTableSlot *slot;
-	bool		isnull;
+	TupleTableSlot *vslot;
+	TupleTableSlot *mslot;
+	BufferAccessStrategy bas;
 
 	/* Support functions */
 	FmgrInfo   *procinfo;

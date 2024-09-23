@@ -445,6 +445,63 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
+## Streaming Queries [unreleased]
+
+*Added in 0.8.0*
+
+With approximate indexes, you can end up with less results than expected due to filtering conditions in the query.
+
+Starting with 0.8.0, you can enable streaming queries. If too few results from the initial index scan match the query filters, it will resume scanning until enough results are found. This can significantly improve recall (at the cost of speed).
+
+```tsql
+SET hnsw.streaming = on;
+-- or
+SET ivfflat.streaming = off;
+```
+
+### Streaming Options
+
+Since scanning a large portion of the index is expensive, there are options to control when the scan ends.
+
+#### HNSW
+
+Specify the max number of additional tuples visited
+
+```sql
+SET hnsw.ef_stream = 10000;
+```
+
+The scan will also end if reaches `work_mem`, at which point a notice is shown
+
+```text
+NOTICE:  hnsw index scan exceeded work_mem after 50000 tuples
+HINT:  Increase work_mem to scan more tuples.
+```
+
+Adjust this with:
+
+```sql
+SET work_mem = '8MB';
+```
+
+#### IVFFlat
+
+Specify the max number of probes
+
+```sql
+SET ivfflat.max_probes = 100;
+```
+
+### Streaming Order
+
+With streaming queries, it’s possible for rows to be slightly out of order by distance. For strict ordering, use:
+
+```sql
+WITH approx_order AS MATERIALIZED (
+    SELECT *, embedding <-> '[1,2,3]' AS distance FROM items WHERE ... ORDER BY distance LIMIT 5
+) SELECT * FROM approx_order ORDER BY distance;
+```
+
 ## Half-Precision Vectors
 
 *Added in 0.7.0*

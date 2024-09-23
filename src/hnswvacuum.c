@@ -527,6 +527,14 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			for (int i = 0; i < ntup->count; i++)
 				ItemPointerSetInvalid(&ntup->indextids[i]);
 
+			/* Increment version */
+			/* This is used to avoid incorrect reads for iterative scans */
+			/* Reserve some bits for future use */
+			etup->version++;
+			if (etup->version > 15)
+				etup->version = 1;
+			ntup->version = etup->version;
+
 			/*
 			 * We modified the tuples in place, no need to call
 			 * PageIndexTupleOverwrite

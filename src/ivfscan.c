@@ -15,16 +15,19 @@
 #include "utils/memutils.h"
 #endif
 
+#define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
+#define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
+
 /*
  * Compare list distances
  */
 static int
 CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	if (((const IvfflatScanList *) a)->distance > ((const IvfflatScanList *) b)->distance)
+	if (GetScanListConst(a)->distance > GetScanListConst(b)->distance)
 		return 1;
 
-	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
+	if (GetScanListConst(a)->distance < GetScanListConst(b)->distance)
 		return -1;
 
 	return 0;
@@ -76,14 +79,14 @@ GetScanLists(IndexScanDesc scan, Datum value)
 
 				/* Calculate max distance */
 				if (listCount == so->probes)
-					maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+					maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
 			}
 			else if (distance < maxDistance)
 			{
 				IvfflatScanList *scanlist;
 
 				/* Remove */
-				scanlist = (IvfflatScanList *) pairingheap_remove_first(so->listQueue);
+				scanlist = GetScanList(pairingheap_remove_first(so->listQueue));
 
 				/* Reuse */
 				scanlist->startPage = list->startPage;
@@ -91,7 +94,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 				pairingheap_add(so->listQueue, &scanlist->ph_node);
 
 				/* Update max distance */
-				maxDistance = ((IvfflatScanList *) pairingheap_first(so->listQueue))->distance;
+				maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
 			}
 		}
 
@@ -110,19 +113,12 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 	double		tuples = 0;
-	TupleTableSlot *slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
-
-	/*
-	 * Reuse same set of shared buffers for scan
-	 *
-	 * See postgres/src/backend/storage/buffer/README for description
-	 */
-	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
+	TupleTableSlot *slot = so->vslot;
 
 	/* Search closest probes lists */
 	while (!pairingheap_is_empty(so->listQueue))
 	{
-		BlockNumber searchPage = ((IvfflatScanList *) pairingheap_remove_first(so->listQueue))->startPage;
+		BlockNumber searchPage = GetScanList(pairingheap_remove_first(so->listQueue))->startPage;
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
@@ -131,7 +127,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			Page		page;
 			OffsetNumber maxoffno;
 
-			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
+			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, so->bas);
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
 			maxoffno = PageGetMaxOffsetNumber(page);
@@ -169,8 +165,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			UnlockReleaseBuffer(buf);
 		}
 	}
-
-	FreeAccessStrategy(bas);
 
 	if (tuples < 100)
 		ereport(DEBUG1,
@@ -274,7 +268,16 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	/* Prep sort */
 	so->sortstate = InitScanSortState(so->tupdesc);
 
-	so->slot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+	/* Need separate slots for puttuple and gettuple */
+	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
+	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+
+	/*
+	 * Reuse same set of shared buffers for scan
+	 *
+	 * See postgres/src/backend/storage/buffer/README for description
+	 */
+	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
 
@@ -348,9 +351,10 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 			pfree(DatumGetPointer(value));
 	}
 
-	if (tuplesort_gettupleslot(so->sortstate, true, false, so->slot, NULL))
+	if (tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
 	{
-		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->slot, 2, &so->isnull));
+		bool		isnull;
+		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
 
 		scan->xs_heaptid = *heaptid;
 		scan->xs_recheck = false;
@@ -371,6 +375,10 @@ ivfflatendscan(IndexScanDesc scan)
 
 	pairingheap_free(so->listQueue);
 	tuplesort_end(so->sortstate);
+	FreeAccessStrategy(so->bas);
+	FreeTupleDesc(so->tupdesc);
+
+	/* TODO Free vslot and mslot without freeing TupleDesc */
 
 	pfree(so);
 	scan->opaque = NULL;

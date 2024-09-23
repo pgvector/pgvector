@@ -12,6 +12,10 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
+#ifdef HNSW_BENCH
+#include "portability/instr_time.h"
+#endif
+
 #define HNSW_MAX_DIM 2000
 #define HNSW_MAX_NNZ 1000
 
@@ -42,6 +46,10 @@
 #define HNSW_DEFAULT_EF_SEARCH	40
 #define HNSW_MIN_EF_SEARCH		1
 #define HNSW_MAX_EF_SEARCH		1000
+#define HNSW_DEFAULT_STREAMING	false
+#define HNSW_DEFAULT_EF_STREAM	-1
+#define HNSW_MIN_EF_STREAM		-1
+#define HNSW_MAX_EF_STREAM		INT_MAX
 
 /* Tuple types */
 #define HNSW_ELEMENT_TUPLE_TYPE  1
@@ -67,6 +75,21 @@
 
 #define HnswPageGetOpaque(page)	((HnswPageOpaque) PageGetSpecialPointer(page))
 #define HnswPageGetMeta(page)	((HnswMetaPageData *) PageGetContents(page))
+
+#ifdef HNSW_BENCH
+#define HnswBench(name, code) \
+	do { \
+		instr_time	start; \
+		instr_time	duration; \
+		INSTR_TIME_SET_CURRENT(start); \
+		(code); \
+		INSTR_TIME_SET_CURRENT(duration); \
+		INSTR_TIME_SUBTRACT(duration, start); \
+		elog(INFO, "%s: %.3f ms", name, INSTR_TIME_GET_MILLISEC(duration)); \
+	} while (0)
+#else
+#define HnswBench(name, code) (code)
+#endif
 
 #if PG_VERSION_NUM >= 150000
 #define RandomDouble() pg_prng_double(&pg_global_prng_state)
@@ -106,6 +129,8 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
+extern int	hnsw_ef_stream;
+extern bool hnsw_streaming;
 extern int	hnsw_lock_tranche_id;
 
 typedef struct HnswElementData HnswElementData;
@@ -129,6 +154,7 @@ struct HnswElementData
 	uint8		heaptidsLength;
 	uint8		level;
 	uint8		deleted;
+	uint8		version;
 	uint32		hash;
 	HnswNeighborsPtr neighbors;
 	BlockNumber blkno;
@@ -155,12 +181,16 @@ struct HnswNeighborArray
 	HnswCandidate items[FLEXIBLE_ARRAY_MEMBER];
 };
 
-typedef struct HnswPairingHeapNode
+typedef struct HnswSearchCandidate
 {
-	HnswCandidate *inner;
 	pairingheap_node c_node;
 	pairingheap_node w_node;
-}			HnswPairingHeapNode;
+	HnswElementPtr element;
+	float		distance;
+}			HnswSearchCandidate;
+
+#define HnswGetSearchCandidate(membername, ptr) pairingheap_container(HnswSearchCandidate, membername, ptr)
+#define HnswGetSearchCandidateConst(membername, ptr) pairingheap_const_container(HnswSearchCandidate, membername, ptr)
 
 /* HNSW index options */
 typedef struct HnswOptions
@@ -305,10 +335,10 @@ typedef struct HnswElementTupleData
 	uint8		type;
 	uint8		level;
 	uint8		deleted;
-	uint8		unused;
+	uint8		version;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
-	uint16		unused2;
+	uint16		unused;
 	Vector		data;
 }			HnswElementTupleData;
 
@@ -317,18 +347,30 @@ typedef HnswElementTupleData * HnswElementTuple;
 typedef struct HnswNeighborTupleData
 {
 	uint8		type;
-	uint8		unused;
+	uint8		version;
 	uint16		count;
 	ItemPointerData indextids[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborTupleData;
 
 typedef HnswNeighborTupleData * HnswNeighborTuple;
 
+typedef union
+{
+	struct pointerhash_hash *pointers;
+	struct offsethash_hash *offsets;
+	struct tidhash_hash *tids;
+}			visited_hash;
+
 typedef struct HnswScanOpaqueData
 {
 	const		HnswTypeInfo *typeInfo;
 	bool		first;
 	List	   *w;
+	visited_hash v;
+	pairingheap *discarded;
+	Datum		q;
+	int			m;
+	int64		tuples;
 	MemoryContext tmpCtx;
 
 	/* Support functions */
@@ -374,14 +416,14 @@ bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement);
+List	   *HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, FmgrInfo *procinfo, Oid collation, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
 HnswElement HnswInitElement(char *base, ItemPointer tid, int m, double ml, int maxLevel, HnswAllocator * alloc);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
 void		HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, FmgrInfo *procinfo, Oid collation, int m, int efConstruction, bool existing);
-HnswCandidate *HnswEntryCandidate(char *base, HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadVec);
+HnswSearchCandidate *HnswEntryCandidate(char *base, HnswElement em, Datum q, Relation rel, FmgrInfo *procinfo, Oid collation, bool loadVec);
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum, bool building);
 void		HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);

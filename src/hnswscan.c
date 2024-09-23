@@ -26,6 +26,9 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
+	so->q = q;
+	so->m = m;
+
 	if (entryPoint == NULL)
 		return NIL;
 
@@ -33,11 +36,44 @@ GetScanItems(IndexScanDesc scan, Datum q)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_streaming ? &so->discarded : NULL, true, &so->tuples);
+}
+
+/*
+ * Resume scan at ground level with discarded candidates
+ */
+static List *
+ResumeScanItems(IndexScanDesc scan)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	Relation	index = scan->indexRelation;
+	FmgrInfo   *procinfo = so->procinfo;
+	Oid			collation = so->collation;
+	List	   *ep = NIL;
+	char	   *base = NULL;
+	int			batch_size = hnsw_ef_search;
+
+	if (pairingheap_is_empty(so->discarded))
+		return NIL;
+
+	/* Get next batch of candidates */
+	for (int i = 0; i < batch_size; i++)
+	{
+		HnswSearchCandidate *hc;
+
+		if (pairingheap_is_empty(so->discarded))
+			break;
+
+		hc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded));
+
+		ep = lappend(ep, hc);
+	}
+
+	return HnswSearchLayer(base, so->q, ep, batch_size, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
 }
 
 /*
@@ -103,7 +139,13 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
+	if (!so->first)
+	{
+		pairingheap_reset(so->discarded);
+		tidhash_reset(so->v.tids);
+	}
 	so->first = true;
+	so->tuples = 0;
 	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -153,7 +195,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		 */
 		LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
-		so->w = GetScanItems(scan, value);
+		HnswBench("scan iteration", so->w = GetScanItems(scan, value));
 
 		/* Release shared lock */
 		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
@@ -161,21 +203,87 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->first = false;
 
 #if defined(HNSW_MEMORY)
-		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(so->tmpCtx, false) / (1024 * 1024));
+		elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
 #endif
 	}
 
-	while (list_length(so->w) > 0)
+	for (;;)
 	{
 		char	   *base = NULL;
-		HnswCandidate *hc = llast(so->w);
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswSearchCandidate *hc;
+		HnswElement element;
 		ItemPointer heaptid;
+
+		if (list_length(so->w) == 0)
+		{
+			if (!hnsw_streaming)
+				break;
+
+			/* Reached max number of additional tuples */
+			if (hnsw_ef_stream != -1 && so->tuples >= hnsw_ef_search + hnsw_ef_stream)
+			{
+				if (pairingheap_is_empty(so->discarded))
+					break;
+
+				/* Return remaining tuples */
+				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
+			}
+			/* Prevent scans from consuming too much memory */
+			else if (MemoryContextMemAllocated(so->tmpCtx, false) > (Size) work_mem * 1024L)
+			{
+				if (pairingheap_is_empty(so->discarded))
+				{
+					ereport(NOTICE,
+							(errmsg("hnsw index scan exceeded work_mem after " INT64_FORMAT " tuples", so->tuples),
+							 errhint("Increase work_mem to scan more tuples.")));
+
+					break;
+				}
+
+				/* Return remaining tuples */
+				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
+			}
+			else
+			{
+				/*
+				 * Locking ensures when neighbors are read, the elements they
+				 * reference will not be deleted (and replaced) during the
+				 * iteration.
+				 *
+				 * Elements loaded into memory on previous iterations may have
+				 * been deleted (and replaced), so when reading neighbors, the
+				 * element version must be checked.
+				 */
+				LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+				HnswBench("scan iteration", so->w = ResumeScanItems(scan));
+
+				UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+#if defined(HNSW_MEMORY)
+				elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
+#endif
+			}
+
+			if (list_length(so->w) == 0)
+				break;
+		}
+
+		hc = llast(so->w);
+		element = HnswPtrAccess(base, hc->element);
 
 		/* Move to next element if no valid heap TIDs */
 		if (element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
+
+			/* Mark memory as free for next iteration */
+			if (hnsw_streaming)
+			{
+				pfree(element);
+				pfree(hc);
+			}
+
 			continue;
 		}
 
