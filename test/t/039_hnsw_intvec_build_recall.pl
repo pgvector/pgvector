@@ -71,8 +71,8 @@ for (1 .. 20)
 }
 
 # Check each index type
-my @operators = ("<->", "<#>", "<=>");
-my @opclasses = ("intvec_l2_ops", "intvec_ip_ops", "intvec_cosine_ops");
+my @operators = ("<->", "<#>", "<=>", "<+>");
+my @opclasses = ("intvec_l2_ops", "intvec_ip_ops", "intvec_cosine_ops", "intvec_l1_ops");
 
 for my $i (0 .. $#operators)
 {
