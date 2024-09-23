@@ -117,6 +117,8 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
 	so->typeInfo = HnswGetTypeInfo(index);
 	so->first = true;
+	so->v.tids = NULL;
+	so->discarded = NULL;
 	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 									   "Hnsw scan temporary context",
 									   ALLOCSET_DEFAULT_SIZES);
@@ -139,11 +141,12 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
-	if (!so->first)
-	{
-		pairingheap_reset(so->discarded);
+	if (so->v.tids != NULL)
 		tidhash_reset(so->v.tids);
-	}
+
+	if (so->discarded != NULL)
+		pairingheap_reset(so->discarded);
+
 	so->first = true;
 	so->tuples = 0;
 	MemoryContextReset(so->tmpCtx);
@@ -217,6 +220,10 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		if (list_length(so->w) == 0)
 		{
 			if (!hnsw_streaming)
+				break;
+
+			/* Empty index */
+			if (so->discarded == NULL)
 				break;
 
 			/* Reached max number of additional tuples */
