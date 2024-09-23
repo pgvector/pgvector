@@ -36,3 +36,9 @@ SELECT '[1,2,3]'::minivec(16001);
 
 SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::minivec[]);
 SELECT '{"[1,2,3]"}'::minivec(2)[];
+
+SELECT l2_distance('[0,0]'::minivec, '[3,4]');
+SELECT l2_distance('[0,0]'::minivec, '[0,1]');
+SELECT l2_distance('[1,2]'::minivec, '[3]');
+SELECT l2_distance('[1,1,1,1,1,1,1,1,1]'::minivec, '[1,1,1,1,1,1,1,4,5]');
+SELECT '[0,0]'::minivec <-> '[3,4]';

@@ -675,6 +675,18 @@ CREATE TYPE minivec (
 	STORAGE   = external
 );
 
+-- minivec functions
+
+CREATE FUNCTION l2_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'minivec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- minivec operators
+
+CREATE OPERATOR <-> (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = l2_distance,
+	COMMUTATOR = '<->'
+);
+
 -- bit functions
 
 CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8

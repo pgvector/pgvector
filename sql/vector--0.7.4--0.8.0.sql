@@ -27,6 +27,14 @@ CREATE TYPE minivec (
 	STORAGE   = external
 );
 
+CREATE FUNCTION l2_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'minivec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE OPERATOR <-> (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = l2_distance,
+	COMMUTATOR = '<->'
+);
+
 CREATE FUNCTION array_to_sparsevec(integer[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 

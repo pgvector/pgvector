@@ -18,6 +18,18 @@
 #include "vector.h"
 
 /*
+ * Ensure same dimensions
+ */
+static inline void
+CheckDims(MiniVector * a, MiniVector * b)
+{
+	if (a->dim != b->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("different minivec dimensions %d and %d", a->dim, b->dim)));
+}
+
+/*
  * Ensure expected dimensions
  */
 static inline void
@@ -333,4 +345,35 @@ minivec_send(PG_FUNCTION_ARGS)
 		pq_sendint8(&buf, vec->x[i]);
 
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
+}
+
+static float
+MinivecL2SquaredDistance(int dim, fp8 * ax, fp8 * bx)
+{
+	float		distance = 0.0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+	{
+		float		diff = Fp8ToFloat4(ax[i]) - Fp8ToFloat4(bx[i]);
+
+		distance += diff * diff;
+	}
+
+	return distance;
+}
+
+/*
+ * Get the L2 distance between fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_l2_distance);
+Datum
+minivec_l2_distance(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8(sqrt((double) MinivecL2SquaredDistance(a->dim, a->x, b->x)));
 }

@@ -168,3 +168,29 @@ SELECT '{"[1,2,3]"}'::minivec(2)[];
  {"[1,2,3]"}
 (1 row)
 
+SELECT l2_distance('[0,0]'::minivec, '[3,4]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
+SELECT l2_distance('[0,0]'::minivec, '[0,1]');
+ l2_distance 
+-------------
+           1
+(1 row)
+
+SELECT l2_distance('[1,2]'::minivec, '[3]');
+ERROR:  different minivec dimensions 2 and 1
+SELECT l2_distance('[1,1,1,1,1,1,1,1,1]'::minivec, '[1,1,1,1,1,1,1,4,5]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
+SELECT '[0,0]'::minivec <-> '[3,4]';
+ ?column? 
+----------
+        5
+(1 row)
+
