@@ -474,7 +474,7 @@ SET hnsw.ef_stream = 10000;
 The scan will also end if reaches `work_mem`, at which point a notice is shown
 
 ```text
-NOTICE:  hnsw iterative search exceeded work_mem after 50000 tuples
+NOTICE:  hnsw index scan exceeded work_mem after 50000 tuples
 HINT:  Increase work_mem to scan more tuples.
 ```
 

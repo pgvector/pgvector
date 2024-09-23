@@ -234,7 +234,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				if (pairingheap_is_empty(so->discarded))
 				{
 					ereport(NOTICE,
-							(errmsg("hnsw iterative search exceeded work_mem after " INT64_FORMAT " tuples", so->tuples),
+							(errmsg("hnsw index scan exceeded work_mem after " INT64_FORMAT " tuples", so->tuples),
 							 errhint("Increase work_mem to scan more tuples.")));
 
 					break;
