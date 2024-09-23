@@ -442,7 +442,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
-	bool		useIndexTuple = IndexRelationGetNumberOfAttributes(index);
+	bool		useIndexTuple = IndexRelationGetNumberOfAttributes(index) > 1;
 
 	/*
 	 * Wait for index scans to complete. Scans before this point may contain
