@@ -14,7 +14,7 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
+$node->safe_psql("postgres", "CREATE TABLE tst (i int4 PRIMARY KEY, v vector($dim));");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 100000) i;"
 );
@@ -32,14 +32,28 @@ my $count = $node->safe_psql("postgres", qq(
 ));
 is($count, 10);
 
-$count = $node->safe_psql("postgres", qq(
-	SET enable_seqscan = off;
-	SET hnsw.streaming = on;
-	SET hnsw.ef_stream = 50000;
-	SET work_mem = '8MB';
-	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
-));
-isnt($count, 10);
+foreach ((30000, 50000, 70000))
+{
+	my $ef_stream = $_;
+	my $expected = $ef_stream / 10000;
+	my $sum = 0;
+
+	for my $i (1 .. 20)
+	{
+		$count = $node->safe_psql("postgres", qq(
+			SET enable_seqscan = off;
+			SET hnsw.streaming = on;
+			SET hnsw.ef_stream = $ef_stream;
+			SET work_mem = '8MB';
+			SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst WHERE i = $i) LIMIT 11) t;
+		));
+		$sum += $count;
+	}
+
+	my $avg = $sum / 20;
+	cmp_ok($avg, '>', $expected - 2);
+	cmp_ok($avg, '<', $expected + 2);
+}
 
 my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
 	SET enable_seqscan = off;
