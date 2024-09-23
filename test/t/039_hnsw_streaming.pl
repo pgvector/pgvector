@@ -32,6 +32,15 @@ my $count = $node->safe_psql("postgres", qq(
 ));
 is($count, 10);
 
+$count = $node->safe_psql("postgres", qq(
+	SET enable_seqscan = off;
+	SET hnsw.streaming = on;
+	SET hnsw.ef_stream = 50000;
+	SET work_mem = '8MB';
+	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
+));
+isnt($count, 10);
+
 my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
 	SET enable_seqscan = off;
 	SET hnsw.streaming = on;
