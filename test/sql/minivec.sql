@@ -1,0 +1,38 @@
+SELECT '[1,2,3]'::minivec;
+SELECT '[-1,-2,-3]'::minivec;
+SELECT '[1.,2.,3.]'::minivec;
+SELECT ' [ 1,  2 ,    3  ] '::minivec;
+SELECT '[1.23456]'::minivec;
+SELECT '[hello,1]'::minivec;
+SELECT '[NaN,1]'::minivec;
+SELECT '[Infinity,1]'::minivec;
+SELECT '[-Infinity,1]'::minivec;
+SELECT '[65519,-65519]'::minivec;
+SELECT '[65520,-65520]'::minivec;
+SELECT '[1e-8,-1e-8]'::minivec;
+SELECT '[4e38,1]'::minivec;
+SELECT '[1e-46,1]'::minivec;
+SELECT '[1,2,3'::minivec;
+SELECT '[1,2,3]9'::minivec;
+SELECT '1,2,3'::minivec;
+SELECT ''::minivec;
+SELECT '['::minivec;
+SELECT '[ '::minivec;
+SELECT '[,'::minivec;
+SELECT '[]'::minivec;
+SELECT '[ ]'::minivec;
+SELECT '[,]'::minivec;
+SELECT '[1,]'::minivec;
+SELECT '[1a]'::minivec;
+SELECT '[1,,3]'::minivec;
+SELECT '[1, ,3]'::minivec;
+
+SELECT '[1,2,3]'::minivec(3);
+SELECT '[1,2,3]'::minivec(2);
+SELECT '[1,2,3]'::minivec(3, 2);
+SELECT '[1,2,3]'::minivec('a');
+SELECT '[1,2,3]'::minivec(0);
+SELECT '[1,2,3]'::minivec(16001);
+
+SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::minivec[]);
+SELECT '{"[1,2,3]"}'::minivec(2)[];

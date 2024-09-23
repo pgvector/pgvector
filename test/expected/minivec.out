@@ -1,0 +1,170 @@
+SELECT '[1,2,3]'::minivec;
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[-1,-2,-3]'::minivec;
+  minivec   
+------------
+ [-1,-2,-3]
+(1 row)
+
+SELECT '[1.,2.,3.]'::minivec;
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT ' [ 1,  2 ,    3  ] '::minivec;
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1.23456]'::minivec;
+ minivec 
+---------
+ [1.25]
+(1 row)
+
+SELECT '[hello,1]'::minivec;
+ERROR:  invalid input syntax for type minivec: "[hello,1]"
+LINE 1: SELECT '[hello,1]'::minivec;
+               ^
+SELECT '[NaN,1]'::minivec;
+ERROR:  NaN not allowed in minivec
+LINE 1: SELECT '[NaN,1]'::minivec;
+               ^
+SELECT '[Infinity,1]'::minivec;
+ERROR:  "Infinity" is out of range for type minivec
+LINE 1: SELECT '[Infinity,1]'::minivec;
+               ^
+SELECT '[-Infinity,1]'::minivec;
+ERROR:  "-Infinity" is out of range for type minivec
+LINE 1: SELECT '[-Infinity,1]'::minivec;
+               ^
+SELECT '[65519,-65519]'::minivec;
+ERROR:  "65519" is out of range for type minivec
+LINE 1: SELECT '[65519,-65519]'::minivec;
+               ^
+SELECT '[65520,-65520]'::minivec;
+ERROR:  "65520" is out of range for type minivec
+LINE 1: SELECT '[65520,-65520]'::minivec;
+               ^
+SELECT '[1e-8,-1e-8]'::minivec;
+ minivec 
+---------
+ [0,-0]
+(1 row)
+
+SELECT '[4e38,1]'::minivec;
+ERROR:  "4e38" is out of range for type minivec
+LINE 1: SELECT '[4e38,1]'::minivec;
+               ^
+SELECT '[1e-46,1]'::minivec;
+ minivec 
+---------
+ [0,1]
+(1 row)
+
+SELECT '[1,2,3'::minivec;
+ERROR:  invalid input syntax for type minivec: "[1,2,3"
+LINE 1: SELECT '[1,2,3'::minivec;
+               ^
+SELECT '[1,2,3]9'::minivec;
+ERROR:  invalid input syntax for type minivec: "[1,2,3]9"
+LINE 1: SELECT '[1,2,3]9'::minivec;
+               ^
+DETAIL:  Junk after closing right brace.
+SELECT '1,2,3'::minivec;
+ERROR:  invalid input syntax for type minivec: "1,2,3"
+LINE 1: SELECT '1,2,3'::minivec;
+               ^
+DETAIL:  Vector contents must start with "[".
+SELECT ''::minivec;
+ERROR:  invalid input syntax for type minivec: ""
+LINE 1: SELECT ''::minivec;
+               ^
+DETAIL:  Vector contents must start with "[".
+SELECT '['::minivec;
+ERROR:  invalid input syntax for type minivec: "["
+LINE 1: SELECT '['::minivec;
+               ^
+SELECT '[ '::minivec;
+ERROR:  invalid input syntax for type minivec: "[ "
+LINE 1: SELECT '[ '::minivec;
+               ^
+SELECT '[,'::minivec;
+ERROR:  invalid input syntax for type minivec: "[,"
+LINE 1: SELECT '[,'::minivec;
+               ^
+SELECT '[]'::minivec;
+ERROR:  minivec must have at least 1 dimension
+LINE 1: SELECT '[]'::minivec;
+               ^
+SELECT '[ ]'::minivec;
+ERROR:  minivec must have at least 1 dimension
+LINE 1: SELECT '[ ]'::minivec;
+               ^
+SELECT '[,]'::minivec;
+ERROR:  invalid input syntax for type minivec: "[,]"
+LINE 1: SELECT '[,]'::minivec;
+               ^
+SELECT '[1,]'::minivec;
+ERROR:  invalid input syntax for type minivec: "[1,]"
+LINE 1: SELECT '[1,]'::minivec;
+               ^
+SELECT '[1a]'::minivec;
+ERROR:  invalid input syntax for type minivec: "[1a]"
+LINE 1: SELECT '[1a]'::minivec;
+               ^
+SELECT '[1,,3]'::minivec;
+ERROR:  invalid input syntax for type minivec: "[1,,3]"
+LINE 1: SELECT '[1,,3]'::minivec;
+               ^
+SELECT '[1, ,3]'::minivec;
+ERROR:  invalid input syntax for type minivec: "[1, ,3]"
+LINE 1: SELECT '[1, ,3]'::minivec;
+               ^
+SELECT '[1,2,3]'::minivec(3);
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::minivec(2);
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::minivec(3, 2);
+ERROR:  invalid type modifier
+LINE 1: SELECT '[1,2,3]'::minivec(3, 2);
+                          ^
+SELECT '[1,2,3]'::minivec('a');
+ERROR:  invalid input syntax for type integer: "a"
+LINE 1: SELECT '[1,2,3]'::minivec('a');
+                          ^
+SELECT '[1,2,3]'::minivec(0);
+ERROR:  dimensions for type minivec must be at least 1
+LINE 1: SELECT '[1,2,3]'::minivec(0);
+                          ^
+SELECT '[1,2,3]'::minivec(16001);
+ERROR:  dimensions for type minivec cannot exceed 16000
+LINE 1: SELECT '[1,2,3]'::minivec(16001);
+                          ^
+SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::minivec[]);
+ unnest  
+---------
+ [1,2,3]
+ [4,5,6]
+(2 rows)
+
+SELECT '{"[1,2,3]"}'::minivec(2)[];
+   minivec   
+-------------
+ {"[1,2,3]"}
+(1 row)
+

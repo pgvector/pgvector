@@ -647,6 +647,34 @@ CREATE OPERATOR CLASS halfvec_l1_ops
 	FUNCTION 1 l1_distance(halfvec, halfvec),
 	FUNCTION 3 hnsw_halfvec_support(internal);
 
+-- minivec type
+
+CREATE TYPE minivec;
+
+CREATE FUNCTION minivec_in(cstring, oid, integer) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_out(minivec) RETURNS cstring
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_typmod_in(cstring[]) RETURNS integer
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_recv(internal, oid, integer) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_send(minivec) RETURNS bytea
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE TYPE minivec (
+	INPUT     = minivec_in,
+	OUTPUT    = minivec_out,
+	TYPMOD_IN = minivec_typmod_in,
+	RECEIVE   = minivec_recv,
+	SEND      = minivec_send,
+	STORAGE   = external
+);
+
 -- bit functions
 
 CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
