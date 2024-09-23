@@ -953,8 +953,9 @@ Function | Description | Added
 --- | --- | ---
 cosine_distance(intvec, intvec) → double precision | cosine distance | 0.8.0
 inner_product(intvec, intvec) → double precision | inner product | 0.8.0
-l2_distance(intvec, intvec) → double precision | Euclidean distance | 0.8.0
 l1_distance(intvec, intvec) → double precision | taxicab distance | 0.8.0
+l2_distance(intvec, intvec) → double precision | Euclidean distance | 0.8.0
+l2_norm(intvec) → double precision | Euclidean norm | 0.8.0
 
 ### Bit Type
 

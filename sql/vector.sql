@@ -692,6 +692,9 @@ CREATE FUNCTION cosine_distance(intvec, intvec) RETURNS float8
 CREATE FUNCTION l1_distance(intvec, intvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'intvec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION l2_norm(intvec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'intvec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- intvec private functions
 
 CREATE FUNCTION intvec_l2_squared_distance(intvec, intvec) RETURNS float8
@@ -756,6 +759,7 @@ CREATE OPERATOR CLASS intvec_cosine_ops
 	FOR TYPE intvec USING hnsw AS
 	OPERATOR 1 <=> (intvec, intvec) FOR ORDER BY float_ops,
 	FUNCTION 1 cosine_distance(intvec, intvec),
+	FUNCTION 2 l2_norm(intvec),
 	FUNCTION 3 hnsw_intvec_support(internal);
 
 CREATE OPERATOR CLASS intvec_l1_ops
