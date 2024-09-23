@@ -499,7 +499,7 @@ With streaming queries, it’s possible for rows to be slightly out of order by 
 ```sql
 WITH approx_order AS MATERIALIZED (
     SELECT *, embedding <-> '[1,2,3]' AS distance FROM items WHERE ... ORDER BY distance LIMIT 5
-) SELECT * FROM query ORDER BY distance;
+) SELECT * FROM approx_order ORDER BY distance;
 ```
 
 ## Half-Precision Vectors
