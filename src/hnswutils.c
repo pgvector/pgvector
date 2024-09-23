@@ -1,5 +1,6 @@
 #include "postgres.h"
 
+#include <float.h>
 #include <math.h>
 
 #include "access/generic_xlog.h"
@@ -573,7 +574,14 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, float *distance, Datu
 		if (DatumGetPointer(*q) == NULL)
 			*distance = 0;
 		else
+		{
 			*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
+
+			/* Needed for intvec cosine distance */
+			/* TODO Improve */
+			if (isnan(*distance))
+				*distance = FLT_MAX;
+		}
 	}
 
 	/* Load element */

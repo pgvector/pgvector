@@ -110,7 +110,7 @@ intvec_in(PG_FUNCTION_ARGS)
 	int8		x[INTVEC_MAX_DIM];
 	int			dim = 0;
 	char	   *pt = lit;
-	IntVector	   *result;
+	IntVector  *result;
 
 	while (intvec_isspace(*pt))
 		pt++;
