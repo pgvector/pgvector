@@ -7,6 +7,7 @@
 #include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"
+#include "minivec.h"
 #include "storage/bufmgr.h"
 
 /*
@@ -231,6 +232,7 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 
 PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum minivec_l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
 
 static Size
@@ -243,6 +245,12 @@ static Size
 HalfvecItemSize(int dimensions)
 {
 	return HALFVEC_SIZE(dimensions);
+}
+
+static Size
+MinivecItemSize(int dimensions)
+{
+	return MINIVEC_SIZE(dimensions);
 }
 
 static Size
@@ -273,6 +281,18 @@ HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 
 	for (int k = 0; k < dimensions; k++)
 		vec->x[k] = Float4ToHalfUnchecked(x[k]);
+}
+
+static void
+MinivecUpdateCenter(Pointer v, int dimensions, float *x)
+{
+	MiniVector *vec = (MiniVector *) v;
+
+	SET_VARSIZE(vec, MINIVEC_SIZE(dimensions));
+	vec->dim = dimensions;
+
+	for (int k = 0; k < dimensions; k++)
+		vec->x[k] = Float4ToFp8Unchecked(x[k]);
 }
 
 static void
@@ -307,6 +327,15 @@ HalfvecSumCenter(Pointer v, float *x)
 
 	for (int k = 0; k < vec->dim; k++)
 		x[k] += HalfToFloat4(vec->x[k]);
+}
+
+static void
+MinivecSumCenter(Pointer v, float *x)
+{
+	MiniVector *vec = (MiniVector *) v;
+
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += Fp8ToFloat4(vec->x[k]);
 }
 
 static void
@@ -352,6 +381,21 @@ ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 		.itemSize = HalfvecItemSize,
 		.updateCenter = HalfvecUpdateCenter,
 		.sumCenter = HalfvecSumCenter
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ivfflat_minivec_support);
+Datum
+ivfflat_minivec_support(PG_FUNCTION_ARGS)
+{
+	static const IvfflatTypeInfo typeInfo = {
+		.maxDimensions = IVFFLAT_MAX_DIM * 4,
+		.normalize = minivec_l2_normalize,
+		.itemSize = MinivecItemSize,
+		.updateCenter = MinivecUpdateCenter,
+		.sumCenter = MinivecSumCenter
 	};
 
 	PG_RETURN_POINTER(&typeInfo);

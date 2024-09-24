@@ -266,6 +266,9 @@ COMMENT ON ACCESS METHOD hnsw IS 'hnsw index access method';
 CREATE FUNCTION ivfflat_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+CREATE FUNCTION ivfflat_minivec_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
 CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
@@ -748,6 +751,9 @@ CREATE FUNCTION minivec_l2_squared_distance(minivec, minivec) RETURNS float8
 CREATE FUNCTION minivec_negative_inner_product(minivec, minivec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION minivec_spherical_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- minivec cast functions
 
 CREATE FUNCTION minivec(minivec, integer, boolean) RETURNS minivec
@@ -886,6 +892,30 @@ CREATE OPERATOR CLASS minivec_ops
 	OPERATOR 4 >= ,
 	OPERATOR 5 > ,
 	FUNCTION 1 minivec_cmp(minivec, minivec);
+
+CREATE OPERATOR CLASS minivec_l2_ops
+	FOR TYPE minivec USING ivfflat AS
+	OPERATOR 1 <-> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 minivec_l2_squared_distance(minivec, minivec),
+	FUNCTION 3 l2_distance(minivec, minivec),
+	FUNCTION 5 ivfflat_minivec_support(internal);
+
+CREATE OPERATOR CLASS minivec_ip_ops
+	FOR TYPE minivec USING ivfflat AS
+	OPERATOR 1 <#> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 minivec_negative_inner_product(minivec, minivec),
+	FUNCTION 3 minivec_spherical_distance(minivec, minivec),
+	FUNCTION 4 l2_norm(minivec),
+	FUNCTION 5 ivfflat_minivec_support(internal);
+
+CREATE OPERATOR CLASS minivec_cosine_ops
+	FOR TYPE minivec USING ivfflat AS
+	OPERATOR 1 <=> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 minivec_negative_inner_product(minivec, minivec),
+	FUNCTION 2 l2_norm(minivec),
+	FUNCTION 3 minivec_spherical_distance(minivec, minivec),
+	FUNCTION 4 l2_norm(minivec),
+	FUNCTION 5 ivfflat_minivec_support(internal);
 
 CREATE OPERATOR CLASS minivec_l2_ops
 	FOR TYPE minivec USING hnsw AS
