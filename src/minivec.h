@@ -94,8 +94,7 @@ Float4ToFp8Unchecked(float num)
 	else if (isnan(num))
 	{
 		/* NaN */
-		result |= 0x7C;
-		result |= mantissa >> 21;
+		result |= 0x7F;
 	}
 	else if (exponent > 98)
 	{
