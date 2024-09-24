@@ -82,14 +82,14 @@ Float4ToFp8Unchecked(float num)
 		/* NaN */
 		result |= 0x7F;
 	}
-	else if (exponent > 116)
+	else if (exponent > 114)
 	{
 		int			m;
 		int			gr;
 		int			s;
 
 		exponent -= 127;
-		s = mantissa & 0x000FFFFF;
+		s = mantissa & 0x0007FFFF;
 
 		/* Subnormal */
 		if (exponent < -6)
@@ -98,7 +98,7 @@ Float4ToFp8Unchecked(float num)
 
 			mantissa >>= diff;
 			mantissa += 1 << (23 - diff);
-			s |= mantissa & 0x000FFFFF;
+			s |= mantissa & 0x0007FFFF;
 		}
 
 		m = mantissa >> 20;
@@ -114,14 +114,14 @@ Float4ToFp8Unchecked(float num)
 			exponent += 1;
 		}
 
-		if (exponent > 8)
+		if (exponent > 7)
 		{
 			/* Infinite, which is NaN */
 			result |= 0x7F;
 		}
 		else
 		{
-			if (exponent >= -7)
+			if (exponent >= -6)
 				result |= (exponent + 7) << 3;
 
 			result |= m;
