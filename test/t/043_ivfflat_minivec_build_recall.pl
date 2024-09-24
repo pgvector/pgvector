@@ -102,7 +102,7 @@ for my $i (0 .. $#operators)
 	));
 
 	# Test approximate results
-	if ($operator eq "<->")
+	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
 		test_recall(1, 0.33, $operator);
@@ -112,7 +112,7 @@ for my $i (0 .. $#operators)
 	# Test probes equals lists
 	if ($operator eq "<=>")
 	{
-		test_recall(100, 0.30, $operator);
+		test_recall(100, 0.98, $operator);
 	}
 	else
 	{
@@ -131,7 +131,7 @@ for my $i (0 .. $#operators)
 	like($stderr, qr/using \d+ parallel workers/);
 
 	# Test approximate results
-	if ($operator eq "<->")
+	if ($operator ne "<#>")
 	{
 		# TODO Fix test (uniform random vectors all have similar inner product)
 		test_recall(1, 0.33, $operator);
@@ -141,7 +141,7 @@ for my $i (0 .. $#operators)
 	# Test probes equals lists
 	if ($operator eq "<=>")
 	{
-		test_recall(100, 0.30, $operator);
+		test_recall(100, 0.98, $operator);
 	}
 	else
 	{
