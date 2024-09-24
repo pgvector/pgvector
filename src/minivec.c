@@ -377,3 +377,18 @@ minivec_l2_distance(PG_FUNCTION_ARGS)
 
 	PG_RETURN_FLOAT8(sqrt((double) MinivecL2SquaredDistance(a->dim, a->x, b->x)));
 }
+
+/*
+ * Get the L2 squared distance between fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_l2_squared_distance);
+Datum
+minivec_l2_squared_distance(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8((double) MinivecL2SquaredDistance(a->dim, a->x, b->x));
+}

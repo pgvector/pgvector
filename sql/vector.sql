@@ -272,6 +272,9 @@ CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 CREATE FUNCTION hnsw_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+CREATE FUNCTION hnsw_minivec_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
 CREATE FUNCTION hnsw_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
@@ -680,12 +683,25 @@ CREATE TYPE minivec (
 CREATE FUNCTION l2_distance(minivec, minivec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'minivec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+-- minivec private functions
+
+CREATE FUNCTION minivec_l2_squared_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- minivec operators
 
 CREATE OPERATOR <-> (
 	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = l2_distance,
 	COMMUTATOR = '<->'
 );
+
+-- minivec op classes
+
+CREATE OPERATOR CLASS minivec_l2_ops
+	FOR TYPE minivec USING hnsw AS
+	OPERATOR 1 <-> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 minivec_l2_squared_distance(minivec, minivec),
+	FUNCTION 3 hnsw_minivec_support(internal);
 
 -- bit functions
 
