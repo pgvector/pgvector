@@ -139,7 +139,7 @@ Float4ToFp8(float num)
 {
 	fp8			result = Float4ToFp8Unchecked(num);
 
-	if (unlikely(Fp8IsNan(result)) && !isnan(num))
+	if (unlikely(Fp8IsNan(result)) && !isinf(num))
 	{
 		char	   *buf = palloc(FLOAT_SHORTEST_DECIMAL_LEN);
 

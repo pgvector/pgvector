@@ -652,7 +652,6 @@ MinivecL1Distance(int dim, fp8 * ax, fp8 * bx)
 {
 	float		distance = 0.0;
 
-	/* Auto-vectorized */
 	for (int i = 0; i < dim; i++)
 		distance += fabsf(Fp8ToFloat4(ax[i]) - Fp8ToFloat4(bx[i]));
 
@@ -697,7 +696,6 @@ minivec_l2_norm(PG_FUNCTION_ARGS)
 	fp8		   *ax = a->x;
 	double		norm = 0.0;
 
-	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 	{
 		double		axi = (double) Fp8ToFloat4(ax[i]);
@@ -724,7 +722,6 @@ minivec_l2_normalize(PG_FUNCTION_ARGS)
 	result = InitMiniVector(a->dim);
 	rx = result->x;
 
-	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
 		norm += (double) Fp8ToFloat4(ax[i]) * (double) Fp8ToFloat4(ax[i]);
 
@@ -766,15 +763,8 @@ minivec_add(PG_FUNCTION_ARGS)
 	result = InitMiniVector(a->dim);
 	rx = result->x;
 
-	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
-#ifdef FLT16_SUPPORT
-		rx[i] = ax[i] + bx[i];
-#else
 		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) + Fp8ToFloat4(bx[i]));
-#endif
-	}
 
 	/* Check for overflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
@@ -805,15 +795,8 @@ minivec_sub(PG_FUNCTION_ARGS)
 	result = InitMiniVector(a->dim);
 	rx = result->x;
 
-	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
-#ifdef FLT16_SUPPORT
-		rx[i] = ax[i] - bx[i];
-#else
 		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) - Fp8ToFloat4(bx[i]));
-#endif
-	}
 
 	/* Check for overflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
@@ -844,15 +827,8 @@ minivec_mul(PG_FUNCTION_ARGS)
 	result = InitMiniVector(a->dim);
 	rx = result->x;
 
-	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
-#ifdef FLT16_SUPPORT
-		rx[i] = ax[i] * bx[i];
-#else
 		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) * Fp8ToFloat4(bx[i]));
-#endif
-	}
 
 	/* Check for overflow and underflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
