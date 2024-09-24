@@ -39,6 +39,26 @@ SELECT * FROM t ORDER BY val;
 (4 rows)
 
 DROP TABLE t;
+-- minivec
+CREATE TABLE t (val minivec(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t (val);
+SELECT * FROM t WHERE val = '[1,2,3]';
+   val   
+---------
+ [1,2,3]
+(1 row)
+
+SELECT * FROM t ORDER BY val;
+   val   
+---------
+ [0,0,0]
+ [1,1,1]
+ [1,2,3]
+ 
+(4 rows)
+
+DROP TABLE t;
 -- sparsevec
 CREATE TABLE t (val sparsevec(3));
 INSERT INTO t (val) VALUES ('{}/3'), ('{1:1,2:2,3:3}/3'), ('{1:1,2:1,3:1}/3'), (NULL);
