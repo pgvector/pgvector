@@ -128,7 +128,7 @@ Float4ToFp8Unchecked(float num)
 			exponent += 1;
 		}
 
-		if (exponent > 16)
+		if (exponent > 15)
 		{
 			/* Infinite */
 			result |= 0x7C;
