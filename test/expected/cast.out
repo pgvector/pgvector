@@ -140,6 +140,64 @@ SELECT '{1e-8,-1e-8}'::real[]::halfvec;
  [0,-0]
 (1 row)
 
+SELECT '[1,2,3]'::vector::minivec;
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::vector::minivec(3);
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::vector::minivec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '[465]'::vector::minivec;
+ERROR:  "465" is out of range for type minivec
+SELECT '[1e-8]'::vector::minivec;
+ minivec 
+---------
+ [0]
+(1 row)
+
+SELECT '[1,2,3]'::minivec::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::minivec::vector(3);
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::minivec::vector(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '{1,2,3}'::real[]::minivec;
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '{1,2,3}'::real[]::minivec(3);
+ minivec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '{1,2,3}'::real[]::minivec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '{465,-465}'::real[]::minivec;
+ERROR:  "465" is out of range for type minivec
+SELECT '{1e-8,-1e-8}'::real[]::minivec;
+ minivec 
+---------
+ [0,-0]
+(1 row)
+
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
     sparsevec    
 -----------------

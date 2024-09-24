@@ -748,6 +748,58 @@ CREATE FUNCTION minivec_l2_squared_distance(minivec, minivec) RETURNS float8
 CREATE FUNCTION minivec_negative_inner_product(minivec, minivec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+-- minivec cast functions
+
+CREATE FUNCTION minivec(minivec, integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_to_vector(minivec, integer, boolean) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_to_minivec(vector, integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(integer[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(real[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(double precision[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(numeric[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_to_float4(minivec, integer, boolean) RETURNS real[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- minivec casts
+
+CREATE CAST (minivec AS minivec)
+	WITH FUNCTION minivec(minivec, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (minivec AS vector)
+	WITH FUNCTION minivec_to_vector(minivec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (vector AS minivec)
+	WITH FUNCTION vector_to_minivec(vector, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (minivec AS real[])
+	WITH FUNCTION minivec_to_float4(minivec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (integer[] AS minivec)
+	WITH FUNCTION array_to_minivec(integer[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (real[] AS minivec)
+	WITH FUNCTION array_to_minivec(real[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (double precision[] AS minivec)
+	WITH FUNCTION array_to_minivec(double precision[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (numeric[] AS minivec)
+	WITH FUNCTION array_to_minivec(numeric[], integer, boolean) AS ASSIGNMENT;
+
 -- minivec operators
 
 CREATE OPERATOR <-> (

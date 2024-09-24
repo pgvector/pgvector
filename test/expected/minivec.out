@@ -134,11 +134,7 @@ SELECT '[1,2,3]'::minivec(3);
 (1 row)
 
 SELECT '[1,2,3]'::minivec(2);
- minivec 
----------
- [1,2,3]
-(1 row)
-
+ERROR:  expected 2 dimensions, not 3
 SELECT '[1,2,3]'::minivec(3, 2);
 ERROR:  invalid type modifier
 LINE 1: SELECT '[1,2,3]'::minivec(3, 2);
@@ -163,11 +159,7 @@ SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::minivec[]);
 (2 rows)
 
 SELECT '{"[1,2,3]"}'::minivec(2)[];
-   minivec   
--------------
- {"[1,2,3]"}
-(1 row)
-
+ERROR:  expected 2 dimensions, not 3
 SELECT '[1,2,3]'::minivec + '[4,5,6]';
  ?column? 
 ----------
@@ -211,9 +203,7 @@ SELECT '[1,2,3]'::minivec || '[4,5]';
 (1 row)
 
 SELECT array_fill(0, ARRAY[16000])::minivec || '[1]';
-ERROR:  cannot cast type integer[] to minivec
-LINE 1: SELECT array_fill(0, ARRAY[16000])::minivec || '[1]';
-                                          ^
+ERROR:  minivec cannot have more than 16000 dimensions
 SELECT '[1,2,3]'::minivec < '[1,2,3]';
  ?column? 
 ----------

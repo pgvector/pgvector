@@ -348,6 +348,142 @@ minivec_send(PG_FUNCTION_ARGS)
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
 
+/*
+ * Convert fp8 vector to fp8 vector
+ * This is needed to check the type modifier
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec);
+Datum
+minivec(PG_FUNCTION_ARGS)
+{
+	MiniVector *vec = PG_GETARG_MINIVEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+
+	CheckExpectedDim(typmod, vec->dim);
+
+	PG_RETURN_POINTER(vec);
+}
+
+/*
+ * Convert array to fp8 vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(array_to_minivec);
+Datum
+array_to_minivec(PG_FUNCTION_ARGS)
+{
+	ArrayType  *array = PG_GETARG_ARRAYTYPE_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	MiniVector *result;
+	int16		typlen;
+	bool		typbyval;
+	char		typalign;
+	Datum	   *elemsp;
+	int			nelemsp;
+
+	if (ARR_NDIM(array) > 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("array must be 1-D")));
+
+	if (ARR_HASNULL(array) && array_contains_nulls(array))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("array must not contain nulls")));
+
+	get_typlenbyvalalign(ARR_ELEMTYPE(array), &typlen, &typbyval, &typalign);
+	deconstruct_array(array, ARR_ELEMTYPE(array), typlen, typbyval, typalign, &elemsp, NULL, &nelemsp);
+
+	CheckDim(nelemsp);
+	CheckExpectedDim(typmod, nelemsp);
+
+	result = InitMiniVector(nelemsp);
+
+	if (ARR_ELEMTYPE(array) == INT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = Float4ToFp8(DatumGetInt32(elemsp[i]));
+	}
+	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = Float4ToFp8(DatumGetFloat8(elemsp[i]));
+	}
+	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = Float4ToFp8(DatumGetFloat4(elemsp[i]));
+	}
+	else if (ARR_ELEMTYPE(array) == NUMERICOID)
+	{
+		for (int i = 0; i < nelemsp; i++)
+			result->x[i] = Float4ToFp8(DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])));
+	}
+	else
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("unsupported array type")));
+	}
+
+	/*
+	 * Free allocation from deconstruct_array. Do not free individual elements
+	 * when pass-by-reference since they point to original array.
+	 */
+	pfree(elemsp);
+
+	/* Check elements */
+	for (int i = 0; i < result->dim; i++)
+		CheckElement(result->x[i]);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert fp8 vector to float4[]
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_to_float4);
+Datum
+minivec_to_float4(PG_FUNCTION_ARGS)
+{
+	MiniVector *vec = PG_GETARG_MINIVEC_P(0);
+	Datum	   *datums;
+	ArrayType  *result;
+
+	datums = (Datum *) palloc(sizeof(Datum) * vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		datums[i] = Float4GetDatum(Fp8ToFloat4(vec->x[i]));
+
+	/* Use TYPALIGN_INT for float4 */
+	result = construct_array(datums, vec->dim, FLOAT4OID, sizeof(float4), true, TYPALIGN_INT);
+
+	pfree(datums);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert vector to fp8 vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_to_minivec);
+Datum
+vector_to_minivec(PG_FUNCTION_ARGS)
+{
+	Vector	   *vec = PG_GETARG_VECTOR_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	MiniVector *result;
+
+	CheckDim(vec->dim);
+	CheckExpectedDim(typmod, vec->dim);
+
+	result = InitMiniVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = Float4ToFp8(vec->x[i]);
+
+	PG_RETURN_POINTER(result);
+}
+
 static float
 MinivecL2SquaredDistance(int dim, fp8 * ax, fp8 * bx)
 {
