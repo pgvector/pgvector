@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
 #include "fmgr.h"
@@ -71,7 +72,7 @@ CheckElement(fp8 value)
 }
 
 /*
- * Allocate and initialize a new half vector
+ * Allocate and initialize a new fp8 vector
  */
 MiniVector *
 InitMiniVector(int dim)
@@ -352,7 +353,6 @@ MinivecL2SquaredDistance(int dim, fp8 * ax, fp8 * bx)
 {
 	float		distance = 0.0;
 
-	/* Auto-vectorized */
 	for (int i = 0; i < dim; i++)
 	{
 		float		diff = Fp8ToFloat4(ax[i]) - Fp8ToFloat4(bx[i]);
@@ -391,4 +391,549 @@ minivec_l2_squared_distance(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 	PG_RETURN_FLOAT8((double) MinivecL2SquaredDistance(a->dim, a->x, b->x));
+}
+
+static float
+MinivecInnerProduct(int dim, fp8 * ax, fp8 * bx)
+{
+	float		distance = 0.0;
+
+	for (int i = 0; i < dim; i++)
+		distance += Fp8ToFloat4(ax[i]) * Fp8ToFloat4(bx[i]);
+
+	return distance;
+}
+
+/*
+ * Get the inner product of two fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_inner_product);
+Datum
+minivec_inner_product(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8((double) MinivecInnerProduct(a->dim, a->x, b->x));
+}
+
+/*
+ * Get the negative inner product of two fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_negative_inner_product);
+Datum
+minivec_negative_inner_product(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8((double) -MinivecInnerProduct(a->dim, a->x, b->x));
+}
+
+static double
+MinivecCosineSimilarity(int dim, fp8 * ax, fp8 * bx)
+{
+	float		similarity = 0.0;
+	float		norma = 0.0;
+	float		normb = 0.0;
+
+	for (int i = 0; i < dim; i++)
+	{
+		float		axi = Fp8ToFloat4(ax[i]);
+		float		bxi = Fp8ToFloat4(bx[i]);
+
+		similarity += axi * bxi;
+		norma += axi * axi;
+		normb += bxi * bxi;
+	}
+
+	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
+	return (double) similarity / sqrt((double) norma * (double) normb);
+}
+
+/*
+ * Get the cosine distance between two fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_cosine_distance);
+Datum
+minivec_cosine_distance(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+	double		similarity;
+
+	CheckDims(a, b);
+
+	similarity = MinivecCosineSimilarity(a->dim, a->x, b->x);
+
+#ifdef _MSC_VER
+	/* /fp:fast may not propagate NaN */
+	if (isnan(similarity))
+		PG_RETURN_FLOAT8(NAN);
+#endif
+
+	/* Keep in range */
+	if (similarity > 1)
+		similarity = 1;
+	else if (similarity < -1)
+		similarity = -1;
+
+	PG_RETURN_FLOAT8(1 - similarity);
+}
+
+/*
+ * Get the distance for spherical k-means
+ * Currently uses angular distance since needs to satisfy triangle inequality
+ * Assumes inputs are unit vectors (skips norm)
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_spherical_distance);
+Datum
+minivec_spherical_distance(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+	double		distance;
+
+	CheckDims(a, b);
+
+	distance = (double) MinivecInnerProduct(a->dim, a->x, b->x);
+
+	/* Prevent NaN with acos with loss of precision */
+	if (distance > 1)
+		distance = 1;
+	else if (distance < -1)
+		distance = -1;
+
+	PG_RETURN_FLOAT8(acos(distance) / M_PI);
+}
+
+static float
+MinivecL1Distance(int dim, fp8 * ax, fp8 * bx)
+{
+	float		distance = 0.0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+		distance += fabsf(Fp8ToFloat4(ax[i]) - Fp8ToFloat4(bx[i]));
+
+	return distance;
+}
+
+/*
+ * Get the L1 distance between two fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_l1_distance);
+Datum
+minivec_l1_distance(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8((double) MinivecL1Distance(a->dim, a->x, b->x));
+}
+
+/*
+ * Get the dimensions of a fp8 vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_vector_dims);
+Datum
+minivec_vector_dims(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+
+	PG_RETURN_INT32(a->dim);
+}
+
+/*
+ * Get the L2 norm of a fp8 vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_l2_norm);
+Datum
+minivec_l2_norm(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	fp8		   *ax = a->x;
+	double		norm = 0.0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < a->dim; i++)
+	{
+		double		axi = (double) Fp8ToFloat4(ax[i]);
+
+		norm += axi * axi;
+	}
+
+	PG_RETURN_FLOAT8(sqrt(norm));
+}
+
+/*
+ * Normalize a fp8 vector with the L2 norm
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_l2_normalize);
+Datum
+minivec_l2_normalize(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	fp8		   *ax = a->x;
+	double		norm = 0;
+	MiniVector *result;
+	fp8		   *rx;
+
+	result = InitMiniVector(a->dim);
+	rx = result->x;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < a->dim; i++)
+		norm += (double) Fp8ToFloat4(ax[i]) * (double) Fp8ToFloat4(ax[i]);
+
+	norm = sqrt(norm);
+
+	/* Return zero vector for zero norm */
+	if (norm > 0)
+	{
+		for (int i = 0; i < a->dim; i++)
+			rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) / norm);
+
+		/* Check for overflow */
+		for (int i = 0; i < a->dim; i++)
+		{
+			if (Fp8IsNan(rx[i]))
+				float_overflow_error();
+		}
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Add fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_add);
+Datum
+minivec_add(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+	fp8		   *ax = a->x;
+	fp8		   *bx = b->x;
+	MiniVector *result;
+	fp8		   *rx;
+
+	CheckDims(a, b);
+
+	result = InitMiniVector(a->dim);
+	rx = result->x;
+
+	/* Auto-vectorized */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+#ifdef FLT16_SUPPORT
+		rx[i] = ax[i] + bx[i];
+#else
+		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) + Fp8ToFloat4(bx[i]));
+#endif
+	}
+
+	/* Check for overflow */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+		if (Fp8IsNan(rx[i]))
+			float_overflow_error();
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Subtract fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_sub);
+Datum
+minivec_sub(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+	fp8		   *ax = a->x;
+	fp8		   *bx = b->x;
+	MiniVector *result;
+	fp8		   *rx;
+
+	CheckDims(a, b);
+
+	result = InitMiniVector(a->dim);
+	rx = result->x;
+
+	/* Auto-vectorized */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+#ifdef FLT16_SUPPORT
+		rx[i] = ax[i] - bx[i];
+#else
+		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) - Fp8ToFloat4(bx[i]));
+#endif
+	}
+
+	/* Check for overflow */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+		if (Fp8IsNan(rx[i]))
+			float_overflow_error();
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Multiply fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_mul);
+Datum
+minivec_mul(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+	fp8		   *ax = a->x;
+	fp8		   *bx = b->x;
+	MiniVector *result;
+	fp8		   *rx;
+
+	CheckDims(a, b);
+
+	result = InitMiniVector(a->dim);
+	rx = result->x;
+
+	/* Auto-vectorized */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+#ifdef FLT16_SUPPORT
+		rx[i] = ax[i] * bx[i];
+#else
+		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) * Fp8ToFloat4(bx[i]));
+#endif
+	}
+
+	/* Check for overflow and underflow */
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+		if (Fp8IsNan(rx[i]))
+			float_overflow_error();
+
+		if (Fp8IsZero(rx[i]) && !(Fp8IsZero(ax[i]) || Fp8IsZero(bx[i])))
+			float_underflow_error();
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Concatenate fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_concat);
+Datum
+minivec_concat(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+	MiniVector *result;
+	int			dim = a->dim + b->dim;
+
+	CheckDim(dim);
+	result = InitMiniVector(dim);
+
+	for (int i = 0; i < a->dim; i++)
+		result->x[i] = a->x[i];
+
+	for (int i = 0; i < b->dim; i++)
+		result->x[i + a->dim] = b->x[i];
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Quantize a fp8 vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_binary_quantize);
+Datum
+minivec_binary_quantize(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	fp8		   *ax = a->x;
+	VarBit	   *result = InitBitVector(a->dim);
+	unsigned char *rx = VARBITS(result);
+
+	for (int i = 0; i < a->dim; i++)
+		rx[i / 8] |= (Fp8ToFloat4(ax[i]) > 0) << (7 - (i % 8));
+
+	PG_RETURN_VARBIT_P(result);
+}
+
+/*
+ * Get a subvector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_subvector);
+Datum
+minivec_subvector(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	int32		start = PG_GETARG_INT32(1);
+	int32		count = PG_GETARG_INT32(2);
+	int32		end;
+	fp8		   *ax = a->x;
+	MiniVector *result;
+	int32		dim;
+
+	if (count < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("minivec must have at least 1 dimension")));
+
+	/*
+	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
+	 * and count are both positive, so a->dim - count won't overflow.
+	 */
+	if (start > a->dim - count)
+		end = a->dim + 1;
+	else
+		end = start + count;
+
+	/* Indexing starts at 1, like substring */
+	if (start < 1)
+		start = 1;
+	else if (start > a->dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("minivec must have at least 1 dimension")));
+
+	dim = end - start;
+	CheckDim(dim);
+	result = InitMiniVector(dim);
+
+	for (int i = 0; i < dim; i++)
+		result->x[i] = ax[start - 1 + i];
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Internal helper to compare fp8 vectors
+ */
+static int
+minivec_cmp_internal(MiniVector * a, MiniVector * b)
+{
+	int			dim = Min(a->dim, b->dim);
+
+	/* Check values before dimensions to be consistent with Postgres arrays */
+	for (int i = 0; i < dim; i++)
+	{
+		if (Fp8ToFloat4(a->x[i]) < Fp8ToFloat4(b->x[i]))
+			return -1;
+
+		if (Fp8ToFloat4(a->x[i]) > Fp8ToFloat4(b->x[i]))
+			return 1;
+	}
+
+	if (a->dim < b->dim)
+		return -1;
+
+	if (a->dim > b->dim)
+		return 1;
+
+	return 0;
+}
+
+/*
+ * Less than
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_lt);
+Datum
+minivec_lt(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	PG_RETURN_BOOL(minivec_cmp_internal(a, b) < 0);
+}
+
+/*
+ * Less than or equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_le);
+Datum
+minivec_le(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	PG_RETURN_BOOL(minivec_cmp_internal(a, b) <= 0);
+}
+
+/*
+ * Equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_eq);
+Datum
+minivec_eq(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	PG_RETURN_BOOL(minivec_cmp_internal(a, b) == 0);
+}
+
+/*
+ * Not equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_ne);
+Datum
+minivec_ne(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	PG_RETURN_BOOL(minivec_cmp_internal(a, b) != 0);
+}
+
+/*
+ * Greater than or equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_ge);
+Datum
+minivec_ge(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	PG_RETURN_BOOL(minivec_cmp_internal(a, b) >= 0);
+}
+
+/*
+ * Greater than
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_gt);
+Datum
+minivec_gt(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	PG_RETURN_BOOL(minivec_cmp_internal(a, b) > 0);
+}
+
+/*
+ * Compare fp8 vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_cmp);
+Datum
+minivec_cmp(PG_FUNCTION_ARGS)
+{
+	MiniVector *a = PG_GETARG_MINIVEC_P(0);
+	MiniVector *b = PG_GETARG_MINIVEC_P(1);
+
+	PG_RETURN_INT32(minivec_cmp_internal(a, b));
 }

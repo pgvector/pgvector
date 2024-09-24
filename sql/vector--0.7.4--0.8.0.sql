@@ -1,51 +1,7 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "ALTER EXTENSION vector UPDATE TO '0.8.0'" to load this file. \quit
 
-CREATE FUNCTION hnsw_minivec_support(internal) RETURNS internal
-	AS 'MODULE_PATHNAME' LANGUAGE C;
-
-CREATE TYPE minivec;
-
-CREATE FUNCTION minivec_in(cstring, oid, integer) RETURNS minivec
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE FUNCTION minivec_out(minivec) RETURNS cstring
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE FUNCTION minivec_typmod_in(cstring[]) RETURNS integer
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE FUNCTION minivec_recv(internal, oid, integer) RETURNS minivec
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE FUNCTION minivec_send(minivec) RETURNS bytea
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE TYPE minivec (
-	INPUT     = minivec_in,
-	OUTPUT    = minivec_out,
-	TYPMOD_IN = minivec_typmod_in,
-	RECEIVE   = minivec_recv,
-	SEND      = minivec_send,
-	STORAGE   = external
-);
-
-CREATE FUNCTION l2_distance(minivec, minivec) RETURNS float8
-	AS 'MODULE_PATHNAME', 'minivec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE FUNCTION minivec_l2_squared_distance(minivec, minivec) RETURNS float8
-	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-
-CREATE OPERATOR <-> (
-	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = l2_distance,
-	COMMUTATOR = '<->'
-);
-
-CREATE OPERATOR CLASS minivec_l2_ops
-	FOR TYPE minivec USING hnsw AS
-	OPERATOR 1 <-> (minivec, minivec) FOR ORDER BY float_ops,
-	FUNCTION 1 minivec_l2_squared_distance(minivec, minivec),
-	FUNCTION 3 hnsw_minivec_support(internal);
+-- TODO minivec functions
 
 CREATE FUNCTION array_to_sparsevec(integer[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;

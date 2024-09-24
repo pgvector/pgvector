@@ -38,7 +38,7 @@ CREATE TABLE t2 (val minivec(3));
 \copy t TO 'results/minivec.bin' WITH (FORMAT binary)
 \copy t2 FROM 'results/minivec.bin' WITH (FORMAT binary)
 
---SELECT * FROM t2 ORDER BY val;
+SELECT * FROM t2 ORDER BY val;
 
 DROP TABLE t;
 DROP TABLE t2;
