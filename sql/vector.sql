@@ -272,6 +272,9 @@ CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 CREATE FUNCTION hnsw_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+CREATE FUNCTION hnsw_minivec_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
 CREATE FUNCTION hnsw_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
@@ -646,6 +649,268 @@ CREATE OPERATOR CLASS halfvec_l1_ops
 	OPERATOR 1 <+> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(halfvec, halfvec),
 	FUNCTION 3 hnsw_halfvec_support(internal);
+
+-- minivec type
+
+CREATE TYPE minivec;
+
+CREATE FUNCTION minivec_in(cstring, oid, integer) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_out(minivec) RETURNS cstring
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_typmod_in(cstring[]) RETURNS integer
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_recv(internal, oid, integer) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_send(minivec) RETURNS bytea
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE TYPE minivec (
+	INPUT     = minivec_in,
+	OUTPUT    = minivec_out,
+	TYPMOD_IN = minivec_typmod_in,
+	RECEIVE   = minivec_recv,
+	SEND      = minivec_send,
+	STORAGE   = external
+);
+
+-- minivec functions
+
+CREATE FUNCTION l2_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'minivec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION inner_product(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'minivec_inner_product' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION cosine_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'minivec_cosine_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION l1_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'minivec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_dims(minivec) RETURNS integer
+	AS 'MODULE_PATHNAME', 'minivec_vector_dims' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION l2_norm(minivec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'minivec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION l2_normalize(minivec) RETURNS minivec
+	AS 'MODULE_PATHNAME', 'minivec_l2_normalize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION binary_quantize(minivec) RETURNS bit
+	AS 'MODULE_PATHNAME', 'minivec_binary_quantize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION subvector(minivec, int, int) RETURNS minivec
+	AS 'MODULE_PATHNAME', 'minivec_subvector' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- minivec private functions
+
+CREATE FUNCTION minivec_add(minivec, minivec) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_sub(minivec, minivec) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_mul(minivec, minivec) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_concat(minivec, minivec) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_lt(minivec, minivec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_le(minivec, minivec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_eq(minivec, minivec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_ne(minivec, minivec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_ge(minivec, minivec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_gt(minivec, minivec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_cmp(minivec, minivec) RETURNS int4
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_l2_squared_distance(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_negative_inner_product(minivec, minivec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- minivec cast functions
+
+CREATE FUNCTION minivec(minivec, integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_to_vector(minivec, integer, boolean) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_to_minivec(vector, integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(integer[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(real[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(double precision[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_minivec(numeric[], integer, boolean) RETURNS minivec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION minivec_to_float4(minivec, integer, boolean) RETURNS real[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- minivec casts
+
+CREATE CAST (minivec AS minivec)
+	WITH FUNCTION minivec(minivec, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (minivec AS vector)
+	WITH FUNCTION minivec_to_vector(minivec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (vector AS minivec)
+	WITH FUNCTION vector_to_minivec(vector, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (minivec AS real[])
+	WITH FUNCTION minivec_to_float4(minivec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (integer[] AS minivec)
+	WITH FUNCTION array_to_minivec(integer[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (real[] AS minivec)
+	WITH FUNCTION array_to_minivec(real[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (double precision[] AS minivec)
+	WITH FUNCTION array_to_minivec(double precision[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (numeric[] AS minivec)
+	WITH FUNCTION array_to_minivec(numeric[], integer, boolean) AS ASSIGNMENT;
+
+-- minivec operators
+
+CREATE OPERATOR <-> (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = l2_distance,
+	COMMUTATOR = '<->'
+);
+
+CREATE OPERATOR <#> (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_negative_inner_product,
+	COMMUTATOR = '<#>'
+);
+
+CREATE OPERATOR <=> (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = cosine_distance,
+	COMMUTATOR = '<=>'
+);
+
+CREATE OPERATOR <+> (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = l1_distance,
+	COMMUTATOR = '<+>'
+);
+
+CREATE OPERATOR + (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_add,
+	COMMUTATOR = +
+);
+
+CREATE OPERATOR - (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_sub
+);
+
+CREATE OPERATOR * (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_mul,
+	COMMUTATOR = *
+);
+
+CREATE OPERATOR || (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_concat
+);
+
+CREATE OPERATOR < (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_lt,
+	COMMUTATOR = > , NEGATOR = >= ,
+	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
+);
+
+CREATE OPERATOR <= (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_le,
+	COMMUTATOR = >= , NEGATOR = > ,
+	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
+);
+
+CREATE OPERATOR = (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_eq,
+	COMMUTATOR = = , NEGATOR = <> ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR <> (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_ne,
+	COMMUTATOR = <> , NEGATOR = = ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR >= (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_ge,
+	COMMUTATOR = <= , NEGATOR = < ,
+	RESTRICT = scalargesel, JOIN = scalargejoinsel
+);
+
+CREATE OPERATOR > (
+	LEFTARG = minivec, RIGHTARG = minivec, PROCEDURE = minivec_gt,
+	COMMUTATOR = < , NEGATOR = <= ,
+	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
+);
+
+-- minivec op classes
+
+CREATE OPERATOR CLASS minivec_ops
+	DEFAULT FOR TYPE minivec USING btree AS
+	OPERATOR 1 < ,
+	OPERATOR 2 <= ,
+	OPERATOR 3 = ,
+	OPERATOR 4 >= ,
+	OPERATOR 5 > ,
+	FUNCTION 1 minivec_cmp(minivec, minivec);
+
+CREATE OPERATOR CLASS minivec_l2_ops
+	FOR TYPE minivec USING hnsw AS
+	OPERATOR 1 <-> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 minivec_l2_squared_distance(minivec, minivec),
+	FUNCTION 3 hnsw_minivec_support(internal);
+
+CREATE OPERATOR CLASS minivec_ip_ops
+	FOR TYPE minivec USING hnsw AS
+	OPERATOR 1 <#> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 minivec_negative_inner_product(minivec, minivec),
+	FUNCTION 3 hnsw_minivec_support(internal);
+
+CREATE OPERATOR CLASS minivec_cosine_ops
+	FOR TYPE minivec USING hnsw AS
+	OPERATOR 1 <=> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 minivec_negative_inner_product(minivec, minivec),
+	FUNCTION 2 l2_norm(minivec),
+	FUNCTION 3 hnsw_minivec_support(internal);
+
+CREATE OPERATOR CLASS minivec_l1_ops
+	FOR TYPE minivec USING hnsw AS
+	OPERATOR 1 <+> (minivec, minivec) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(minivec, minivec),
+	FUNCTION 3 hnsw_minivec_support(internal);
 
 -- bit functions
 

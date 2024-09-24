@@ -1327,6 +1327,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 
 PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum minivec_l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
 
 static void
@@ -1369,6 +1370,19 @@ hnsw_halfvec_support(PG_FUNCTION_ARGS)
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = HNSW_MAX_DIM * 2,
 		.normalize = halfvec_l2_normalize,
+		.checkValue = NULL
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_minivec_support);
+Datum
+hnsw_minivec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = HNSW_MAX_DIM * 4,
+		.normalize = minivec_l2_normalize,
 		.checkValue = NULL
 	};
 

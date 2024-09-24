@@ -13,6 +13,7 @@
 #include "ivfflat.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
+#include "minivec.h"
 #include "port.h"				/* for strtof() */
 #include "sparsevec.h"
 #include "utils/array.h"
@@ -538,6 +539,28 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 
 	for (int i = 0; i < vec->dim; i++)
 		result->x[i] = HalfToFloat4(vec->x[i]);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert fp8 vector to vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(minivec_to_vector);
+Datum
+minivec_to_vector(PG_FUNCTION_ARGS)
+{
+	MiniVector *vec = PG_GETARG_MINIVEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	Vector	   *result;
+
+	CheckDim(vec->dim);
+	CheckExpectedDim(typmod, vec->dim);
+
+	result = InitVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = Fp8ToFloat4(vec->x[i]);
 
 	PG_RETURN_POINTER(result);
 }

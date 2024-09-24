@@ -1,6 +1,8 @@
 -- complain if script is sourced in psql, rather than via CREATE EXTENSION
 \echo Use "ALTER EXTENSION vector UPDATE TO '0.8.0'" to load this file. \quit
 
+-- TODO minivec functions
+
 CREATE FUNCTION array_to_sparsevec(integer[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
