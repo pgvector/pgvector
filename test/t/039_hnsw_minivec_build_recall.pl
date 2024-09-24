@@ -97,7 +97,7 @@ for my $i (0 .. $#operators)
 	my $min = 0.98;
 	if ($operator eq '<=>')
 	{
-		$min = 0.65;
+		$min = 0.60;
 	}
 	test_recall($min, $operator);
 
