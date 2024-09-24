@@ -934,6 +934,37 @@ Function | Description | Added
 avg(halfvec) → halfvec | average | 0.7.0
 sum(halfvec) → halfvec | sum | 0.7.0
 
+### Minivec Type
+
+Each mini vector takes `dimensions + 8` bytes of storage. Each element is a E4M3 8-bit floating-point number, and all elements must be finite (no `NaN`). Mini vectors can have up to 16,000 dimensions.
+
+### Minivec Operators
+
+Operator | Description | Added
+--- | --- | ---
+\+ | element-wise addition | 0.8.0
+\- | element-wise subtraction | 0.8.0
+\* | element-wise multiplication | 0.8.0
+\|\| | concatenate | 0.8.0
+<-> | Euclidean distance | 0.8.0
+<#> | negative inner product | 0.8.0
+<=> | cosine distance | 0.8.0
+<+> | taxicab distance | 0.8.0
+
+### Minivec Functions
+
+Function | Description | Added
+--- | --- | ---
+binary_quantize(minivec) → bit | binary quantize | 0.8.0
+cosine_distance(minivec, minivec) → double precision | cosine distance | 0.8.0
+inner_product(minivec, minivec) → double precision | inner product | 0.8.0
+l1_distance(minivec, minivec) → double precision | taxicab distance | 0.8.0
+l2_distance(minivec, minivec) → double precision | Euclidean distance | 0.8.0
+l2_norm(minivec) → double precision | Euclidean norm | 0.8.0
+l2_normalize(minivec) → minivec | Normalize with Euclidean norm | 0.8.0
+subvector(minivec, integer, integer) → minivec | subvector | 0.8.0
+vector_dims(minivec) → integer | number of dimensions | 0.8.0
+
 ### Bit Type
 
 Each bit vector takes `dimensions / 8 + 8` bytes of storage. See the [Postgres docs](https://www.postgresql.org/docs/current/datatype-bit.html) for more info.
