@@ -1,8 +1,6 @@
 #ifndef MINIVEC_H
 #define MINIVEC_H
 
-#include <float.h>
-
 #define MINIVEC_MAX_DIM 16000
 
 #define fp8 uint8
