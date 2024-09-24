@@ -114,7 +114,7 @@ Float4ToFp8Unchecked(float num)
 			exponent += 1;
 		}
 
-		if (exponent > 7)
+		if (exponent > 8)
 		{
 			/* Infinite, which is NaN */
 			result |= 0x7F;
