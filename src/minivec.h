@@ -69,15 +69,15 @@ Float4ToFp8Unchecked(float num)
 	{
 		float		f;
 		uint32		i;
-	}			swapfloat;
+	}			swap;
 
 	uint32		bin;
 	int			exponent;
 	int			mantissa;
 	uint8		result;
 
-	swapfloat.f = num;
-	bin = swapfloat.i;
+	swap.f = num;
+	bin = swap.i;
 	exponent = (bin & 0x7F800000) >> 23;
 	mantissa = bin & 0x007FFFFF;
 
