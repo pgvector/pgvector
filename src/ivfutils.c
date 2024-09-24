@@ -71,6 +71,9 @@ IvfflatOptionalProcInfo(Relation index, uint16 procnum)
 Datum
 IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value)
 {
+	if (!typeInfo->normalize)
+		return value;
+
 	return DirectFunctionCall1Coll(typeInfo->normalize, collation, value);
 }
 
@@ -392,7 +395,8 @@ ivfflat_minivec_support(PG_FUNCTION_ARGS)
 {
 	static const IvfflatTypeInfo typeInfo = {
 		.maxDimensions = IVFFLAT_MAX_DIM * 4,
-		.normalize = minivec_l2_normalize,
+		/* Do not normalize to maximize precision */
+		.normalize = NULL,
 		.itemSize = MinivecItemSize,
 		.updateCenter = MinivecUpdateCenter,
 		.sumCenter = MinivecSumCenter
