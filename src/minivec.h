@@ -103,7 +103,7 @@ Float4ToFp8Unchecked(float num)
 		int			s;
 
 		exponent -= 127;
-		s = mantissa & 0x001FFFFF;
+		s = mantissa & 0x000FFFFF;
 
 		/* Subnormal */
 		if (exponent < -14)
@@ -112,7 +112,7 @@ Float4ToFp8Unchecked(float num)
 
 			mantissa >>= diff;
 			mantissa += 1 << (23 - diff);
-			s |= mantissa & 0x001FFFFF;
+			s |= mantissa & 0x000FFFFF;
 		}
 
 		m = mantissa >> 21;
