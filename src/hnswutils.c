@@ -159,6 +159,9 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 Datum
 HnswNormValue(const HnswTypeInfo * typeInfo, Oid collation, Datum value)
 {
+	if (!typeInfo->normalize)
+		return value;
+
 	return DirectFunctionCall1Coll(typeInfo->normalize, collation, value);
 }
 
@@ -1382,7 +1385,8 @@ hnsw_minivec_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = HNSW_MAX_DIM * 4,
-		.normalize = minivec_l2_normalize,
+		/* Do not normalize to maximize precision */
+		.normalize = NULL,
 		.checkValue = NULL
 	};
 

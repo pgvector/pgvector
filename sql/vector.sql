@@ -932,7 +932,7 @@ CREATE OPERATOR CLASS minivec_ip_ops
 CREATE OPERATOR CLASS minivec_cosine_ops
 	FOR TYPE minivec USING hnsw AS
 	OPERATOR 1 <=> (minivec, minivec) FOR ORDER BY float_ops,
-	FUNCTION 1 minivec_negative_inner_product(minivec, minivec),
+	FUNCTION 1 cosine_distance(minivec, minivec),
 	FUNCTION 2 l2_norm(minivec),
 	FUNCTION 3 hnsw_minivec_support(internal);
 
