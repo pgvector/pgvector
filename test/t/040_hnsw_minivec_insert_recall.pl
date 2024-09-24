@@ -54,10 +54,7 @@ $node->start;
 
 # Create table
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
-$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v minivec($dim));");
-$node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 10000) i;"
-);
+$node->safe_psql("postgres", "CREATE TABLE tst (i serial, v minivec($dim));");
 
 # Generate queries
 for (1 .. 20)
@@ -79,19 +76,31 @@ for my $i (0 .. $#operators)
 	my $operator = $operators[$i];
 	my $opclass = $opclasses[$i];
 
+	# Add index
+	$node->safe_psql("postgres", "CREATE INDEX idx ON tst USING hnsw (v $opclass);");
+
+	# Use concurrent inserts
+	$node->pgbench(
+		"--no-vacuum --client=10 --transactions=1000",
+		0,
+		[qr{actually processed}],
+		[qr{^$}],
+		"concurrent INSERTs",
+		{
+			"040_hnsw_minivec_insert_recall_$opclass" => "INSERT INTO tst (v) VALUES (ARRAY[$array_sql]);"
+		}
+	);
+
 	# Get exact results
 	@expected = ();
 	foreach (@queries)
 	{
-		my $res = $node->safe_psql("postgres", "SELECT i FROM tst ORDER BY v $operator '$_' LIMIT $limit;");
+		my $res = $node->safe_psql("postgres", qq(
+			SET enable_indexscan = off;
+			SELECT i FROM tst ORDER BY v $operator '$_' LIMIT $limit;
+		));
 		push(@expected, $res);
 	}
-
-	# Build index serially
-	$node->safe_psql("postgres", qq(
-		SET max_parallel_maintenance_workers = 0;
-		CREATE INDEX idx ON tst USING hnsw (v $opclass);
-	));
 
 	# Test approximate results
 	my $min = 0.98;
@@ -102,35 +111,7 @@ for my $i (0 .. $#operators)
 	test_recall($min, $operator);
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
-
-	# Build index in parallel in memory
-	my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
-		SET client_min_messages = DEBUG;
-		SET min_parallel_table_scan_size = 1;
-		CREATE INDEX idx ON tst USING hnsw (v $opclass);
-	));
-	is($ret, 0, $stderr);
-	like($stderr, qr/using \d+ parallel workers/);
-
-	# Test approximate results
-	test_recall($min, $operator);
-
-	$node->safe_psql("postgres", "DROP INDEX idx;");
-
-	# Build index in parallel on disk
-	# Set parallel_workers on table to use workers with low maintenance_work_mem
-	($ret, $stdout, $stderr) = $node->psql("postgres", qq(
-		ALTER TABLE tst SET (parallel_workers = 2);
-		SET client_min_messages = DEBUG;
-		SET maintenance_work_mem = '4MB';
-		CREATE INDEX idx ON tst USING hnsw (v $opclass);
-		ALTER TABLE tst RESET (parallel_workers);
-	));
-	is($ret, 0, $stderr);
-	like($stderr, qr/using \d+ parallel workers/);
-	like($stderr, qr/hnsw graph no longer fits into maintenance_work_mem/);
-
-	$node->safe_psql("postgres", "DROP INDEX idx;");
+	$node->safe_psql("postgres", "TRUNCATE tst;");
 }
 
 done_testing();
