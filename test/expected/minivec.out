@@ -169,11 +169,7 @@ SELECT '[1,2,3]'::minivec + '[4,5,6]';
 (1 row)
 
 SELECT '[61439]'::minivec + '[61439]';
- ?column? 
-----------
- [NaN]
-(1 row)
-
+ERROR:  value out of range: overflow
 SELECT '[1,2]'::minivec + '[3]';
 ERROR:  different minivec dimensions 2 and 1
 SELECT '[1,2,3]'::minivec - '[4,5,6]';
