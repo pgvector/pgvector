@@ -154,8 +154,8 @@ SELECT '[1,2,3]'::vector::minivec(3);
 
 SELECT '[1,2,3]'::vector::minivec(2);
 ERROR:  expected 2 dimensions, not 3
-SELECT '[465]'::vector::minivec;
-ERROR:  "465" is out of range for type minivec
+SELECT '[61440]'::vector::minivec;
+ERROR:  "61440" is out of range for type minivec
 SELECT '[1e-8]'::vector::minivec;
  minivec 
 ---------
@@ -190,8 +190,8 @@ SELECT '{1,2,3}'::real[]::minivec(3);
 
 SELECT '{1,2,3}'::real[]::minivec(2);
 ERROR:  expected 2 dimensions, not 3
-SELECT '{465,-465}'::real[]::minivec;
-ERROR:  "465" is out of range for type minivec
+SELECT '{61440,-61440}'::real[]::minivec;
+ERROR:  "61440" is out of range for type minivec
 SELECT '{1e-8,-1e-8}'::real[]::minivec;
  minivec 
 ---------

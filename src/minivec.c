@@ -69,6 +69,11 @@ CheckElement(fp8 value)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("NaN not allowed in minivec")));
+
+	if (Fp8IsInf(value))
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("infinite value not allowed in minivec")));
 }
 
 /*
@@ -169,7 +174,7 @@ minivec_in(PG_FUNCTION_ARGS)
 		x[dim] = Float4ToFp8Unchecked(val);
 
 		/* Check for range error like float4in */
-		if ((errno == ERANGE && isinf(val)) || (Fp8IsNan(x[dim]) && !isnan(val)))
+		if ((errno == ERANGE && isinf(val)) || (Fp8IsInf(x[dim]) && !isinf(val)))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 					 errmsg("\"%s\" is out of range for type minivec", pnstrdup(pt, stringEnd - pt))));
@@ -739,7 +744,7 @@ minivec_l2_normalize(PG_FUNCTION_ARGS)
 		/* Check for overflow */
 		for (int i = 0; i < a->dim; i++)
 		{
-			if (Fp8IsNan(rx[i]))
+			if (Fp8IsInf(rx[i]))
 				float_overflow_error();
 		}
 	}
@@ -768,18 +773,12 @@ minivec_add(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
-#ifdef FLT16_SUPPORT
-		rx[i] = ax[i] + bx[i];
-#else
 		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) + Fp8ToFloat4(bx[i]));
-#endif
-	}
 
 	/* Check for overflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
-		if (Fp8IsNan(rx[i]))
+		if (Fp8IsInf(rx[i]))
 			float_overflow_error();
 	}
 
@@ -807,18 +806,12 @@ minivec_sub(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
-#ifdef FLT16_SUPPORT
 		rx[i] = ax[i] - bx[i];
-#else
-		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) - Fp8ToFloat4(bx[i]));
-#endif
-	}
 
 	/* Check for overflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
-		if (Fp8IsNan(rx[i]))
+		if (Fp8IsInf(rx[i]))
 			float_overflow_error();
 	}
 
@@ -846,18 +839,12 @@ minivec_mul(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0, imax = a->dim; i < imax; i++)
-	{
-#ifdef FLT16_SUPPORT
-		rx[i] = ax[i] * bx[i];
-#else
 		rx[i] = Float4ToFp8Unchecked(Fp8ToFloat4(ax[i]) * Fp8ToFloat4(bx[i]));
-#endif
-	}
 
 	/* Check for overflow and underflow */
 	for (int i = 0, imax = a->dim; i < imax; i++)
 	{
-		if (Fp8IsNan(rx[i]))
+		if (Fp8IsInf(rx[i]))
 			float_overflow_error();
 
 		if (Fp8IsZero(rx[i]) && !(Fp8IsZero(ax[i]) || Fp8IsZero(bx[i])))

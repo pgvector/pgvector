@@ -41,7 +41,7 @@ SELECT '{1e-8,-1e-8}'::real[]::halfvec;
 SELECT '[1,2,3]'::vector::minivec;
 SELECT '[1,2,3]'::vector::minivec(3);
 SELECT '[1,2,3]'::vector::minivec(2);
-SELECT '[465]'::vector::minivec;
+SELECT '[61440]'::vector::minivec;
 SELECT '[1e-8]'::vector::minivec;
 
 SELECT '[1,2,3]'::minivec::vector;
@@ -51,7 +51,7 @@ SELECT '[1,2,3]'::minivec::vector(2);
 SELECT '{1,2,3}'::real[]::minivec;
 SELECT '{1,2,3}'::real[]::minivec(3);
 SELECT '{1,2,3}'::real[]::minivec(2);
-SELECT '{465,-465}'::real[]::minivec;
+SELECT '{61440,-61440}'::real[]::minivec;
 SELECT '{1e-8,-1e-8}'::real[]::minivec;
 
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;

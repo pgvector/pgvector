@@ -37,20 +37,22 @@ ERROR:  NaN not allowed in minivec
 LINE 1: SELECT '[NaN,1]'::minivec;
                ^
 SELECT '[Infinity,1]'::minivec;
-ERROR:  "Infinity" is out of range for type minivec
+ERROR:  infinite value not allowed in minivec
 LINE 1: SELECT '[Infinity,1]'::minivec;
                ^
 SELECT '[-Infinity,1]'::minivec;
-ERROR:  "-Infinity" is out of range for type minivec
+ERROR:  infinite value not allowed in minivec
 LINE 1: SELECT '[-Infinity,1]'::minivec;
                ^
-SELECT '[65519,-65519]'::minivec;
-ERROR:  "65519" is out of range for type minivec
-LINE 1: SELECT '[65519,-65519]'::minivec;
-               ^
-SELECT '[65520,-65520]'::minivec;
-ERROR:  "65520" is out of range for type minivec
-LINE 1: SELECT '[65520,-65520]'::minivec;
+SELECT '[61439,-61439]'::minivec;
+    minivec     
+----------------
+ [57344,-57344]
+(1 row)
+
+SELECT '[61440,-61440]'::minivec;
+ERROR:  "61440" is out of range for type minivec
+LINE 1: SELECT '[61440,-61440]'::minivec;
                ^
 SELECT '[1e-8,-1e-8]'::minivec;
  minivec 
@@ -163,30 +165,34 @@ ERROR:  expected 2 dimensions, not 3
 SELECT '[1,2,3]'::minivec + '[4,5,6]';
  ?column? 
 ----------
- [5,7,9]
+ [5,7,10]
 (1 row)
 
-SELECT '[448]'::minivec + '[448]';
-ERROR:  value out of range: overflow
+SELECT '[61439]'::minivec + '[61439]';
+ ?column? 
+----------
+ [NaN]
+(1 row)
+
 SELECT '[1,2]'::minivec + '[3]';
 ERROR:  different minivec dimensions 2 and 1
 SELECT '[1,2,3]'::minivec - '[4,5,6]';
-  ?column?  
-------------
- [-3,-3,-3]
+ERROR:  value out of range: overflow
+SELECT '[-61439]'::minivec - '[61439]';
+ ?column? 
+----------
+ [-0]
 (1 row)
 
-SELECT '[-448]'::minivec - '[448]';
-ERROR:  value out of range: overflow
 SELECT '[1,2]'::minivec - '[3]';
 ERROR:  different minivec dimensions 2 and 1
 SELECT '[1,2,3]'::minivec * '[4,5,6]';
  ?column?  
 -----------
- [4,10,18]
+ [4,10,20]
 (1 row)
 
-SELECT '[448]'::minivec * '[448]';
+SELECT '[61439]'::minivec * '[61439]';
 ERROR:  value out of range: overflow
 SELECT '[1e-7]'::minivec * '[1e-7]';
  ?column? 
@@ -397,7 +403,7 @@ SELECT inner_product('[448]'::minivec, '[448]');
 SELECT inner_product('[1,1,1,1,1,1,1,1,1]'::minivec, '[1,2,3,4,5,6,7,8,9]');
  inner_product 
 ---------------
-            45
+            46
 (1 row)
 
 SELECT '[1,2]'::minivec <#> '[3,4]';
@@ -491,7 +497,7 @@ SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::minivec, '[1,2,3,4,5,6,7,8,9]');
 SELECT l1_distance('[1,2,3,4,5,6,7,8,9]'::minivec, '[0,3,2,5,4,7,6,9,8]');
  l1_distance 
 -------------
-           9
+          11
 (1 row)
 
 SELECT '[0,0]'::minivec <+> '[3,4]';
@@ -501,9 +507,9 @@ SELECT '[0,0]'::minivec <+> '[3,4]';
 (1 row)
 
 SELECT l2_normalize('[3,4]'::minivec);
-  l2_normalize  
-----------------
- [0.625,0.8125]
+ l2_normalize 
+--------------
+ [0.625,0.75]
 (1 row)
 
 SELECT l2_normalize('[3,0]'::minivec);
