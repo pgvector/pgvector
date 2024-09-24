@@ -40,6 +40,10 @@ for (1 .. 50)
 	$actual = $node->safe_psql("postgres", "SELECT halfvec_cmp(v::halfvec, '$query'::real[]::halfvec) FROM tst");
 	is($expected, $actual);
 
+	# Test minivec
+	$actual = $node->safe_psql("postgres", "SELECT minivec_cmp(v::minivec, '$query'::real[]::minivec) FROM tst");
+	is($expected, $actual);
+
 	# Test sparsevec
 	$actual = $node->safe_psql("postgres", "SELECT sparsevec_cmp(v::vector::sparsevec, '$query'::real[]::vector::sparsevec) FROM tst");
 	is($expected, $actual);

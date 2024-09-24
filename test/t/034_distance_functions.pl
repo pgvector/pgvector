@@ -45,6 +45,10 @@ for my $function (@functions)
 		my $actual = $node->safe_psql("postgres", "SELECT $function(v::halfvec, '$query'::vector::halfvec) FROM tst");
 		is($expected, $actual, "halfvec $function");
 
+		# Test minivec
+		$actual = $node->safe_psql("postgres", "SELECT $function(v::minivec, '$query'::vector::minivec) FROM tst");
+		is($expected, $actual, "minivec $function");
+
 		# Test sparsevec
 		$actual = $node->safe_psql("postgres", "SELECT $function(v::sparsevec, '$query'::vector::sparsevec) FROM tst");
 		is($expected, $actual, "sparsevec $function");
