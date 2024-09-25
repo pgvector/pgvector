@@ -61,6 +61,6 @@ my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
 	SET work_mem = '2MB';
 	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
 ));
-like($stderr, qr/iterative search exceeded work_mem after \d+ tuples/);
+like($stderr, qr/hnsw index scan exceeded work_mem after \d+ tuples/);
 
 done_testing();
