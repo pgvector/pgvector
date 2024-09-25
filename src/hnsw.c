@@ -12,6 +12,7 @@
 #include "utils/float.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"
+#include "utils/spccache.h"
 
 #if PG_VERSION_NUM < 150000
 #define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
@@ -103,6 +104,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	int			layer0TuplesMax;
 	double		layer0Selectivity;
 	double		scalingFactor = 0.55;
+	double		spc_seq_page_cost;
 	Relation	index;
 
 	/* Never use index without order */
@@ -158,6 +160,23 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		(layer0TuplesMax * layer0Selectivity);
 
 	genericcostestimate(root, path, loop_count, &costs);
+
+	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
+
+	/* Adjust cost if needed since TOAST not included in seq scan cost */
+	if (costs.numIndexPages > path->indexinfo->rel->pages)
+	{
+		/* Change all page cost from random to sequential */
+		costs.indexTotalCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+
+		/* Remove cost of extra pages */
+		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+	}
+	else
+	{
+		/* Change some page cost from random to sequential */
+		costs.indexTotalCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+	}
 
 	/* Use total cost since most work happens before first tuple is returned */
 	*indexStartupCost = costs.indexTotalCost;
