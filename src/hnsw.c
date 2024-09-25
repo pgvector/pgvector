@@ -102,6 +102,56 @@ hnswbuildphasename(int64 phasenum)
 }
 
 /*
+ * Estimate extra tuples for iterative scans
+ */
+static double
+EstimateExtraTuples(PlannerInfo *root, IndexPath *path, int m, double scalingFactor)
+{
+	double		selectivity = 1;
+	ListCell   *lc;
+	double		ef;
+	int			tuplesMax;
+	double		layerSelectivity;
+	double		tuples;
+
+	/* Cannot estimate without limit */
+	/* limit_tuples includes offset */
+	if (root->limit_tuples < 0)
+		return 0;
+
+	/* Get the selectivity of non-index conditions */
+	foreach(lc, path->indexinfo->indrestrictinfo)
+	{
+		RestrictInfo *rinfo = lfirst(lc);
+
+		/* Skip DEFAULT_INEQ_SEL since it may be a distance filter */
+		if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1 && rinfo->norm_selec != (Selectivity) DEFAULT_INEQ_SEL)
+			selectivity *= rinfo->norm_selec;
+	}
+
+	/* Estimate the candidates needed */
+	ef = root->limit_tuples / Max(selectivity, 0.00001);
+
+	/* Remove candidates from initial scan */
+	ef -= hnsw_ef_search;
+
+	/* Likely not needed */
+	if (ef <= 0)
+		return 0;
+
+	/* TODO DRY with hnswcostestimate */
+	tuplesMax = HnswGetLayerM(m, 0) * ef;
+	layerSelectivity = (scalingFactor * log(path->indexinfo->tuples + 1)) / (log(m) * (1 + log(ef)));
+	tuples = tuplesMax * layerSelectivity;
+
+	/* Limit to ef_stream */
+	if (hnsw_ef_stream != -1)
+		tuples = Min(tuples, hnsw_ef_stream);
+
+	return tuples;
+}
+
+/*
  * Estimate the cost of an index scan
  */
 static void
@@ -171,7 +221,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	costs.numIndexTuples = (entryLevel * m) +
 		(layer0TuplesMax * layer0Selectivity);
 
-	/* TODO Adjust for selectivity for iterative scans */
+	if (hnsw_streaming)
+		costs.numIndexTuples += EstimateExtraTuples(root, path, m, scalingFactor);
 
 	genericcostestimate(root, path, loop_count, &costs);
 
