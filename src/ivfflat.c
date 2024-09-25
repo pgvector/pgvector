@@ -120,13 +120,6 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		costs.indexTotalCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 	}
 
-	/*
-	 * If the list selectivity is lower than what is returned from the generic
-	 * cost estimator, use that.
-	 */
-	if (ratio < costs.indexSelectivity)
-		costs.indexSelectivity = ratio;
-
 	/* Use total cost since most work happens before first tuple is returned */
 	*indexStartupCost = costs.indexTotalCost;
 	*indexTotalCost = costs.indexTotalCost;
