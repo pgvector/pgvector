@@ -109,7 +109,7 @@ EstimateExtraTuples(PlannerInfo *root, IndexPath *path, int m, double scalingFac
 {
 	double		selectivity = 1;
 	ListCell   *lc;
-	double		ef;
+	int			ef;
 	int			tuplesMax;
 	double		layerSelectivity;
 	double		tuples;
