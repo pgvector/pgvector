@@ -99,7 +99,10 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 {
 	GenericCosts costs;
 	int			m;
-	int			entryLevel;
+	int		entryLevel;
+	int		layer0TuplesMax;
+	double		layer0Selectivity;
+	double		scalingFactor = 0.55;
 	Relation	index;
 
 	/* Never use index without order */
@@ -119,12 +122,42 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	HnswGetMetaPageInfo(index, &m, NULL);
 	index_close(index, NoLock);
 
-	/* Approximate entry level */
-	entryLevel = (int) -log(1.0 / path->indexinfo->tuples) * HnswGetMl(m);
+	/*
+	 * HNSW cost estimation follows a formula that accounts for the total
+	 * number of tuples indexed combined with the parameters that most influence
+	 * the duration of the index scan, namely:
+	 *   m - the number of tuples that are scanned in each step of the HNSW
+	 *       graph traversal
+	 *   ef_search - which influences the total number of steps taken at layer 0
+	 *
+	 *  The source of the vector data can impact how many steps it takes to
+	 *  converge on the set of vectors to return to the executor. Currently,
+	 *  we use a hardcoded scaling factor (HNSWScanScalingFactor) to help
+	 *  influence that, but this could later become a configurable parameter
+	 *  based on the cost estimations.
+	 *
+	 * The tuple estimator formula is below:
+	 *
+	 * numIndexTuples = (entryLevel * m) +
+	 * 					(layer0TuplesMax * layer0Selectivity)
+	 *
+	 * "entryLevel * m" represents the floor of tuples we need to scan to get
+	 * to layer 0 (L0).
+	 *
+	 * "layer0TuplesMax" is the estimated total number of tuples we'd scan at
+	 * L0 if we weren't discarding already visited tuples as part of the scan.
+	 *
+	 * "layer0Selectivity" estimates the percentage of tuples that are scanned
+	 * at L0, accounting for previously visited tuples, multiplied by the
+	 * "scalingFactor" (currently hardcoded).
+	 */
+	entryLevel = (int) floor(log(path->indexinfo->tuples + 1) * HnswGetMl(m));
+	layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
+	layer0Selectivity =  (scalingFactor * log(path->indexinfo->tuples + 1)) /
+		(log(m) * (1 + log(hnsw_ef_search)));
 
-	/* TODO Improve estimate of visited tuples (currently underestimates) */
-	/* Account for number of tuples (or entry level), m, and ef_search */
-	costs.numIndexTuples = (entryLevel + 2) * m;
+	costs.numIndexTuples = (entryLevel * m) +
+		(layer0TuplesMax * layer0Selectivity);
 
 	genericcostestimate(root, path, loop_count, &costs);
 

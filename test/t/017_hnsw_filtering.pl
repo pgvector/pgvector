@@ -117,8 +117,8 @@ $node->safe_psql("postgres", "CREATE INDEX attribute_idx ON tst (c);");
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = $c ORDER BY v <-> '$query' LIMIT $limit;
 ));
-# TODO Use attribute index
-like($explain, qr/Index Scan using idx/);
+# Use attribute index
+like($explain, qr/Bitmap Index Scan on attribute_idx/);
 
 # Test partial index
 $node->safe_psql("postgres", "CREATE INDEX partial_idx ON tst USING hnsw (v vector_l2_ops) WHERE (c = $c);");
