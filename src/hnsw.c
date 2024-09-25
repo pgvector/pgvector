@@ -137,8 +137,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 *
 	 * The tuple estimator formula is below:
 	 *
-	 * numIndexTuples = (entryLevel * m) + (layer0TuplesMax *
-	 * layer0Selectivity)
+	 * numIndexTuples = entryLevel * m + layer0TuplesMax * layer0Selectivity
 	 *
 	 * "entryLevel * m" represents the floor of tuples we need to scan to get
 	 * to layer 0 (L0).
@@ -150,7 +149,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 * at L0, accounting for previously visited tuples, multiplied by the
 	 * "scalingFactor" (currently hardcoded).
 	 */
-	entryLevel = (int) floor(log(path->indexinfo->tuples + 1) * HnswGetMl(m));
+	entryLevel = (int) (log(path->indexinfo->tuples + 1) * HnswGetMl(m));
 	layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
 	layer0Selectivity = (scalingFactor * log(path->indexinfo->tuples + 1)) /
 		(log(m) * (1 + log(hnsw_ef_search)));
