@@ -18,12 +18,12 @@ $node->start;
 # Create table and index
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4, t text);");
-$node->safe_psql("postgres", "CREATE TABLE cat (i int4 PRIMARY KEY, t text);");
+$node->safe_psql("postgres", "CREATE TABLE cat (i int4 PRIMARY KEY, t text, b boolean);");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, 'test ' || i FROM generate_series(1, 10000) i;"
 );
 $node->safe_psql("postgres",
-	"INSERT INTO cat SELECT i, 'cat ' || i FROM generate_series(1, $nc) i;"
+	"INSERT INTO cat SELECT i, 'cat ' || i, i % 5 = 0 FROM generate_series(1, $nc) i;"
 );
 $node->safe_psql("postgres", "CREATE INDEX idx ON tst USING hnsw (v vector_l2_ops);");
 $node->safe_psql("postgres", "ANALYZE tst;");
@@ -103,6 +103,12 @@ like($explain, qr/Seq Scan/);
 # Test join
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT cat.t FROM cat INNER JOIN tst ON cat.i = tst.c ORDER BY v <-> '$query' LIMIT $limit;
+));
+like($explain, qr/Index Scan using idx/);
+
+# Test join with attribute filtering
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT cat.t FROM cat INNER JOIN tst ON cat.i = tst.c WHERE cat.b = 't' ORDER BY v <-> '$query' LIMIT $limit;
 ));
 like($explain, qr/Index Scan using idx/);
 
