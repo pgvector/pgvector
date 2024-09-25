@@ -102,7 +102,7 @@ like($explain, qr/Seq Scan/);
 
 # Test join
 $explain = $node->safe_psql("postgres", qq(
-	EXPLAIN ANALYZE SELECT cat.t FROM cat INNER JOIN tst ON cat.i = tst.i ORDER BY v <-> '$query' LIMIT $limit;
+	EXPLAIN ANALYZE SELECT cat.t FROM cat INNER JOIN tst ON cat.i = tst.c ORDER BY v <-> '$query' LIMIT $limit;
 ));
 like($explain, qr/Index Scan using idx/);
 
