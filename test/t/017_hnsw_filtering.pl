@@ -18,8 +18,12 @@ $node->start;
 # Create table and index
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4, t text);");
+$node->safe_psql("postgres", "CREATE TABLE cat (i int4 PRIMARY KEY, t text, b boolean);");
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc, 'test ' || i FROM generate_series(1, 10000) i;"
+);
+$node->safe_psql("postgres",
+	"INSERT INTO cat SELECT i, 'cat ' || i, i % 5 = 0 FROM generate_series(1, $nc) i;"
 );
 $node->safe_psql("postgres", "CREATE INDEX idx ON tst USING hnsw (v vector_l2_ops);");
 $node->safe_psql("postgres", "ANALYZE tst;");
@@ -96,13 +100,25 @@ $explain = $node->safe_psql("postgres", qq(
 ));
 like($explain, qr/Seq Scan/);
 
+# Test join
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT cat.t FROM cat INNER JOIN tst ON cat.i = tst.c ORDER BY v <-> '$query' LIMIT $limit;
+));
+like($explain, qr/Index Scan using idx/);
+
+# Test join with attribute filtering
+$explain = $node->safe_psql("postgres", qq(
+	EXPLAIN ANALYZE SELECT cat.t FROM cat INNER JOIN tst ON cat.i = tst.c WHERE cat.b = 't' ORDER BY v <-> '$query' LIMIT $limit;
+));
+like($explain, qr/Index Scan using idx/);
+
 # Test attribute index
 $node->safe_psql("postgres", "CREATE INDEX attribute_idx ON tst (c);");
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = $c ORDER BY v <-> '$query' LIMIT $limit;
 ));
-# TODO Use attribute index
-like($explain, qr/Index Scan using idx/);
+# Use attribute index
+like($explain, qr/Bitmap Index Scan on attribute_idx/);
 
 # Test partial index
 $node->safe_psql("postgres", "CREATE INDEX partial_idx ON tst USING hnsw (v vector_l2_ops) WHERE (c = $c);");
