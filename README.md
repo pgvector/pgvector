@@ -456,7 +456,7 @@ Starting with 0.8.0, you can enable streaming queries. If too few results from t
 ```tsql
 SET hnsw.streaming = on;
 -- or
-SET ivfflat.streaming = off;
+SET ivfflat.streaming = on;
 ```
 
 ### Streaming Options
