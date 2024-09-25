@@ -172,11 +172,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		/* Remove cost of extra pages */
 		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
 	}
-	else
-	{
-		/* Change some page cost from random to sequential */
-		costs.indexTotalCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
-	}
 
 	/* Use total cost since most work happens before first tuple is returned */
 	*indexStartupCost = costs.indexTotalCost;
