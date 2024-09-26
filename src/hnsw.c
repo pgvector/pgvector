@@ -102,17 +102,13 @@ hnswbuildphasename(int64 phasenum)
 }
 
 /*
- * Estimate extra tuples for iterative scans
+ * Estimate ef needed for iterative scans
  */
-static double
-EstimateExtraTuples(PlannerInfo *root, IndexPath *path, int m, double scalingFactor)
+static int
+EstimateEf(PlannerInfo *root, IndexPath *path)
 {
 	double		selectivity = 1;
 	ListCell   *lc;
-	int			ef;
-	int			tuplesMax;
-	double		layerSelectivity;
-	double		tuples;
 
 	/* Cannot estimate without limit */
 	/* limit_tuples includes offset */
@@ -129,26 +125,7 @@ EstimateExtraTuples(PlannerInfo *root, IndexPath *path, int m, double scalingFac
 			selectivity *= rinfo->norm_selec;
 	}
 
-	/* Estimate the candidates needed */
-	ef = root->limit_tuples / Max(selectivity, 0.00001);
-
-	/* Remove candidates from initial scan */
-	ef -= hnsw_ef_search;
-
-	/* Likely not needed */
-	if (ef <= 0)
-		return 0;
-
-	/* TODO DRY with hnswcostestimate */
-	tuplesMax = HnswGetLayerM(m, 0) * ef;
-	layerSelectivity = (scalingFactor * log(path->indexinfo->tuples + 1)) / (log(m) * (1 + log(ef)));
-	tuples = tuplesMax * layerSelectivity;
-
-	/* Limit to ef_stream */
-	if (hnsw_ef_stream != -1)
-		tuples = Min(tuples, hnsw_ef_stream);
-
-	return tuples;
+	return root->limit_tuples / Max(selectivity, 0.00001);
 }
 
 /*
@@ -162,6 +139,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 {
 	GenericCosts costs;
 	int			m;
+	int			ef;
 	int			entryLevel;
 	int			layer0TuplesMax;
 	double		layer0Selectivity;
@@ -185,6 +163,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	HnswGetMetaPageInfo(index, &m, NULL);
 	index_close(index, NoLock);
+
+	ef = hnsw_streaming ? Max(hnsw_ef_search, EstimateEf(root, path)) : hnsw_ef_search;
 
 	/*
 	 * HNSW cost estimation follows a formula that accounts for the total
@@ -214,15 +194,14 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 * "scalingFactor" (currently hardcoded).
 	 */
 	entryLevel = (int) (log(path->indexinfo->tuples + 1) * HnswGetMl(m));
-	layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
+	layer0TuplesMax = HnswGetLayerM(m, 0) * ef;
 	layer0Selectivity = (scalingFactor * log(path->indexinfo->tuples + 1)) /
-		(log(m) * (1 + log(hnsw_ef_search)));
+		(log(m) * (1 + log(ef)));
+
+	/* TODO incorporate ef_stream */
 
 	costs.numIndexTuples = (entryLevel * m) +
 		(layer0TuplesMax * layer0Selectivity);
-
-	if (hnsw_streaming)
-		costs.numIndexTuples += EstimateExtraTuples(root, path, m, scalingFactor);
 
 	genericcostestimate(root, path, loop_count, &costs);
 
