@@ -759,9 +759,16 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	page = BufferGetPage(buf);
 
 	ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, element->neighborOffno));
-	start = (element->level - lc) * m;
+
+	/* Ensure expected neighbors */
+	if (ntup->count != (element->level + 2) * m)
+	{
+		UnlockReleaseBuffer(buf);
+		return;
+	}
 
 	/* Copy to minimize lock time */
+	start = (element->level - lc) * m;
 	memcpy(&indextids, ntup->indextids + start, lm * sizeof(ItemPointerData));
 
 	UnlockReleaseBuffer(buf);
