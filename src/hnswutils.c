@@ -776,7 +776,7 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	 * Ensure the neighbor tuple has not been deleted or replaced between
 	 * index scan iterations
 	 */
-	if (ntup->version != element->version)
+	if (ntup->version != element->version || ntup->count != (element->level + 2) * m)
 	{
 		UnlockReleaseBuffer(buf);
 		return;
