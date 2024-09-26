@@ -198,8 +198,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	layer0Selectivity = (scalingFactor * log(path->indexinfo->tuples + 1)) /
 		(log(m) * (1 + log(ef)));
 
-	/* TODO incorporate ef_stream */
-
 	costs.numIndexTuples = (entryLevel * m) +
 		(layer0TuplesMax * layer0Selectivity);
 
