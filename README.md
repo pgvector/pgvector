@@ -52,6 +52,8 @@ nmake /F Makefile.win
 nmake /F Makefile.win install
 ```
 
+Note: Postgres 17 is not supported yet due to an upstream issue
+
 See the [installation notes](#installation-notes---windows) if you run into issues
 
 You can also install it with [Docker](#docker) or [conda-forge](#conda-forge).
