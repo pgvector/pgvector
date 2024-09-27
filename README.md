@@ -983,7 +983,7 @@ l2_normalize(sparsevec) → sparsevec | Normalize with Euclidean norm | 0.7.0
 If your machine has multiple Postgres installations, specify the path to [pg_config](https://www.postgresql.org/docs/current/app-pgconfig.html) with:
 
 ```sh
-export PG_CONFIG=/Library/PostgreSQL/16/bin/pg_config
+export PG_CONFIG=/Library/PostgreSQL/17/bin/pg_config
 ```
 
 Then re-run the installation instructions (run `make clean` before `make` if needed). If `sudo` is needed for `make install`, use:
@@ -994,11 +994,11 @@ sudo --preserve-env=PG_CONFIG make install
 
 A few common paths on Mac are:
 
-- EDB installer - `/Library/PostgreSQL/16/bin/pg_config`
-- Homebrew (arm64) - `/opt/homebrew/opt/postgresql@16/bin/pg_config`
-- Homebrew (x86-64) - `/usr/local/opt/postgresql@16/bin/pg_config`
+- EDB installer - `/Library/PostgreSQL/17/bin/pg_config`
+- Homebrew (arm64) - `/opt/homebrew/opt/postgresql@17/bin/pg_config`
+- Homebrew (x86-64) - `/usr/local/opt/postgresql@17/bin/pg_config`
 
-Note: Replace `16` with your Postgres server version
+Note: Replace `17` with your Postgres server version
 
 ### Missing Header
 
@@ -1007,10 +1007,10 @@ If compilation fails with `fatal error: postgres.h: No such file or directory`, 
 For Ubuntu and Debian, use:
 
 ```sh
-sudo apt install postgresql-server-dev-16
+sudo apt install postgresql-server-dev-17
 ```
 
-Note: Replace `16` with your Postgres server version
+Note: Replace `17` with your Postgres server version
 
 ### Missing SDK
 
