@@ -1045,17 +1045,17 @@ If installation fails with `Access is denied`, re-run the installation instructi
 Get the [Docker image](https://hub.docker.com/r/pgvector/pgvector) with:
 
 ```sh
-docker pull pgvector/pgvector:pg16
+docker pull pgvector/pgvector:pg17
 ```
 
-This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `16` with your Postgres server version, and run it the same way).
+This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `17` with your Postgres server version, and run it the same way).
 
 You can also build the image manually:
 
 ```sh
 git clone --branch v0.7.4 https://github.com/pgvector/pgvector.git
 cd pgvector
-docker build --pull --build-arg PG_MAJOR=16 -t myuser/pgvector .
+docker build --pull --build-arg PG_MAJOR=17 -t myuser/pgvector .
 ```
 
 ### Homebrew
