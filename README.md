@@ -1079,29 +1079,29 @@ pgxn install vector
 Debian and Ubuntu packages are available from the [PostgreSQL APT Repository](https://wiki.postgresql.org/wiki/Apt). Follow the [setup instructions](https://wiki.postgresql.org/wiki/Apt#Quickstart) and run:
 
 ```sh
-sudo apt install postgresql-16-pgvector
+sudo apt install postgresql-17-pgvector
 ```
 
-Note: Replace `16` with your Postgres server version
+Note: Replace `17` with your Postgres server version
 
 ### Yum
 
 RPM packages are available from the [PostgreSQL Yum Repository](https://yum.postgresql.org/). Follow the [setup instructions](https://www.postgresql.org/download/linux/redhat/) for your distribution and run:
 
 ```sh
-sudo yum install pgvector_16
+sudo yum install pgvector_17
 # or
-sudo dnf install pgvector_16
+sudo dnf install pgvector_17
 ```
 
-Note: Replace `16` with your Postgres server version
+Note: Replace `17` with your Postgres server version
 
 ### pkg
 
 Install the FreeBSD package with:
 
 ```sh
-pkg install postgresql15-pgvector
+pkg install postgresql16-pgvector
 ```
 
 or the port with:
