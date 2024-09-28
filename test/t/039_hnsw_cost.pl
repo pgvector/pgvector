@@ -17,7 +17,7 @@ $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 for my $dim (@dims)
 {
 	my $array_sql = join(",", ('random()') x $dim);
-	my $n = $dim == 384 ? 2000 : 1000;
+	my $n = 2000;
 
 	# Create table and index
 	$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");

@@ -103,33 +103,6 @@ hnswbuildphasename(int64 phasenum)
 }
 
 /*
- * Estimate ef needed for iterative scans
- */
-static int
-EstimateEf(PlannerInfo *root, IndexPath *path)
-{
-	double		selectivity = 1;
-	ListCell   *lc;
-
-	/* Cannot estimate without limit */
-	/* limit_tuples includes offset */
-	if (root->limit_tuples < 0)
-		return 0;
-
-	/* Get the selectivity of non-index conditions */
-	foreach(lc, path->indexinfo->indrestrictinfo)
-	{
-		RestrictInfo *rinfo = lfirst(lc);
-
-		/* Skip DEFAULT_INEQ_SEL since it may be a distance filter */
-		if (rinfo->norm_selec >= 0 && rinfo->norm_selec <= 1 && rinfo->norm_selec != (Selectivity) DEFAULT_INEQ_SEL)
-			selectivity *= rinfo->norm_selec;
-	}
-
-	return root->limit_tuples / Max(selectivity, 0.00001);
-}
-
-/*
  * Estimate the cost of an index scan
  */
 static void
@@ -140,12 +113,13 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 {
 	GenericCosts costs;
 	int			m;
-	int			ef;
 	int			entryLevel;
 	int			layer0TuplesMax;
 	double		layer0Selectivity;
 	double		scalingFactor = 0.55;
+	double		ratio;
 	double		spc_seq_page_cost;
+	double		startupPages;
 	Relation	index;
 
 	/* Never use index without order */
@@ -161,12 +135,11 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	MemSet(&costs, 0, sizeof(costs));
 
+	genericcostestimate(root, path, loop_count, &costs);
+
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	HnswGetMetaPageInfo(index, &m, NULL);
 	index_close(index, NoLock);
-
-	/* TODO Separate startup and total cost */
-	ef = hnsw_streaming ? Max(hnsw_ef_search, EstimateEf(root, path)) : hnsw_ef_search;
 
 	/*
 	 * HNSW cost estimation follows a formula that accounts for the total
@@ -195,34 +168,40 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 * at L0, accounting for previously visited tuples, multiplied by the
 	 * "scalingFactor" (currently hardcoded).
 	 */
-	entryLevel = (int) (log(path->indexinfo->tuples + 1) * HnswGetMl(m));
-	layer0TuplesMax = HnswGetLayerM(m, 0) * ef;
-	layer0Selectivity = (scalingFactor * log(path->indexinfo->tuples + 1)) /
-		(log(m) * (1 + log(ef)));
+	if (path->indexinfo->tuples > 0)
+	{
+		entryLevel = (int) (log(path->indexinfo->tuples) * HnswGetMl(m));
+		layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
+		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(hnsw_ef_search)));
+		ratio = (entryLevel * m + layer0TuplesMax * layer0Selectivity) / path->indexinfo->tuples;
+	}
+	else
+		ratio = 1;
 
-	costs.numIndexTuples = (entryLevel * m) +
-		(layer0TuplesMax * layer0Selectivity);
-
-	genericcostestimate(root, path, loop_count, &costs);
+	/* Set startup cost since this work happens before first tuple is returned */
+	costs.indexStartupCost = costs.indexTotalCost * ratio;
+	startupPages = costs.numIndexPages * ratio;
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
 	/* Adjust cost if needed since TOAST not included in seq scan cost */
-	if (costs.numIndexPages > path->indexinfo->rel->pages && costs.numIndexTuples / (path->indexinfo->tuples + 1) < 0.5)
+	if (startupPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
 		/* Change all page cost from random to sequential */
-		costs.indexTotalCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		costs.indexStartupCost -= startupPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 		/* Remove cost of extra pages */
-		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+		costs.indexStartupCost -= (startupPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
 	}
 
-	/* Use total cost since most work happens before first tuple is returned */
-	*indexStartupCost = costs.indexTotalCost;
+	*indexStartupCost = costs.indexStartupCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
 	*indexPages = costs.numIndexPages;
+
+	Assert(*indexStartupCost > 0);
+	Assert(*indexTotalCost > *indexStartupCost);
 }
 
 /*
