@@ -492,7 +492,7 @@ Specify the max number of probes
 SET ivfflat.max_probes = 100;
 ```
 
-### Streaming Order
+### Streaming Caveats
 
 With streaming queries, it’s possible for rows to be slightly out of order by distance. For strict ordering, use:
 
@@ -500,6 +500,14 @@ With streaming queries, it’s possible for rows to be slightly out of order by 
 WITH approx_order AS MATERIALIZED (
     SELECT *, embedding <-> '[1,2,3]' AS distance FROM items WHERE ... ORDER BY distance LIMIT 5
 ) SELECT * FROM approx_order ORDER BY distance;
+```
+
+Distance filters should be placed outside the CTE for best performance.
+
+```sql
+WITH approx_order AS MATERIALIZED (
+    SELECT *, embedding <-> '[1,2,3]' AS distance FROM items WHERE ... ORDER BY distance LIMIT 5
+) SELECT * FROM approx_order WHERE distance < 0.1 ORDER BY distance;
 ```
 
 ## Half-Precision Vectors
