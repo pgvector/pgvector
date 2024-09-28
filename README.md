@@ -217,7 +217,7 @@ L2 distance
 CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
 ```
 
-Note: Use `halfvec_l2_ops` for `halfvec` and `sparsevec_l2_ops` for `sparsevec` (and similar with the other distance functions)
+Note: Use `halfvec_l2_ops` for `halfvec`, `intvec_l2_ops` for `intvec`, and `sparsevec_l2_ops` for `sparsevec` (and similar with the other distance functions)
 
 Inner product
 
@@ -253,6 +253,7 @@ Supported types are:
 
 - `vector` - up to 2,000 dimensions
 - `halfvec` - up to 4,000 dimensions (added in 0.7.0)
+- `intvec` - up to 8,000 dimensions (added in 0.8.0)
 - `bit` - up to 64,000 dimensions (added in 0.7.0)
 - `sparsevec` - up to 1,000 non-zero elements (added in 0.7.0)
 
@@ -469,6 +470,16 @@ Get the nearest neighbors
 
 ```sql
 SELECT * FROM items ORDER BY embedding::halfvec(3) <-> '[1,2,3]' LIMIT 5;
+```
+
+## Integer Vectors
+
+*Added in 0.8.0*
+
+Use the `intvec` type to store 8-bit integer vectors
+
+```sql
+CREATE TABLE items (id bigserial PRIMARY KEY, embedding intvec(3));
 ```
 
 ## Binary Vectors
