@@ -39,6 +39,11 @@ for my $dim (@dims)
 	));
 	like($explain, qr/Index Scan using idx/);
 
+	$explain = $node->safe_psql("postgres", qq(
+		EXPLAIN ANALYZE SELECT i FROM tst WHERE v <-> '$query' < 1 ORDER BY v <-> '$query' LIMIT $limit;
+	));
+	like($explain, qr/Index Scan using idx/);
+
 	$node->safe_psql("postgres", "DROP TABLE tst;");
 }
 
