@@ -165,6 +165,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	HnswGetMetaPageInfo(index, &m, NULL);
 	index_close(index, NoLock);
 
+	/* TODO Separate startup and total cost */
 	ef = hnsw_streaming ? Max(hnsw_ef_search, EstimateEf(root, path)) : hnsw_ef_search;
 
 	/*
