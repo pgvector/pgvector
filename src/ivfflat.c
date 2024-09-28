@@ -85,6 +85,8 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	MemSet(&costs, 0, sizeof(costs));
 
+	genericcostestimate(root, path, loop_count, &costs);
+
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	IvfflatGetMetaPageInfo(index, &lists, NULL);
 	index_close(index, NoLock);
@@ -94,14 +96,9 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (ratio > 1.0)
 		ratio = 1.0;
 
-	/*
-	 * This gives us the subset of tuples to visit. This value is passed into
-	 * the generic cost estimator to determine the number of pages to visit
-	 * during the index scan.
-	 */
-	costs.numIndexTuples = path->indexinfo->tuples * ratio;
-
-	genericcostestimate(root, path, loop_count, &costs);
+	/* Set startup cost since most work happens before first tuple is returned */
+	costs.indexStartupCost = costs.indexTotalCost * ratio;
+	costs.numIndexPages *= ratio;
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
@@ -109,23 +106,25 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
 		/* Change all page cost from random to sequential */
-		costs.indexTotalCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		costs.indexStartupCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 		/* Remove cost of extra pages */
-		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+		costs.indexStartupCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
 	}
 	else
 	{
 		/* Change some page cost from random to sequential */
-		costs.indexTotalCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		costs.indexStartupCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 	}
 
-	/* Use total cost since most work happens before first tuple is returned */
-	*indexStartupCost = costs.indexTotalCost;
+	*indexStartupCost = costs.indexStartupCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;
 	*indexPages = costs.numIndexPages;
+
+	Assert(*indexStartupCost > 0);
+	Assert(*indexTotalCost > 0);
 }
 
 /*

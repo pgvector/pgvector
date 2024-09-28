@@ -21,7 +21,7 @@ for my $dim (@dims)
 	# Create table and index
 	$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
 	$node->safe_psql("postgres",
-		"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 5000) i;"
+		"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 6000) i;"
 	);
 	$node->safe_psql("postgres", "CREATE INDEX idx ON tst USING ivfflat (v vector_l2_ops) WITH (lists = 5);");
 	$node->safe_psql("postgres", "ANALYZE tst;");
