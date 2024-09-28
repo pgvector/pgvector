@@ -1,5 +1,6 @@
 ## 0.8.0 (unreleased)
 
+- Added support for iterative index scans
 - Added casts for arrays to `sparsevec`
 - Improved cost estimation
 - Reduced memory usage for HNSW index scans
