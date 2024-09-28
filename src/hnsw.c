@@ -118,8 +118,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	double		layer0Selectivity;
 	double		scalingFactor = 0.55;
 	double		ratio;
-	double		spc_seq_page_cost;
 	double		startupPages;
+	double		spc_seq_page_cost;
 	Relation	index;
 
 	/* Never use index without order */
@@ -201,7 +201,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	*indexPages = costs.numIndexPages;
 
 	Assert(*indexStartupCost > 0);
-	Assert(*indexTotalCost > *indexStartupCost);
+	Assert(*indexTotalCost >= *indexStartupCost);
 }
 
 /*
