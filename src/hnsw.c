@@ -113,10 +113,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 {
 	GenericCosts costs;
 	int			m;
-	int			entryLevel;
-	int			layer0TuplesMax;
-	double		layer0Selectivity;
-	double		scalingFactor = 0.55;
 	double		ratio;
 	double		startupPages;
 	double		spc_seq_page_cost;
@@ -170,9 +166,11 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	 */
 	if (path->indexinfo->tuples > 0)
 	{
-		entryLevel = (int) (log(path->indexinfo->tuples) * HnswGetMl(m));
-		layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
-		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(hnsw_ef_search)));
+		double		scalingFactor = 0.55;
+		int			entryLevel = (int) (log(path->indexinfo->tuples) * HnswGetMl(m));
+		int			layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
+		double		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(hnsw_ef_search)));
+
 		ratio = (entryLevel * m + layer0TuplesMax * layer0Selectivity) / path->indexinfo->tuples;
 
 		if (ratio > 1)
