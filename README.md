@@ -102,6 +102,8 @@ Or add a vector column to an existing table
 ALTER TABLE items ADD COLUMN embedding vector(3);
 ```
 
+Also supports [half-precision](#half-precision-vectors), [binary](#binary-vectors), and [sparse](#sparse-vectors) vectors
+
 Insert vectors
 
 ```sql
@@ -147,6 +149,8 @@ Supported distance functions are:
 - `<#>` - (negative) inner product
 - `<=>` - cosine distance
 - `<+>` - L1 distance (added in 0.7.0)
+- `<~>` - Hamming distance (binary vectors, added in 0.7.0)
+- `<%>` - Jaccard distance (binary vectors, added in 0.7.0)
 
 Get the nearest neighbors to a row
 
