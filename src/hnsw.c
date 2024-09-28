@@ -174,6 +174,9 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
 		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(hnsw_ef_search)));
 		ratio = (entryLevel * m + layer0TuplesMax * layer0Selectivity) / path->indexinfo->tuples;
+
+		if (ratio > 1)
+			ratio = 1;
 	}
 	else
 		ratio = 1;
