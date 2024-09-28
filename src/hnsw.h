@@ -371,6 +371,7 @@ typedef struct HnswScanOpaqueData
 	Datum		q;
 	int			m;
 	int64		tuples;
+	double		previousDistance;
 	MemoryContext tmpCtx;
 
 	/* Support functions */

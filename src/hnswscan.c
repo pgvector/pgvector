@@ -1,5 +1,7 @@
 #include "postgres.h"
 
+#include <float.h>
+
 #include "access/relscan.h"
 #include "hnsw.h"
 #include "pgstat.h"
@@ -149,6 +151,7 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 
 	so->first = true;
 	so->tuples = 0;
+	so->previousDistance = -INFINITY;
 	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -295,6 +298,11 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		}
 
 		heaptid = &element->heaptids[--element->heaptidsLength];
+
+		if (hc->distance < so->previousDistance)
+			continue;
+
+		so->previousDistance = hc->distance;
 
 		MemoryContextSwitchTo(oldCtx);
 
