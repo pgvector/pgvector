@@ -69,6 +69,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	GenericCosts costs;
 	int			lists;
 	double		ratio;
+	double		sequentialRatio = 0.5;
 	double		startupPages;
 	double		spc_seq_page_cost;
 	Relation	index;
@@ -100,7 +101,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
 	/* Change some page cost from random to sequential */
-	costs.indexTotalCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+	costs.indexTotalCost -= sequentialRatio * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 	/* Startup cost is cost before returning the first row */
 	costs.indexStartupCost = costs.indexTotalCost * ratio;
@@ -110,7 +111,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (startupPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
 		/* Change rest of page cost from random to sequential */
-		costs.indexStartupCost -= 0.5 * startupPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		costs.indexStartupCost -= (1 - sequentialRatio) * startupPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 		/* Remove cost of extra pages */
 		costs.indexStartupCost -= (startupPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
