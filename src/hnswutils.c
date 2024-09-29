@@ -611,14 +611,14 @@ GetElementDistance(char *base, HnswElement element, Datum q, FmgrInfo *procinfo,
 HnswSearchCandidate *
 HnswEntryCandidate(char *base, HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
 {
-	HnswSearchCandidate *hc = palloc(sizeof(HnswSearchCandidate));
+	HnswSearchCandidate *sc = palloc(sizeof(HnswSearchCandidate));
 
-	HnswPtrStore(base, hc->element, entryPoint);
+	HnswPtrStore(base, sc->element, entryPoint);
 	if (index == NULL)
-		hc->distance = GetElementDistance(base, entryPoint, q, procinfo, collation);
+		sc->distance = GetElementDistance(base, entryPoint, q, procinfo, collation);
 	else
-		HnswLoadElement(entryPoint, &hc->distance, &q, index, procinfo, collation, loadVec, NULL);
-	return hc;
+		HnswLoadElement(entryPoint, &sc->distance, &q, index, procinfo, collation, loadVec, NULL);
+	return sc;
 }
 
 #define HnswGetSearchCandidate(membername, ptr) pairingheap_container(HnswSearchCandidate, membername, ptr)
@@ -820,20 +820,20 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	/* Add entry points to v, C, and W */
 	foreach(lc2, ep)
 	{
-		HnswSearchCandidate *hc = (HnswSearchCandidate *) lfirst(lc2);
+		HnswSearchCandidate *sc = (HnswSearchCandidate *) lfirst(lc2);
 		bool		found;
 
-		AddToVisited(base, &v, hc->element, index, &found);
+		AddToVisited(base, &v, sc->element, index, &found);
 
-		pairingheap_add(C, &hc->c_node);
-		pairingheap_add(W, &hc->w_node);
+		pairingheap_add(C, &sc->c_node);
+		pairingheap_add(W, &sc->w_node);
 
 		/*
 		 * Do not count elements being deleted towards ef when vacuuming. It
 		 * would be ideal to do this for inserts as well, but this could
 		 * affect insert performance.
 		 */
-		if (CountElement(skipElement, HnswPtrAccess(base, hc->element)))
+		if (CountElement(skipElement, HnswPtrAccess(base, sc->element)))
 			wlen++;
 	}
 
@@ -916,9 +916,9 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	/* Add each element of W to w */
 	while (!pairingheap_is_empty(W))
 	{
-		HnswSearchCandidate *hc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(W));
+		HnswSearchCandidate *sc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(W));
 
-		w = lappend(w, hc);
+		w = lappend(w, sc);
 	}
 
 	return w;
