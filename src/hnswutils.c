@@ -754,6 +754,8 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	int			start;
 	ItemPointerData indextids[HNSW_MAX_M * 2];
 
+	*unvisitedLength = 0;
+
 	buf = ReadBuffer(index, element->neighborPage);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
@@ -772,8 +774,6 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	memcpy(&indextids, ntup->indextids + start, lm * sizeof(ItemPointerData));
 
 	UnlockReleaseBuffer(buf);
-
-	*unvisitedLength = 0;
 
 	for (int i = 0; i < lm; i++)
 	{
