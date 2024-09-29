@@ -547,7 +547,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
  * Load an element and optionally get its distance from q
  */
 static void
-HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, float *maxDistance, HnswElement * element)
+HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, double *maxDistance, HnswElement * element)
 {
 	Buffer		buf;
 	Page		page;
@@ -568,7 +568,7 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, float *distance, Datu
 		if (DatumGetPointer(*q) == NULL)
 			*distance = 0;
 		else
-			*distance = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
+			*distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, *q, PointerGetDatum(&etup->data)));
 	}
 
 	/* Load element */
@@ -587,7 +587,7 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, float *distance, Datu
  * Load an element and optionally get its distance from q
  */
 void
-HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, float *maxDistance)
+HnswLoadElement(HnswElement element, double *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, double *maxDistance)
 {
 	HnswLoadElementImpl(element->blkno, element->offno, distance, q, index, procinfo, collation, loadVec, maxDistance, &element);
 }
@@ -595,7 +595,7 @@ HnswLoadElement(HnswElement element, float *distance, Datum *q, Relation index, 
 /*
  * Get the distance for an element
  */
-static float
+static double
 GetElementDistance(char *base, HnswElement element, Datum q, FmgrInfo *procinfo, Oid collation)
 {
 	Datum		value = HnswGetValue(base, element);
@@ -609,14 +609,14 @@ GetElementDistance(char *base, HnswElement element, Datum q, FmgrInfo *procinfo,
 HnswSearchCandidate *
 HnswEntryCandidate(char *base, HnswElement entryPoint, Datum q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec)
 {
-	HnswSearchCandidate *hc = palloc(sizeof(HnswSearchCandidate));
+	HnswSearchCandidate *sc = palloc(sizeof(HnswSearchCandidate));
 
-	HnswPtrStore(base, hc->element, entryPoint);
+	HnswPtrStore(base, sc->element, entryPoint);
 	if (index == NULL)
-		hc->distance = GetElementDistance(base, entryPoint, q, procinfo, collation);
+		sc->distance = GetElementDistance(base, entryPoint, q, procinfo, collation);
 	else
-		HnswLoadElement(entryPoint, &hc->distance, &q, index, procinfo, collation, loadVec, NULL);
-	return hc;
+		HnswLoadElement(entryPoint, &sc->distance, &q, index, procinfo, collation, loadVec, NULL);
+	return sc;
 }
 
 /*
@@ -845,26 +845,26 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	/* Add entry points to v, C, and W */
 	foreach(lc2, ep)
 	{
-		HnswSearchCandidate *hc = (HnswSearchCandidate *) lfirst(lc2);
+		HnswSearchCandidate *sc = (HnswSearchCandidate *) lfirst(lc2);
 		bool		found;
 
 		if (initVisited)
 		{
-			AddToVisited(base, v, hc->element, index, &found);
+			AddToVisited(base, v, sc->element, index, &found);
 
 			if (tuples != NULL)
 				(*tuples)++;
 		}
 
-		pairingheap_add(C, &hc->c_node);
-		pairingheap_add(W, &hc->w_node);
+		pairingheap_add(C, &sc->c_node);
+		pairingheap_add(W, &sc->w_node);
 
 		/*
 		 * Do not count elements being deleted towards ef when vacuuming. It
 		 * would be ideal to do this for inserts as well, but this could
 		 * affect insert performance.
 		 */
-		if (CountElement(skipElement, HnswPtrAccess(base, hc->element)))
+		if (CountElement(skipElement, HnswPtrAccess(base, sc->element)))
 			wlen++;
 	}
 
@@ -891,7 +891,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		{
 			HnswElement eElement;
 			HnswSearchCandidate *e;
-			float		eDistance;
+			double		eDistance;
 			bool		alwaysAdd = wlen < ef;
 
 			f = HnswGetSearchCandidate(w_node, pairingheap_first(W));
@@ -961,9 +961,9 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	/* Add each element of W to w */
 	while (!pairingheap_is_empty(W))
 	{
-		HnswSearchCandidate *hc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(W));
+		HnswSearchCandidate *sc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(W));
 
-		w = lappend(w, hc);
+		w = lappend(w, sc);
 	}
 
 	return w;
@@ -1208,7 +1208,12 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm
 				HnswElement hc3Element = HnswPtrAccess(base, hc3->element);
 
 				if (HnswPtrIsNull(base, hc3Element->value))
-					HnswLoadElement(hc3Element, &hc3->distance, &q, index, procinfo, collation, true, NULL);
+				{
+					double		distance;
+
+					HnswLoadElement(hc3Element, &distance, &q, index, procinfo, collation, true, NULL);
+					hc3->distance = distance;
+				}
 				else
 					hc3->distance = GetElementDistance(base, hc3Element, q, procinfo, collation);
 

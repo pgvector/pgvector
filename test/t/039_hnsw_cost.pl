@@ -17,7 +17,7 @@ $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 for my $dim (@dims)
 {
 	my $array_sql = join(",", ('random()') x $dim);
-	my $n = 2000;
+	my $n = 6000;
 
 	# Create table and index
 	$node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
@@ -37,6 +37,11 @@ for my $dim (@dims)
 
 	my $explain = $node->safe_psql("postgres", qq(
 		EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v <-> '$query' LIMIT $limit;
+	));
+	like($explain, qr/Index Scan using idx/);
+
+	$explain = $node->safe_psql("postgres", qq(
+		EXPLAIN ANALYZE SELECT i FROM tst WHERE v <-> '$query' < 1 ORDER BY v <-> '$query' LIMIT $limit;
 	));
 	like($explain, qr/Index Scan using idx/);
 
