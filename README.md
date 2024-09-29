@@ -445,13 +445,13 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
-## Streaming Queries [unreleased]
+## Iterative Search [unreleased]
 
 *Added in 0.8.0*
 
 With approximate indexes, you can end up with less results than expected due to filtering conditions in the query.
 
-Starting with 0.8.0, you can enable streaming queries. If too few results from the initial index scan match the query filters, it will resume scanning until enough results are found. This can significantly improve recall (at the cost of speed).
+Starting with 0.8.0, you can enable iterative search. If too few results from the initial index scan match the query filters, it will resume scanning until enough results are found. This can significantly improve recall (at the cost of speed).
 
 ```tsql
 SET hnsw.streaming = on;
@@ -461,9 +461,9 @@ SET ivfflat.streaming = on;
 
 However, there are some important caveats.
 
-### Streaming Caveats
+### Iterative Caveats
 
-With streaming queries, it’s possible for rows to be slightly out of order by distance. For strict ordering, use:
+With iterative search, it’s possible for rows to be slightly out of order by distance. For strict ordering, use:
 
 ```sql
 WITH approx_order AS MATERIALIZED (
@@ -479,7 +479,7 @@ WITH approx_order AS MATERIALIZED (
 ) SELECT * FROM approx_order WHERE distance < 0.1 ORDER BY distance;
 ```
 
-### Streaming Options
+### Iterative Options
 
 Since scanning a large portion of the index is expensive, there are options to control when the scan ends.
 
