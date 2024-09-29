@@ -18,9 +18,18 @@
 #define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
 #endif
 
+static const struct config_enum_entry hnsw_streaming_options[] = {
+	{"off", HNSW_STREAMING_OFF, false},
+	{"strict", HNSW_STREAMING_STRICT, false},
+	{"relaxed", HNSW_STREAMING_RELAXED, false},
+	/* TODO Change to strict before merging */
+	{"on", HNSW_STREAMING_RELAXED, false},
+	{NULL, 0, false}
+};
+
 int			hnsw_ef_search;
 int			hnsw_ef_stream;
-bool		hnsw_streaming;
+int			hnsw_streaming;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
@@ -72,9 +81,9 @@ HnswInit(void)
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	/* TODO Figure out name */
-	DefineCustomBoolVariable("hnsw.streaming", "Use streaming mode",
+	DefineCustomEnumVariable("hnsw.streaming", "Use streaming mode",
 							 NULL, &hnsw_streaming,
-							 HNSW_DEFAULT_STREAMING, PGC_USERSET, 0, NULL, NULL, NULL);
+							 HNSW_STREAMING_OFF, hnsw_streaming_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	/* TODO Figure out name */
 	/* TODO Use same value as ivfflat.max_probes for "all" */

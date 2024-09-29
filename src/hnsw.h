@@ -46,7 +46,6 @@
 #define HNSW_DEFAULT_EF_SEARCH	40
 #define HNSW_MIN_EF_SEARCH		1
 #define HNSW_MAX_EF_SEARCH		1000
-#define HNSW_DEFAULT_STREAMING	false
 #define HNSW_DEFAULT_EF_STREAM	-1
 #define HNSW_MIN_EF_STREAM		-1
 #define HNSW_MAX_EF_STREAM		INT_MAX
@@ -130,8 +129,15 @@
 /* Variables */
 extern int	hnsw_ef_search;
 extern int	hnsw_ef_stream;
-extern bool hnsw_streaming;
+extern int	hnsw_streaming;
 extern int	hnsw_lock_tranche_id;
+
+typedef enum HnswStreamingMode
+{
+	HNSW_STREAMING_OFF,
+	HNSW_STREAMING_STRICT,
+	HNSW_STREAMING_RELAXED
+}			HnswStreamingMode;
 
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
@@ -371,6 +377,7 @@ typedef struct HnswScanOpaqueData
 	Datum		q;
 	int			m;
 	int64		tuples;
+	double		previousDistance;
 	MemoryContext tmpCtx;
 
 	/* Support functions */

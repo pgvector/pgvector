@@ -1,5 +1,7 @@
 #include "postgres.h"
 
+#include <float.h>
+
 #include "access/relscan.h"
 #include "hnsw.h"
 #include "pgstat.h"
@@ -40,7 +42,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_streaming ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_streaming != HNSW_STREAMING_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -149,6 +151,7 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 
 	so->first = true;
 	so->tuples = 0;
+	so->previousDistance = -INFINITY;
 	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -219,7 +222,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		if (list_length(so->w) == 0)
 		{
-			if (!hnsw_streaming)
+			if (hnsw_streaming == HNSW_STREAMING_OFF)
 				break;
 
 			/* Empty index */
@@ -285,7 +288,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			so->w = list_delete_last(so->w);
 
 			/* Mark memory as free for next iteration */
-			if (hnsw_streaming)
+			if (hnsw_streaming != HNSW_STREAMING_OFF)
 			{
 				pfree(element);
 				pfree(hc);
@@ -295,6 +298,14 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		}
 
 		heaptid = &element->heaptids[--element->heaptidsLength];
+
+		if (hnsw_streaming == HNSW_STREAMING_STRICT)
+		{
+			if (hc->distance < so->previousDistance)
+				continue;
+
+			so->previousDistance = hc->distance;
+		}
 
 		MemoryContextSwitchTo(oldCtx);
 
