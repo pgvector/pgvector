@@ -450,69 +450,6 @@ HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m)
 }
 
 /*
- * Load neighbors from page
- */
-static void
-LoadNeighborsFromPage(HnswElement element, Relation index, Page page, int m)
-{
-	char	   *base = NULL;
-
-	HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, element->neighborOffno));
-	int			neighborCount = (element->level + 2) * m;
-
-	Assert(HnswIsNeighborTuple(ntup));
-
-	HnswInitNeighbors(base, element, m, NULL);
-
-	/* Ensure expected neighbors */
-	if (ntup->count != neighborCount)
-		return;
-
-	for (int i = 0; i < neighborCount; i++)
-	{
-		HnswElement e;
-		int			level;
-		HnswCandidate *hc;
-		ItemPointer indextid;
-		HnswNeighborArray *neighbors;
-
-		indextid = &ntup->indextids[i];
-
-		if (!ItemPointerIsValid(indextid))
-			continue;
-
-		e = HnswInitElementFromBlock(ItemPointerGetBlockNumber(indextid), ItemPointerGetOffsetNumber(indextid));
-
-		/* Calculate level based on offset */
-		level = element->level - i / m;
-		if (level < 0)
-			level = 0;
-
-		neighbors = HnswGetNeighbors(base, element, level);
-		hc = &neighbors->items[neighbors->length++];
-		HnswPtrStore(base, hc->element, e);
-	}
-}
-
-/*
- * Load neighbors
- */
-void
-HnswLoadNeighbors(HnswElement element, Relation index, int m)
-{
-	Buffer		buf;
-	Page		page;
-
-	buf = ReadBuffer(index, element->neighborPage);
-	LockBuffer(buf, BUFFER_LOCK_SHARE);
-	page = BufferGetPage(buf);
-
-	LoadNeighborsFromPage(element, index, page, m);
-
-	UnlockReleaseBuffer(buf);
-}
-
-/*
  * Load an element from a tuple
  */
 void

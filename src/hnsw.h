@@ -393,7 +393,6 @@ void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool 
 void		HnswLoadElement(HnswElement element, double *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, double *maxDistance);
 void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element);
 void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
-void		HnswLoadNeighbors(HnswElement element, Relation index, int m);
 void		HnswInitLockTranche(void);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
