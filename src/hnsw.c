@@ -18,18 +18,18 @@
 #define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
 #endif
 
-static const struct config_enum_entry hnsw_streaming_options[] = {
-	{"off", HNSW_STREAMING_OFF, false},
-	{"strict", HNSW_STREAMING_STRICT, false},
-	{"relaxed", HNSW_STREAMING_RELAXED, false},
+static const struct config_enum_entry hnsw_iterative_search_options[] = {
+	{"off", HNSW_ITERATIVE_SEARCH_OFF, false},
+	{"strict", HNSW_ITERATIVE_SEARCH_STRICT, false},
+	{"relaxed", HNSW_ITERATIVE_SEARCH_RELAXED, false},
 	/* TODO Change to strict before merging */
-	{"on", HNSW_STREAMING_RELAXED, false},
+	{"on", HNSW_ITERATIVE_SEARCH_RELAXED, false},
 	{NULL, 0, false}
 };
 
 int			hnsw_ef_search;
-int			hnsw_ef_stream;
-int			hnsw_streaming;
+int			hnsw_max_iterative_tuples;
+int			hnsw_iterative_search;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
@@ -80,15 +80,15 @@ HnswInit(void)
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	/* TODO Figure out name */
-	DefineCustomEnumVariable("hnsw.streaming", "Use streaming mode",
-							 NULL, &hnsw_streaming,
-							 HNSW_STREAMING_OFF, hnsw_streaming_options, PGC_USERSET, 0, NULL, NULL, NULL);
+	/* TODO Change name */
+	DefineCustomEnumVariable("hnsw.streaming", "Iterative search mode",
+							 NULL, &hnsw_iterative_search,
+							 HNSW_ITERATIVE_SEARCH_OFF, hnsw_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	/* TODO Figure out name */
-	/* TODO Use same value as ivfflat.max_probes for "all" */
+	/* TODO Change name */
+	/* TODO Ensure ivfflat.max_probes uses same value for "all" */
 	DefineCustomIntVariable("hnsw.ef_stream", "Sets the max number of additional candidates to visit for streaming search",
-							"-1 means all", &hnsw_ef_stream,
+							"-1 means all", &hnsw_max_iterative_tuples,
 							HNSW_DEFAULT_EF_STREAM, HNSW_MIN_EF_STREAM, HNSW_MAX_EF_STREAM, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");

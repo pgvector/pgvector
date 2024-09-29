@@ -128,16 +128,16 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
-extern int	hnsw_ef_stream;
-extern int	hnsw_streaming;
+extern int	hnsw_max_iterative_tuples;
+extern int	hnsw_iterative_search;
 extern int	hnsw_lock_tranche_id;
 
-typedef enum HnswStreamingMode
+typedef enum HnswIterativeSearch
 {
-	HNSW_STREAMING_OFF,
-	HNSW_STREAMING_STRICT,
-	HNSW_STREAMING_RELAXED
-}			HnswStreamingMode;
+	HNSW_ITERATIVE_SEARCH_OFF,
+	HNSW_ITERATIVE_SEARCH_STRICT,
+	HNSW_ITERATIVE_SEARCH_RELAXED
+}			HnswIterativeSearch;
 
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;

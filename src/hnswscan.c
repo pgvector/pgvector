@@ -42,7 +42,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_streaming != HNSW_STREAMING_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -222,7 +222,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		if (list_length(so->w) == 0)
 		{
-			if (hnsw_streaming == HNSW_STREAMING_OFF)
+			if (hnsw_iterative_search == HNSW_ITERATIVE_SEARCH_OFF)
 				break;
 
 			/* Empty index */
@@ -230,7 +230,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				break;
 
 			/* Reached max number of additional tuples */
-			if (hnsw_ef_stream != -1 && so->tuples >= hnsw_ef_search + hnsw_ef_stream)
+			if (hnsw_max_iterative_tuples != -1 && so->tuples >= hnsw_ef_search + hnsw_max_iterative_tuples)
 			{
 				if (pairingheap_is_empty(so->discarded))
 					break;
@@ -288,7 +288,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			so->w = list_delete_last(so->w);
 
 			/* Mark memory as free for next iteration */
-			if (hnsw_streaming != HNSW_STREAMING_OFF)
+			if (hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF)
 			{
 				pfree(element);
 				pfree(hc);
@@ -299,7 +299,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		heaptid = &element->heaptids[--element->heaptidsLength];
 
-		if (hnsw_streaming == HNSW_STREAMING_STRICT)
+		if (hnsw_iterative_search == HNSW_ITERATIVE_SEARCH_STRICT)
 		{
 			if (hc->distance < so->previousDistance)
 				continue;
