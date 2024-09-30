@@ -392,7 +392,7 @@ void		HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collatio
 void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec);
 void		HnswLoadElement(HnswElement element, double *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, double *maxDistance);
 void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element);
-void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
+void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNeighborArray * currentNeighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 void		HnswInitLockTranche(void);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);

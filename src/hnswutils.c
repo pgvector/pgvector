@@ -1078,10 +1078,9 @@ AddConnections(char *base, HnswElement element, List *neighbors, int lc)
  * Update connections
  */
 void
-HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm, int lc, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
+HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNeighborArray * currentNeighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
 	HnswElement hce = HnswPtrAccess(base, hc->element);
-	HnswNeighborArray *currentNeighbors = HnswGetNeighbors(base, hce, lc);
 	HnswCandidate hc2;
 
 	HnswPtrStore(base, hc2.element, element);

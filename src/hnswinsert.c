@@ -458,7 +458,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			 */
 
 			/* Select neighbors */
-			HnswUpdateConnection(NULL, e, hc, lm, lc, &idx, index, procinfo, collation);
+			HnswUpdateConnection(NULL, e, hc, HnswGetNeighbors(base, neighborElement, lc), lm, &idx, index, procinfo, collation);
 
 			/* New element was not selected as a neighbor */
 			if (idx == -1)
