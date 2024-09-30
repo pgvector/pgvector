@@ -1078,12 +1078,12 @@ AddConnections(char *base, HnswElement element, List *neighbors, int lc)
  * Update connections
  */
 void
-HnswUpdateConnection(char *base, HnswElement newElement, HnswCandidate * hc, HnswNeighborArray * neighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
+HnswUpdateConnection(char *base, HnswNeighborArray * neighbors, HnswElement newElement, float distance, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
 	HnswCandidate newHc;
 
 	HnswPtrStore(base, newHc.element, newElement);
-	newHc.distance = hc->distance;
+	newHc.distance = distance;
 
 	if (neighbors->length < lm)
 	{

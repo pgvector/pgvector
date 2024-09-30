@@ -388,7 +388,7 @@ UpdateNeighborsInMemory(char *base, FmgrInfo *procinfo, Oid collation, HnswEleme
 			Assert(neighborElement);
 
 			LWLockAcquire(&neighborElement->lock, LW_EXCLUSIVE);
-			HnswUpdateConnection(base, e, hc, HnswGetNeighbors(base, neighborElement, lc), lm, NULL, NULL, procinfo, collation);
+			HnswUpdateConnection(base, HnswGetNeighbors(base, neighborElement, lc), e, hc->distance, lm, NULL, NULL, procinfo, collation);
 			LWLockRelease(&neighborElement->lock);
 		}
 	}

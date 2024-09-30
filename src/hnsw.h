@@ -393,7 +393,7 @@ void		HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collatio
 void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec);
 void		HnswLoadElement(HnswElement element, double *distance, Datum *q, Relation index, FmgrInfo *procinfo, Oid collation, bool loadVec, double *maxDistance);
 void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element);
-void		HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNeighborArray * neighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
+void		HnswUpdateConnection(char *base, HnswNeighborArray * neighbors, HnswElement newElement, float distance, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation);
 bool		HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation index, int m, int lm, int lc);
 void		HnswInitLockTranche(void);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);

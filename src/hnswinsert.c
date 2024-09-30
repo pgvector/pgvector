@@ -461,7 +461,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 				LoadElementsForInsert(neighborNeighbors, q, &idx, index, procinfo, collation);
 
 				if (idx == -1)
-					HnswUpdateConnection(base, e, hc, neighborNeighbors, lm, &idx, index, procinfo, collation);
+					HnswUpdateConnection(base, neighborNeighbors, e, hc->distance, lm, &idx, index, procinfo, collation);
 			}
 
 			/* New element was not selected as a neighbor */
