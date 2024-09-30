@@ -680,18 +680,15 @@ HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unv
 }
 
 /*
- * Load unvisited neighbors from disk
+ * Load neighbor index TIDs
  */
-static void
-HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, Relation index, int m, int lm, int lc)
+static bool
+HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation index, int m, int lm, int lc)
 {
 	Buffer		buf;
 	Page		page;
 	HnswNeighborTuple ntup;
 	int			start;
-	ItemPointerData indextids[HNSW_MAX_M * 2];
-
-	*unvisitedLength = 0;
 
 	buf = ReadBuffer(index, element->neighborPage);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
@@ -703,14 +700,29 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	if (ntup->count != (element->level + 2) * m)
 	{
 		UnlockReleaseBuffer(buf);
-		return;
+		return false;
 	}
 
 	/* Copy to minimize lock time */
 	start = (element->level - lc) * m;
-	memcpy(&indextids, ntup->indextids + start, lm * sizeof(ItemPointerData));
+	memcpy(indextids, ntup->indextids + start, lm * sizeof(ItemPointerData));
 
 	UnlockReleaseBuffer(buf);
+	return true;
+}
+
+/*
+ * Load unvisited neighbors from disk
+ */
+static void
+HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, Relation index, int m, int lm, int lc)
+{
+	ItemPointerData indextids[HNSW_MAX_M * 2];
+
+	*unvisitedLength = 0;
+
+	if (!HnswLoadNeighborTids(element, indextids, index, m, lm, lc))
+		return;
 
 	for (int i = 0; i < lm; i++)
 	{
