@@ -1075,6 +1075,32 @@ AddConnections(char *base, HnswElement element, List *neighbors, int lc)
 }
 
 /*
+ * Load elements for insert
+ */
+static void
+LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, HnswCandidate * *pruned, Relation index, FmgrInfo *procinfo, Oid collation)
+{
+	char	   *base = NULL;
+
+	for (int i = 0; i < neighbors->length; i++)
+	{
+		HnswCandidate *hc = &neighbors->items[i];
+		HnswElement element = HnswPtrAccess(base, hc->element);
+		double		distance;
+
+		HnswLoadElement(element, &distance, &q, index, procinfo, collation, true, NULL);
+		hc->distance = distance;
+
+		/* Prune element if being deleted */
+		if (element->heaptidsLength == 0)
+		{
+			*pruned = &neighbors->items[i];
+			break;
+		}
+	}
+}
+
+/*
  * Update connections
  */
 void
@@ -1101,32 +1127,7 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNe
 
 		/* Load elements on insert */
 		if (index != NULL)
-		{
-			Datum		q = HnswGetValue(base, hce);
-
-			for (int i = 0; i < currentNeighbors->length; i++)
-			{
-				HnswCandidate *hc3 = &currentNeighbors->items[i];
-				HnswElement hc3Element = HnswPtrAccess(base, hc3->element);
-
-				if (HnswPtrIsNull(base, hc3Element->value))
-				{
-					double		distance;
-
-					HnswLoadElement(hc3Element, &distance, &q, index, procinfo, collation, true, NULL);
-					hc3->distance = distance;
-				}
-				else
-					hc3->distance = GetElementDistance(base, hc3Element, q, procinfo, collation);
-
-				/* Prune element if being deleted */
-				if (hc3Element->heaptidsLength == 0)
-				{
-					pruned = &currentNeighbors->items[i];
-					break;
-				}
-			}
-		}
+			LoadElementsForInsert(currentNeighbors, HnswGetValue(base, hce), &pruned, index, procinfo, collation);
 
 		if (pruned == NULL)
 		{
