@@ -959,14 +959,13 @@ CheckElementCloser(char *base, HnswCandidate * e, List *r, FmgrInfo *procinfo, O
  * Algorithm 4 from paper
  */
 static List *
-SelectNeighbors(char *base, List *c, int lm, int lc, FmgrInfo *procinfo, Oid collation, HnswElement e2, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
+SelectNeighbors(char *base, List *c, int lm, FmgrInfo *procinfo, Oid collation, HnswNeighborArray * neighbors, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
 {
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
 	HnswCandidate **wd;
 	int			wdlen = 0;
 	int			wdoff = 0;
-	HnswNeighborArray *neighbors = HnswGetNeighbors(base, e2, lc);
 	bool		mustCalculate = !neighbors->closerSet;
 	List	   *added = NIL;
 	bool		removedAny = false;
@@ -1139,7 +1138,7 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, int lm
 				c = lappend(c, &currentNeighbors->items[i]);
 			c = lappend(c, &hc2);
 
-			SelectNeighbors(base, c, lm, lc, procinfo, collation, hce, &hc2, &pruned, true);
+			SelectNeighbors(base, c, lm, procinfo, collation, currentNeighbors, &hc2, &pruned, true);
 
 			/* Should not happen */
 			if (pruned == NULL)
@@ -1278,7 +1277,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		 * sortCandidates to true for in-memory builds to enable closer
 		 * caching, but there does not seem to be a difference in performance.
 		 */
-		neighbors = SelectNeighbors(base, lw, lm, lc, procinfo, collation, element, NULL, NULL, false);
+		neighbors = SelectNeighbors(base, lw, lm, procinfo, collation, HnswGetNeighbors(base, element, lc), NULL, NULL, false);
 
 		AddConnections(base, element, neighbors, lc);
 
