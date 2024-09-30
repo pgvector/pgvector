@@ -335,66 +335,33 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 }
 
 /*
- * Load neighbors from page
+ * Load neighbors
  */
-static void
-LoadNeighborsFromPage(HnswElement element, Relation index, Page page, int m)
+static HnswNeighborArray *
+HnswLoadNeighbors(HnswElement element, Relation index, int m, int lm, int lc)
 {
 	char	   *base = NULL;
+	HnswNeighborArray *neighbors = HnswInitNeighborArray(lm, NULL);
+	ItemPointerData indextids[HNSW_MAX_M * 2];
 
-	HnswNeighborTuple ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, element->neighborOffno));
-	int			neighborCount = (element->level + 2) * m;
+	if (!HnswLoadNeighborTids(element, indextids, index, m, lm, lc))
+		return neighbors;
 
-	Assert(HnswIsNeighborTuple(ntup));
-
-	HnswInitNeighbors(base, element, m, NULL);
-
-	/* Ensure expected neighbors */
-	if (ntup->count != neighborCount)
-		return;
-
-	for (int i = 0; i < neighborCount; i++)
+	for (int i = 0; i < lm; i++)
 	{
+		ItemPointer indextid = &indextids[i];
 		HnswElement e;
-		int			level;
 		HnswCandidate *hc;
-		ItemPointer indextid;
-		HnswNeighborArray *neighbors;
-
-		indextid = &ntup->indextids[i];
 
 		if (!ItemPointerIsValid(indextid))
-			continue;
+			break;
 
 		e = HnswInitElementFromBlock(ItemPointerGetBlockNumber(indextid), ItemPointerGetOffsetNumber(indextid));
-
-		/* Calculate level based on offset */
-		level = element->level - i / m;
-		if (level < 0)
-			level = 0;
-
-		neighbors = HnswGetNeighbors(base, element, level);
 		hc = &neighbors->items[neighbors->length++];
 		HnswPtrStore(base, hc->element, e);
 	}
-}
 
-/*
- * Load neighbors
- */
-static void
-HnswLoadNeighbors(HnswElement element, Relation index, int m)
-{
-	Buffer		buf;
-	Page		page;
-
-	buf = ReadBuffer(index, element->neighborPage);
-	LockBuffer(buf, BUFFER_LOCK_SHARE);
-	page = BufferGetPage(buf);
-
-	LoadNeighborsFromPage(element, index, page, m);
-
-	UnlockReleaseBuffer(buf);
+	return neighbors;
 }
 
 /*
@@ -441,6 +408,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			int			startIdx;
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
 			OffsetNumber offno = neighborElement->neighborOffno;
+			HnswNeighborArray *neighborNeighbors;
 
 			/*
 			 * Get latest neighbors since they may have changed. Do not lock
@@ -448,7 +416,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			 * optimistic locking to retry if another update occurs before
 			 * getting exclusive lock.
 			 */
-			HnswLoadNeighbors(neighborElement, index, m);
+			neighborNeighbors = HnswLoadNeighbors(neighborElement, index, m, lm, lc);
 
 			/*
 			 * Could improve performance for vacuuming by checking neighbors
@@ -458,7 +426,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			 */
 
 			/* Select neighbors */
-			HnswUpdateConnection(NULL, e, hc, HnswGetNeighbors(base, neighborElement, lc), lm, &idx, index, procinfo, collation);
+			HnswUpdateConnection(NULL, e, hc, neighborNeighbors, lm, &idx, index, procinfo, collation);
 
 			/* New element was not selected as a neighbor */
 			if (idx == -1)

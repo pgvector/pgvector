@@ -197,7 +197,7 @@ HnswInitPage(Buffer buf, Page page)
 /*
  * Allocate a neighbor array
  */
-static HnswNeighborArray *
+HnswNeighborArray *
 HnswInitNeighborArray(int lm, HnswAllocator * allocator)
 {
 	HnswNeighborArray *a = HnswAlloc(allocator, HNSW_NEIGHBOR_ARRAY_SIZE(lm));
@@ -682,7 +682,7 @@ HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unv
 /*
  * Load neighbor index TIDs
  */
-static bool
+bool
 HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation index, int m, int lm, int lc)
 {
 	Buffer		buf;
