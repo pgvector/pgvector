@@ -1,12 +1,11 @@
 #include "postgres.h"
 
-#include <float.h>
-
 #include "access/relscan.h"
 #include "hnsw.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
+#include "utils/float.h"
 #include "utils/memutils.h"
 
 /*
@@ -151,7 +150,7 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 
 	so->first = true;
 	so->tuples = 0;
-	so->previousDistance = -INFINITY;
+	so->previousDistance = -get_float8_infinity();
 	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
