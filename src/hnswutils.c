@@ -959,14 +959,14 @@ CheckElementCloser(char *base, HnswCandidate * e, List *r, FmgrInfo *procinfo, O
  * Algorithm 4 from paper
  */
 static List *
-SelectNeighbors(char *base, List *c, int lm, FmgrInfo *procinfo, Oid collation, HnswNeighborArray * neighbors, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
+SelectNeighbors(char *base, List *c, int lm, FmgrInfo *procinfo, Oid collation, bool *closerSet, HnswCandidate * newCandidate, HnswCandidate * *pruned, bool sortCandidates)
 {
 	List	   *r = NIL;
 	List	   *w = list_copy(c);
 	HnswCandidate **wd;
 	int			wdlen = 0;
 	int			wdoff = 0;
-	bool		mustCalculate = !neighbors->closerSet;
+	bool		mustCalculate = !(*closerSet);
 	List	   *added = NIL;
 	bool		removedAny = false;
 
@@ -1043,7 +1043,7 @@ SelectNeighbors(char *base, List *c, int lm, FmgrInfo *procinfo, Oid collation, 
 	}
 
 	/* Cached value can only be used in future if sorted deterministically */
-	neighbors->closerSet = sortCandidates;
+	*closerSet = sortCandidates;
 
 	/* Keep pruned connections */
 	while (wdoff < wdlen && list_length(r) < lm)
@@ -1104,7 +1104,7 @@ HnswUpdateConnection(char *base, HnswNeighborArray * neighbors, HnswElement newE
 			c = lappend(c, &neighbors->items[i]);
 		c = lappend(c, &newHc);
 
-		SelectNeighbors(base, c, lm, procinfo, collation, neighbors, &newHc, &pruned, true);
+		SelectNeighbors(base, c, lm, procinfo, collation, &neighbors->closerSet, &newHc, &pruned, true);
 
 		/* Should not happen */
 		if (pruned == NULL)
@@ -1242,7 +1242,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		 * sortCandidates to true for in-memory builds to enable closer
 		 * caching, but there does not seem to be a difference in performance.
 		 */
-		neighbors = SelectNeighbors(base, lw, lm, procinfo, collation, HnswGetNeighbors(base, element, lc), NULL, NULL, false);
+		neighbors = SelectNeighbors(base, lw, lm, procinfo, collation, &HnswGetNeighbors(base, element, lc)->closerSet, NULL, NULL, false);
 
 		AddConnections(base, element, neighbors, lc);
 
