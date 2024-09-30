@@ -365,6 +365,32 @@ HnswLoadNeighbors(HnswElement element, Relation index, int m, int lm, int lc)
 }
 
 /*
+ * Load elements for insert
+ */
+static void
+LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, int *idx, Relation index, FmgrInfo *procinfo, Oid collation)
+{
+	char	   *base = NULL;
+
+	for (int i = 0; i < neighbors->length; i++)
+	{
+		HnswCandidate *hc = &neighbors->items[i];
+		HnswElement element = HnswPtrAccess(base, hc->element);
+		double		distance;
+
+		HnswLoadElement(element, &distance, &q, index, procinfo, collation, true, NULL);
+		hc->distance = distance;
+
+		/* Prune element if being deleted */
+		if (element->heaptidsLength == 0)
+		{
+			*idx = i;
+			break;
+		}
+	}
+}
+
+/*
  * Check if connection already exists
  */
 static bool
@@ -426,7 +452,17 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			 */
 
 			/* Select neighbors */
-			HnswUpdateConnection(NULL, e, hc, neighborNeighbors, lm, &idx, index, procinfo, collation);
+			if (neighbors->length < lm)
+				idx = -2;
+			else
+			{
+				Datum		q = HnswGetValue(base, neighborElement);
+
+				LoadElementsForInsert(neighborNeighbors, q, &idx, index, procinfo, collation);
+
+				if (idx == -1)
+					HnswUpdateConnection(base, e, hc, neighborNeighbors, lm, &idx, index, procinfo, collation);
+			}
 
 			/* New element was not selected as a neighbor */
 			if (idx == -1)

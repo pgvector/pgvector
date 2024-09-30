@@ -1075,38 +1075,11 @@ AddConnections(char *base, HnswElement element, List *neighbors, int lc)
 }
 
 /*
- * Load elements for insert
- */
-static void
-LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, HnswCandidate * *pruned, Relation index, FmgrInfo *procinfo, Oid collation)
-{
-	char	   *base = NULL;
-
-	for (int i = 0; i < neighbors->length; i++)
-	{
-		HnswCandidate *hc = &neighbors->items[i];
-		HnswElement element = HnswPtrAccess(base, hc->element);
-		double		distance;
-
-		HnswLoadElement(element, &distance, &q, index, procinfo, collation, true, NULL);
-		hc->distance = distance;
-
-		/* Prune element if being deleted */
-		if (element->heaptidsLength == 0)
-		{
-			*pruned = &neighbors->items[i];
-			break;
-		}
-	}
-}
-
-/*
  * Update connections
  */
 void
 HnswUpdateConnection(char *base, HnswElement newElement, HnswCandidate * hc, HnswNeighborArray * neighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
-	HnswElement hce = HnswPtrAccess(base, hc->element);
 	HnswCandidate newHc;
 
 	HnswPtrStore(base, newHc.element, newElement);
@@ -1123,27 +1096,19 @@ HnswUpdateConnection(char *base, HnswElement newElement, HnswCandidate * hc, Hns
 	else
 	{
 		/* Shrink connections */
+		List	   *c = NIL;
 		HnswCandidate *pruned = NULL;
 
-		/* Load elements on insert */
-		if (index != NULL)
-			LoadElementsForInsert(neighbors, HnswGetValue(base, hce), &pruned, index, procinfo, collation);
+		/* Add candidates */
+		for (int i = 0; i < neighbors->length; i++)
+			c = lappend(c, &neighbors->items[i]);
+		c = lappend(c, &newHc);
 
+		SelectNeighbors(base, c, lm, procinfo, collation, neighbors, &newHc, &pruned, true);
+
+		/* Should not happen */
 		if (pruned == NULL)
-		{
-			List	   *c = NIL;
-
-			/* Add candidates */
-			for (int i = 0; i < neighbors->length; i++)
-				c = lappend(c, &neighbors->items[i]);
-			c = lappend(c, &newHc);
-
-			SelectNeighbors(base, c, lm, procinfo, collation, neighbors, &newHc, &pruned, true);
-
-			/* Should not happen */
-			if (pruned == NULL)
-				return;
-		}
+			return;
 
 		/* Find and replace the pruned element */
 		for (int i = 0; i < neighbors->length; i++)
