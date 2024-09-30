@@ -1104,12 +1104,12 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, HnswCandidate * *p
  * Update connections
  */
 void
-HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNeighborArray * neighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
+HnswUpdateConnection(char *base, HnswElement newElement, HnswCandidate * hc, HnswNeighborArray * neighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
 	HnswElement hce = HnswPtrAccess(base, hc->element);
 	HnswCandidate newHc;
 
-	HnswPtrStore(base, newHc.element, element);
+	HnswPtrStore(base, newHc.element, newElement);
 	newHc.distance = hc->distance;
 
 	if (neighbors->length < lm)
