@@ -1104,17 +1104,17 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, HnswCandidate * *p
  * Update connections
  */
 void
-HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNeighborArray * currentNeighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
+HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNeighborArray * neighbors, int lm, int *updateIdx, Relation index, FmgrInfo *procinfo, Oid collation)
 {
 	HnswElement hce = HnswPtrAccess(base, hc->element);
-	HnswCandidate hc2;
+	HnswCandidate newHc;
 
-	HnswPtrStore(base, hc2.element, element);
-	hc2.distance = hc->distance;
+	HnswPtrStore(base, newHc.element, element);
+	newHc.distance = hc->distance;
 
-	if (currentNeighbors->length < lm)
+	if (neighbors->length < lm)
 	{
-		currentNeighbors->items[currentNeighbors->length++] = hc2;
+		neighbors->items[neighbors->length++] = newHc;
 
 		/* Track update */
 		if (updateIdx != NULL)
@@ -1127,18 +1127,18 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNe
 
 		/* Load elements on insert */
 		if (index != NULL)
-			LoadElementsForInsert(currentNeighbors, HnswGetValue(base, hce), &pruned, index, procinfo, collation);
+			LoadElementsForInsert(neighbors, HnswGetValue(base, hce), &pruned, index, procinfo, collation);
 
 		if (pruned == NULL)
 		{
 			List	   *c = NIL;
 
 			/* Add candidates */
-			for (int i = 0; i < currentNeighbors->length; i++)
-				c = lappend(c, &currentNeighbors->items[i]);
-			c = lappend(c, &hc2);
+			for (int i = 0; i < neighbors->length; i++)
+				c = lappend(c, &neighbors->items[i]);
+			c = lappend(c, &newHc);
 
-			SelectNeighbors(base, c, lm, procinfo, collation, currentNeighbors, &hc2, &pruned, true);
+			SelectNeighbors(base, c, lm, procinfo, collation, neighbors, &newHc, &pruned, true);
 
 			/* Should not happen */
 			if (pruned == NULL)
@@ -1146,11 +1146,11 @@ HnswUpdateConnection(char *base, HnswElement element, HnswCandidate * hc, HnswNe
 		}
 
 		/* Find and replace the pruned element */
-		for (int i = 0; i < currentNeighbors->length; i++)
+		for (int i = 0; i < neighbors->length; i++)
 		{
-			if (HnswPtrEqual(base, currentNeighbors->items[i].element, pruned->element))
+			if (HnswPtrEqual(base, neighbors->items[i].element, pruned->element))
 			{
-				currentNeighbors->items[i] = hc2;
+				neighbors->items[i] = newHc;
 
 				/* Track update */
 				if (updateIdx != NULL)
