@@ -185,8 +185,8 @@ typedef struct HnswGraph
 
 	/* Allocations state */
 	LWLock		allocatorLock;
-	long		memoryUsed;
-	long		memoryTotal;
+	Size		memoryUsed;
+	Size		memoryTotal;
 
 	/* Flushed state */
 	LWLock		flushLock;

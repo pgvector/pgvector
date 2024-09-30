@@ -607,7 +607,7 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
  * Initialize the graph
  */
 static void
-InitGraph(HnswGraph * graph, char *base, long memoryTotal)
+InitGraph(HnswGraph * graph, char *base, Size memoryTotal)
 {
 	/* Initialize the lock tranche if needed */
 	HnswInitLockTranche();
@@ -708,7 +708,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	buildstate->collation = index->rd_indcollation[0];
 
-	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * 1024L);
+	InitGraph(&buildstate->graphData, NULL, (Size) maintenance_work_mem * 1024L);
 	buildstate->graph = &buildstate->graphData;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
