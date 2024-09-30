@@ -452,7 +452,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			 */
 
 			/* Select neighbors */
-			if (neighbors->length < lm)
+			if (neighborNeighbors->length < lm)
 				idx = -2;
 			else
 			{
