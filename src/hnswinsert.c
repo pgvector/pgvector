@@ -391,6 +391,45 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, int *idx, Relation
 }
 
 /*
+ * Get update index
+ */
+static int
+GetUpdateIndex(HnswElement element, HnswElement newElement, float distance, int m, int lm, int lc, Relation index, FmgrInfo *procinfo, Oid collation)
+{
+	char	   *base = NULL;
+	int			idx = -1;
+	HnswNeighborArray *neighbors;
+
+	/*
+	 * Get latest neighbors since they may have changed. Do not lock yet since
+	 * selecting neighbors can take time. Could use optimistic locking to
+	 * retry if another update occurs before getting exclusive lock.
+	 */
+	neighbors = HnswLoadNeighbors(element, index, m, lm, lc);
+
+	/*
+	 * Could improve performance for vacuuming by checking neighbors against
+	 * list of elements being deleted to find index. It's important to exclude
+	 * already deleted elements for this since they can be replaced at any
+	 * time.
+	 */
+
+	if (neighbors->length < lm)
+		idx = -2;
+	else
+	{
+		Datum		q = HnswGetValue(base, element);
+
+		LoadElementsForInsert(neighbors, q, &idx, index, procinfo, collation);
+
+		if (idx == -1)
+			HnswUpdateConnection(base, neighbors, newElement, distance, lm, &idx, index, procinfo, collation);
+	}
+
+	return idx;
+}
+
+/*
  * Check if connection already exists
  */
 static bool
@@ -430,39 +469,12 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			Page		page;
 			GenericXLogState *state;
 			HnswNeighborTuple ntup;
-			int			idx = -1;
+			int			idx;
 			int			startIdx;
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
 			OffsetNumber offno = neighborElement->neighborOffno;
-			HnswNeighborArray *neighborNeighbors;
 
-			/*
-			 * Get latest neighbors since they may have changed. Do not lock
-			 * yet since selecting neighbors can take time. Could use
-			 * optimistic locking to retry if another update occurs before
-			 * getting exclusive lock.
-			 */
-			neighborNeighbors = HnswLoadNeighbors(neighborElement, index, m, lm, lc);
-
-			/*
-			 * Could improve performance for vacuuming by checking neighbors
-			 * against list of elements being deleted to find index. It's
-			 * important to exclude already deleted elements for this since
-			 * they can be replaced at any time.
-			 */
-
-			/* Select neighbors */
-			if (neighborNeighbors->length < lm)
-				idx = -2;
-			else
-			{
-				Datum		q = HnswGetValue(base, neighborElement);
-
-				LoadElementsForInsert(neighborNeighbors, q, &idx, index, procinfo, collation);
-
-				if (idx == -1)
-					HnswUpdateConnection(base, neighborNeighbors, e, hc->distance, lm, &idx, index, procinfo, collation);
-			}
+			idx = GetUpdateIndex(neighborElement, e, hc->distance, m, lm, lc, index, procinfo, collation);
 
 			/* New element was not selected as a neighbor */
 			if (idx == -1)
