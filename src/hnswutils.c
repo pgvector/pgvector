@@ -542,6 +542,62 @@ GetElementDistance(char *base, HnswElement element, Datum q, FmgrInfo *procinfo,
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, q, value));
 }
 
+
+extern Datum vector_negative_inner_product(PG_FUNCTION_ARGS);
+extern Datum vector_negative_inner_product4(PG_FUNCTION_ARGS);
+
+/*
+ * Fill in the 'distance' field in an array of candidates, with the distance
+ * of each candidate from 'q'.
+ */
+static void
+CalculateCandidateDistances(char *base, HnswUnvisited *unvisited, int unvisitedLength, Datum q,
+							FmgrInfo *procinfo, Oid collation,
+							double *distances)
+{
+	int			i;
+
+	/*
+	 * Fast-path: Calculate 4 distances in one call
+	 *
+	 * XXX: I only implemented an array version for
+	 * vector_negative_inner_product().  For a proper implementation, this
+	 * ought to be defined as an extra support function. Or perhaps
+	 * something like btree sortsupport machinery
+	 */
+	i = 0;
+	if (procinfo->fn_addr == vector_negative_inner_product)
+	{
+		for (; i < unvisitedLength - 4; i += 4)
+		{
+			HnswElement e[4];
+			double		result[4];
+
+			e[0] = unvisited[i].element;
+			e[1] = unvisited[i + 1].element;
+			e[2] = unvisited[i + 2].element;
+			e[3] = unvisited[i + 3].element;
+			DirectFunctionCall6Coll(vector_negative_inner_product4,
+									collation,
+									q,
+									HnswGetValue(base, e[0]),
+									HnswGetValue(base, e[1]),
+									HnswGetValue(base, e[2]),
+									HnswGetValue(base, e[3]),
+									PointerGetDatum(result));
+			distances[i] = result[0];
+			distances[i + 1] = result[1];
+			distances[i + 2] = result[2];
+			distances[i + 3] = result[3];
+		}
+	}
+
+	/* Process the remaining elements one by one */
+	for (; i < unvisitedLength; i++)
+		distances[i] = GetElementDistance(base, unvisited[i].element, q, procinfo, collation);
+}
+
+
 /*
  * Create a candidate for the entry point
  */
@@ -659,24 +715,74 @@ HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unv
 {
 	/* Get the neighborhood at layer lc */
 	HnswNeighborArray *neighborhood = HnswGetNeighbors(base, element, lc);
+	int			localNeighborhoodLen;
+	uint32		hashes[HNSW_MAX_M * 2];
+	int			num_tovisit;
 
 	/* Copy neighborhood to local memory */
 	LWLockAcquire(&element->lock, LW_SHARED);
 	memcpy(localNeighborhood, neighborhood, neighborhoodSize);
 	LWLockRelease(&element->lock);
+	localNeighborhoodLen = localNeighborhood->length;
 
-	*unvisitedLength = 0;
-
-	for (int i = 0; i < localNeighborhood->length; i++)
+	/*
+	 * Fetch the hashes of all the neighbors first. Accessing the hashes
+	 * causes a lot of cache misses, and by initiating them all now, the CPU
+	 * pipeline can look ahead and perform them in parallel.
+	 *
+	 * Alternatively, we could recalculate the hashes from the pointer values,
+	 * and avoid the cache misses from following the pointers.  However, that
+	 * just kicks the can down the road: all the unvisited elements need to be
+	 * accessed anyway and the visited elements are already in cache, so we
+	 * will just suffer the cache misses slightly later. It's better to start
+	 * fetching them into the cache now in bulk.
+	 */
+#if PG_VERSION_NUM >= 130000
+	Assert(localNeighborhoodLen <= HNSW_MAX_M * 2);
+	for (int i = 0; i < localNeighborhoodLen; i++)
 	{
-		HnswCandidate *hc = &localNeighborhood->items[i];
-		bool		found;
+		HnswElement hce = HnswPtrAccess(base, localNeighborhood->items[i].element);
 
-		AddToVisited(base, v, hc->element, NULL, &found);
-
-		if (!found)
-			unvisited[(*unvisitedLength)++].element = HnswPtrAccess(base, hc->element);
+		hashes[i] = hce->hash;
 	}
+#endif
+
+	num_tovisit = 0;
+	if (base != NULL)
+	{
+		for (int i = 0; i < localNeighborhoodLen; i++)
+		{
+			HnswElementPtr hep = localNeighborhood->items[i].element;
+			bool		found;
+
+#if PG_VERSION_NUM >= 130000
+			offsethash_insert_hash(v->offsets, HnswPtrOffset(hep), hashes[i], &found);
+#else
+			offsethash_insert(v->offsets, HnswPtrOffset(hep), &found);
+#endif
+
+			if (!found)
+				unvisited[num_tovisit++].element = HnswPtrAccess(base, hep);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < localNeighborhoodLen; i++)
+		{
+			HnswElementPtr hep = localNeighborhood->items[i].element;
+			bool		found;
+
+#if PG_VERSION_NUM >= 130000
+			pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(hep), hashes[i], &found);
+#else
+			pointerhash_insert(v->pointers, (uintptr_t) HnswPtrPointer(hep), &found);
+#endif
+
+			if (!found)
+				unvisited[num_tovisit++].element = HnswPtrAccess(base, hep);
+		}
+	}
+	*unvisitedLength = num_tovisit;
 }
 
 /*
@@ -755,6 +861,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 	Size		neighborhoodSize = 0;
 	int			lm = HnswGetLayerM(m, lc);
 	HnswUnvisited *unvisited = palloc(lm * sizeof(HnswUnvisited));
+	double	   *unvisitedDistances = palloc(lm * sizeof(double));
 	int			unvisitedLength;
 
 	InitVisited(base, &v, index, ef, m);
@@ -802,6 +909,10 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 		else
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, &v, index, m, lm, lc);
 
+		if (index == NULL)
+			CalculateCandidateDistances(base, unvisited, unvisitedLength, q,
+										procinfo, collation, unvisitedDistances);
+
 		for (int i = 0; i < unvisitedLength; i++)
 		{
 			HnswElement eElement;
@@ -814,7 +925,7 @@ HnswSearchLayer(char *base, Datum q, List *ep, int ef, int lc, Relation index, F
 			if (index == NULL)
 			{
 				eElement = unvisited[i].element;
-				eDistance = GetElementDistance(base, eElement, q, procinfo, collation);
+				eDistance = unvisitedDistances[i];
 			}
 			else
 			{

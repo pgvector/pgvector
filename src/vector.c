@@ -651,6 +651,49 @@ VectorCosineSimilarity(int dim, float *ax, float *bx)
 }
 
 /*
+ * Compute the distances from 'q' to four other vectors in one function
+ * call. This is equivalent to calling vector_negative_inner_product
+ * four times with the same 'q' argument, but faster.
+ */
+PGDLLEXPORT PG_FUNCTION_INFO_V1(vector_negative_inner_product4);
+Datum
+vector_negative_inner_product4(PG_FUNCTION_ARGS)
+{
+	Vector	   *q = PG_GETARG_VECTOR_P(0);
+	Vector	   *a = PG_GETARG_VECTOR_P(1);
+	Vector	   *b = PG_GETARG_VECTOR_P(2);
+	Vector	   *c = PG_GETARG_VECTOR_P(3);
+	Vector	   *d = PG_GETARG_VECTOR_P(4);
+	double	   *results = (double *) PG_GETARG_POINTER(5);
+	float	   *qx = q->x;
+	float	   *ax = a->x;
+	float	   *bx = b->x;
+	float	   *cx = c->x;
+	float	   *dx = d->x;
+	float		distance[4] = { 0.0, 0.0, 0.0, 0.0 };
+
+	CheckDims(q, a);
+	CheckDims(q, b);
+	CheckDims(q, c);
+	CheckDims(q, d);
+
+	/* Auto-vectorized */
+	for (int i = 0; i < q->dim; i++)
+	{
+		distance[0] += qx[i] * ax[i];
+		distance[1] += qx[i] * bx[i];
+		distance[2] += qx[i] * cx[i];
+		distance[3] += qx[i] * dx[i];
+	}
+	results[0] = (double) distance[0] * -1;
+	results[1] = (double) distance[1] * -1;
+	results[2] = (double) distance[2] * -1;
+	results[3] = (double) distance[3] * -1;
+
+	PG_RETURN_VOID();
+}
+
+/*
  * Get the cosine distance between two vectors
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(cosine_distance);
