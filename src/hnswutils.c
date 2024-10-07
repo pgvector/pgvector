@@ -659,24 +659,74 @@ HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unv
 {
 	/* Get the neighborhood at layer lc */
 	HnswNeighborArray *neighborhood = HnswGetNeighbors(base, element, lc);
+	int			localNeighborhoodLen;
+	uint32		hashes[HNSW_MAX_M * 2];
+	int			num_tovisit;
 
 	/* Copy neighborhood to local memory */
 	LWLockAcquire(&element->lock, LW_SHARED);
 	memcpy(localNeighborhood, neighborhood, neighborhoodSize);
 	LWLockRelease(&element->lock);
+	localNeighborhoodLen = localNeighborhood->length;
 
-	*unvisitedLength = 0;
-
-	for (int i = 0; i < localNeighborhood->length; i++)
+	/*
+	 * Fetch the hashes of all the neighbors first. Accessing the hashes
+	 * causes a lot of cache misses, and by initiating them all now, the CPU
+	 * pipeline can look ahead and perform them in parallel.
+	 *
+	 * Alternatively, we could recalculate the hashes from the pointer values,
+	 * and avoid the cache misses from following the pointers.  However, that
+	 * just kicks the can down the road: all the unvisited elements need to be
+	 * accessed anyway and the visited elements are already in cache, so we
+	 * will just suffer the cache misses slightly later. It's better to start
+	 * fetching them into the cache now in bulk.
+	 */
+#if PG_VERSION_NUM >= 130000
+	Assert(localNeighborhoodLen <= HNSW_MAX_M * 2);
+	for (int i = 0; i < localNeighborhoodLen; i++)
 	{
-		HnswCandidate *hc = &localNeighborhood->items[i];
-		bool		found;
+		HnswElement hce = HnswPtrAccess(base, localNeighborhood->items[i].element);
 
-		AddToVisited(base, v, hc->element, NULL, &found);
-
-		if (!found)
-			unvisited[(*unvisitedLength)++].element = HnswPtrAccess(base, hc->element);
+		hashes[i] = hce->hash;
 	}
+#endif
+
+	num_tovisit = 0;
+	if (base != NULL)
+	{
+		for (int i = 0; i < localNeighborhoodLen; i++)
+		{
+			HnswElementPtr hep = localNeighborhood->items[i].element;
+			bool		found;
+
+#if PG_VERSION_NUM >= 130000
+			offsethash_insert_hash(v->offsets, HnswPtrOffset(hep), hashes[i], &found);
+#else
+			offsethash_insert(v->offsets, HnswPtrOffset(hep), &found);
+#endif
+
+			if (!found)
+				unvisited[num_tovisit++].element = HnswPtrAccess(base, hep);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < localNeighborhoodLen; i++)
+		{
+			HnswElementPtr hep = localNeighborhood->items[i].element;
+			bool		found;
+
+#if PG_VERSION_NUM >= 130000
+			pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(hep), hashes[i], &found);
+#else
+			pointerhash_insert(v->pointers, (uintptr_t) HnswPtrPointer(hep), &found);
+#endif
+
+			if (!found)
+				unvisited[num_tovisit++].element = HnswPtrAccess(base, hep);
+		}
+	}
+	*unvisitedLength = num_tovisit;
 }
 
 /*
