@@ -41,8 +41,7 @@ my $c = int(rand() * $nc);
 my $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c = $c ORDER BY v <-> '$query' LIMIT $limit;
 ));
-# TODO Do not use index
-like($explain, qr/Index Scan using idx/);
+like($explain, qr/Seq Scan/);
 
 # Test attribute filtering with few rows removed
 $explain = $node->safe_psql("postgres", qq(
@@ -60,8 +59,7 @@ like($explain, qr/Index Scan using idx/);
 $explain = $node->safe_psql("postgres", qq(
 	EXPLAIN ANALYZE SELECT i FROM tst WHERE c < 1 ORDER BY v <-> '$query' LIMIT $limit;
 ));
-# TODO Do not use index
-like($explain, qr/Index Scan using idx/);
+like($explain, qr/Seq Scan/);
 
 # Test attribute filtering with few rows removed like
 $explain = $node->safe_psql("postgres", qq(
