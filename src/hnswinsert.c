@@ -561,6 +561,8 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 			UpdateNeighborOnDisk(neighborElement, e, idx, m, lm, lc, index, checkExisting, building);
 		}
 	}
+
+	MemoryContextDelete(updateCtx);
 }
 
 /*
