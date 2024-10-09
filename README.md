@@ -497,14 +497,18 @@ Specify the max number of additional tuples visited
 SET hnsw.ef_stream = 10000;
 ```
 
-The scan will also end if reaches `work_mem`, at which point a notice is shown
+The scan will also end if reaches `work_mem`. You can see when this happens by enabling debug messages.
+
+```sql
+SET client_min_messages = debug1;
+```
 
 ```text
-NOTICE:  hnsw index scan exceeded work_mem after 50000 tuples
+DEBUG:  hnsw index scan exceeded work_mem after 10000 tuples
 HINT:  Increase work_mem to scan more tuples.
 ```
 
-Adjust this with:
+If the server has enough memory, you can adjust this with:
 
 ```sql
 SET work_mem = '8MB';
