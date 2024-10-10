@@ -341,6 +341,107 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 }
 
 /*
+ * Load neighbors
+ */
+static HnswNeighborArray *
+HnswLoadNeighbors(HnswElement element, Relation index, int m, int lm, int lc)
+{
+	char	   *base = NULL;
+	HnswNeighborArray *neighbors = HnswInitNeighborArray(lm, NULL);
+	ItemPointerData indextids[HNSW_MAX_M * 2];
+
+	if (!HnswLoadNeighborTids(element, indextids, index, m, lm, lc))
+		return neighbors;
+
+	for (int i = 0; i < lm; i++)
+	{
+		ItemPointer indextid = &indextids[i];
+		HnswElement e;
+		HnswCandidate *hc;
+
+		if (!ItemPointerIsValid(indextid))
+			break;
+
+		e = HnswInitElementFromBlock(ItemPointerGetBlockNumber(indextid), ItemPointerGetOffsetNumber(indextid));
+		hc = &neighbors->items[neighbors->length++];
+		HnswPtrStore(base, hc->element, e);
+	}
+
+	return neighbors;
+}
+
+/*
+ * Load elements for insert
+ */
+static void
+LoadElementsForInsert(HnswNeighborArray * neighbors, HnswQuery * q, int *idx, Relation index, HnswSupport * support)
+{
+	char	   *base = NULL;
+
+	for (int i = 0; i < neighbors->length; i++)
+	{
+		HnswCandidate *hc = &neighbors->items[i];
+		HnswElement element = HnswPtrAccess(base, hc->element);
+		double		distance;
+
+		HnswLoadElement(element, &distance, q, index, support, true, NULL);
+		hc->distance = distance;
+
+		/* Prune element if being deleted */
+		if (element->heaptidsLength == 0)
+		{
+			*idx = i;
+			break;
+		}
+	}
+}
+
+/*
+ * Get update index
+ */
+static int
+GetUpdateIndex(HnswElement element, HnswElement newElement, float distance, int m, int lm, int lc, Relation index, HnswSupport * support, MemoryContext updateCtx)
+{
+	char	   *base = NULL;
+	int			idx = -1;
+	HnswNeighborArray *neighbors;
+	MemoryContext oldCtx = MemoryContextSwitchTo(updateCtx);
+
+	/*
+	 * Get latest neighbors since they may have changed. Do not lock yet since
+	 * selecting neighbors can take time. Could use optimistic locking to
+	 * retry if another update occurs before getting exclusive lock.
+	 */
+	neighbors = HnswLoadNeighbors(element, index, m, lm, lc);
+
+	/*
+	 * Could improve performance for vacuuming by checking neighbors against
+	 * list of elements being deleted to find index. It's important to exclude
+	 * already deleted elements for this since they can be replaced at any
+	 * time.
+	 */
+
+	if (neighbors->length < lm)
+		idx = -2;
+	else
+	{
+		HnswQuery	q;
+
+		q.value = HnswGetValue(base, element);
+
+		LoadElementsForInsert(neighbors, &q, &idx, index, support);
+
+		if (idx == -1)
+			HnswUpdateConnection(base, neighbors, newElement, distance, lm, &idx, index, support);
+	}
+
+	MemoryContextSwitchTo(oldCtx);
+	MemoryContextReset(updateCtx);
+
+	return idx;
+}
+
+/*
  * Check if connection already exists
  */
 static bool
@@ -361,12 +462,92 @@ ConnectionExists(HnswElement e, HnswNeighborTuple ntup, int startIdx, int lm)
 }
 
 /*
+ * Update neighbor
+ */
+static void
+UpdateNeighborOnDisk(HnswElement element, HnswElement newElement, int idx, int m, int lm, int lc, Relation index, bool checkExisting, bool building)
+{
+	Buffer		buf;
+	Page		page;
+	GenericXLogState *state;
+	HnswNeighborTuple ntup;
+	int			startIdx;
+	OffsetNumber offno = element->neighborOffno;
+
+	/* Register page */
+	buf = ReadBuffer(index, element->neighborPage);
+	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+	if (building)
+	{
+		state = NULL;
+		page = BufferGetPage(buf);
+	}
+	else
+	{
+		state = GenericXLogStart(index);
+		page = GenericXLogRegisterBuffer(state, buf, 0);
+	}
+
+	/* Get tuple */
+	ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, offno));
+
+	/* Calculate index for update */
+	startIdx = (element->level - lc) * m;
+
+	/* Check for existing connection */
+	if (checkExisting && ConnectionExists(newElement, ntup, startIdx, lm))
+		idx = -1;
+	else if (idx == -2)
+	{
+		/* Find free offset if still exists */
+		/* TODO Retry updating connections if not */
+		for (int j = 0; j < lm; j++)
+		{
+			if (!ItemPointerIsValid(&ntup->indextids[startIdx + j]))
+			{
+				idx = startIdx + j;
+				break;
+			}
+		}
+	}
+	else
+		idx += startIdx;
+
+	/* Make robust to issues */
+	if (idx >= 0 && idx < ntup->count)
+	{
+		ItemPointer indextid = &ntup->indextids[idx];
+
+		/* Update neighbor on the buffer */
+		ItemPointerSet(indextid, newElement->blkno, newElement->offno);
+
+		/* Commit */
+		if (building)
+			MarkBufferDirty(buf);
+		else
+			GenericXLogFinish(state);
+	}
+	else if (!building)
+		GenericXLogAbort(state);
+
+	UnlockReleaseBuffer(buf);
+}
+
+/*
  * Update neighbors
  */
 void
-HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement e, int m, bool checkExisting, bool building)
+HnswUpdateNeighborsOnDisk(Relation index, HnswSupport * support, HnswElement e, int m, bool checkExisting, bool building)
 {
 	char	   *base = NULL;
+
+	/* Use separate memory context to improve performance for larger vectors */
+	MemoryContext updateCtx = GenerationContextCreate(CurrentMemoryContext,
+													  "Hnsw insert update context",
+#if PG_VERSION_NUM >= 150000
+													  128 * 1024, 128 * 1024,
+#endif
+													  128 * 1024);
 
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -376,96 +557,20 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Hns
 		for (int i = 0; i < neighbors->length; i++)
 		{
 			HnswCandidate *hc = &neighbors->items[i];
-			Buffer		buf;
-			Page		page;
-			GenericXLogState *state;
-			HnswNeighborTuple ntup;
-			int			idx = -1;
-			int			startIdx;
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
-			OffsetNumber offno = neighborElement->neighborOffno;
+			int			idx;
 
-			/*
-			 * Get latest neighbors since they may have changed. Do not lock
-			 * yet since selecting neighbors can take time. Could use
-			 * optimistic locking to retry if another update occurs before
-			 * getting exclusive lock.
-			 */
-			HnswLoadNeighbors(neighborElement, index, m);
-
-			/*
-			 * Could improve performance for vacuuming by checking neighbors
-			 * against list of elements being deleted to find index. It's
-			 * important to exclude already deleted elements for this since
-			 * they can be replaced at any time.
-			 */
-
-			/* Select neighbors */
-			HnswUpdateConnection(NULL, e, hc, lm, lc, &idx, index, procinfo, collation);
+			idx = GetUpdateIndex(neighborElement, e, hc->distance, m, lm, lc, index, support, updateCtx);
 
 			/* New element was not selected as a neighbor */
 			if (idx == -1)
 				continue;
 
-			/* Register page */
-			buf = ReadBuffer(index, neighborElement->neighborPage);
-			LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
-			if (building)
-			{
-				state = NULL;
-				page = BufferGetPage(buf);
-			}
-			else
-			{
-				state = GenericXLogStart(index);
-				page = GenericXLogRegisterBuffer(state, buf, 0);
-			}
-
-			/* Get tuple */
-			ntup = (HnswNeighborTuple) PageGetItem(page, PageGetItemId(page, offno));
-
-			/* Calculate index for update */
-			startIdx = (neighborElement->level - lc) * m;
-
-			/* Check for existing connection */
-			if (checkExisting && ConnectionExists(e, ntup, startIdx, lm))
-				idx = -1;
-			else if (idx == -2)
-			{
-				/* Find free offset if still exists */
-				/* TODO Retry updating connections if not */
-				for (int j = 0; j < lm; j++)
-				{
-					if (!ItemPointerIsValid(&ntup->indextids[startIdx + j]))
-					{
-						idx = startIdx + j;
-						break;
-					}
-				}
-			}
-			else
-				idx += startIdx;
-
-			/* Make robust to issues */
-			if (idx >= 0 && idx < ntup->count)
-			{
-				ItemPointer indextid = &ntup->indextids[idx];
-
-				/* Update neighbor on the buffer */
-				ItemPointerSet(indextid, e->blkno, e->offno);
-
-				/* Commit */
-				if (building)
-					MarkBufferDirty(buf);
-				else
-					GenericXLogFinish(state);
-			}
-			else if (!building)
-				GenericXLogAbort(state);
-
-			UnlockReleaseBuffer(buf);
+			UpdateNeighborOnDisk(neighborElement, e, idx, m, lm, lc, index, checkExisting, building);
 		}
 	}
+
+	MemoryContextDelete(updateCtx);
 }
 
 /*
@@ -555,7 +660,7 @@ FindDuplicateOnDisk(Relation index, HnswElement element, bool building)
  * Update graph on disk
  */
 static void
-UpdateGraphOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, bool building)
+UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, int m, int efConstruction, HnswElement entryPoint, bool building)
 {
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
@@ -571,7 +676,7 @@ UpdateGraphOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement
 		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM, building);
 
 	/* Update neighbors */
-	HnswUpdateNeighborsOnDisk(index, procinfo, collation, element, m, false, building);
+	HnswUpdateNeighborsOnDisk(index, support, element, m, false, building);
 
 	/* Update entry point if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -582,14 +687,12 @@ UpdateGraphOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, bool building)
+HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPointer heaptid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
 	int			m;
 	int			efConstruction = HnswGetEfConstruction(index);
-	FmgrInfo   *procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	Oid			collation = index->rd_indcollation[0];
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
 
@@ -604,7 +707,7 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
 	/* Create an element */
-	element = HnswInitElement(base, heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
+	element = HnswInitElement(base, heaptid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
 	HnswPtrStore(base, element->value, DatumGetPointer(value));
 
 	/* Prevent concurrent inserts when likely updating entry point */
@@ -622,10 +725,10 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	}
 
 	/* Find neighbors for element */
-	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, false);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false);
 
 	/* Update graph on disk */
-	UpdateGraphOnDisk(index, procinfo, collation, element, m, efConstruction, entryPoint, building);
+	UpdateGraphOnDisk(index, support, element, m, efConstruction, entryPoint, building);
 
 	/* Release lock */
 	UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
@@ -637,31 +740,19 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
  * Insert a tuple into the index
  */
 static void
-HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
+HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid)
 {
 	Datum		value;
 	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
-	FmgrInfo   *normprocinfo;
-	Oid			collation = index->rd_indcollation[0];
+	HnswSupport support;
 
-	/* Detoast once for all calls */
-	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	HnswInitSupport(&support, index);
 
-	/* Check value */
-	if (typeInfo->checkValue != NULL)
-		typeInfo->checkValue(DatumGetPointer(value));
+	/* Form index value */
+	if (!HnswFormIndexValue(&value, values, isnull, typeInfo, &support))
+		return;
 
-	/* Normalize if needed */
-	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		if (!HnswCheckNorm(normprocinfo, collation, value))
-			return;
-
-		value = HnswNormValue(typeInfo, collation, value);
-	}
-
-	HnswInsertTupleOnDisk(index, value, values, isnull, heap_tid, false);
+	HnswInsertTupleOnDisk(index, &support, value, heaptid, false);
 }
 
 /*

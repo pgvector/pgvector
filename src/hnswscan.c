@@ -12,36 +12,36 @@
  * Algorithm 5 from paper
  */
 static List *
-GetScanItems(IndexScanDesc scan, Datum q)
+GetScanItems(IndexScanDesc scan, Datum value)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
-	FmgrInfo   *procinfo = so->procinfo;
-	Oid			collation = so->collation;
+	HnswSupport *support = &so->support;
 	List	   *ep;
 	List	   *w;
 	int			m;
 	HnswElement entryPoint;
 	char	   *base = NULL;
+	HnswQuery  *q = &so->q;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
-	so->q = q;
+	q->value = value;
 	so->m = m;
 
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, support, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, &so->v, hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -52,8 +52,6 @@ ResumeScanItems(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
-	FmgrInfo   *procinfo = so->procinfo;
-	Oid			collation = so->collation;
 	List	   *ep = NIL;
 	char	   *base = NULL;
 	int			batch_size = hnsw_ef_search;
@@ -74,7 +72,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, hc);
 	}
 
-	return HnswSearchLayer(base, so->q, ep, batch_size, 0, index, procinfo, collation, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
+	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
 }
 
 /*
@@ -97,8 +95,8 @@ GetScanValue(IndexScanDesc scan)
 		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
 
 		/* Normalize if needed */
-		if (so->normprocinfo != NULL)
-			value = HnswNormValue(so->typeInfo, so->collation, value);
+		if (so->support.normprocinfo != NULL)
+			value = HnswNormValue(so->typeInfo, so->support.collation, value);
 	}
 
 	return value;
@@ -125,9 +123,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
-	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->collation = index->rd_indcollation[0];
+	HnswInitSupport(&so->support, index);
 
 	scan->opaque = so;
 
@@ -215,7 +211,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	for (;;)
 	{
 		char	   *base = NULL;
-		HnswSearchCandidate *hc;
+		HnswSearchCandidate *sc;
 		HnswElement element;
 		ItemPointer heaptid;
 
@@ -278,8 +274,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				break;
 		}
 
-		hc = llast(so->w);
-		element = HnswPtrAccess(base, hc->element);
+		sc = llast(so->w);
+		element = HnswPtrAccess(base, sc->element);
 
 		/* Move to next element if no valid heap TIDs */
 		if (element->heaptidsLength == 0)
@@ -290,7 +286,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF)
 			{
 				pfree(element);
-				pfree(hc);
+				pfree(sc);
 			}
 
 			continue;
@@ -300,10 +296,10 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		if (hnsw_iterative_search == HNSW_ITERATIVE_SEARCH_STRICT)
 		{
-			if (hc->distance < so->previousDistance)
+			if (sc->distance < so->previousDistance)
 				continue;
 
-			so->previousDistance = hc->distance;
+			so->previousDistance = sc->distance;
 		}
 
 		MemoryContextSwitchTo(oldCtx);

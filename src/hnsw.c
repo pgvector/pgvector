@@ -188,13 +188,13 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	else
 		ratio = 1;
 
-	/* Set startup cost since this work happens before first tuple is returned */
-	costs.indexStartupCost = costs.indexTotalCost * ratio;
-	startupPages = costs.numIndexPages * ratio;
-
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
+	/* Startup cost is cost before returning the first row */
+	costs.indexStartupCost = costs.indexTotalCost * ratio;
+
 	/* Adjust cost if needed since TOAST not included in seq scan cost */
+	startupPages = costs.numIndexPages * ratio;
 	if (startupPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
 		/* Change all page cost from random to sequential */
