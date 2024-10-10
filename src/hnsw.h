@@ -96,9 +96,6 @@
 
 #define HnswGetValue(base, element) PointerGetDatum(HnswPtrAccess(base, (element)->value))
 
-#define HnswGetSearchCandidate(membername, ptr) pairingheap_container(HnswSearchCandidate, membername, ptr)
-#define HnswGetSearchCandidateConst(membername, ptr) pairingheap_const_container(HnswSearchCandidate, membername, ptr)
-
 #if PG_VERSION_NUM < 140005
 #define relptr_offset(rp) ((rp).relptr_off - 1)
 #endif
