@@ -62,14 +62,14 @@ ResumeScanItems(IndexScanDesc scan)
 	/* Get next batch of candidates */
 	for (int i = 0; i < batch_size; i++)
 	{
-		HnswSearchCandidate *hc;
+		HnswSearchCandidate *sc;
 
 		if (pairingheap_is_empty(so->discarded))
 			break;
 
-		hc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded));
+		sc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded));
 
-		ep = lappend(ep, hc);
+		ep = lappend(ep, sc);
 	}
 
 	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
