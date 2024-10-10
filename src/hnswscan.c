@@ -173,7 +173,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		ItemPointer heaptid;
 
 		/* Move to next element if no valid heap TIDs */
-		if (!hc->matches || element->heaptidsLength == 0)
+		if (!sc->matches || element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
 			continue;

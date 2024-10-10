@@ -397,7 +397,7 @@ void		HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, in
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);
 HnswNeighborArray *HnswInitNeighborArray(int lm, HnswAllocator * allocator);
 void		HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * alloc);
-bool		HnswInsertTupleOnDisk(Relation index, IndexTuple itup, ItemPointer heaptid, bool building);
+bool		HnswInsertTupleOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, IndexTuple itup, ItemPointer heaptid, bool building);
 void		HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, HnswElement e, int m, bool checkExisting, bool building);
 void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHeaptids, bool loadVec, Relation index);
 void		HnswLoadElement(HnswElement element, double *distance, bool *matches, Datum *q, IndexTuple qtup, ScanKeyData *keyData, Relation index, FmgrInfo **procinfo, Oid *collation, bool loadVec, double *maxDistance);
