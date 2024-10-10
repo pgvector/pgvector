@@ -365,7 +365,7 @@ AddElementInMemory(char *base, HnswGraph * graph, HnswElement element)
  * Update neighbors
  */
 static void
-UpdateNeighborsInMemory(char *base, Relation index, FmgrInfo **procinfo, Oid *collation, HnswElement e, int m)
+UpdateNeighborsInMemory(char *base, Relation index, HnswSupport * support, HnswElement e, int m)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -387,7 +387,7 @@ UpdateNeighborsInMemory(char *base, Relation index, FmgrInfo **procinfo, Oid *co
 			Assert(neighborElement);
 
 			LWLockAcquire(&neighborElement->lock, LW_EXCLUSIVE);
-			HnswUpdateConnection(base, HnswGetNeighbors(base, neighborElement, lc), e, hc->distance, lm, NULL, index, procinfo, collation);
+			HnswUpdateConnection(base, HnswGetNeighbors(base, neighborElement, lc), e, hc->distance, lm, NULL, index, support);
 			LWLockRelease(&neighborElement->lock);
 		}
 	}
@@ -397,7 +397,7 @@ UpdateNeighborsInMemory(char *base, Relation index, FmgrInfo **procinfo, Oid *co
  * Update graph in memory
  */
 static void
-UpdateGraphInMemory(FmgrInfo **procinfo, Oid *collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate)
+UpdateGraphInMemory(HnswSupport * support, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate)
 {
 	HnswGraph  *graph = buildstate->graph;
 	char	   *base = buildstate->hnswarea;
@@ -410,7 +410,7 @@ UpdateGraphInMemory(FmgrInfo **procinfo, Oid *collation, HnswElement element, in
 	AddElementInMemory(base, graph, element);
 
 	/* Update neighbors */
-	UpdateNeighborsInMemory(base, buildstate->index, procinfo, collation, element, m);
+	UpdateNeighborsInMemory(base, buildstate->index, support, element, m);
 
 	/* Update entry point if needed (already have lock) */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -424,9 +424,8 @@ static void
 InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 {
 	Relation	index = buildstate->index;
-	FmgrInfo  **procinfo = buildstate->procinfo;
-	Oid		   *collation = buildstate->collation;
 	HnswGraph  *graph = buildstate->graph;
+	HnswSupport *support = &buildstate->support;
 	HnswElement entryPoint;
 	LWLock	   *entryLock = &graph->entryLock;
 	LWLock	   *entryWaitLock = &graph->entryWaitLock;
@@ -458,10 +457,10 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	}
 
 	/* Find neighbors for element */
-	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, false, true);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false, true);
 
 	/* Update graph in memory */
-	UpdateGraphInMemory(procinfo, collation, element, m, efConstruction, entryPoint, buildstate);
+	UpdateGraphInMemory(support, element, m, efConstruction, entryPoint, buildstate);
 
 	/* Release entry lock */
 	LWLockRelease(entryLock);
@@ -476,8 +475,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
-	FmgrInfo  **procinfo = buildstate->procinfo;
-	Oid		   *collation = buildstate->collation;
+	HnswSupport *support = &buildstate->support;
 	LWLock	   *flushLock = &graph->flushLock;
 	char	   *base = buildstate->hnswarea;
 	TupleDesc	tupdesc = buildstate->tupdesc;
@@ -487,7 +485,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	bool		unused;
 
 	/* Form index tuple */
-	if (!HnswFormIndexTuple(&itup, values, isnull, buildstate->typeInfo, buildstate->normprocinfo, collation[0], tupdesc))
+	if (!HnswFormIndexTuple(&itup, values, isnull, buildstate->typeInfo, support, tupdesc))
 		return false;
 
 	/* Get tuple size */
@@ -501,7 +499,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	{
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, procinfo, collation, itup, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true);
 	}
 
 	/*
@@ -533,7 +531,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, procinfo, collation, itup, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true);
 	}
 
 	/* Ok, we can proceed to allocate the element */
@@ -710,7 +708,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->indtuples = 0;
 
 	/* Get support functions */
-	HnswSetProcinfo(index, buildstate->procinfo, &buildstate->normprocinfo, &buildstate->collation);
+	HnswInitSupport(&buildstate->support, index);
 
 	InitGraph(&buildstate->graphData, NULL, (Size) maintenance_work_mem * 1024L);
 	buildstate->graph = &buildstate->graphData;

@@ -15,8 +15,7 @@ GetScanItems(IndexScanDesc scan, Datum q)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
-	FmgrInfo  **procinfo = so->procinfo;
-	Oid		   *collation = so->collation;
+	HnswSupport *support = &so->support;
 	List	   *ep;
 	List	   *w;
 	int			m;
@@ -31,15 +30,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, NULL, keyData, index, procinfo, collation, false, inMemory));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, NULL, keyData, index, support, false, inMemory));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, NULL, keyData, ep, 1, lc, index, procinfo, collation, m, false, NULL, inMemory);
+		w = HnswSearchLayer(base, q, NULL, keyData, ep, 1, lc, index, support, m, false, NULL, inMemory);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, NULL, keyData, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, inMemory);
+	return HnswSearchLayer(base, q, NULL, keyData, ep, hnsw_ef_search, 0, index, support, m, false, NULL, inMemory);
 }
 
 /*
@@ -62,8 +61,8 @@ GetScanValue(IndexScanDesc scan)
 		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
 
 		/* Normalize if needed */
-		if (so->normprocinfo != NULL)
-			value = HnswNormValue(so->typeInfo, so->collation[0], value);
+		if (so->support.normprocinfo != NULL)
+			value = HnswNormValue(so->typeInfo, so->support.collation[0], value);
 	}
 
 	return value;
@@ -88,7 +87,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
-	HnswSetProcinfo(index, so->procinfo, &so->normprocinfo, &so->collation);
+	HnswInitSupport(&so->support, index);
 
 	scan->opaque = so;
 

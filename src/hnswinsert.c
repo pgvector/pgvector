@@ -369,7 +369,7 @@ HnswLoadNeighbors(HnswElement element, Relation index, int m, int lm, int lc)
  * Load elements for insert
  */
 static void
-LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, IndexTuple qtup, int *idx, Relation index, FmgrInfo **procinfo, Oid *collation)
+LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, IndexTuple qtup, int *idx, Relation index, HnswSupport * support)
 {
 	char	   *base = NULL;
 
@@ -380,7 +380,7 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, IndexTuple qtup, i
 		double		distance;
 		bool		matches;
 
-		HnswLoadElement(element, &distance, &matches, &q, qtup, NULL, index, procinfo, collation, true, NULL);
+		HnswLoadElement(element, &distance, &matches, &q, qtup, NULL, index, support, true, NULL);
 		hc->distance = distance;
 
 		/* Prune element if being deleted */
@@ -396,7 +396,7 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, IndexTuple qtup, i
  * Get update index
  */
 static int
-GetUpdateIndex(HnswElement element, HnswElement newElement, float distance, int m, int lm, int lc, Relation index, FmgrInfo **procinfo, Oid *collation, MemoryContext updateCtx)
+GetUpdateIndex(HnswElement element, HnswElement newElement, float distance, int m, int lm, int lc, Relation index, HnswSupport * support, MemoryContext updateCtx)
 {
 	char	   *base = NULL;
 	int			idx = -1;
@@ -424,10 +424,10 @@ GetUpdateIndex(HnswElement element, HnswElement newElement, float distance, int 
 		Datum		q = HnswGetValue(base, element);
 		IndexTuple	qtup = HnswPtrAccess(base, element->itup);;
 
-		LoadElementsForInsert(neighbors, q, qtup, &idx, index, procinfo, collation);
+		LoadElementsForInsert(neighbors, q, qtup, &idx, index, support);
 
 		if (idx == -1)
-			HnswUpdateConnection(base, neighbors, newElement, distance, lm, &idx, index, procinfo, collation);
+			HnswUpdateConnection(base, neighbors, newElement, distance, lm, &idx, index, support);
 	}
 
 	MemoryContextSwitchTo(oldCtx);
@@ -532,7 +532,7 @@ UpdateNeighborOnDisk(HnswElement element, HnswElement newElement, int idx, int m
  * Update neighbors
  */
 void
-HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, HnswElement e, int m, bool checkExisting, bool building)
+HnswUpdateNeighborsOnDisk(Relation index, HnswSupport * support, HnswElement e, int m, bool checkExisting, bool building)
 {
 	char	   *base = NULL;
 
@@ -555,7 +555,7 @@ HnswUpdateNeighborsOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, H
 			HnswElement neighborElement = HnswPtrAccess(base, hc->element);
 			int			idx;
 
-			idx = GetUpdateIndex(neighborElement, e, hc->distance, m, lm, lc, index, procinfo, collation, updateCtx);
+			idx = GetUpdateIndex(neighborElement, e, hc->distance, m, lm, lc, index, support, updateCtx);
 
 			/* New element was not selected as a neighbor */
 			if (idx == -1)
@@ -665,7 +665,7 @@ FindDuplicateOnDisk(Relation index, HnswElement element, bool building)
  * Update graph on disk
  */
 static void
-UpdateGraphOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, HnswElement element, int m, int efConstruction, HnswElement entryPoint, bool building)
+UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, int m, int efConstruction, HnswElement entryPoint, bool building)
 {
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
@@ -681,7 +681,7 @@ UpdateGraphOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, HnswEleme
 		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM, building);
 
 	/* Update neighbors */
-	HnswUpdateNeighborsOnDisk(index, procinfo, collation, element, m, false, building);
+	HnswUpdateNeighborsOnDisk(index, support, element, m, false, building);
 
 	/* Update entry point if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -692,7 +692,7 @@ UpdateGraphOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, HnswEleme
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, IndexTuple itup, ItemPointer heaptid, bool building)
+HnswInsertTupleOnDisk(Relation index, HnswSupport * support, IndexTuple itup, ItemPointer heaptid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
@@ -733,10 +733,10 @@ HnswInsertTupleOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, Index
 	}
 
 	/* Find neighbors for element */
-	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, false, false);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false, false);
 
 	/* Update graph on disk */
-	UpdateGraphOnDisk(index, procinfo, collation, element, m, efConstruction, entryPoint, building);
+	UpdateGraphOnDisk(index, support, element, m, efConstruction, entryPoint, building);
 
 	/* Release lock */
 	UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
@@ -753,17 +753,15 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid
 	IndexTuple	itup;
 	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
 	TupleDesc	tupdesc = RelationGetDescr(index);
-	FmgrInfo   *procinfo[2];
-	FmgrInfo   *normprocinfo;
-	Oid		   *collation;
+	HnswSupport support;
 
-	HnswSetProcinfo(index, procinfo, &normprocinfo, &collation);
+	HnswInitSupport(&support, index);
 
 	/* Form index tuple */
-	if (!HnswFormIndexTuple(&itup, values, isnull, typeInfo, normprocinfo, collation[0], tupdesc))
+	if (!HnswFormIndexTuple(&itup, values, isnull, typeInfo, &support, tupdesc))
 		return;
 
-	HnswInsertTupleOnDisk(index, procinfo, collation, itup, heaptid, false);
+	HnswInsertTupleOnDisk(index, &support, itup, heaptid, false);
 }
 
 /*

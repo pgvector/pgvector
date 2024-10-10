@@ -184,13 +184,12 @@ static void
 RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswElement entryPoint)
 {
 	Relation	index = vacuumstate->index;
+	HnswSupport *support = &vacuumstate->support;
 	Buffer		buf;
 	Page		page;
 	GenericXLogState *state;
 	int			m = vacuumstate->m;
 	int			efConstruction = vacuumstate->efConstruction;
-	FmgrInfo  **procinfo = vacuumstate->procinfo;
-	Oid		   *collation = vacuumstate->collation;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswNeighborTuple ntup = vacuumstate->ntup;
 	Size		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, m);
@@ -205,7 +204,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	element->heaptidsLength = 0;
 
 	/* Find neighbors for element, skipping itself */
-	HnswFindElementNeighbors(base, element, entryPoint, index, procinfo, collation, m, efConstruction, true, false);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, true, false);
 
 	/* Zero memory for each element */
 	MemSet(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
@@ -229,7 +228,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	UnlockReleaseBuffer(buf);
 
 	/* Update neighbors */
-	HnswUpdateNeighborsOnDisk(index, procinfo, collation, element, m, true, false);
+	HnswUpdateNeighborsOnDisk(index, support, element, m, true, false);
 }
 
 /*
@@ -239,6 +238,7 @@ static void
 RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 {
 	Relation	index = vacuumstate->index;
+	HnswSupport *support = &vacuumstate->support;
 	HnswElement highestPoint = &vacuumstate->highestPoint;
 	HnswElement entryPoint;
 	MemoryContext oldCtx = MemoryContextSwitchTo(vacuumstate->tmpCtx);
@@ -256,7 +256,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
 		/* Load element */
-		HnswLoadElement(highestPoint, NULL, NULL, NULL, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true, NULL);
+		HnswLoadElement(highestPoint, NULL, NULL, NULL, NULL, NULL, index, support, true, NULL);
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
@@ -294,7 +294,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			 * is outdated, this can remove connections at higher levels in
 			 * the graph until they are repaired, but this should be fine.
 			 */
-			HnswLoadElement(entryPoint, NULL, NULL, NULL, NULL, NULL, index, vacuumstate->procinfo, vacuumstate->collation, true, NULL);
+			HnswLoadElement(entryPoint, NULL, NULL, NULL, NULL, NULL, index, support, true, NULL);
 
 			if (NeedsUpdated(vacuumstate, entryPoint))
 			{
@@ -586,7 +586,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 												"Hnsw vacuum temporary context",
 												ALLOCSET_DEFAULT_SIZES);
 
-	HnswSetProcinfo(index, vacuumstate->procinfo, NULL, &vacuumstate->collation);
+	HnswInitSupport(&vacuumstate->support, index);
 
 	/* Get m from metapage */
 	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
