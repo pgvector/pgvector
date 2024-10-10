@@ -15,13 +15,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
-	FmgrInfo   *procinfo = so->procinfo;
-	Oid			collation = so->collation;
+	FmgrInfo  **procinfo = so->procinfo;
+	Oid		   *collation = so->collation;
 	List	   *ep;
 	List	   *w;
 	int			m;
 	HnswElement entryPoint;
 	char	   *base = NULL;
+	bool		inMemory = false;
+	ScanKeyData *keyData = scan->keyData;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
@@ -29,15 +31,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, NULL, keyData, index, procinfo, collation, false, inMemory));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, q, NULL, keyData, ep, 1, lc, index, procinfo, collation, m, false, NULL, inMemory);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, q, NULL, keyData, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL, inMemory);
 }
 
 /*
@@ -61,7 +63,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Normalize if needed */
 		if (so->normprocinfo != NULL)
-			value = HnswNormValue(so->typeInfo, so->collation, value);
+			value = HnswNormValue(so->typeInfo, so->collation[0], value);
 	}
 
 	return value;
@@ -86,9 +88,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
-	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	HnswInitProcinfo(so->procinfo, index);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->collation = index->rd_indcollation[0];
+	so->collation = index->rd_indcollation;
 
 	scan->opaque = so;
 
@@ -173,7 +175,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		ItemPointer heaptid;
 
 		/* Move to next element if no valid heap TIDs */
-		if (element->heaptidsLength == 0)
+		if (!hc->matches || element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
 			continue;

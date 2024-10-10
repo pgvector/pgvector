@@ -916,3 +916,13 @@ CREATE OPERATOR CLASS sparsevec_l1_ops
 	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(sparsevec, sparsevec),
 	FUNCTION 3 hnsw_sparsevec_support(internal);
+
+-- hnsw attributes
+
+CREATE FUNCTION hnsw_attribute_distance(integer, integer) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hnsw_int4_attribute_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE OPERATOR CLASS vector_integer_ops
+	DEFAULT FOR TYPE integer USING hnsw AS
+	OPERATOR 2 = (integer, integer),
+	FUNCTION 4 hnsw_attribute_distance(integer, integer);

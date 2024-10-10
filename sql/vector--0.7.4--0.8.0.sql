@@ -24,3 +24,11 @@ CREATE CAST (double precision[] AS sparsevec)
 
 CREATE CAST (numeric[] AS sparsevec)
 	WITH FUNCTION array_to_sparsevec(numeric[], integer, boolean) AS ASSIGNMENT;
+
+CREATE FUNCTION hnsw_attribute_distance(integer, integer) RETURNS float8
+	AS 'MODULE_PATHNAME', 'hnsw_int4_attribute_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE OPERATOR CLASS vector_integer_ops
+	DEFAULT FOR TYPE integer USING hnsw AS
+	OPERATOR 2 = (integer, integer),
+	FUNCTION 4 hnsw_attribute_distance(integer, integer);

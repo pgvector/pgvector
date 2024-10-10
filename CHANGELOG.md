@@ -1,5 +1,6 @@
 ## 0.8.0 (unreleased)
 
+- Added support for inline filtering with HNSW
 - Added casts for arrays to `sparsevec`
 - Improved cost estimation
 - Improved performance of HNSW inserts and on-disk index builds
