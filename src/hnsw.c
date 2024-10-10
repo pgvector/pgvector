@@ -210,7 +210,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	*indexCorrelation = costs.indexCorrelation;
 	*indexPages = costs.numIndexPages;
 
-	Assert(*indexStartupCost > 0);
+	Assert(*indexStartupCost >= 0);
 	Assert(*indexTotalCost >= *indexStartupCost);
 }
 
