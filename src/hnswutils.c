@@ -168,6 +168,30 @@ HnswInitProcinfo(FmgrInfo **procinfo, Oid **collation, Relation index)
 }
 
 /*
+ * Get element tuple size
+ */
+Size
+HnswGetElementTupleSize(char *base, HnswElement element, bool useIndexTuple)
+{
+	Size		size;
+
+	if (useIndexTuple)
+	{
+		IndexTuple	itup = HnswPtrAccess(base, element->itup);
+
+		size = IndexTupleSize(itup);
+	}
+	else
+	{
+		Pointer		valuePtr = HnswPtrAccess(base, element->value);
+
+		size = VARSIZE_ANY(valuePtr);
+	}
+
+	return HNSW_ELEMENT_TUPLE_SIZE(size);
+}
+
+/*
  * Normalize value
  */
 Datum
