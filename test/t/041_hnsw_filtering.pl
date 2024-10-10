@@ -11,7 +11,7 @@ my @expected;
 my $limit = 20;
 my $dim = 3;
 my $array_sql = join(",", ('random()') x $dim);
-my $nc = 50;
+my $nc = 1000;
 
 sub test_recall
 {
@@ -79,15 +79,19 @@ for (1 .. 20)
 @expected = ();
 for my $i (0 .. $#queries)
 {
-	my $res = $node->safe_psql("postgres", "SELECT i FROM tst WHERE c = $cs[$i] ORDER BY v <-> '$queries[$i]' LIMIT $limit;");
+	my $res = $node->safe_psql("postgres", "SELECT i FROM tst WHERE c = $cs[$i] ORDER BY v <=> '$queries[$i]' LIMIT $limit;");
 	push(@expected, $res);
 }
 
 # Add index
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c);");
+$node->safe_psql("postgres", qq(
+	SET maintenance_work_mem = '256MB';
+	SET max_parallel_maintenance_workers = 2;
+	CREATE INDEX ON tst USING hnsw (v vector_cosine_ops, c);
+));
 
 # Test recall
-test_recall(0.99, '<->');
+test_recall(0.99, '<=>');
 
 # Test vacuum
 $node->safe_psql("postgres", "DELETE FROM tst WHERE c > 5;");
@@ -97,13 +101,13 @@ $node->safe_psql("postgres", "VACUUM tst;");
 my ($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c);");
 like($stderr, qr/first column must be a vector/);
 
-($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c, v vector_l2_ops);");
+($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (c, v vector_cosine_ops);");
 like($stderr, qr/first column must be a vector/);
 
-($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, c, c);");
+($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_cosine_ops, c, c);");
 like($stderr, qr/index cannot have more than two columns/);
 
-($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops, v vector_l2_ops);");
+($ret, $stdout, $stderr) = $node->psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_cosine_ops, v vector_cosine_ops);");
 like($stderr, qr/column 2 cannot be a vector/);
 
 done_testing();
