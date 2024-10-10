@@ -198,7 +198,7 @@ typedef struct IvfflatBuildState
 
 	/* Sorting */
 	Tuplesortstate *sortstate;
-	TupleDesc	tupdesc;
+	TupleDesc	sortdesc;
 	TupleTableSlot *slot;
 
 	/* Memory */
