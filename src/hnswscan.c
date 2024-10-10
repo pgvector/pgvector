@@ -11,17 +11,19 @@
  * Algorithm 5 from paper
  */
 static List *
-GetScanItems(IndexScanDesc scan, Datum q)
+GetScanItems(IndexScanDesc scan, Datum value)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
-	FmgrInfo   *procinfo = so->procinfo;
-	Oid			collation = so->collation;
+	HnswSupport *support = &so->support;
 	List	   *ep;
 	List	   *w;
 	int			m;
 	HnswElement entryPoint;
 	char	   *base = NULL;
+	HnswQuery	q;
+
+	q.value = value;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
@@ -29,15 +31,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, &q, index, support, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, false, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, &q, ep, hnsw_ef_search, 0, index, support, m, false, NULL);
 }
 
 /*
@@ -60,8 +62,8 @@ GetScanValue(IndexScanDesc scan)
 		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
 
 		/* Normalize if needed */
-		if (so->normprocinfo != NULL)
-			value = HnswNormValue(so->typeInfo, so->collation, value);
+		if (so->support.normprocinfo != NULL)
+			value = HnswNormValue(so->typeInfo, so->support.collation, value);
 	}
 
 	return value;
@@ -86,9 +88,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
-	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->collation = index->rd_indcollation[0];
+	HnswInitSupport(&so->support, index);
 
 	scan->opaque = so;
 
@@ -168,8 +168,8 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	while (list_length(so->w) > 0)
 	{
 		char	   *base = NULL;
-		HnswSearchCandidate *hc = llast(so->w);
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswSearchCandidate *sc = llast(so->w);
+		HnswElement element = HnswPtrAccess(base, sc->element);
 		ItemPointer heaptid;
 
 		/* Move to next element if no valid heap TIDs */
