@@ -692,7 +692,7 @@ UpdateGraphOnDisk(Relation index, FmgrInfo **procinfo, Oid *collation, HnswEleme
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, bool building)
+HnswInsertTupleOnDisk(Relation index, IndexTuple itup, ItemPointer heaptid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
@@ -702,8 +702,10 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	Oid		   *collation;
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
+	TupleDesc	tupdesc = RelationGetDescr(index);
+	bool		unused;
 
-	HnswInitProcinfo(procinfo, &collation, index);
+	HnswSetProcinfo(index, procinfo, NULL, &collation);
 
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts
@@ -716,24 +718,9 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
 	/* Create an element */
-	element = HnswInitElement(base, heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
-	if (HnswUseIndexTuple(index))
-	{
-		/* TODO no toast */
-		TupleDesc	tupdesc = RelationGetDescr(index);
-		IndexTuple	itup;
-		bool		unused;
-
-		/* TODO fix */
-		values[0] = value;
-		itup = index_form_tuple(tupdesc, values, isnull);
-
-		HnswPtrStore(base, element->itup, itup);
-		HnswPtrStore(base, element->value, DatumGetPointer(index_getattr(itup, 1, tupdesc, &unused)));
-
-	}
-	else
-		HnswPtrStore(base, element->value, DatumGetPointer(value));
+	element = HnswInitElement(base, heaptid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
+	HnswPtrStore(base, element->itup, itup);
+	HnswPtrStore(base, element->value, DatumGetPointer(index_getattr(itup, 1, tupdesc, &unused)));
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -765,31 +752,19 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
  * Insert a tuple into the index
  */
 static void
-HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
+HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid)
 {
-	Datum		value;
+	IndexTuple	itup;
 	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
-	FmgrInfo   *normprocinfo;
-	Oid		   *collation = index->rd_indcollation;
+	FmgrInfo   *normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
+	Oid			collation = index->rd_indcollation[0];
+	TupleDesc	tupdesc = RelationGetDescr(index);
 
-	/* Detoast once for all calls */
-	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	/* Form index tuple */
+	if (!HnswFormIndexTuple(&itup, values, isnull, typeInfo, normprocinfo, collation, tupdesc))
+		return;
 
-	/* Check value */
-	if (typeInfo->checkValue != NULL)
-		typeInfo->checkValue(DatumGetPointer(value));
-
-	/* Normalize if needed */
-	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		if (!HnswCheckNorm(normprocinfo, collation[0], value))
-			return;
-
-		value = HnswNormValue(typeInfo, collation[0], value);
-	}
-
-	HnswInsertTupleOnDisk(index, value, values, isnull, heap_tid, false);
+	HnswInsertTupleOnDisk(index, itup, heaptid, false);
 }
 
 /*

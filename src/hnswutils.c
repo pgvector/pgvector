@@ -154,10 +154,10 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
- * Init procinfo
+ * Set procinfo
  */
 void
-HnswInitProcinfo(FmgrInfo **procinfo, Oid **collation, Relation index)
+HnswSetProcinfo(Relation index, FmgrInfo **procinfo, FmgrInfo **normprocinfo, Oid **collation)
 {
 	procinfo[0] = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 
@@ -165,6 +165,9 @@ HnswInitProcinfo(FmgrInfo **procinfo, Oid **collation, Relation index)
 		procinfo[1] = index_getprocinfo(index, 2, HNSW_ATTRIBUTE_DISTANCE_PROC);
 
 	*collation = index->rd_indcollation;
+
+	if (normprocinfo != NULL)
+		*normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 }
 
 /*
@@ -463,6 +466,39 @@ HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, Bloc
 	else
 		GenericXLogFinish(state);
 	UnlockReleaseBuffer(buf);
+}
+
+/*
+ * Form index tuple
+ */
+bool
+HnswFormIndexTuple(IndexTuple *out, Datum *values, bool *isnull, const HnswTypeInfo * typeInfo, FmgrInfo *normprocinfo, Oid collation, TupleDesc tupdesc)
+{
+	Datum		newValues[2];
+
+	/* Detoast once for all calls */
+	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+	/* Check value */
+	if (typeInfo->checkValue != NULL)
+		typeInfo->checkValue(DatumGetPointer(value));
+
+	/* Normalize if needed */
+	if (normprocinfo != NULL)
+	{
+		if (!HnswCheckNorm(normprocinfo, collation, value))
+			return false;
+
+		value = HnswNormValue(typeInfo, collation, value);
+	}
+
+	newValues[0] = value;
+	for (int i = 1; i < tupdesc->natts; i++)
+		newValues[i] = values[i];
+
+	*out = index_form_tuple(tupdesc, newValues, isnull);
+
+	return true;
 }
 
 /*
