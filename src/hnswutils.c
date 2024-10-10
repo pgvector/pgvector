@@ -485,7 +485,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 /*
  * Calculate the distance between values
  */
-static inline float
+static inline double
 HnswGetDistance(Datum a, Datum b, FmgrInfo *procinfo, Oid collation)
 {
 	return DatumGetFloat8(FunctionCall2Coll(procinfo, collation, a, b));
