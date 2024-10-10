@@ -62,7 +62,7 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim), c int4);");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 100000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 50000) i;"
 );
 
 # Generate queries
@@ -77,18 +77,26 @@ for (1 .. 20)
 	push(@cs, int(rand() * $nc));
 }
 
-# Get exact results
-@expected = ();
-for my $i (0 .. $#queries)
-{
-	my $res = $node->safe_psql("postgres", "SELECT i FROM tst WHERE c = $cs[$i] ORDER BY v <-> '$queries[$i]' LIMIT $limit;");
-	push(@expected, $res);
-}
-
 # Add index
 $node->safe_psql("postgres", qq(
 	CREATE INDEX ON tst USING ivfflat (v vector_l2_ops, c) WITH (lists = 100);
 ));
+
+# Insert more rows
+$node->safe_psql("postgres",
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql], i % $nc FROM generate_series(1, 50000) i;"
+);
+
+# Get exact results
+@expected = ();
+for my $i (0 .. $#queries)
+{
+	my $res = $node->safe_psql("postgres", qq(
+		SET enable_indexscan = off;
+		SELECT i FROM tst WHERE c = $cs[$i] ORDER BY v <-> '$queries[$i]' LIMIT $limit;
+	));
+	push(@expected, $res);
+}
 
 # Test recall
 test_recall(10, 0.99, '<->');
