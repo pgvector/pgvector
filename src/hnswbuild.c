@@ -476,6 +476,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
+	FmgrInfo   *procinfo = buildstate->procinfo;
+	Oid			collation = buildstate->collation;
 	Size		valueSize;
 	Pointer		valuePtr;
 	LWLock	   *flushLock = &graph->flushLock;
@@ -483,7 +485,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Datum		value;
 
 	/* Form index value */
-	if (!HnswFormIndexValue(&value, values, isnull, buildstate->typeInfo, buildstate->normprocinfo, buildstate->collation))
+	if (!HnswFormIndexValue(&value, values, isnull, buildstate->typeInfo, buildstate->normprocinfo, collation))
 		return false;
 
 	/* Get datum size */
@@ -497,7 +499,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	{
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, procinfo, collation, value, heaptid, true);
 	}
 
 	/*
@@ -529,7 +531,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, procinfo, collation, value, heaptid, true);
 	}
 
 	/* Ok, we can proceed to allocate the element */

@@ -679,18 +679,14 @@ UpdateGraphOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, Datum value, ItemPointer heaptid, bool building)
+HnswInsertTupleOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, Datum value, ItemPointer heaptid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
 	int			m;
 	int			efConstruction = HnswGetEfConstruction(index);
-	FmgrInfo   *procinfo;
-	Oid			collation;
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
-
-	HnswSetProcinfo(index, &procinfo, NULL, &collation);
 
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts
@@ -740,14 +736,17 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid
 {
 	Datum		value;
 	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
-	FmgrInfo   *normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	Oid			collation = index->rd_indcollation[0];
+	FmgrInfo   *procinfo;
+	FmgrInfo   *normprocinfo;
+	Oid			collation;
+
+	HnswSetProcinfo(index, &procinfo, &normprocinfo, &collation);
 
 	/* Form index value */
 	if (!HnswFormIndexValue(&value, values, isnull, typeInfo, normprocinfo, collation))
 		return;
 
-	HnswInsertTupleOnDisk(index, value, heaptid, false);
+	HnswInsertTupleOnDisk(index, procinfo, collation, value, heaptid, false);
 }
 
 /*
