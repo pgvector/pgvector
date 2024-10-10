@@ -395,6 +395,33 @@ HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, Bloc
 }
 
 /*
+ * Form index value
+ */
+bool
+HnswFormIndexValue(Datum *out, Datum *values, bool *isnull, const HnswTypeInfo * typeInfo, FmgrInfo *normprocinfo, Oid collation)
+{
+	/* Detoast once for all calls */
+	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+
+	/* Check value */
+	if (typeInfo->checkValue != NULL)
+		typeInfo->checkValue(DatumGetPointer(value));
+
+	/* Normalize if needed */
+	if (normprocinfo != NULL)
+	{
+		if (!HnswCheckNorm(normprocinfo, collation, value))
+			return false;
+
+		value = HnswNormValue(typeInfo, collation, value);
+	}
+
+	*out = value;
+
+	return true;
+}
+
+/*
  * Set element tuple, except for neighbor info
  */
 void

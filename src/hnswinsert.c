@@ -679,7 +679,7 @@ UpdateGraphOnDisk(Relation index, FmgrInfo *procinfo, Oid collation, HnswElement
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, ItemPointer heap_tid, bool building)
+HnswInsertTupleOnDisk(Relation index, Datum value, ItemPointer heaptid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
@@ -701,7 +701,7 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
 	/* Create an element */
-	element = HnswInitElement(base, heap_tid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
+	element = HnswInitElement(base, heaptid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
 	HnswPtrStore(base, element->value, DatumGetPointer(value));
 
 	/* Prevent concurrent inserts when likely updating entry point */
@@ -734,31 +734,18 @@ HnswInsertTupleOnDisk(Relation index, Datum value, Datum *values, bool *isnull, 
  * Insert a tuple into the index
  */
 static void
-HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
+HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid)
 {
 	Datum		value;
 	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
-	FmgrInfo   *normprocinfo;
+	FmgrInfo   *normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
 	Oid			collation = index->rd_indcollation[0];
 
-	/* Detoast once for all calls */
-	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
+	/* Form index value */
+	if (!HnswFormIndexValue(&value, values, isnull, typeInfo, normprocinfo, collation))
+		return;
 
-	/* Check value */
-	if (typeInfo->checkValue != NULL)
-		typeInfo->checkValue(DatumGetPointer(value));
-
-	/* Normalize if needed */
-	normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	if (normprocinfo != NULL)
-	{
-		if (!HnswCheckNorm(normprocinfo, collation, value))
-			return;
-
-		value = HnswNormValue(typeInfo, collation, value);
-	}
-
-	HnswInsertTupleOnDisk(index, value, values, isnull, heap_tid, false);
+	HnswInsertTupleOnDisk(index, value, heaptid, false);
 }
 
 /*

@@ -473,7 +473,6 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 static bool
 InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, HnswBuildState * buildstate)
 {
-	const		HnswTypeInfo *typeInfo = buildstate->typeInfo;
 	HnswGraph  *graph = buildstate->graph;
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
@@ -481,22 +480,11 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	Pointer		valuePtr;
 	LWLock	   *flushLock = &graph->flushLock;
 	char	   *base = buildstate->hnswarea;
+	Datum		value;
 
-	/* Detoast once for all calls */
-	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
-
-	/* Check value */
-	if (typeInfo->checkValue != NULL)
-		typeInfo->checkValue(DatumGetPointer(value));
-
-	/* Normalize if needed */
-	if (buildstate->normprocinfo != NULL)
-	{
-		if (!HnswCheckNorm(buildstate->normprocinfo, buildstate->collation, value))
-			return false;
-
-		value = HnswNormValue(typeInfo, buildstate->collation, value);
-	}
+	/* Form index value */
+	if (!HnswFormIndexValue(&value, values, isnull, buildstate->typeInfo, buildstate->normprocinfo, buildstate->collation))
+		return false;
 
 	/* Get datum size */
 	valueSize = VARSIZE_ANY(DatumGetPointer(value));
@@ -509,7 +497,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	{
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, value, values, isnull, heaptid, true);
+		return HnswInsertTupleOnDisk(index, value, heaptid, true);
 	}
 
 	/*
@@ -541,7 +529,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, value, values, isnull, heaptid, true);
+		return HnswInsertTupleOnDisk(index, value, heaptid, true);
 	}
 
 	/* Ok, we can proceed to allocate the element */
