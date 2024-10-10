@@ -4,7 +4,6 @@
 - Improved cost estimation
 - Improved performance of HNSW inserts and on-disk index builds
 - Reduced memory usage for HNSW index scans
-- Fixed list assignment for cosine distance and non-normalized vectors for IVFFlat
 - Dropped support for Postgres 12
 
 ## 0.7.4 (2024-08-05)
