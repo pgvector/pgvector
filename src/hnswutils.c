@@ -100,12 +100,6 @@ hash_offset(Size offset)
 #define SH_DEFINE
 #include "lib/simplehash.h"
 
-typedef union
-{
-	HnswElement element;
-	ItemPointerData indextid;
-}			HnswUnvisited;
-
 /*
  * Get the max number of connections in an upper layer for each element in the index
  */
