@@ -228,11 +228,11 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
 static inline void
 GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot, IndexTuple *itup, int *list)
 {
-	Datum		value;
-	bool		isnull;
-
 	if (tuplesort_gettupleslot(sortstate, true, false, slot, NULL))
 	{
+		Datum		value;
+		bool		isnull;
+
 		*list = DatumGetInt32(slot_getattr(slot, 1, &isnull));
 		value = slot_getattr(slot, 3, &isnull);
 
