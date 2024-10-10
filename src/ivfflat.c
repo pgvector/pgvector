@@ -167,7 +167,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amcanorderbyop = true;
 	amroutine->amcanbackward = false;	/* can change direction mid-scan */
 	amroutine->amcanunique = false;
-	amroutine->amcanmulticol = false;
+	amroutine->amcanmulticol = true;
 	amroutine->amoptionalkey = true;
 	amroutine->amsearcharray = false;
 	amroutine->amsearchnulls = false;
