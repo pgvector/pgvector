@@ -157,12 +157,14 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
  * Init procinfo
  */
 void
-HnswInitProcinfo(FmgrInfo **procinfo, Relation index)
+HnswInitProcinfo(FmgrInfo **procinfo, Oid **collation, Relation index)
 {
 	procinfo[0] = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
 
 	if (IndexRelationGetNumberOfKeyAttributes(index) > 1)
 		procinfo[1] = index_getprocinfo(index, 2, HNSW_ATTRIBUTE_DISTANCE_PROC);
+
+	*collation = index->rd_indcollation;
 }
 
 /*

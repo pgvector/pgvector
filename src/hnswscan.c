@@ -88,9 +88,8 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 									   ALLOCSET_DEFAULT_SIZES);
 
 	/* Set support functions */
-	HnswInitProcinfo(so->procinfo, index);
+	HnswInitProcinfo(so->procinfo, &so->collation, index);
 	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->collation = index->rd_indcollation;
 
 	scan->opaque = so;
 

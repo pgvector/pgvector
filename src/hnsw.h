@@ -406,7 +406,7 @@ bool		HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Rela
 void		HnswInitLockTranche(void);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
-void		HnswInitProcinfo(FmgrInfo **procinfo, Relation index);
+void		HnswInitProcinfo(FmgrInfo **procinfo, Oid **collation, Relation index);
 bool		HnswIndexTupleIsEqual(IndexTuple a, IndexTuple b, TupleDesc tupdesc);
 
 /* Index access methods */
