@@ -157,7 +157,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	bool		useIndexTuple = HnswUseIndexTuple(index);
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(useIndexTuple ? IndexTupleSize(HnswPtrAccess(base, e->itup)) : VARSIZE_ANY(HnswPtrAccess(base, e->value)));
+	etupSize = HnswGetElementTupleSize(base, e, useIndexTuple);
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;

@@ -407,6 +407,7 @@ void		HnswInitLockTranche(void);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 void		HnswInitProcinfo(FmgrInfo **procinfo, Oid **collation, Relation index);
+Size		HnswGetElementTupleSize(char *base, HnswElement element, bool useIndexTuple);
 bool		HnswIndexTupleIsEqual(IndexTuple a, IndexTuple b, TupleDesc tupdesc);
 
 /* Index access methods */
