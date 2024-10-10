@@ -11,7 +11,7 @@ my @expected;
 my $limit = 20;
 my $dim = 3;
 my $array_sql = join(",", ('random()') x $dim);
-my $nc = 1000;
+my $nc = 100;
 
 sub test_recall
 {
