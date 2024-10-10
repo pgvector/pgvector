@@ -330,7 +330,6 @@ static bool
 FindDuplicateInMemory(char *base, HnswElement element, bool useIndexTuple, TupleDesc tupdesc)
 {
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
-	Datum		value = HnswGetValue(base, element);
 	IndexTuple	itup = HnswPtrAccess(base, element->itup);
 
 	for (int i = 0; i < neighbors->length; i++)
@@ -338,18 +337,9 @@ FindDuplicateInMemory(char *base, HnswElement element, bool useIndexTuple, Tuple
 		HnswCandidate *neighbor = &neighbors->items[i];
 		HnswElement neighborElement = HnswPtrAccess(base, neighbor->element);
 
-		if (useIndexTuple)
-		{
-			/* Exit early since ordered by distance */
-			if (!HnswIndexTupleIsEqual(itup, HnswPtrAccess(base, neighborElement->itup), tupdesc))
-				return false;
-		}
-		else
-		{
-			/* Exit early since ordered by distance */
-			if (!datumIsEqual(value, HnswGetValue(base, neighborElement), false, -1))
-				return false;
-		}
+		/* Exit early since ordered by distance */
+		if (!HnswIndexTupleIsEqual(itup, HnswPtrAccess(base, neighborElement->itup), tupdesc))
+			return false;
 
 		/* Check for space */
 		if (AddDuplicateInMemory(element, neighborElement))
