@@ -368,11 +368,11 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 				 errmsg("dimensions must be greater than one for this opclass")));
 
 	/* Create tuple description for sorting */
-	buildstate->sortdesc = CreateTemplateTupleDesc(3);
+	buildstate->sortdesc = CreateTemplateTupleDesc(2 + buildstate->tupdesc->natts);
 	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
 	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
 	for (int i = 0; i < buildstate->tupdesc->natts; i++)
-		TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) (3 + i), NULL, buildstate->tupdesc->attrs[0].atttypid, -1, 0);
+		TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) (3 + i), NULL, buildstate->tupdesc->attrs[i].atttypid, -1, 0);
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsVirtual);
 
