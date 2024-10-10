@@ -369,7 +369,7 @@ HnswLoadNeighbors(HnswElement element, Relation index, int m, int lm, int lc)
  * Load elements for insert
  */
 static void
-LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, IndexTuple qtup, int *idx, Relation index, HnswSupport * support)
+LoadElementsForInsert(HnswNeighborArray * neighbors, HnswQuery * q, int *idx, Relation index, HnswSupport * support)
 {
 	char	   *base = NULL;
 
@@ -380,7 +380,7 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, Datum q, IndexTuple qtup, i
 		double		distance;
 		bool		matches;
 
-		HnswLoadElement(element, &distance, &matches, &q, qtup, NULL, index, support, true, NULL);
+		HnswLoadElement(element, &distance, &matches, q, index, support, true, NULL);
 		hc->distance = distance;
 
 		/* Prune element if being deleted */
@@ -421,10 +421,13 @@ GetUpdateIndex(HnswElement element, HnswElement newElement, float distance, int 
 		idx = -2;
 	else
 	{
-		Datum		q = HnswGetValue(base, element);
-		IndexTuple	qtup = HnswPtrAccess(base, element->itup);;
+		HnswQuery	q;
 
-		LoadElementsForInsert(neighbors, q, qtup, &idx, index, support);
+		q.value = HnswGetValue(base, element);
+		q.itup = HnswPtrAccess(base, element->itup);
+		q.keyData = NULL;
+
+		LoadElementsForInsert(neighbors, &q, &idx, index, support);
 
 		if (idx == -1)
 			HnswUpdateConnection(base, neighbors, newElement, distance, lm, &idx, index, support);

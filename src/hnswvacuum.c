@@ -256,7 +256,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
 		/* Load element */
-		HnswLoadElement(highestPoint, NULL, NULL, NULL, NULL, NULL, index, support, true, NULL);
+		HnswLoadElement(highestPoint, NULL, NULL, NULL, index, support, true, NULL);
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
@@ -294,7 +294,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			 * is outdated, this can remove connections at higher levels in
 			 * the graph until they are repaired, but this should be fine.
 			 */
-			HnswLoadElement(entryPoint, NULL, NULL, NULL, NULL, NULL, index, support, true, NULL);
+			HnswLoadElement(entryPoint, NULL, NULL, NULL, index, support, true, NULL);
 
 			if (NeedsUpdated(vacuumstate, entryPoint))
 			{

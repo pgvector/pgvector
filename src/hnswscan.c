@@ -11,7 +11,7 @@
  * Algorithm 5 from paper
  */
 static List *
-GetScanItems(IndexScanDesc scan, Datum q)
+GetScanItems(IndexScanDesc scan, Datum value)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
@@ -22,7 +22,11 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	HnswElement entryPoint;
 	char	   *base = NULL;
 	bool		inMemory = false;
-	ScanKeyData *keyData = scan->keyData;
+	HnswQuery	q;
+
+	q.value = value;
+	q.itup = NULL;
+	q.keyData = scan->keyData;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
@@ -30,15 +34,15 @@ GetScanItems(IndexScanDesc scan, Datum q)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, NULL, keyData, index, support, false, inMemory));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, &q, index, support, false, inMemory));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, NULL, keyData, ep, 1, lc, index, support, m, false, NULL, inMemory);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, false, NULL, inMemory);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, NULL, keyData, ep, hnsw_ef_search, 0, index, support, m, false, NULL, inMemory);
+	return HnswSearchLayer(base, &q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, inMemory);
 }
 
 /*
