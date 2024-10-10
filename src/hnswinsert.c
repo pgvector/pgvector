@@ -685,10 +685,12 @@ HnswInsertTupleOnDisk(Relation index, Datum value, ItemPointer heaptid, bool bui
 	HnswElement element;
 	int			m;
 	int			efConstruction = HnswGetEfConstruction(index);
-	FmgrInfo   *procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	Oid			collation = index->rd_indcollation[0];
+	FmgrInfo   *procinfo;
+	Oid			collation;
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
+
+	HnswSetProcinfo(index, &procinfo, NULL, &collation);
 
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts

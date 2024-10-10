@@ -154,6 +154,19 @@ HnswOptionalProcInfo(Relation index, uint16 procnum)
 }
 
 /*
+ * Set procinfo
+ */
+void
+HnswSetProcinfo(Relation index, FmgrInfo **procinfo, FmgrInfo **normprocinfo, Oid *collation)
+{
+	*procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
+	*collation = index->rd_indcollation[0];
+
+	if (normprocinfo != NULL)
+		*normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
+}
+
+/*
  * Normalize value
  */
 Datum

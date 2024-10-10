@@ -692,9 +692,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->indtuples = 0;
 
 	/* Get support functions */
-	buildstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	buildstate->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	buildstate->collation = index->rd_indcollation[0];
+	HnswSetProcinfo(index, &buildstate->procinfo, &buildstate->normprocinfo, &buildstate->collation);
 
 	InitGraph(&buildstate->graphData, NULL, (Size) maintenance_work_mem * 1024L);
 	buildstate->graph = &buildstate->graphData;

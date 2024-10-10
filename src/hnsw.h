@@ -370,6 +370,7 @@ typedef struct HnswVacuumState
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
+void		HnswSetProcinfo(Relation index, FmgrInfo **procinfo, FmgrInfo **normprocinfo, Oid *collation);
 Datum		HnswNormValue(const HnswTypeInfo * typeInfo, Oid collation, Datum value);
 bool		HnswCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);

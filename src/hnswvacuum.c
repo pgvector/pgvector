@@ -573,12 +573,12 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->callback_state = callback_state;
 	vacuumstate->efConstruction = HnswGetEfConstruction(index);
 	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
-	vacuumstate->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	vacuumstate->collation = index->rd_indcollation[0];
 	vacuumstate->ntup = palloc0(HNSW_TUPLE_ALLOC_SIZE);
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
 												ALLOCSET_DEFAULT_SIZES);
+
+	HnswSetProcinfo(index, &vacuumstate->procinfo, NULL, &vacuumstate->collation);
 
 	/* Get m from metapage */
 	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
