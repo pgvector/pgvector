@@ -165,6 +165,7 @@ typedef struct IvfflatBuildState
 	Relation	index;
 	IndexInfo  *indexInfo;
 	const		IvfflatTypeInfo *typeInfo;
+	TupleDesc	tupdesc;
 
 	/* Settings */
 	int			dimensions;

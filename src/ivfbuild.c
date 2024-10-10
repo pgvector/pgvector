@@ -255,7 +255,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	int64		inserted = 0;
 
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsMinimalTuple);
-	TupleDesc	tupdesc = RelationGetDescr(index);
+	TupleDesc	tupdesc = buildstate->tupdesc;
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 
@@ -319,6 +319,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
 	buildstate->typeInfo = IvfflatGetTypeInfo(index);
+	buildstate->tupdesc = RelationGetDescr(index);
 
 	buildstate->lists = IvfflatGetLists(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
@@ -359,7 +360,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->sortdesc = CreateTemplateTupleDesc(3);
 	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
 	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
-	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
+	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 3, "vector", buildstate->tupdesc->attrs[0].atttypid, -1, 0);
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsVirtual);
 
