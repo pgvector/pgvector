@@ -196,7 +196,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		 */
 		LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
-		HnswBench("scan iteration", so->w = GetScanItems(scan, value));
+		so->w = GetScanItems(scan, value);
 
 		/* Release shared lock */
 		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
@@ -261,7 +261,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				 */
 				LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
-				HnswBench("scan iteration", so->w = ResumeScanItems(scan));
+				so->w = ResumeScanItems(scan);
 
 				UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
