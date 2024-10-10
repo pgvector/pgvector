@@ -100,19 +100,6 @@ hash_offset(Size offset)
 #define SH_DEFINE
 #include "lib/simplehash.h"
 
-typedef union
-{
-	pointerhash_hash *pointers;
-	offsethash_hash *offsets;
-	tidhash_hash *tids;
-}			visited_hash;
-
-typedef union
-{
-	HnswElement element;
-	ItemPointerData indextid;
-}			HnswUnvisited;
-
 /*
  * Get the max number of connections in an upper layer for each element in the index
  */
@@ -605,9 +592,6 @@ HnswEntryCandidate(char *base, HnswElement entryPoint, HnswQuery * q, Relation i
 		HnswLoadElement(entryPoint, &sc->distance, q, index, support, loadVec, NULL);
 	return sc;
 }
-
-#define HnswGetSearchCandidate(membername, ptr) pairingheap_container(HnswSearchCandidate, membername, ptr)
-#define HnswGetSearchCandidateConst(membername, ptr) pairingheap_const_container(HnswSearchCandidate, membername, ptr)
 
 /*
  * Compare candidate distances
