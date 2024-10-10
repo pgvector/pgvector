@@ -499,7 +499,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	{
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true, tupdesc);
 	}
 
 	/*
@@ -531,7 +531,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true, tupdesc);
 	}
 
 	/* Ok, we can proceed to allocate the element */
