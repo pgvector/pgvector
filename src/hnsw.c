@@ -20,8 +20,8 @@
 
 static const struct config_enum_entry hnsw_iterative_search_options[] = {
 	{"off", HNSW_ITERATIVE_SEARCH_OFF, false},
-	{"on", HNSW_ITERATIVE_SEARCH_RELAXED, false},
-	{"strict", HNSW_ITERATIVE_SEARCH_STRICT, false},
+	{"relaxed_order", HNSW_ITERATIVE_SEARCH_RELAXED, false},
+	{"strict_order", HNSW_ITERATIVE_SEARCH_STRICT, false},
 	{NULL, 0, false}
 };
 

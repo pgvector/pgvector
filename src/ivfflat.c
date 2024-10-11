@@ -23,7 +23,7 @@ static relopt_kind ivfflat_relopt_kind;
 
 static const struct config_enum_entry ivfflat_iterative_search_options[] = {
 	{"off", IVFFLAT_ITERATIVE_SEARCH_OFF, false},
-	{"on", IVFFLAT_ITERATIVE_SEARCH_RELAXED, false},
+	{"relaxed_order", IVFFLAT_ITERATIVE_SEARCH_RELAXED, false},
 	{NULL, 0, false}
 };
 
