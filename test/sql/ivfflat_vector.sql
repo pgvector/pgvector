@@ -81,9 +81,9 @@ SHOW ivfflat.iterative_search;
 
 SET ivfflat.iterative_search = on;
 
-SHOW ivfflat.iterative_search_max_probes;
+SHOW ivfflat.max_probes;
 
-SET ivfflat.iterative_search_max_probes = -1;
-SET ivfflat.iterative_search_max_probes = 32769;
+SET ivfflat.max_probes = -1;
+SET ivfflat.max_probes = 32769;
 
 DROP TABLE t;

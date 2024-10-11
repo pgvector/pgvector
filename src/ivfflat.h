@@ -81,7 +81,7 @@
 /* Variables */
 extern int	ivfflat_probes;
 extern int	ivfflat_iterative_search;
-extern int	ivfflat_iterative_search_max_probes;
+extern int	ivfflat_max_probes;
 
 typedef enum IvfflatIterativeSearchType
 {

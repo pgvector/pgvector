@@ -174,12 +174,12 @@ SHOW hnsw.iterative_search;
 SET hnsw.iterative_search = on;
 ERROR:  invalid value for parameter "hnsw.iterative_search": "on"
 HINT:  Available values: off, relaxed_order, strict_order.
-SHOW hnsw.iterative_search_max_tuples;
- hnsw.iterative_search_max_tuples 
-----------------------------------
+SHOW hnsw.max_search_tuples;
+ hnsw.max_search_tuples 
+------------------------
  -1
 (1 row)
 
-SET hnsw.iterative_search_max_tuples = -2;
-ERROR:  -2 is outside the valid range for parameter "hnsw.iterative_search_max_tuples" (-1 .. 2147483647)
+SET hnsw.max_search_tuples = -2;
+ERROR:  -2 is outside the valid range for parameter "hnsw.max_search_tuples" (-1 .. 2147483647)
 DROP TABLE t;

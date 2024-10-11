@@ -264,10 +264,10 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	if (ivfflat_iterative_search != IVFFLAT_ITERATIVE_SEARCH_OFF)
 	{
-		if (ivfflat_iterative_search_max_probes == 0)
+		if (ivfflat_max_probes == 0)
 			maxProbes = lists;
 		else
-			maxProbes = Min(ivfflat_iterative_search_max_probes, lists);
+			maxProbes = Min(ivfflat_max_probes, lists);
 	}
 	else
 		maxProbes = probes;

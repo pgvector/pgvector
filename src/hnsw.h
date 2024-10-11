@@ -110,7 +110,7 @@
 /* Variables */
 extern int	hnsw_ef_search;
 extern int	hnsw_iterative_search;
-extern int	hnsw_iterative_search_max_tuples;
+extern int	hnsw_max_search_tuples;
 extern int	hnsw_lock_tranche_id;
 
 typedef enum HnswIterativeSearchType

@@ -102,8 +102,8 @@ SHOW hnsw.iterative_search;
 
 SET hnsw.iterative_search = on;
 
-SHOW hnsw.iterative_search_max_tuples;
+SHOW hnsw.max_search_tuples;
 
-SET hnsw.iterative_search_max_tuples = -2;
+SET hnsw.max_search_tuples = -2;
 
 DROP TABLE t;

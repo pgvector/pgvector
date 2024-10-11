@@ -40,7 +40,7 @@ foreach ((30, 50, 70))
 			SET enable_seqscan = off;
 			SET ivfflat.probes = 10;
 			SET ivfflat.iterative_search = relaxed_order;
-			SET ivfflat.iterative_search_max_probes = $max_probes;
+			SET ivfflat.max_probes = $max_probes;
 			SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst WHERE i = $i) LIMIT 11) t;
 		));
 		$sum += $count;

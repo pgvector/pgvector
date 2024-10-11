@@ -137,14 +137,14 @@ SHOW ivfflat.iterative_search;
 SET ivfflat.iterative_search = on;
 ERROR:  invalid value for parameter "ivfflat.iterative_search": "on"
 HINT:  Available values: off, relaxed_order.
-SHOW ivfflat.iterative_search_max_probes;
- ivfflat.iterative_search_max_probes 
--------------------------------------
+SHOW ivfflat.max_probes;
+ ivfflat.max_probes 
+--------------------
  0
 (1 row)
 
-SET ivfflat.iterative_search_max_probes = -1;
-ERROR:  -1 is outside the valid range for parameter "ivfflat.iterative_search_max_probes" (0 .. 32768)
-SET ivfflat.iterative_search_max_probes = 32769;
-ERROR:  32769 is outside the valid range for parameter "ivfflat.iterative_search_max_probes" (0 .. 32768)
+SET ivfflat.max_probes = -1;
+ERROR:  -1 is outside the valid range for parameter "ivfflat.max_probes" (0 .. 32768)
+SET ivfflat.max_probes = 32769;
+ERROR:  32769 is outside the valid range for parameter "ivfflat.max_probes" (0 .. 32768)
 DROP TABLE t;

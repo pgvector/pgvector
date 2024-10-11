@@ -43,7 +43,7 @@ foreach ((30000, 50000, 70000))
 		$count = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET hnsw.iterative_search = relaxed_order;
-			SET hnsw.iterative_search_max_tuples = $max_tuples;
+			SET hnsw.max_search_tuples = $max_tuples;
 			SET work_mem = '8MB';
 			SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst WHERE i = $i) LIMIT 11) t;
 		));
