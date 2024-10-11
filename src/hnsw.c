@@ -82,7 +82,6 @@ HnswInit(void)
 							 NULL, &hnsw_iterative_search,
 							 HNSW_ITERATIVE_SEARCH_OFF, hnsw_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	/* TODO Ensure ivfflat.max_probes uses same value for no limit */
 	DefineCustomIntVariable("hnsw.max_search_tuples", "Sets the max number of candidates to visit for iterative search",
 							"-1 means no limit", &hnsw_max_search_tuples,
 							-1, -1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);

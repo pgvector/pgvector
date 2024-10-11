@@ -259,18 +259,26 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	/* Get lists and dimensions from metapage */
 	IvfflatGetMetaPageInfo(index, &lists, &dimensions);
 
-	if (probes > lists)
-		probes = lists;
-
 	if (ivfflat_iterative_search != IVFFLAT_ITERATIVE_SEARCH_OFF)
 	{
-		if (ivfflat_max_probes == 0)
+		maxProbes = ivfflat_max_probes;
+
+		if (maxProbes < 0)
 			maxProbes = lists;
-		else
-			maxProbes = Min(ivfflat_max_probes, lists);
+		else if (maxProbes < probes)
+		{
+			/* TODO Show notice */
+			maxProbes = probes;
+		}
 	}
 	else
 		maxProbes = probes;
+
+	if (probes > lists)
+		probes = lists;
+
+	if (maxProbes > lists)
+		maxProbes = lists;
 
 	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + maxProbes * sizeof(IvfflatScanList));
 	so->typeInfo = IvfflatGetTypeInfo(index);

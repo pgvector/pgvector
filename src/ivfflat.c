@@ -46,8 +46,8 @@ IvfflatInit(void)
 							 IVFFLAT_ITERATIVE_SEARCH_OFF, ivfflat_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative search",
-							"Zero sets to the number of lists", &ivfflat_max_probes,
-							0, 0, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+							"-1 means no limit", &ivfflat_max_probes,
+							-1, -1, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("ivfflat");
 }

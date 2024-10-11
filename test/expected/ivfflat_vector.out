@@ -95,7 +95,30 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
  [0,0,0]
 (3 rows)
 
+SET ivfflat.max_probes = 0;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+   val   
+---------
+ [1,2,3]
+(1 row)
+
+SET ivfflat.max_probes = 1;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+   val   
+---------
+ [1,2,3]
+(1 row)
+
+SET ivfflat.max_probes = 2;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+   val   
+---------
+ [1,2,3]
+ [1,1,1]
+(2 rows)
+
 RESET ivfflat.iterative_search;
+RESET ivfflat.max_probes;
 DROP TABLE t;
 -- unlogged
 CREATE UNLOGGED TABLE t (val vector(3));
@@ -140,11 +163,11 @@ HINT:  Available values: off, relaxed_order.
 SHOW ivfflat.max_probes;
  ivfflat.max_probes 
 --------------------
- 0
+ -1
 (1 row)
 
-SET ivfflat.max_probes = -1;
-ERROR:  -1 is outside the valid range for parameter "ivfflat.max_probes" (0 .. 32768)
+SET ivfflat.max_probes = -2;
+ERROR:  -2 is outside the valid range for parameter "ivfflat.max_probes" (-1 .. 32768)
 SET ivfflat.max_probes = 32769;
-ERROR:  32769 is outside the valid range for parameter "ivfflat.max_probes" (0 .. 32768)
+ERROR:  32769 is outside the valid range for parameter "ivfflat.max_probes" (-1 .. 32768)
 DROP TABLE t;

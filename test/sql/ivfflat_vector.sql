@@ -53,7 +53,17 @@ CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 3);
 SET ivfflat.iterative_search = relaxed_order;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
+SET ivfflat.max_probes = 0;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
+SET ivfflat.max_probes = 1;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
+SET ivfflat.max_probes = 2;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
 RESET ivfflat.iterative_search;
+RESET ivfflat.max_probes;
 DROP TABLE t;
 
 -- unlogged
@@ -83,7 +93,7 @@ SET ivfflat.iterative_search = on;
 
 SHOW ivfflat.max_probes;
 
-SET ivfflat.max_probes = -1;
+SET ivfflat.max_probes = -2;
 SET ivfflat.max_probes = 32769;
 
 DROP TABLE t;
