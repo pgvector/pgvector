@@ -280,7 +280,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	if (maxProbes > lists)
 		maxProbes = lists;
 
-	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + maxProbes * sizeof(IvfflatScanList));
+	so = (IvfflatScanOpaque) palloc(sizeof(IvfflatScanOpaqueData));
 	so->typeInfo = IvfflatGetTypeInfo(index);
 	so->first = true;
 	so->probes = probes;
@@ -314,6 +314,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
 	so->listPages = palloc(maxProbes * sizeof(BlockNumber));
 	so->listIndex = 0;
+	so->lists = palloc(maxProbes * sizeof(IvfflatScanList));
 
 	scan->opaque = so;
 
@@ -409,6 +410,7 @@ ivfflatendscan(IndexScanDesc scan)
 	tuplesort_end(so->sortstate);
 	FreeAccessStrategy(so->bas);
 	FreeTupleDesc(so->tupdesc);
+	pfree(so->lists);
 
 	/* TODO Free vslot and mslot without freeing TupleDesc */
 

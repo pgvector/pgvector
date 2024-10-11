@@ -278,7 +278,7 @@ typedef struct IvfflatScanOpaqueData
 	pairingheap *listQueue;
 	BlockNumber *listPages;
 	int			listIndex;
-	IvfflatScanList lists[FLEXIBLE_ARRAY_MEMBER];	/* must come last */
+	IvfflatScanList *lists;
 }			IvfflatScanOpaqueData;
 
 typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
