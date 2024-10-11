@@ -229,7 +229,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (so->discarded == NULL)
 				break;
 
-			/* Reached max number of additional tuples */
+			/* Reached max number of tuples */
 			if (hnsw_iterative_search_max_tuples != -1 && so->tuples >= hnsw_iterative_search_max_tuples)
 			{
 				if (pairingheap_is_empty(so->discarded))
