@@ -582,20 +582,33 @@ GetElementDistance(char *base, HnswElement element, HnswQuery * q, HnswSupport *
 }
 
 /*
+ * Allocate a search candidate
+ */
+static HnswSearchCandidate *
+HnswInitSearchCandidate(char *base, HnswElement element, double distance)
+{
+	HnswSearchCandidate *sc = palloc(sizeof(HnswSearchCandidate));
+
+	HnswPtrStore(base, sc->element, element);
+	sc->distance = distance;
+	return sc;
+}
+
+/*
  * Create a candidate for the entry point
  */
 HnswSearchCandidate *
 HnswEntryCandidate(char *base, HnswElement entryPoint, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec)
 {
-	HnswSearchCandidate *sc = palloc(sizeof(HnswSearchCandidate));
 	bool		inMemory = index == NULL;
+	double		distance;
 
-	HnswPtrStore(base, sc->element, entryPoint);
 	if (inMemory)
-		sc->distance = GetElementDistance(base, entryPoint, q, support);
+		distance = GetElementDistance(base, entryPoint, q, support);
 	else
-		HnswLoadElement(entryPoint, &sc->distance, q, index, support, loadVec, NULL);
-	return sc;
+		HnswLoadElement(entryPoint, &distance, q, index, support, loadVec, NULL);
+
+	return HnswInitSearchCandidate(base, entryPoint, distance);
 }
 
 /*
@@ -912,9 +925,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 				if (discarded != NULL)
 				{
 					/* Create a new candidate */
-					e = palloc(sizeof(HnswSearchCandidate));
-					HnswPtrStore(base, e->element, eElement);
-					e->distance = eDistance;
+					e = HnswInitSearchCandidate(base, eElement, eDistance);
 					pairingheap_add(*discarded, &e->w_node);
 				}
 
@@ -926,9 +937,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 				continue;
 
 			/* Create a new candidate */
-			e = palloc(sizeof(HnswSearchCandidate));
-			HnswPtrStore(base, e->element, eElement);
-			e->distance = eDistance;
+			e = HnswInitSearchCandidate(base, eElement, eDistance);
 			pairingheap_add(C, &e->c_node);
 			pairingheap_add(W, &e->w_node);
 
