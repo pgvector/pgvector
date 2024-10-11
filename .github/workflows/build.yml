@@ -49,7 +49,7 @@ jobs:
           - postgres: 16
             os: macos-14
           - postgres: 14
-            os: macos-12
+            os: macos-13
     steps:
       - uses: actions/checkout@v4
       - uses: ankane/setup-postgres@v1
