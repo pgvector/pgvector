@@ -395,10 +395,24 @@ HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, Bloc
 }
 
 /*
- * Form index value
+ * Get the tuple descriptor
+ */
+TupleDesc
+HnswTupleDesc(Relation index)
+{
+	TupleDesc	tupdesc = CreateTupleDescCopyConstr(RelationGetDescr(index));
+
+	/* Prevent compression */
+	TupleDescAttr(tupdesc, 0)->attstorage = TYPSTORAGE_PLAIN;
+
+	return tupdesc;
+}
+
+/*
+ * Form index tuple
  */
 bool
-HnswFormIndexValue(Datum *out, Datum *values, bool *isnull, const HnswTypeInfo * typeInfo, HnswSupport * support)
+HnswFormIndexTuple(IndexTuple *out, Datum *values, bool *isnull, const HnswTypeInfo * typeInfo, HnswSupport * support, TupleDesc tupdesc)
 {
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
@@ -416,7 +430,9 @@ HnswFormIndexValue(Datum *out, Datum *values, bool *isnull, const HnswTypeInfo *
 		value = HnswNormValue(typeInfo, support->collation, value);
 	}
 
-	*out = value;
+	/* TODO Combine value with values to support multiple attributes */
+	Assert(tupdesc->natts == 1);
+	*out = index_form_tuple(tupdesc, &value, isnull);
 
 	return true;
 }

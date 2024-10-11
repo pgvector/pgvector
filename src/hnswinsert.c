@@ -687,7 +687,7 @@ UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, in
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPointer heaptid, bool building)
+HnswInsertTupleOnDisk(Relation index, HnswSupport * support, TupleDesc tupdesc, IndexTuple itup, ItemPointer heaptid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
@@ -695,6 +695,7 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 	int			efConstruction = HnswGetEfConstruction(index);
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
+	bool		unused;
 
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts
@@ -708,7 +709,8 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 
 	/* Create an element */
 	element = HnswInitElement(base, heaptid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
-	HnswPtrStore(base, element->value, DatumGetPointer(value));
+	HnswPtrStore(base, element->itup, itup);
+	HnswPtrStore(base, element->value, DatumGetPointer(index_getattr(itup, 1, tupdesc, &unused)));
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -742,17 +744,18 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 static void
 HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid)
 {
-	Datum		value;
+	IndexTuple	itup;
 	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
 	HnswSupport support;
+	TupleDesc	tupdesc = HnswTupleDesc(index);
 
 	HnswInitSupport(&support, index);
 
-	/* Form index value */
-	if (!HnswFormIndexValue(&value, values, isnull, typeInfo, &support))
+	/* Form index tuple */
+	if (!HnswFormIndexTuple(&itup, values, isnull, typeInfo, &support, tupdesc))
 		return;
 
-	HnswInsertTupleOnDisk(index, &support, value, heaptid, false);
+	HnswInsertTupleOnDisk(index, &support, tupdesc, itup, heaptid, false);
 }
 
 /*

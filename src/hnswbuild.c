@@ -476,18 +476,20 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
 	HnswSupport *support = &buildstate->support;
-	Size		valueSize;
-	Pointer		valuePtr;
 	LWLock	   *flushLock = &graph->flushLock;
 	char	   *base = buildstate->hnswarea;
-	Datum		value;
+	TupleDesc	tupdesc = buildstate->tupdesc;
+	IndexTuple	itup;
+	Size		itupSize;
+	IndexTuple	itupShared;
+	bool		unused;
 
 	/* Form index value */
-	if (!HnswFormIndexValue(&value, values, isnull, buildstate->typeInfo, support))
+	if (!HnswFormIndexTuple(&itup, values, isnull, buildstate->typeInfo, support, tupdesc))
 		return false;
 
-	/* Get datum size */
-	valueSize = VARSIZE_ANY(DatumGetPointer(value));
+	/* Get tuple size */
+	itupSize = IndexTupleSize(itup);
 
 	/* Ensure graph not flushed when inserting */
 	LWLockAcquire(flushLock, LW_SHARED);
@@ -497,7 +499,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	{
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, tupdesc, itup, heaptid, true);
 	}
 
 	/*
@@ -529,12 +531,12 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, tupdesc, itup, heaptid, true);
 	}
 
 	/* Ok, we can proceed to allocate the element */
 	element = HnswInitElement(base, heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel, allocator);
-	valuePtr = HnswAlloc(allocator, valueSize);
+	itupShared = HnswAlloc(allocator, itupSize);
 
 	/*
 	 * We have now allocated the space needed for the element, so we don't
@@ -543,9 +545,10 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	 */
 	LWLockRelease(&graph->allocatorLock);
 
-	/* Copy the datum */
-	memcpy(valuePtr, DatumGetPointer(value), valueSize);
-	HnswPtrStore(base, element->value, valuePtr);
+	/* Copy the tuple */
+	memcpy(itupShared, itup, itupSize);
+	HnswPtrStore(base, element->itup, itupShared);
+	HnswPtrStore(base, element->value, DatumGetPointer(index_getattr(itupShared, 1, tupdesc, &unused)));
 
 	/* Create a lock for the element */
 	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
@@ -698,6 +701,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->graph = &buildstate->graphData;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
+	buildstate->tupdesc = HnswTupleDesc(index);
 
 	buildstate->graphCtx = GenerationContextCreate(CurrentMemoryContext,
 												   "Hnsw build graph context",
@@ -722,6 +726,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 static void
 FreeBuildState(HnswBuildState * buildstate)
 {
+	pfree(buildstate->tupdesc);
 	MemoryContextDelete(buildstate->graphCtx);
 	MemoryContextDelete(buildstate->tmpCtx);
 }
