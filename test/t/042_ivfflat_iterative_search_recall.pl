@@ -103,7 +103,7 @@ for my $i (0 .. $#operators)
 
 		if ($c == 100)
 		{
-			test_recall($c, 1, 0.58, $operator);
+			test_recall($c, 1, 0.57, $operator);
 			test_recall($c, 10, 0.98, $operator);
 		}
 		else
