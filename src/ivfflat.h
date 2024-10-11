@@ -260,6 +260,7 @@ typedef struct IvfflatScanOpaqueData
 	int			dimensions;
 	bool		first;
 	Datum		value;
+	MemoryContext tmpCtx;
 
 	/* Sorting */
 	Tuplesortstate *sortstate;

@@ -10,10 +10,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
-
-#ifdef IVFFLAT_MEMORY
 #include "utils/memutils.h"
-#endif
 
 #define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
@@ -221,7 +218,13 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Normalize if needed */
 		if (so->normprocinfo != NULL)
+		{
+			MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
+
 			value = IvfflatNormValue(so->typeInfo, so->collation, value);
+
+			MemoryContextSwitchTo(oldCtx);
+		}
 	}
 
 	return value;
@@ -253,6 +256,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	int			dimensions;
 	int			probes = ivfflat_probes;
 	int			maxProbes;
+	MemoryContext oldCtx;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 
@@ -292,6 +296,12 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	so->collation = index->rd_indcollation[0];
 
+	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
+									   "Ivfflat scan temporary context",
+									   ALLOCSET_DEFAULT_SIZES);
+
+	oldCtx = MemoryContextSwitchTo(so->tmpCtx);
+
 	/* Create tuple description for sorting */
 	so->tupdesc = CreateTemplateTupleDesc(2);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
@@ -315,6 +325,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->listPages = palloc(maxProbes * sizeof(BlockNumber));
 	so->listIndex = 0;
 	so->lists = palloc(maxProbes * sizeof(IvfflatScanList));
+
+	MemoryContextSwitchTo(oldCtx);
 
 	scan->opaque = so;
 
@@ -377,8 +389,6 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
 		so->value = value;
-
-		/* TODO clean up if we allocated a new value */
 	}
 
 	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
@@ -405,14 +415,10 @@ ivfflatendscan(IndexScanDesc scan)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
-	pairingheap_free(so->listQueue);
-	pfree(so->listPages);
+	/* Free any temporary files */
 	tuplesort_end(so->sortstate);
-	FreeAccessStrategy(so->bas);
-	FreeTupleDesc(so->tupdesc);
-	pfree(so->lists);
 
-	/* TODO Free vslot and mslot without freeing TupleDesc */
+	MemoryContextDelete(so->tmpCtx);
 
 	pfree(so);
 	scan->opaque = NULL;
