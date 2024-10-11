@@ -83,11 +83,11 @@ extern int	ivfflat_probes;
 extern int	ivfflat_iterative_search;
 extern int	ivfflat_max_probes;
 
-typedef enum IvfflatIterativeSearchType
+typedef enum IvfflatIterativeSearchMode
 {
 	IVFFLAT_ITERATIVE_SEARCH_OFF,
 	IVFFLAT_ITERATIVE_SEARCH_RELAXED
-}			IvfflatIterativeSearchType;
+}			IvfflatIterativeSearchMode;
 
 typedef struct VectorArrayData
 {

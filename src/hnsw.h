@@ -113,12 +113,12 @@ extern int	hnsw_iterative_search;
 extern int	hnsw_max_search_tuples;
 extern int	hnsw_lock_tranche_id;
 
-typedef enum HnswIterativeSearchType
+typedef enum HnswIterativeSearchMode
 {
 	HNSW_ITERATIVE_SEARCH_OFF,
 	HNSW_ITERATIVE_SEARCH_RELAXED,
 	HNSW_ITERATIVE_SEARCH_STRICT
-}			HnswIterativeSearchType;
+}			HnswIterativeSearchMode;
 
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
