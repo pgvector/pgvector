@@ -82,6 +82,21 @@ SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector)) t2
 (1 row)
 
 DROP TABLE t;
+-- iterative
+CREATE TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 3);
+SET ivfflat.iterative_search = relaxed_order;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+   val   
+---------
+ [1,2,3]
+ [1,1,1]
+ [0,0,0]
+(3 rows)
+
+RESET ivfflat.iterative_search;
+DROP TABLE t;
 -- unlogged
 CREATE UNLOGGED TABLE t (val vector(3));
 INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
@@ -109,4 +124,27 @@ SHOW ivfflat.probes;
  1
 (1 row)
 
+SET ivfflat.probes = 0;
+ERROR:  0 is outside the valid range for parameter "ivfflat.probes" (1 .. 32768)
+SET ivfflat.probes = 32769;
+ERROR:  32769 is outside the valid range for parameter "ivfflat.probes" (1 .. 32768)
+SHOW ivfflat.iterative_search;
+ ivfflat.iterative_search 
+--------------------------
+ off
+(1 row)
+
+SET ivfflat.iterative_search = on;
+ERROR:  invalid value for parameter "ivfflat.iterative_search": "on"
+HINT:  Available values: off, relaxed_order.
+SHOW ivfflat.iterative_search_max_probes;
+ ivfflat.iterative_search_max_probes 
+-------------------------------------
+ 0
+(1 row)
+
+SET ivfflat.iterative_search_max_probes = -1;
+ERROR:  -1 is outside the valid range for parameter "ivfflat.iterative_search_max_probes" (0 .. 32768)
+SET ivfflat.iterative_search_max_probes = 32769;
+ERROR:  32769 is outside the valid range for parameter "ivfflat.iterative_search_max_probes" (0 .. 32768)
 DROP TABLE t;

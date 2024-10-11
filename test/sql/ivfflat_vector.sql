@@ -44,6 +44,18 @@ SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector)) t2
 
 DROP TABLE t;
 
+-- iterative
+
+CREATE TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 3);
+
+SET ivfflat.iterative_search = relaxed_order;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
+RESET ivfflat.iterative_search;
+DROP TABLE t;
+
 -- unlogged
 
 CREATE UNLOGGED TABLE t (val vector(3));
@@ -61,5 +73,17 @@ CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 0);
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 32769);
 
 SHOW ivfflat.probes;
+
+SET ivfflat.probes = 0;
+SET ivfflat.probes = 32769;
+
+SHOW ivfflat.iterative_search;
+
+SET ivfflat.iterative_search = on;
+
+SHOW ivfflat.iterative_search_max_probes;
+
+SET ivfflat.iterative_search_max_probes = -1;
+SET ivfflat.iterative_search_max_probes = 32769;
 
 DROP TABLE t;
