@@ -24,3 +24,5 @@ CREATE CAST (double precision[] AS sparsevec)
 
 CREATE CAST (numeric[] AS sparsevec)
 	WITH FUNCTION array_to_sparsevec(numeric[], integer, boolean) AS ASSIGNMENT;
+
+-- TODO add ivfflat attributes

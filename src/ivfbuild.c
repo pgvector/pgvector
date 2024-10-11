@@ -341,6 +341,19 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("type not supported for ivfflat index")));
 
+	/* TODO See if needed */
+	if (IndexRelationGetNumberOfKeyAttributes(index) > 3)
+		elog(ERROR, "index cannot have more than three columns");
+
+	if (!OidIsValid(index_getprocid(index, 1, IVFFLAT_DISTANCE_PROC)))
+		elog(ERROR, "first column must be a vector");
+
+	for (int i = 1; i < IndexRelationGetNumberOfKeyAttributes(index); i++)
+	{
+		if (OidIsValid(index_getprocid(index, i + 1, IVFFLAT_DISTANCE_PROC)))
+			elog(ERROR, "column %d cannot be a vector", i + 1);
+	}
+
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		ereport(ERROR,

@@ -916,3 +916,13 @@ CREATE OPERATOR CLASS sparsevec_l1_ops
 	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(sparsevec, sparsevec),
 	FUNCTION 3 hnsw_sparsevec_support(internal);
+
+-- ivfflat attributes
+
+CREATE OPERATOR CLASS vector_integer_ops
+	DEFAULT FOR TYPE integer USING ivfflat AS
+	OPERATOR 2 < ,
+	OPERATOR 3 <= ,
+	OPERATOR 4 = ,
+	OPERATOR 5 >= ,
+	OPERATOR 6 > ;

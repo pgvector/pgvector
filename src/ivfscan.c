@@ -105,6 +105,34 @@ GetScanLists(IndexScanDesc scan, Datum value)
 }
 
 /*
+ * Check if matches scan keys
+ */
+static bool
+MatchesScanKeys(IndexScanDesc scan, IndexTuple itup, TupleDesc tupdesc)
+{
+	for (int i = 0; i < scan->numberOfKeys; i++)
+	{
+		ScanKey		key = &scan->keyData[i];
+		bool		attnull = key->sk_flags & SK_ISNULL;
+		bool		isnull;
+		Datum		value = index_getattr(itup, key->sk_attno, tupdesc, &isnull);
+
+		if (isnull || attnull)
+		{
+			if (isnull != attnull)
+				return false;
+		}
+		else
+		{
+			if (!DatumGetBool(FunctionCall2Coll(&key->sk_func, key->sk_collation, value, key->sk_argument)))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+/*
  * Get items
  */
 static void
@@ -140,6 +168,10 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				ItemId		itemid = PageGetItemId(page, offno);
 
 				itup = (IndexTuple) PageGetItem(page, itemid);
+
+				if (!MatchesScanKeys(scan, itup, tupdesc))
+					continue;
+
 				datum = index_getattr(itup, 1, tupdesc, &isnull);
 
 				/*
