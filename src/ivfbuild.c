@@ -138,7 +138,7 @@ SampleRows(IvfflatBuildState * buildstate)
  * Add tuple to sort
  */
 static void
-AddTupleToSort(Relation index, ItemPointer tid, Datum *values, bool *isnull, IvfflatBuildState * buildstate)
+AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState * buildstate)
 {
 	double		distance;
 	double		minDistance = DBL_MAX;
@@ -184,11 +184,6 @@ AddTupleToSort(Relation index, ItemPointer tid, Datum *values, bool *isnull, Ivf
 	slot->tts_isnull[1] = false;
 	slot->tts_values[2] = value;
 	slot->tts_isnull[2] = false;
-	for (int i = 1; i < buildstate->tupdesc->natts; i++)
-	{
-		slot->tts_values[2 + i] = values[i];
-		slot->tts_isnull[2 + i] = isnull[i];
-	}
 	ExecStoreVirtualTuple(slot);
 
 	/*
@@ -220,7 +215,7 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Add tuple to sort */
-	AddTupleToSort(index, tid, values, isnull, buildstate);
+	AddTupleToSort(index, tid, values, buildstate);
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
@@ -231,20 +226,19 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
  * Get index tuple from sort state
  */
 static inline void
-GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot, Datum *values, bool *isnull, IndexTuple *itup, int *list)
+GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot, IndexTuple *itup, int *list)
 {
 	if (tuplesort_gettupleslot(sortstate, true, false, slot, NULL))
 	{
-		bool		unused;
+		Datum		value;
+		bool		isnull;
 
-		*list = DatumGetInt32(slot_getattr(slot, 1, &unused));
-
-		for (int i = 0; i < tupdesc->natts; i++)
-			values[i] = slot_getattr(slot, 3 + i, &isnull[i]);
+		*list = DatumGetInt32(slot_getattr(slot, 1, &isnull));
+		value = slot_getattr(slot, 3, &isnull);
 
 		/* Form the index tuple */
-		*itup = index_form_tuple(tupdesc, values, isnull);
-		(*itup)->t_tid = *((ItemPointer) DatumGetPointer(slot_getattr(slot, 2, &unused)));
+		*itup = index_form_tuple(tupdesc, &value, &isnull);
+		(*itup)->t_tid = *((ItemPointer) DatumGetPointer(slot_getattr(slot, 2, &isnull)));
 	}
 	else
 		*list = -1;
@@ -262,14 +256,12 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsMinimalTuple);
 	TupleDesc	tupdesc = buildstate->tupdesc;
-	Datum	   *values = palloc(tupdesc->natts * sizeof(Datum));
-	bool	   *isnull = palloc(tupdesc->natts * sizeof(bool));
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->indtuples);
 
-	GetNextTuple(buildstate->sortstate, tupdesc, slot, values, isnull, &itup, &list);
+	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 
 	for (int i = 0; i < buildstate->centers->length; i++)
 	{
@@ -305,7 +297,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 			pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE, ++inserted);
 
-			GetNextTuple(buildstate->sortstate, tupdesc, slot, values, isnull, &itup, &list);
+			GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 		}
 
 		insertPage = BufferGetBlockNumber(buf);
@@ -315,9 +307,6 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 		/* Set the start and insert pages */
 		IvfflatUpdateList(index, buildstate->listInfo[i], insertPage, InvalidBlockNumber, startPage, forkNum);
 	}
-
-	pfree(values);
-	pfree(isnull);
 }
 
 /*
@@ -368,11 +357,10 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 				 errmsg("dimensions must be greater than one for this opclass")));
 
 	/* Create tuple description for sorting */
-	buildstate->sortdesc = CreateTemplateTupleDesc(2 + buildstate->tupdesc->natts);
+	buildstate->sortdesc = CreateTemplateTupleDesc(3);
 	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
 	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
-	for (int i = 0; i < buildstate->tupdesc->natts; i++)
-		TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) (3 + i), NULL, buildstate->tupdesc->attrs[i].atttypid, -1, 0);
+	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 3, "vector", buildstate->tupdesc->attrs[0].atttypid, -1, 0);
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsVirtual);
 
