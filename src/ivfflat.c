@@ -17,7 +17,15 @@
 #endif
 
 int			ivfflat_probes;
+int			ivfflat_iterative_search;
+int			ivfflat_iterative_search_max_probes;
 static relopt_kind ivfflat_relopt_kind;
+
+static const struct config_enum_entry ivfflat_iterative_search_options[] = {
+	{"off", IVFFLAT_ITERATIVE_SEARCH_OFF, false},
+	{"on", IVFFLAT_ITERATIVE_SEARCH_RELAXED, false},
+	{NULL, 0, false}
+};
 
 /*
  * Initialize index options and variables
@@ -32,6 +40,14 @@ IvfflatInit(void)
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
 							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	DefineCustomEnumVariable("ivfflat.iterative_search", "Sets whether to use iterative search",
+							 NULL, &ivfflat_iterative_search,
+							 IVFFLAT_ITERATIVE_SEARCH_OFF, ivfflat_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	DefineCustomIntVariable("ivfflat.iterative_search_max_probes", "Sets the max number of probes for iterative search",
+							"Zero sets to the number of lists", &ivfflat_iterative_search_max_probes,
+							0, 0, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("ivfflat");
 }
