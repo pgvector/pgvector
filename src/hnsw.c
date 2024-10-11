@@ -78,7 +78,7 @@ HnswInit(void)
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	DefineCustomEnumVariable("hnsw.iterative_search", "Sets iterative search mode",
+	DefineCustomEnumVariable("hnsw.iterative_search", "Sets the iterative search mode",
 							 NULL, &hnsw_iterative_search,
 							 HNSW_ITERATIVE_SEARCH_OFF, hnsw_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
 

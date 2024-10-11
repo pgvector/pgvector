@@ -41,7 +41,7 @@ IvfflatInit(void)
 							"Valid range is 1..lists.", &ivfflat_probes,
 							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	DefineCustomEnumVariable("ivfflat.iterative_search", "Sets whether to use iterative search",
+	DefineCustomEnumVariable("ivfflat.iterative_search", "Sets the iterative search mode",
 							 NULL, &ivfflat_iterative_search,
 							 IVFFLAT_ITERATIVE_SEARCH_OFF, ivfflat_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
