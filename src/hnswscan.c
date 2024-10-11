@@ -118,9 +118,14 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so->first = true;
 	so->v.tids = NULL;
 	so->discarded = NULL;
+
+	/*
+	 * Use a lower max allocation size than default to allow scanning more
+	 * tuples for iterative search before exceeding work_mem
+	 */
 	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 									   "Hnsw scan temporary context",
-									   ALLOCSET_DEFAULT_SIZES);
+									   0, 8 * 1024, 512 * 1024);
 
 	/* Set support functions */
 	HnswInitSupport(&so->support, index);
