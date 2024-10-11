@@ -109,7 +109,16 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
+extern int	hnsw_iterative_search;
+extern int	hnsw_iterative_search_max_tuples;
 extern int	hnsw_lock_tranche_id;
+
+typedef enum HnswIterativeSearchType
+{
+	HNSW_ITERATIVE_SEARCH_OFF,
+	HNSW_ITERATIVE_SEARCH_RELAXED,
+	HNSW_ITERATIVE_SEARCH_STRICT
+}			HnswIterativeSearchType;
 
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
@@ -132,6 +141,7 @@ struct HnswElementData
 	uint8		heaptidsLength;
 	uint8		level;
 	uint8		deleted;
+	uint8		version;
 	uint32		hash;
 	HnswNeighborsPtr neighbors;
 	BlockNumber blkno;
@@ -319,10 +329,10 @@ typedef struct HnswElementTupleData
 	uint8		type;
 	uint8		level;
 	uint8		deleted;
-	uint8		unused;
+	uint8		version;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
-	uint16		unused2;
+	uint16		unused;
 	Vector		data;
 }			HnswElementTupleData;
 
@@ -331,7 +341,7 @@ typedef HnswElementTupleData * HnswElementTuple;
 typedef struct HnswNeighborTupleData
 {
 	uint8		type;
-	uint8		unused;
+	uint8		version;
 	uint16		count;
 	ItemPointerData indextids[FLEXIBLE_ARRAY_MEMBER];
 }			HnswNeighborTupleData;
@@ -356,6 +366,12 @@ typedef struct HnswScanOpaqueData
 	const		HnswTypeInfo *typeInfo;
 	bool		first;
 	List	   *w;
+	visited_hash v;
+	pairingheap *discarded;
+	HnswQuery	q;
+	int			m;
+	int64		tuples;
+	double		previousDistance;
 	MemoryContext tmpCtx;
 
 	/* Support functions */
@@ -399,7 +415,7 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement);
+List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
