@@ -78,6 +78,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	BlockNumber insertPage = InvalidBlockNumber;
 	ListInfo	listInfo;
 	BlockNumber originalInsertPage;
+	TupleDesc	tupdesc = RelationGetDescr(index);
+	Datum	   *newValues = palloc(tupdesc->natts * sizeof(Datum));
 
 	/* Detoast once for all calls */
 	value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
@@ -98,12 +100,16 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	IvfflatGetMetaPageInfo(index, NULL, NULL);
 
 	/* Find the insert page - sets the page and list info */
-	FindInsertPage(index, values, &insertPage, &listInfo);
+	FindInsertPage(index, &value, &insertPage, &listInfo);
 	Assert(BlockNumberIsValid(insertPage));
 	originalInsertPage = insertPage;
 
+	newValues[0] = value;
+	for (int i = 1; i < tupdesc->natts; i++)
+		newValues[i] = values[i];
+
 	/* Form tuple */
-	itup = index_form_tuple(RelationGetDescr(index), &value, isnull);
+	itup = index_form_tuple(tupdesc, newValues, isnull);
 	itup->t_tid = *heap_tid;
 
 	/* Get tuple size */

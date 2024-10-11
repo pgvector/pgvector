@@ -18,7 +18,16 @@
 #define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
 #endif
 
+static const struct config_enum_entry hnsw_iterative_search_options[] = {
+	{"off", HNSW_ITERATIVE_SEARCH_OFF, false},
+	{"on", HNSW_ITERATIVE_SEARCH_RELAXED, false},
+	{"strict", HNSW_ITERATIVE_SEARCH_STRICT, false},
+	{NULL, 0, false}
+};
+
 int			hnsw_ef_search;
+int			hnsw_iterative_search_max_tuples;
+int			hnsw_iterative_search;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
@@ -68,6 +77,15 @@ HnswInit(void)
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	DefineCustomEnumVariable("hnsw.iterative_search", "Sets iterative search",
+							 NULL, &hnsw_iterative_search,
+							 HNSW_ITERATIVE_SEARCH_OFF, hnsw_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	/* TODO Ensure ivfflat.max_probes uses same value for "all" */
+	DefineCustomIntVariable("hnsw.iterative_search_max_tuples", "Sets the max number of candidates to visit for iterative search",
+							"-1 means all", &hnsw_iterative_search_max_tuples,
+							-1, -1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }
