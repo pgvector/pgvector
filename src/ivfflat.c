@@ -45,6 +45,7 @@ IvfflatInit(void)
 							 NULL, &ivfflat_iterative_search,
 							 IVFFLAT_ITERATIVE_SEARCH_OFF, ivfflat_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
+	/* If this is less than probes, probes is used */
 	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative search",
 							"-1 means no limit", &ivfflat_max_probes,
 							-1, -1, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
