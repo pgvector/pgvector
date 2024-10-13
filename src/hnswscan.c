@@ -102,6 +102,17 @@ GetScanValue(IndexScanDesc scan)
 	return value;
 }
 
+#if defined(HNSW_MEMORY)
+/*
+ * Show memory usage
+ */
+static void
+ShowMemoryUsage(HnswScanOpaque so)
+{
+	elog(INFO, "memory: %zu KB, tuples: " INT64_FORMAT, MemoryContextMemAllocated(so->tmpCtx, false) / 1024, so->tuples);
+}
+#endif
+
 /*
  * Prepare for an index scan
  */
@@ -209,7 +220,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->first = false;
 
 #if defined(HNSW_MEMORY)
-		elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
+		ShowMemoryUsage(so);
 #endif
 	}
 
@@ -271,7 +282,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
 
 #if defined(HNSW_MEMORY)
-				elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
+				ShowMemoryUsage(so);
 #endif
 			}
 
