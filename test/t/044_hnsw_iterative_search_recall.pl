@@ -14,14 +14,14 @@ my @cs = (100, 1000);
 
 sub test_recall
 {
-	my ($c, $ef_search, $min, $operator) = @_;
+	my ($c, $ef_search, $min, $operator, $mode) = @_;
 	my $correct = 0;
 	my $total = 0;
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
 		SET hnsw.ef_search = $ef_search;
-		SET hnsw.iterative_search = relaxed_order;
+		SET hnsw.iterative_search = $mode;
 		EXPLAIN ANALYZE SELECT i FROM tst WHERE i % $c = 0 ORDER BY v $operator '$queries[0]' LIMIT $limit;
 	));
 	like($explain, qr/Index Scan using idx on tst/);
@@ -31,7 +31,7 @@ sub test_recall
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET hnsw.ef_search = $ef_search;
-			SET hnsw.iterative_search = relaxed_order;
+			SET hnsw.iterative_search = $mode;
 			SELECT i FROM tst WHERE i % $c = 0 ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
@@ -108,21 +108,8 @@ for my $i (0 .. $#operators)
 			push(@expected, $res);
 		}
 
-		if ($c == 100)
-		{
-			test_recall($c, 40, 0.99, $operator);
-		}
-		else
-		{
-			if ($operator eq "<->")
-			{
-				test_recall($c, 40, 0.99, $operator);
-			}
-			else
-			{
-				test_recall($c, 40, 0.99, $operator);
-			}
-		}
+		test_recall($c, 40, 0.99, $operator, "strict_order");
+		test_recall($c, 40, 0.99, $operator, "relaxed_order");
 	}
 
 	$node->safe_psql("postgres", "DROP INDEX idx;");
