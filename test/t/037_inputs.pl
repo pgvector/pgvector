@@ -12,8 +12,8 @@ $node->start;
 # Create extension
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 
-my @types = ("vector", "halfvec", "sparsevec");
-my @inputs = ("[1.23,4.56,7.89]", "[1.23,4.56,7.89]", "{1:1.23,2:4.56,3:7.89}/3");
+my @types = ("vector", "halfvec", "intvec", "sparsevec");
+my @inputs = ("[1.23,4.56,7.89]", "[1.23,4.56,7.89]", "[1,2,3]", "{1:1.23,2:4.56,3:7.89}/3");
 my @subs = (" ", " ", ",", ":", "-", "1", "9", "\0", "2147483648", "-2147483649");
 
 for my $i (0 .. $#types)
