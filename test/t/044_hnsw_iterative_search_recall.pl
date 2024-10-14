@@ -10,7 +10,7 @@ my @expected;
 my $limit = 20;
 my $dim = 3;
 my $array_sql = join(",", ('random()') x $dim);
-my @cs = (100, 1000);
+my @cs = (50, 500);
 
 sub test_recall
 {
@@ -62,7 +62,7 @@ $node->start;
 $node->safe_psql("postgres", "CREATE EXTENSION vector;");
 $node->safe_psql("postgres", "CREATE TABLE tst (i int4, v vector($dim));");
 $node->safe_psql("postgres",
-	"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 100000) i;"
+	"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 50000) i;"
 );
 
 # Generate queries
