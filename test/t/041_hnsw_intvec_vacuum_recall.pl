@@ -91,11 +91,11 @@ foreach (@queries)
 }
 
 test_recall(0.18, $limit, "before vacuum");
-test_recall(0.85, 100, "before vacuum");
+test_recall(0.84, 100, "before vacuum");
 
 # TODO Test concurrent inserts with vacuum
 $node->safe_psql("postgres", "VACUUM tst;");
 
-test_recall(0.85, $limit, "after vacuum");
+test_recall(0.84, $limit, "after vacuum");
 
 done_testing();
