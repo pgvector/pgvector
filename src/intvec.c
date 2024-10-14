@@ -646,10 +646,10 @@ intvec_cmp_internal(IntVector * a, IntVector * b)
 	/* Check values before dimensions to be consistent with Postgres arrays */
 	for (int i = 0; i < dim; i++)
 	{
-		if ((int) a->x[i] < (int) b->x[i])
+		if (a->x[i] < b->x[i])
 			return -1;
 
-		if ((int) a->x[i] > (int) b->x[i])
+		if (a->x[i] > b->x[i])
 			return 1;
 	}
 
