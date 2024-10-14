@@ -140,6 +140,28 @@ SELECT '{1e-8,-1e-8}'::real[]::halfvec;
  [0,-0]
 (1 row)
 
+SELECT '{1,2,3}'::int[]::intvec;
+ intvec  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '{1,2,3}'::int[]::intvec(3);
+ intvec  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '{1,2,3}'::int[]::intvec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '{127,-128}'::int[]::intvec;
+   intvec   
+------------
+ [127,-128]
+(1 row)
+
+SELECT '{128,-129}'::int[]::intvec;
+ERROR:  value "128" is out of range for type intvec
 SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
     sparsevec    
 -----------------
