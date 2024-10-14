@@ -140,6 +140,12 @@ SELECT '{1e-8,-1e-8}'::real[]::halfvec;
  [0,-0]
 (1 row)
 
+SELECT '[1,2,3]'::intvec::int[];
+  int4   
+---------
+ {1,2,3}
+(1 row)
+
 SELECT '{1,2,3}'::int[]::intvec;
  intvec  
 ---------

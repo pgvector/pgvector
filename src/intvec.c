@@ -416,6 +416,29 @@ array_to_intvec(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Convert int vector to int[]
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_to_int);
+Datum
+intvec_to_int(PG_FUNCTION_ARGS)
+{
+	IntVector  *vec = PG_GETARG_INTVEC_P(0);
+	Datum	   *datums;
+	ArrayType  *result;
+
+	datums = (Datum *) palloc(sizeof(Datum) * vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		datums[i] = Int32GetDatum((int) vec->x[i]);
+
+	result = construct_array(datums, vec->dim, INT4OID, sizeof(int32), true, TYPALIGN_INT);
+
+	pfree(datums);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Get the L2 distance between int vectors
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(intvec_l2_distance);
@@ -587,7 +610,7 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_vector_dims);
 Datum
 intvec_vector_dims(PG_FUNCTION_ARGS)
 {
-	IntVector *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
 
 	PG_RETURN_INT32(a->dim);
 }
