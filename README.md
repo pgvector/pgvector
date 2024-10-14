@@ -956,7 +956,7 @@ Operator | Description | Added
 <-> | Euclidean distance | 0.8.0
 <#> | negative inner product | 0.8.0
 <=> | cosine distance | 0.8.0
-<+> | taxicab distance | 0.7.0
+<+> | taxicab distance | 0.8.0
 
 ### Intvec Functions
 
