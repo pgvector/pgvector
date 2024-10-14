@@ -98,7 +98,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 	IvfflatGetMetaPageInfo(index, NULL, NULL);
 
 	/* Find the insert page - sets the page and list info */
-	FindInsertPage(index, values, &insertPage, &listInfo);
+	FindInsertPage(index, &value, &insertPage, &listInfo);
 	Assert(BlockNumberIsValid(insertPage));
 	originalInsertPage = insertPage;
 

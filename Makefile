@@ -66,7 +66,7 @@ dist:
 	git archive --format zip --prefix=$(EXTENSION)-$(EXTVERSION)/ --output dist/$(EXTENSION)-$(EXTVERSION).zip master
 
 # for Docker
-PG_MAJOR ?= 16
+PG_MAJOR ?= 17
 
 .PHONY: docker
 

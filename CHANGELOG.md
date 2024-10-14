@@ -1,7 +1,10 @@
 ## 0.8.0 (unreleased)
 
+- Added support for iterative index scans
 - Added `intvec` type
 - Added casts for arrays to `sparsevec`
+- Improved cost estimation
+- Improved performance of HNSW inserts and on-disk index builds
 - Reduced memory usage for HNSW index scans
 - Dropped support for Postgres 12
 

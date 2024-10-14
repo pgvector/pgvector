@@ -17,7 +17,15 @@
 #endif
 
 int			ivfflat_probes;
+int			ivfflat_iterative_search;
+int			ivfflat_max_probes;
 static relopt_kind ivfflat_relopt_kind;
+
+static const struct config_enum_entry ivfflat_iterative_search_options[] = {
+	{"off", IVFFLAT_ITERATIVE_SEARCH_OFF, false},
+	{"relaxed_order", IVFFLAT_ITERATIVE_SEARCH_RELAXED, false},
+	{NULL, 0, false}
+};
 
 /*
  * Initialize index options and variables
@@ -32,6 +40,15 @@ IvfflatInit(void)
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
 							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	DefineCustomEnumVariable("ivfflat.iterative_search", "Sets the iterative search mode",
+							 NULL, &ivfflat_iterative_search,
+							 IVFFLAT_ITERATIVE_SEARCH_OFF, ivfflat_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	/* If this is less than probes, probes is used */
+	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative search",
+							"-1 means no limit", &ivfflat_max_probes,
+							-1, -1, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("ivfflat");
 }
@@ -69,6 +86,8 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	GenericCosts costs;
 	int			lists;
 	double		ratio;
+	double		sequentialRatio = 0.5;
+	double		startupPages;
 	double		spc_seq_page_cost;
 	Relation	index;
 
@@ -85,6 +104,8 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	MemSet(&costs, 0, sizeof(costs));
 
+	genericcostestimate(root, path, loop_count, &costs);
+
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	IvfflatGetMetaPageInfo(index, &lists, NULL);
 	index_close(index, NoLock);
@@ -94,41 +115,26 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (ratio > 1.0)
 		ratio = 1.0;
 
-	/*
-	 * This gives us the subset of tuples to visit. This value is passed into
-	 * the generic cost estimator to determine the number of pages to visit
-	 * during the index scan.
-	 */
-	costs.numIndexTuples = path->indexinfo->tuples * ratio;
-
-	genericcostestimate(root, path, loop_count, &costs);
-
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
+	/* Change some page cost from random to sequential */
+	costs.indexTotalCost -= sequentialRatio * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+
+	/* Startup cost is cost before returning the first row */
+	costs.indexStartupCost = costs.indexTotalCost * ratio;
+
 	/* Adjust cost if needed since TOAST not included in seq scan cost */
-	if (costs.numIndexPages > path->indexinfo->rel->pages && ratio < 0.5)
+	startupPages = costs.numIndexPages * ratio;
+	if (startupPages > path->indexinfo->rel->pages && ratio < 0.5)
 	{
-		/* Change all page cost from random to sequential */
-		costs.indexTotalCost -= costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		/* Change rest of page cost from random to sequential */
+		costs.indexStartupCost -= (1 - sequentialRatio) * startupPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 		/* Remove cost of extra pages */
-		costs.indexTotalCost -= (costs.numIndexPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
-	}
-	else
-	{
-		/* Change some page cost from random to sequential */
-		costs.indexTotalCost -= 0.5 * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+		costs.indexStartupCost -= (startupPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
 	}
 
-	/*
-	 * If the list selectivity is lower than what is returned from the generic
-	 * cost estimator, use that.
-	 */
-	if (ratio < costs.indexSelectivity)
-		costs.indexSelectivity = ratio;
-
-	/* Use total cost since most work happens before first tuple is returned */
-	*indexStartupCost = costs.indexTotalCost;
+	*indexStartupCost = costs.indexStartupCost;
 	*indexTotalCost = costs.indexTotalCost;
 	*indexSelectivity = costs.indexSelectivity;
 	*indexCorrelation = costs.indexCorrelation;

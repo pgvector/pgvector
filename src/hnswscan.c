@@ -5,39 +5,74 @@
 #include "pgstat.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
+#include "utils/float.h"
 #include "utils/memutils.h"
 
 /*
  * Algorithm 5 from paper
  */
 static List *
-GetScanItems(IndexScanDesc scan, Datum q)
+GetScanItems(IndexScanDesc scan, Datum value)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 	Relation	index = scan->indexRelation;
-	FmgrInfo   *procinfo = so->procinfo;
-	Oid			collation = so->collation;
+	HnswSupport *support = &so->support;
 	List	   *ep;
 	List	   *w;
 	int			m;
 	HnswElement entryPoint;
 	char	   *base = NULL;
+	HnswQuery  *q = &so->q;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
+	q->value = value;
+	so->m = m;
+
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, procinfo, collation, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, support, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, procinfo, collation, m, false, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, procinfo, collation, m, false, NULL);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF ? &so->discarded : NULL, true, &so->tuples);
+}
+
+/*
+ * Resume scan at ground level with discarded candidates
+ */
+static List *
+ResumeScanItems(IndexScanDesc scan)
+{
+	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	Relation	index = scan->indexRelation;
+	List	   *ep = NIL;
+	char	   *base = NULL;
+	int			batch_size = hnsw_ef_search;
+
+	if (pairingheap_is_empty(so->discarded))
+		return NIL;
+
+	/* Get next batch of candidates */
+	for (int i = 0; i < batch_size; i++)
+	{
+		HnswSearchCandidate *sc;
+
+		if (pairingheap_is_empty(so->discarded))
+			break;
+
+		sc = HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded));
+
+		ep = lappend(ep, sc);
+	}
+
+	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
 }
 
 /*
@@ -60,12 +95,23 @@ GetScanValue(IndexScanDesc scan)
 		Assert(!VARATT_IS_EXTENDED(DatumGetPointer(value)));
 
 		/* Normalize if needed */
-		if (so->normprocinfo != NULL)
-			value = HnswNormValue(so->typeInfo, so->collation, value);
+		if (so->support.normprocinfo != NULL)
+			value = HnswNormValue(so->typeInfo, so->support.collation, value);
 	}
 
 	return value;
 }
+
+#if defined(HNSW_MEMORY)
+/*
+ * Show memory usage
+ */
+static void
+ShowMemoryUsage(HnswScanOpaque so)
+{
+	elog(INFO, "memory: %zu KB, tuples: " INT64_FORMAT, MemoryContextMemAllocated(so->tmpCtx, false) / 1024, so->tuples);
+}
+#endif
 
 /*
  * Prepare for an index scan
@@ -81,14 +127,19 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
 	so->typeInfo = HnswGetTypeInfo(index);
 	so->first = true;
+	so->v.tids = NULL;
+	so->discarded = NULL;
+
+	/*
+	 * Use a lower max allocation size than default to allow scanning more
+	 * tuples for iterative search before exceeding work_mem
+	 */
 	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 									   "Hnsw scan temporary context",
-									   ALLOCSET_DEFAULT_SIZES);
+									   0, 8 * 1024, 512 * 1024);
 
 	/* Set support functions */
-	so->procinfo = index_getprocinfo(index, 1, HNSW_DISTANCE_PROC);
-	so->normprocinfo = HnswOptionalProcInfo(index, HNSW_NORM_PROC);
-	so->collation = index->rd_indcollation[0];
+	HnswInitSupport(&so->support, index);
 
 	scan->opaque = so;
 
@@ -103,7 +154,15 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
+	if (so->v.tids != NULL)
+		tidhash_reset(so->v.tids);
+
+	if (so->discarded != NULL)
+		pairingheap_reset(so->discarded);
+
 	so->first = true;
+	so->tuples = 0;
+	so->previousDistance = -get_float8_infinity();
 	MemoryContextReset(so->tmpCtx);
 
 	if (keys && scan->numberOfKeys > 0)
@@ -161,25 +220,103 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->first = false;
 
 #if defined(HNSW_MEMORY)
-		elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(so->tmpCtx, false) / 1024);
+		ShowMemoryUsage(so);
 #endif
 	}
 
-	while (list_length(so->w) > 0)
+	for (;;)
 	{
 		char	   *base = NULL;
-		HnswSearchCandidate *hc = llast(so->w);
-		HnswElement element = HnswPtrAccess(base, hc->element);
+		HnswSearchCandidate *sc;
+		HnswElement element;
 		ItemPointer heaptid;
+
+		if (list_length(so->w) == 0)
+		{
+			if (hnsw_iterative_search == HNSW_ITERATIVE_SEARCH_OFF)
+				break;
+
+			/* Empty index */
+			if (so->discarded == NULL)
+				break;
+
+			/* Reached max number of tuples */
+			if (hnsw_max_search_tuples != -1 && so->tuples >= hnsw_max_search_tuples)
+			{
+				if (pairingheap_is_empty(so->discarded))
+					break;
+
+				/* Return remaining tuples */
+				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
+			}
+			/* Prevent scans from consuming too much memory */
+			else if (MemoryContextMemAllocated(so->tmpCtx, false) > (Size) work_mem * 1024L)
+			{
+				if (pairingheap_is_empty(so->discarded))
+				{
+					ereport(DEBUG1,
+							(errmsg("hnsw index scan exceeded work_mem after " INT64_FORMAT " tuples", so->tuples),
+							 errhint("Increase work_mem to scan more tuples.")));
+
+					break;
+				}
+
+				/* Return remaining tuples */
+				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
+			}
+			else
+			{
+				/*
+				 * Locking ensures when neighbors are read, the elements they
+				 * reference will not be deleted (and replaced) during the
+				 * iteration.
+				 *
+				 * Elements loaded into memory on previous iterations may have
+				 * been deleted (and replaced), so when reading neighbors, the
+				 * element version must be checked.
+				 */
+				LockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+				so->w = ResumeScanItems(scan);
+
+				UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+#if defined(HNSW_MEMORY)
+				ShowMemoryUsage(so);
+#endif
+			}
+
+			if (list_length(so->w) == 0)
+				break;
+		}
+
+		sc = llast(so->w);
+		element = HnswPtrAccess(base, sc->element);
 
 		/* Move to next element if no valid heap TIDs */
 		if (element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
+
+			/* Mark memory as free for next iteration */
+			if (hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF)
+			{
+				pfree(element);
+				pfree(sc);
+			}
+
 			continue;
 		}
 
 		heaptid = &element->heaptids[--element->heaptidsLength];
+
+		if (hnsw_iterative_search == HNSW_ITERATIVE_SEARCH_STRICT)
+		{
+			if (sc->distance < so->previousDistance)
+				continue;
+
+			so->previousDistance = sc->distance;
+		}
 
 		MemoryContextSwitchTo(oldCtx);
 

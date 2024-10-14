@@ -80,6 +80,14 @@
 
 /* Variables */
 extern int	ivfflat_probes;
+extern int	ivfflat_iterative_search;
+extern int	ivfflat_max_probes;
+
+typedef enum IvfflatIterativeSearchMode
+{
+	IVFFLAT_ITERATIVE_SEARCH_OFF,
+	IVFFLAT_ITERATIVE_SEARCH_RELAXED
+}			IvfflatIterativeSearchMode;
 
 typedef struct VectorArrayData
 {
@@ -165,6 +173,7 @@ typedef struct IvfflatBuildState
 	Relation	index;
 	IndexInfo  *indexInfo;
 	const		IvfflatTypeInfo *typeInfo;
+	TupleDesc	tupdesc;
 
 	/* Settings */
 	int			dimensions;
@@ -198,7 +207,7 @@ typedef struct IvfflatBuildState
 
 	/* Sorting */
 	Tuplesortstate *sortstate;
-	TupleDesc	tupdesc;
+	TupleDesc	sortdesc;
 	TupleTableSlot *slot;
 
 	/* Memory */
@@ -247,8 +256,11 @@ typedef struct IvfflatScanOpaqueData
 {
 	const		IvfflatTypeInfo *typeInfo;
 	int			probes;
+	int			maxProbes;
 	int			dimensions;
 	bool		first;
+	Datum		value;
+	MemoryContext tmpCtx;
 
 	/* Sorting */
 	Tuplesortstate *sortstate;
@@ -265,7 +277,9 @@ typedef struct IvfflatScanOpaqueData
 
 	/* Lists */
 	pairingheap *listQueue;
-	IvfflatScanList lists[FLEXIBLE_ARRAY_MEMBER];	/* must come last */
+	BlockNumber *listPages;
+	int			listIndex;
+	IvfflatScanList *lists;
 }			IvfflatScanOpaqueData;
 
 typedef IvfflatScanOpaqueData * IvfflatScanOpaque;

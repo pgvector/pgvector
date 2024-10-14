@@ -10,10 +10,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
-
-#ifdef IVFFLAT_MEMORY
 #include "utils/memutils.h"
-#endif
 
 #define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
@@ -65,7 +62,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 			/* Use procinfo from the index instead of scan key for performance */
 			distance = DatumGetFloat8(so->distfunc(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
 
-			if (listCount < so->probes)
+			if (listCount < so->maxProbes)
 			{
 				IvfflatScanList *scanlist;
 
@@ -78,7 +75,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 				pairingheap_add(so->listQueue, &scanlist->ph_node);
 
 				/* Calculate max distance */
-				if (listCount == so->probes)
+				if (listCount == so->maxProbes)
 					maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
 			}
 			else if (distance < maxDistance)
@@ -102,6 +99,11 @@ GetScanLists(IndexScanDesc scan, Datum value)
 
 		UnlockReleaseBuffer(cbuf);
 	}
+
+	for (int i = listCount - 1; i >= 0; i--)
+		so->listPages[i] = GetScanList(pairingheap_remove_first(so->listQueue))->startPage;
+
+	Assert(pairingheap_is_empty(so->listQueue));
 }
 
 /*
@@ -114,11 +116,14 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
 	double		tuples = 0;
 	TupleTableSlot *slot = so->vslot;
+	int			batchProbes = 0;
+
+	tuplesort_reset(so->sortstate);
 
 	/* Search closest probes lists */
-	while (!pairingheap_is_empty(so->listQueue))
+	while (so->listIndex < so->maxProbes && (++batchProbes) <= so->probes)
 	{
-		BlockNumber searchPage = GetScanList(pairingheap_remove_first(so->listQueue))->startPage;
+		BlockNumber searchPage = so->listPages[so->listIndex++];
 
 		/* Search all entry pages for list */
 		while (BlockNumberIsValid(searchPage))
@@ -166,13 +171,17 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		}
 	}
 
-	if (tuples < 100)
+	if (tuples < 100 && ivfflat_iterative_search == IVFFLAT_ITERATIVE_SEARCH_OFF)
 		ereport(DEBUG1,
 				(errmsg("index scan found few tuples"),
 				 errdetail("Index may have been created with little data."),
 				 errhint("Recreate the index and possibly decrease lists.")));
 
 	tuplesort_performsort(so->sortstate);
+
+#if defined(IVFFLAT_MEMORY)
+	elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
+#endif
 }
 
 /*
@@ -209,7 +218,13 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Normalize if needed */
 		if (so->normprocinfo != NULL)
+		{
+			MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
+
 			value = IvfflatNormValue(so->typeInfo, so->collation, value);
+
+			MemoryContextSwitchTo(oldCtx);
+		}
 	}
 
 	return value;
@@ -240,25 +255,52 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	int			lists;
 	int			dimensions;
 	int			probes = ivfflat_probes;
+	int			maxProbes;
+	MemoryContext oldCtx;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 
 	/* Get lists and dimensions from metapage */
 	IvfflatGetMetaPageInfo(index, &lists, &dimensions);
 
+	if (ivfflat_iterative_search != IVFFLAT_ITERATIVE_SEARCH_OFF)
+	{
+		maxProbes = ivfflat_max_probes;
+
+		if (maxProbes < 0)
+			maxProbes = lists;
+		else if (maxProbes < probes)
+		{
+			/* TODO Show notice */
+			maxProbes = probes;
+		}
+	}
+	else
+		maxProbes = probes;
+
 	if (probes > lists)
 		probes = lists;
 
-	so = (IvfflatScanOpaque) palloc(offsetof(IvfflatScanOpaqueData, lists) + probes * sizeof(IvfflatScanList));
+	if (maxProbes > lists)
+		maxProbes = lists;
+
+	so = (IvfflatScanOpaque) palloc(sizeof(IvfflatScanOpaqueData));
 	so->typeInfo = IvfflatGetTypeInfo(index);
 	so->first = true;
 	so->probes = probes;
+	so->maxProbes = maxProbes;
 	so->dimensions = dimensions;
 
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
 	so->normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	so->collation = index->rd_indcollation[0];
+
+	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
+									   "Ivfflat scan temporary context",
+									   ALLOCSET_DEFAULT_SIZES);
+
+	oldCtx = MemoryContextSwitchTo(so->tmpCtx);
 
 	/* Create tuple description for sorting */
 	so->tupdesc = CreateTemplateTupleDesc(2);
@@ -280,6 +322,11 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
+	so->listPages = palloc(maxProbes * sizeof(BlockNumber));
+	so->listIndex = 0;
+	so->lists = palloc(maxProbes * sizeof(IvfflatScanList));
+
+	MemoryContextSwitchTo(oldCtx);
 
 	scan->opaque = so;
 
@@ -294,11 +341,9 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
-	if (!so->first)
-		tuplesort_reset(so->sortstate);
-
 	so->first = true;
 	pairingheap_reset(so->listQueue);
+	so->listIndex = 0;
 
 	if (keys && scan->numberOfKeys > 0)
 		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
@@ -314,6 +359,8 @@ bool
 ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+	ItemPointer heaptid;
+	bool		isnull;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -341,28 +388,23 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanLists", GetScanLists(scan, value));
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
-
-#if defined(IVFFLAT_MEMORY)
-		elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
-#endif
-
-		/* Clean up if we allocated a new value */
-		if (value != scan->orderByData->sk_argument)
-			pfree(DatumGetPointer(value));
+		so->value = value;
 	}
 
-	if (tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
+	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
 	{
-		bool		isnull;
-		ItemPointer heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
+		if (so->listIndex == so->maxProbes)
+			return false;
 
-		scan->xs_heaptid = *heaptid;
-		scan->xs_recheck = false;
-		scan->xs_recheckorderby = false;
-		return true;
+		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
 	}
 
-	return false;
+	heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
+
+	scan->xs_heaptid = *heaptid;
+	scan->xs_recheck = false;
+	scan->xs_recheckorderby = false;
+	return true;
 }
 
 /*
@@ -373,12 +415,10 @@ ivfflatendscan(IndexScanDesc scan)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
-	pairingheap_free(so->listQueue);
+	/* Free any temporary files */
 	tuplesort_end(so->sortstate);
-	FreeAccessStrategy(so->bas);
-	FreeTupleDesc(so->tupdesc);
 
-	/* TODO Free vslot and mslot without freeing TupleDesc */
+	MemoryContextDelete(so->tmpCtx);
 
 	pfree(so);
 	scan->opaque = NULL;

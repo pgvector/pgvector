@@ -228,11 +228,11 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
 static inline void
 GetNextTuple(Tuplesortstate *sortstate, TupleDesc tupdesc, TupleTableSlot *slot, IndexTuple *itup, int *list)
 {
-	Datum		value;
-	bool		isnull;
-
 	if (tuplesort_gettupleslot(sortstate, true, false, slot, NULL))
 	{
+		Datum		value;
+		bool		isnull;
+
 		*list = DatumGetInt32(slot_getattr(slot, 1, &isnull));
 		value = slot_getattr(slot, 3, &isnull);
 
@@ -254,8 +254,8 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 	IndexTuple	itup = NULL;	/* silence compiler warning */
 	int64		inserted = 0;
 
-	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsMinimalTuple);
-	TupleDesc	tupdesc = RelationGetDescr(index);
+	TupleTableSlot *slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsMinimalTuple);
+	TupleDesc	tupdesc = buildstate->tupdesc;
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 
@@ -319,6 +319,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->index = index;
 	buildstate->indexInfo = indexInfo;
 	buildstate->typeInfo = IvfflatGetTypeInfo(index);
+	buildstate->tupdesc = RelationGetDescr(index);
 
 	buildstate->lists = IvfflatGetLists(index);
 	buildstate->dimensions = TupleDescAttr(index->rd_att, 0)->atttypmod;
@@ -356,12 +357,12 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 				 errmsg("dimensions must be greater than one for this opclass")));
 
 	/* Create tuple description for sorting */
-	buildstate->tupdesc = CreateTemplateTupleDesc(3);
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
-	TupleDescInitEntry(buildstate->tupdesc, (AttrNumber) 3, "vector", RelationGetDescr(index)->attrs[0].atttypid, -1, 0);
+	buildstate->sortdesc = CreateTemplateTupleDesc(3);
+	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 1, "list", INT4OID, -1, 0);
+	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 2, "tid", TIDOID, -1, 0);
+	TupleDescInitEntry(buildstate->sortdesc, (AttrNumber) 3, "vector", buildstate->tupdesc->attrs[0].atttypid, -1, 0);
 
-	buildstate->slot = MakeSingleTupleTableSlot(buildstate->tupdesc, &TTSOpsVirtual);
+	buildstate->slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsVirtual);
 
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->typeInfo->itemSize(buildstate->dimensions));
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
@@ -633,7 +634,7 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 	InitBuildState(&buildstate, ivfspool->heap, ivfspool->index, indexInfo);
 	memcpy(buildstate.centers->items, ivfcenters, buildstate.centers->itemsize * buildstate.centers->maxlen);
 	buildstate.centers->length = buildstate.centers->maxlen;
-	ivfspool->sortstate = InitBuildSortState(buildstate.tupdesc, sortmem, coordinate);
+	ivfspool->sortstate = InitBuildSortState(buildstate.sortdesc, sortmem, coordinate);
 	buildstate.sortstate = ivfspool->sortstate;
 	scan = table_beginscan_parallel(ivfspool->heap,
 									ParallelTableScanFromIvfflatShared(ivfshared));
@@ -950,7 +951,7 @@ AssignTuples(IvfflatBuildState * buildstate)
 	}
 
 	/* Begin serial/leader tuplesort */
-	buildstate->sortstate = InitBuildSortState(buildstate->tupdesc, maintenance_work_mem, coordinate);
+	buildstate->sortstate = InitBuildSortState(buildstate->sortdesc, maintenance_work_mem, coordinate);
 
 	/* Add tuples to sort */
 	if (buildstate->heap != NULL)
