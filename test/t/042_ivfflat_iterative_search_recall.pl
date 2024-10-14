@@ -48,7 +48,7 @@ sub test_recall
 		$total += $limit;
 	}
 
-	cmp_ok($correct / $total, ">=", $min, $operator);
+	cmp_ok($correct / $total, ">=", $min, "$operator $c");
 }
 
 # Initialize node
