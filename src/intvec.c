@@ -630,7 +630,7 @@ intvec_l2_norm(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		norm += ax[i] * ax[i];
+		norm += (int) ax[i] * (int) ax[i];
 
 	PG_RETURN_FLOAT8(sqrt((double) norm));
 }
