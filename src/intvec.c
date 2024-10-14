@@ -363,7 +363,7 @@ array_to_intvec(PG_FUNCTION_ARGS)
 {
 	ArrayType  *array = PG_GETARG_ARRAYTYPE_P(0);
 	int32		typmod = PG_GETARG_INT32(1);
-	Vector	   *result;
+	IntVector  *result;
 	int16		typlen;
 	bool		typbyval;
 	char		typalign;
@@ -386,7 +386,7 @@ array_to_intvec(PG_FUNCTION_ARGS)
 	CheckDim(nelemsp);
 	CheckExpectedDim(typmod, nelemsp);
 
-	result = InitVector(nelemsp);
+	result = InitIntVector(nelemsp);
 
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
@@ -609,10 +609,10 @@ intvec_cmp_internal(IntVector * a, IntVector * b)
 	/* Check values before dimensions to be consistent with Postgres arrays */
 	for (int i = 0; i < dim; i++)
 	{
-		if (a->x[i] < b->x[i])
+		if ((int) a->x[i] < (int) b->x[i])
 			return -1;
 
-		if (a->x[i] > b->x[i])
+		if ((int) a->x[i] > (int) b->x[i])
 			return 1;
 	}
 
