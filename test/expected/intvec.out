@@ -228,6 +228,12 @@ SELECT intvec_cmp('[2,3]', '[1,2,3]');
           1
 (1 row)
 
+SELECT vector_dims('[1,2,3]'::intvec);
+ vector_dims 
+-------------
+           3
+(1 row)
+
 SELECT l2_distance('[0,0]'::intvec, '[3,4]');
  l2_distance 
 -------------

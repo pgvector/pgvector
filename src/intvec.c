@@ -581,6 +581,18 @@ intvec_l1_distance(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get the dimensions of an int vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_vector_dims);
+Datum
+intvec_vector_dims(PG_FUNCTION_ARGS)
+{
+	IntVector *a = PG_GETARG_INTVEC_P(0);
+
+	PG_RETURN_INT32(a->dim);
+}
+
+/*
  * Get the L2 norm of an int vector
  */
 PGDLLEXPORT PG_FUNCTION_INFO_V1(intvec_l2_norm);

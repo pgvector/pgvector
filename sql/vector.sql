@@ -692,6 +692,9 @@ CREATE FUNCTION cosine_distance(intvec, intvec) RETURNS float8
 CREATE FUNCTION l1_distance(intvec, intvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'intvec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION vector_dims(intvec) RETURNS integer
+	AS 'MODULE_PATHNAME', 'intvec_vector_dims' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION l2_norm(intvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'intvec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 

@@ -48,6 +48,8 @@ SELECT intvec_cmp('[1,2,3]', '[1,2]');
 SELECT intvec_cmp('[1,2]', '[2,3,4]');
 SELECT intvec_cmp('[2,3]', '[1,2,3]');
 
+SELECT vector_dims('[1,2,3]'::intvec);
+
 SELECT l2_distance('[0,0]'::intvec, '[3,4]');
 SELECT l2_distance('[0,0]'::intvec, '[0,1]');
 SELECT l2_distance('[1,2]'::intvec, '[3]');
