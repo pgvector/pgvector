@@ -46,7 +46,7 @@ for my $function (@functions)
 		is($expected, $actual, "halfvec $function");
 
 		# Test intvec
-		$actual = $node->safe_psql("postgres", "SELECT $function(v::real[]::int[]::intvec, '$query'::vector::real[]::int[]::intvec) FROM tst");
+		$actual = $node->safe_psql("postgres", "SELECT $function(v::real[]::integer[]::intvec, '$query'::vector::real[]::integer[]::intvec) FROM tst");
 		is($expected, $actual, "intvec $function");
 
 		# Test sparsevec

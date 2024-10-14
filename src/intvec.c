@@ -416,11 +416,11 @@ array_to_intvec(PG_FUNCTION_ARGS)
 }
 
 /*
- * Convert int vector to int[]
+ * Convert int vector to integer[]
  */
-FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_to_int);
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_to_integer);
 Datum
-intvec_to_int(PG_FUNCTION_ARGS)
+intvec_to_integer(PG_FUNCTION_ARGS)
 {
 	IntVector  *vec = PG_GETARG_INTVEC_P(0);
 	Datum	   *datums;

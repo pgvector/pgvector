@@ -81,14 +81,14 @@ CREATE FUNCTION intvec(intvec, integer, boolean) RETURNS intvec
 CREATE FUNCTION array_to_intvec(integer[], integer, boolean) RETURNS intvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
-CREATE FUNCTION intvec_to_int(intvec, integer, boolean) RETURNS int[]
+CREATE FUNCTION intvec_to_integer(intvec, integer, boolean) RETURNS integer[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE CAST (intvec AS intvec)
 	WITH FUNCTION intvec(intvec, integer, boolean) AS IMPLICIT;
 
-CREATE CAST (intvec AS int[])
-	WITH FUNCTION intvec_to_int(intvec, integer, boolean) AS ASSIGNMENT;
+CREATE CAST (intvec AS integer[])
+	WITH FUNCTION intvec_to_integer(intvec, integer, boolean) AS ASSIGNMENT;
 
 CREATE CAST (integer[] AS intvec)
 	WITH FUNCTION array_to_intvec(integer[], integer, boolean) AS ASSIGNMENT;

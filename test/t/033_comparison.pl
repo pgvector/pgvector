@@ -41,7 +41,7 @@ for (1 .. 50)
 	is($expected, $actual);
 
 	# Test intvec
-	$actual = $node->safe_psql("postgres", "SELECT intvec_cmp(v::int[]::intvec, '$query'::int[]::intvec) FROM tst");
+	$actual = $node->safe_psql("postgres", "SELECT intvec_cmp(v::integer[]::intvec, '$query'::integer[]::intvec) FROM tst");
 	is($expected, $actual);
 
 	# Test sparsevec
