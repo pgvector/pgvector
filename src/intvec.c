@@ -438,6 +438,22 @@ intvec_to_int(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
+static int
+IntvecL2SquaredDistance(int dim, int8 *ax, int8 *bx)
+{
+	int			distance = 0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+	{
+		int			diff = (int) ax[i] - (int) bx[i];
+
+		distance += diff * diff;
+	}
+
+	return distance;
+}
+
 /*
  * Get the L2 distance between int vectors
  */
@@ -447,21 +463,10 @@ intvec_l2_distance(PG_FUNCTION_ARGS)
 {
 	IntVector  *a = PG_GETARG_INTVEC_P(0);
 	IntVector  *b = PG_GETARG_INTVEC_P(1);
-	int8	   *ax = a->x;
-	int8	   *bx = b->x;
-	int			distance = 0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		int			diff = ax[i] - bx[i];
-
-		distance += diff * diff;
-	}
-
-	PG_RETURN_FLOAT8(sqrt((double) distance));
+	PG_RETURN_FLOAT8(sqrt((double) IntvecL2SquaredDistance(a->dim, a->x, b->x)));
 }
 
 /*
@@ -473,21 +478,22 @@ intvec_l2_squared_distance(PG_FUNCTION_ARGS)
 {
 	IntVector  *a = PG_GETARG_INTVEC_P(0);
 	IntVector  *b = PG_GETARG_INTVEC_P(1);
-	int8	   *ax = a->x;
-	int8	   *bx = b->x;
-	int			distance = 0;
 
 	CheckDims(a, b);
 
+	PG_RETURN_FLOAT8((double) IntvecL2SquaredDistance(a->dim, a->x, b->x));
+}
+
+static int
+IntvecInnerProduct(int dim, int8 *ax, int8 *bx)
+{
+	int			distance = 0;
+
 	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		int			diff = ax[i] - bx[i];
+	for (int i = 0; i < dim; i++)
+		distance += (int) ax[i] * (int) bx[i];
 
-		distance += diff * diff;
-	}
-
-	PG_RETURN_FLOAT8((double) distance);
+	return distance;
 }
 
 /*
@@ -499,17 +505,10 @@ intvec_inner_product(PG_FUNCTION_ARGS)
 {
 	IntVector  *a = PG_GETARG_INTVEC_P(0);
 	IntVector  *b = PG_GETARG_INTVEC_P(1);
-	int8	   *ax = a->x;
-	int8	   *bx = b->x;
-	int			distance = 0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += ax[i] * bx[i];
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) IntvecInnerProduct(a->dim, a->x, b->x));
 }
 
 /*
@@ -521,17 +520,32 @@ intvec_negative_inner_product(PG_FUNCTION_ARGS)
 {
 	IntVector  *a = PG_GETARG_INTVEC_P(0);
 	IntVector  *b = PG_GETARG_INTVEC_P(1);
-	int8	   *ax = a->x;
-	int8	   *bx = b->x;
-	int			distance = 0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += ax[i] * bx[i];
+	PG_RETURN_FLOAT8((double) -IntvecInnerProduct(a->dim, a->x, b->x));
+}
 
-	PG_RETURN_FLOAT8((double) -distance);
+static double
+IntvecCosineSimilarity(int dim, int8 *ax, int8 *bx)
+{
+	int			similarity = 0;
+	int			norma = 0;
+	int			normb = 0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+	{
+		int			axi = ax[i];
+		int			bxi = bx[i];
+
+		similarity += axi * bxi;
+		norma += axi * axi;
+		normb += bxi * bxi;
+	}
+
+	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
+	return (double) similarity / sqrt((double) norma * (double) normb);
 }
 
 /*
@@ -543,28 +557,11 @@ intvec_cosine_distance(PG_FUNCTION_ARGS)
 {
 	IntVector  *a = PG_GETARG_INTVEC_P(0);
 	IntVector  *b = PG_GETARG_INTVEC_P(1);
-	int8	   *ax = a->x;
-	int8	   *bx = b->x;
-	int			distance = 0;
-	int			norma = 0;
-	int			normb = 0;
 	double		similarity;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-	{
-		int8		axi = ax[i];
-		int8		bxi = bx[i];
-
-		distance += axi * bxi;
-		norma += axi * axi;
-		normb += bxi * bxi;
-	}
-
-	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
-	similarity = (double) distance / sqrt((double) norma * (double) normb);
+	similarity = IntvecCosineSimilarity(a->dim, a->x, b->x);
 
 #ifdef _MSC_VER
 	/* /fp:fast may not propagate NaN */
@@ -581,6 +578,18 @@ intvec_cosine_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8(1 - similarity);
 }
 
+static int
+IntvecL1Distance(int dim, int8 *ax, int8 *bx)
+{
+	int			distance = 0;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+		distance += abs((int) ax[i] - (int) bx[i]);
+
+	return distance;
+}
+
 /*
  * Get the L1 distance between two int vectors
  */
@@ -590,17 +599,10 @@ intvec_l1_distance(PG_FUNCTION_ARGS)
 {
 	IntVector  *a = PG_GETARG_INTVEC_P(0);
 	IntVector  *b = PG_GETARG_INTVEC_P(1);
-	int8	   *ax = a->x;
-	int8	   *bx = b->x;
-	int			distance = 0;
 
 	CheckDims(a, b);
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		distance += abs(ax[i] - bx[i]);
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) IntvecL1Distance(a->dim, a->x, b->x));
 }
 
 /*
