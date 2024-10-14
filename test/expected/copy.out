@@ -39,10 +39,14 @@ CREATE TABLE t2 (val intvec(3));
 \copy t TO 'results/intvec.bin' WITH (FORMAT binary)
 \copy t2 FROM 'results/intvec.bin' WITH (FORMAT binary)
 SELECT * FROM t2 ORDER BY val;
-ERROR:  could not identify an ordering operator for type intvec
-LINE 1: SELECT * FROM t2 ORDER BY val;
-                                  ^
-HINT:  Use an explicit ordering operator or modify the query.
+   val   
+---------
+ [0,0,0]
+ [1,1,1]
+ [1,2,3]
+ 
+(4 rows)
+
 DROP TABLE t;
 DROP TABLE t2;
 -- sparsevec

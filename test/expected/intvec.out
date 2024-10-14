@@ -114,6 +114,120 @@ SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::intvec[]);
 
 SELECT '{"[1,2,3]"}'::intvec(2)[];
 ERROR:  expected 2 dimensions, not 3
+SELECT '[1,2,3]'::intvec < '[1,2,3]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::intvec < '[1,2]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::intvec <= '[1,2,3]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::intvec <= '[1,2]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::intvec = '[1,2,3]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::intvec = '[1,2]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::intvec != '[1,2,3]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::intvec != '[1,2]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::intvec >= '[1,2,3]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::intvec >= '[1,2]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT '[1,2,3]'::intvec > '[1,2,3]';
+ ?column? 
+----------
+ f
+(1 row)
+
+SELECT '[1,2,3]'::intvec > '[1,2]';
+ ?column? 
+----------
+ t
+(1 row)
+
+SELECT intvec_cmp('[1,2,3]', '[1,2,3]');
+ intvec_cmp 
+------------
+          0
+(1 row)
+
+SELECT intvec_cmp('[1,2,3]', '[0,0,0]');
+ intvec_cmp 
+------------
+          1
+(1 row)
+
+SELECT intvec_cmp('[0,0,0]', '[1,2,3]');
+ intvec_cmp 
+------------
+         -1
+(1 row)
+
+SELECT intvec_cmp('[1,2]', '[1,2,3]');
+ intvec_cmp 
+------------
+         -1
+(1 row)
+
+SELECT intvec_cmp('[1,2,3]', '[1,2]');
+ intvec_cmp 
+------------
+          1
+(1 row)
+
+SELECT intvec_cmp('[1,2]', '[2,3,4]');
+ intvec_cmp 
+------------
+         -1
+(1 row)
+
+SELECT intvec_cmp('[2,3]', '[1,2,3]');
+ intvec_cmp 
+------------
+          1
+(1 row)
+
 SELECT l2_distance('[0,0]'::intvec, '[3,4]');
  l2_distance 
 -------------

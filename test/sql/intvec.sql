@@ -27,6 +27,27 @@ SELECT '[1,2,3]'::intvec(16001);
 SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::intvec[]);
 SELECT '{"[1,2,3]"}'::intvec(2)[];
 
+SELECT '[1,2,3]'::intvec < '[1,2,3]';
+SELECT '[1,2,3]'::intvec < '[1,2]';
+SELECT '[1,2,3]'::intvec <= '[1,2,3]';
+SELECT '[1,2,3]'::intvec <= '[1,2]';
+SELECT '[1,2,3]'::intvec = '[1,2,3]';
+SELECT '[1,2,3]'::intvec = '[1,2]';
+SELECT '[1,2,3]'::intvec != '[1,2,3]';
+SELECT '[1,2,3]'::intvec != '[1,2]';
+SELECT '[1,2,3]'::intvec >= '[1,2,3]';
+SELECT '[1,2,3]'::intvec >= '[1,2]';
+SELECT '[1,2,3]'::intvec > '[1,2,3]';
+SELECT '[1,2,3]'::intvec > '[1,2]';
+
+SELECT intvec_cmp('[1,2,3]', '[1,2,3]');
+SELECT intvec_cmp('[1,2,3]', '[0,0,0]');
+SELECT intvec_cmp('[0,0,0]', '[1,2,3]');
+SELECT intvec_cmp('[1,2]', '[1,2,3]');
+SELECT intvec_cmp('[1,2,3]', '[1,2]');
+SELECT intvec_cmp('[1,2]', '[2,3,4]');
+SELECT intvec_cmp('[2,3]', '[1,2,3]');
+
 SELECT l2_distance('[0,0]'::intvec, '[3,4]');
 SELECT l2_distance('[0,0]'::intvec, '[0,1]');
 SELECT l2_distance('[1,2]'::intvec, '[3]');

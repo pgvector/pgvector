@@ -597,3 +597,121 @@ intvec_l2_norm(PG_FUNCTION_ARGS)
 
 	PG_RETURN_FLOAT8(sqrt((double) norm));
 }
+
+/*
+ * Internal helper to compare int vectors
+ */
+static int
+intvec_cmp_internal(IntVector * a, IntVector * b)
+{
+	int			dim = Min(a->dim, b->dim);
+
+	/* Check values before dimensions to be consistent with Postgres arrays */
+	for (int i = 0; i < dim; i++)
+	{
+		if (a->x[i] < b->x[i])
+			return -1;
+
+		if (a->x[i] > b->x[i])
+			return 1;
+	}
+
+	if (a->dim < b->dim)
+		return -1;
+
+	if (a->dim > b->dim)
+		return 1;
+
+	return 0;
+}
+
+/*
+ * Less than
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_lt);
+Datum
+intvec_lt(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *b = PG_GETARG_INTVEC_P(1);
+
+	PG_RETURN_BOOL(intvec_cmp_internal(a, b) < 0);
+}
+
+/*
+ * Less than or equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_le);
+Datum
+intvec_le(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *b = PG_GETARG_INTVEC_P(1);
+
+	PG_RETURN_BOOL(intvec_cmp_internal(a, b) <= 0);
+}
+
+/*
+ * Equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_eq);
+Datum
+intvec_eq(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *b = PG_GETARG_INTVEC_P(1);
+
+	PG_RETURN_BOOL(intvec_cmp_internal(a, b) == 0);
+}
+
+/*
+ * Not equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_ne);
+Datum
+intvec_ne(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *b = PG_GETARG_INTVEC_P(1);
+
+	PG_RETURN_BOOL(intvec_cmp_internal(a, b) != 0);
+}
+
+/*
+ * Greater than or equal
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_ge);
+Datum
+intvec_ge(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *b = PG_GETARG_INTVEC_P(1);
+
+	PG_RETURN_BOOL(intvec_cmp_internal(a, b) >= 0);
+}
+
+/*
+ * Greater than
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_gt);
+Datum
+intvec_gt(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *b = PG_GETARG_INTVEC_P(1);
+
+	PG_RETURN_BOOL(intvec_cmp_internal(a, b) > 0);
+}
+
+/*
+ * Compare int vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(intvec_cmp);
+Datum
+intvec_cmp(PG_FUNCTION_ARGS)
+{
+	IntVector  *a = PG_GETARG_INTVEC_P(0);
+	IntVector  *b = PG_GETARG_INTVEC_P(1);
+
+	PG_RETURN_INT32(intvec_cmp_internal(a, b));
+}

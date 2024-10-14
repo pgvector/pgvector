@@ -697,6 +697,27 @@ CREATE FUNCTION l2_norm(intvec) RETURNS float8
 
 -- intvec private functions
 
+CREATE FUNCTION intvec_lt(intvec, intvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION intvec_le(intvec, intvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION intvec_eq(intvec, intvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION intvec_ne(intvec, intvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION intvec_ge(intvec, intvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION intvec_gt(intvec, intvec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION intvec_cmp(intvec, intvec) RETURNS int4
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION intvec_l2_squared_distance(intvec, intvec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -741,7 +762,52 @@ CREATE OPERATOR <+> (
 	COMMUTATOR = '<+>'
 );
 
+CREATE OPERATOR < (
+	LEFTARG = intvec, RIGHTARG = intvec, PROCEDURE = intvec_lt,
+	COMMUTATOR = > , NEGATOR = >= ,
+	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
+);
+
+CREATE OPERATOR <= (
+	LEFTARG = intvec, RIGHTARG = intvec, PROCEDURE = intvec_le,
+	COMMUTATOR = >= , NEGATOR = > ,
+	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
+);
+
+CREATE OPERATOR = (
+	LEFTARG = intvec, RIGHTARG = intvec, PROCEDURE = intvec_eq,
+	COMMUTATOR = = , NEGATOR = <> ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR <> (
+	LEFTARG = intvec, RIGHTARG = intvec, PROCEDURE = intvec_ne,
+	COMMUTATOR = <> , NEGATOR = = ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR >= (
+	LEFTARG = intvec, RIGHTARG = intvec, PROCEDURE = intvec_ge,
+	COMMUTATOR = <= , NEGATOR = < ,
+	RESTRICT = scalargesel, JOIN = scalargejoinsel
+);
+
+CREATE OPERATOR > (
+	LEFTARG = intvec, RIGHTARG = intvec, PROCEDURE = intvec_gt,
+	COMMUTATOR = < , NEGATOR = <= ,
+	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
+);
+
 -- intvec opclasses
+
+CREATE OPERATOR CLASS intvec_ops
+	DEFAULT FOR TYPE intvec USING btree AS
+	OPERATOR 1 < ,
+	OPERATOR 2 <= ,
+	OPERATOR 3 = ,
+	OPERATOR 4 >= ,
+	OPERATOR 5 > ,
+	FUNCTION 1 intvec_cmp(intvec, intvec);
 
 CREATE OPERATOR CLASS intvec_l2_ops
 	FOR TYPE intvec USING hnsw AS
