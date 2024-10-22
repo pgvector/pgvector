@@ -27,6 +27,7 @@ $node->safe_psql("postgres", qq(
 my $count = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
 	SET hnsw.iterative_search = relaxed_order;
+	SET hnsw.max_search_tuples = 100000;
 	SET work_mem = '8MB';
 	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
 ));
@@ -59,7 +60,7 @@ my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
 	SET enable_seqscan = off;
 	SET hnsw.iterative_search = relaxed_order;
 	SET client_min_messages = debug1;
-	SET work_mem = '2MB';
+	SET work_mem = '1MB';
 	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
 ));
 like($stderr, qr/hnsw index scan exceeded work_mem after \d+ tuples/);

@@ -177,9 +177,9 @@ HINT:  Available values: off, relaxed_order, strict_order.
 SHOW hnsw.max_search_tuples;
  hnsw.max_search_tuples 
 ------------------------
- -1
+ 20000
 (1 row)
 
-SET hnsw.max_search_tuples = -2;
-ERROR:  -2 is outside the valid range for parameter "hnsw.max_search_tuples" (-1 .. 2147483647)
+SET hnsw.max_search_tuples = 0;
+ERROR:  0 is outside the valid range for parameter "hnsw.max_search_tuples" (1 .. 2147483647)
 DROP TABLE t;

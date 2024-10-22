@@ -84,8 +84,8 @@ HnswInit(void)
 
 	/* This is approximate and does not apply to the initial scan */
 	DefineCustomIntVariable("hnsw.max_search_tuples", "Sets the max number of candidates to visit for iterative search",
-							"-1 means no limit", &hnsw_max_search_tuples,
-							-1, -1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+							NULL, &hnsw_max_search_tuples,
+							20000, 1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }

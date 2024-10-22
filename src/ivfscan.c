@@ -264,17 +264,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	IvfflatGetMetaPageInfo(index, &lists, &dimensions);
 
 	if (ivfflat_iterative_search != IVFFLAT_ITERATIVE_SEARCH_OFF)
-	{
-		maxProbes = ivfflat_max_probes;
-
-		if (maxProbes < 0)
-			maxProbes = lists;
-		else if (maxProbes < probes)
-		{
-			/* TODO Show notice */
-			maxProbes = probes;
-		}
-	}
+		maxProbes = Max(ivfflat_max_probes, probes);
 	else
 		maxProbes = probes;
 
