@@ -76,16 +76,16 @@ HnswInit(void)
 
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
-							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
+							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	DefineCustomEnumVariable("hnsw.iterative_search", "Sets the iterative search mode",
 							 NULL, &hnsw_iterative_search,
-							 HNSW_ITERATIVE_SEARCH_OFF, hnsw_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
+							 HNSW_ITERATIVE_SEARCH_OFF, hnsw_iterative_search_options, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	/* This is approximate and does not apply to the initial scan */
 	DefineCustomIntVariable("hnsw.max_search_tuples", "Sets the max number of candidates to visit for iterative search",
 							NULL, &hnsw_max_search_tuples,
-							20000, 1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+							20000, 1, INT_MAX, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }
