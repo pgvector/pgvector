@@ -126,9 +126,6 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
 	so->typeInfo = HnswGetTypeInfo(index);
-	so->first = true;
-	so->v.tids = NULL;
-	so->discarded = NULL;
 
 	/*
 	 * Use a lower max allocation size than default to allow scanning more
@@ -154,13 +151,10 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
-	if (so->v.tids != NULL)
-		tidhash_reset(so->v.tids);
-
-	if (so->discarded != NULL)
-		pairingheap_reset(so->discarded);
-
 	so->first = true;
+	/* v and discarded are allocated in tmpCtx */
+	so->v.tids = NULL;
+	so->discarded = NULL;
 	so->tuples = 0;
 	so->previousDistance = -get_float8_infinity();
 	MemoryContextReset(so->tmpCtx);
