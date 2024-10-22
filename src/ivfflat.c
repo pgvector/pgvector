@@ -99,6 +99,10 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		*indexSelectivity = 0;
 		*indexCorrelation = 0;
 		*indexPages = 0;
+#if PG_VERSION_NUM >= 180000
+		/* See "On disable_cost" thread on pgsql-hackers */
+		path->path.disabled_nodes = 2;
+#endif
 		return;
 	}
 
