@@ -15,6 +15,11 @@ SELECT COUNT(*) FROM t;
 TRUNCATE t;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
+-- insert to empty table and empty index
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
+INSERT INTO t (val) VALUES ('[1,2,4]');
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
 DROP TABLE t;
 
 -- inner product
