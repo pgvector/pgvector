@@ -138,6 +138,8 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	HnswInitSupport(&so->support, index);
 
+	so->maxMemory = (Size) (work_mem * 1024.0 * hnsw_search_mem_multiplier);
+
 	scan->opaque = so;
 
 	return scan;
@@ -244,13 +246,13 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
 			}
 			/* Prevent scans from consuming too much memory */
-			else if (MemoryContextMemAllocated(so->tmpCtx, false) > (Size) work_mem * 1024L)
+			else if (MemoryContextMemAllocated(so->tmpCtx, false) >= so->maxMemory)
 			{
 				if (pairingheap_is_empty(so->discarded))
 				{
 					ereport(DEBUG1,
-							(errmsg("hnsw index scan exceeded work_mem after " INT64_FORMAT " tuples", so->tuples),
-							 errhint("Increase work_mem to scan more tuples.")));
+							(errmsg("hnsw index scan reached memory limit after " INT64_FORMAT " tuples", so->tuples),
+							 errhint("Increase hnsw.search_mem_multiplier to scan more tuples.")));
 
 					break;
 				}

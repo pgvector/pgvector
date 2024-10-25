@@ -28,6 +28,7 @@ static const struct config_enum_entry hnsw_iterative_search_options[] = {
 int			hnsw_ef_search;
 int			hnsw_iterative_search;
 int			hnsw_max_search_tuples;
+double		hnsw_search_mem_multiplier;
 int			hnsw_lock_tranche_id;
 static relopt_kind hnsw_relopt_kind;
 
@@ -86,6 +87,11 @@ HnswInit(void)
 	DefineCustomIntVariable("hnsw.max_search_tuples", "Sets the max number of candidates to visit for iterative search",
 							NULL, &hnsw_max_search_tuples,
 							20000, 1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	/* Same range and default as hash_mem_multiplier */
+	DefineCustomRealVariable("hnsw.search_mem_multiplier", "Sets the multiple of work_mem to use for iterative search",
+							 NULL, &hnsw_search_mem_multiplier,
+							 2, 1, 1000, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }

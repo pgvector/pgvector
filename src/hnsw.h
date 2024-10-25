@@ -111,6 +111,7 @@
 extern int	hnsw_ef_search;
 extern int	hnsw_iterative_search;
 extern int	hnsw_max_search_tuples;
+extern double hnsw_search_mem_multiplier;
 extern int	hnsw_lock_tranche_id;
 
 typedef enum HnswIterativeSearchMode
@@ -372,6 +373,7 @@ typedef struct HnswScanOpaqueData
 	int			m;
 	int64		tuples;
 	double		previousDistance;
+	Size		maxMemory;
 	MemoryContext tmpCtx;
 
 	/* Support functions */
