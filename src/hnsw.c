@@ -18,15 +18,15 @@
 #define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
 #endif
 
-static const struct config_enum_entry hnsw_iterative_search_options[] = {
-	{"off", HNSW_ITERATIVE_SEARCH_OFF, false},
-	{"relaxed_order", HNSW_ITERATIVE_SEARCH_RELAXED, false},
-	{"strict_order", HNSW_ITERATIVE_SEARCH_STRICT, false},
+static const struct config_enum_entry hnsw_iterative_scan_options[] = {
+	{"off", HNSW_ITERATIVE_SCAN_OFF, false},
+	{"relaxed_order", HNSW_ITERATIVE_SCAN_RELAXED, false},
+	{"strict_order", HNSW_ITERATIVE_SCAN_STRICT, false},
 	{NULL, 0, false}
 };
 
 int			hnsw_ef_search;
-int			hnsw_iterative_search;
+int			hnsw_iterative_scan;
 int			hnsw_max_search_tuples;
 double		hnsw_search_mem_multiplier;
 int			hnsw_lock_tranche_id;
@@ -79,17 +79,17 @@ HnswInit(void)
 							"Valid range is 1..1000.", &hnsw_ef_search,
 							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	DefineCustomEnumVariable("hnsw.iterative_search", "Sets the iterative search mode",
-							 NULL, &hnsw_iterative_search,
-							 HNSW_ITERATIVE_SEARCH_OFF, hnsw_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
+	DefineCustomEnumVariable("hnsw.iterative_scan", "Sets the mode for iterative scans",
+							 NULL, &hnsw_iterative_scan,
+							 HNSW_ITERATIVE_SCAN_OFF, hnsw_iterative_scan_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	/* This is approximate and does not apply to the initial scan */
-	DefineCustomIntVariable("hnsw.max_search_tuples", "Sets the max number of candidates to visit for iterative search",
+	DefineCustomIntVariable("hnsw.max_search_tuples", "Sets the max number of candidates to visit for iterative scans",
 							NULL, &hnsw_max_search_tuples,
 							20000, 1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	/* Same range and default as hash_mem_multiplier */
-	DefineCustomRealVariable("hnsw.search_mem_multiplier", "Sets the multiple of work_mem to use for iterative search",
+	DefineCustomRealVariable("hnsw.search_mem_multiplier", "Sets the multiple of work_mem to use for iterative scans",
 							 NULL, &hnsw_search_mem_multiplier,
 							 2, 1, 1000, PGC_USERSET, 0, NULL, NULL, NULL);
 

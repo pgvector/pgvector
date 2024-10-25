@@ -23,7 +23,7 @@ $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops
 my $count = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
 	SET ivfflat.probes = 10;
-	SET ivfflat.iterative_search = relaxed_order;
+	SET ivfflat.iterative_scan = relaxed_order;
 	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
 ));
 is($count, 10);
@@ -39,7 +39,7 @@ foreach ((30, 50, 70))
 		$count = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET ivfflat.probes = 10;
-			SET ivfflat.iterative_search = relaxed_order;
+			SET ivfflat.iterative_scan = relaxed_order;
 			SET ivfflat.max_probes = $max_probes;
 			SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst WHERE i = $i) LIMIT 11) t;
 		));
