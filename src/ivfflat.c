@@ -17,13 +17,13 @@
 #endif
 
 int			ivfflat_probes;
-int			ivfflat_iterative_scan;
+int			ivfflat_iterative_search;
 int			ivfflat_max_probes;
 static relopt_kind ivfflat_relopt_kind;
 
-static const struct config_enum_entry ivfflat_iterative_scan_options[] = {
-	{"off", IVFFLAT_ITERATIVE_SCAN_OFF, false},
-	{"relaxed_order", IVFFLAT_ITERATIVE_SCAN_RELAXED, false},
+static const struct config_enum_entry ivfflat_iterative_search_options[] = {
+	{"off", IVFFLAT_ITERATIVE_SEARCH_OFF, false},
+	{"relaxed_order", IVFFLAT_ITERATIVE_SEARCH_RELAXED, false},
 	{NULL, 0, false}
 };
 
@@ -41,12 +41,12 @@ IvfflatInit(void)
 							"Valid range is 1..lists.", &ivfflat_probes,
 							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	DefineCustomEnumVariable("ivfflat.iterative_scan", "Sets the mode for iterative scans",
-							 NULL, &ivfflat_iterative_scan,
-							 IVFFLAT_ITERATIVE_SCAN_OFF, ivfflat_iterative_scan_options, PGC_USERSET, 0, NULL, NULL, NULL);
+	DefineCustomEnumVariable("ivfflat.iterative_search", "Sets the iterative search mode",
+							 NULL, &ivfflat_iterative_search,
+							 IVFFLAT_ITERATIVE_SEARCH_OFF, ivfflat_iterative_search_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	/* If this is less than probes, probes is used */
-	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative scans",
+	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative search",
 							NULL, &ivfflat_max_probes,
 							IVFFLAT_MAX_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 

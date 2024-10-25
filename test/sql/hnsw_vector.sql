@@ -63,14 +63,14 @@ CREATE TABLE t (val vector(3));
 INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops);
 
-SET hnsw.iterative_scan = strict_order;
+SET hnsw.iterative_search = strict_order;
 SET hnsw.ef_search = 1;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
-SET hnsw.iterative_scan = relaxed_order;
+SET hnsw.iterative_search = relaxed_order;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
-RESET hnsw.iterative_scan;
+RESET hnsw.iterative_search;
 RESET hnsw.ef_search;
 DROP TABLE t;
 
@@ -98,9 +98,9 @@ SHOW hnsw.ef_search;
 SET hnsw.ef_search = 0;
 SET hnsw.ef_search = 1001;
 
-SHOW hnsw.iterative_scan;
+SHOW hnsw.iterative_search;
 
-SET hnsw.iterative_scan = on;
+SET hnsw.iterative_search = on;
 
 SHOW hnsw.max_search_tuples;
 

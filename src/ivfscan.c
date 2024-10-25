@@ -171,7 +171,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		}
 	}
 
-	if (tuples < 100 && ivfflat_iterative_scan == IVFFLAT_ITERATIVE_SCAN_OFF)
+	if (tuples < 100 && ivfflat_iterative_search == IVFFLAT_ITERATIVE_SEARCH_OFF)
 		ereport(DEBUG1,
 				(errmsg("index scan found few tuples"),
 				 errdetail("Index may have been created with little data."),
@@ -263,7 +263,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	/* Get lists and dimensions from metapage */
 	IvfflatGetMetaPageInfo(index, &lists, &dimensions);
 
-	if (ivfflat_iterative_scan != IVFFLAT_ITERATIVE_SCAN_OFF)
+	if (ivfflat_iterative_search != IVFFLAT_ITERATIVE_SEARCH_OFF)
 		maxProbes = Max(ivfflat_max_probes, probes);
 	else
 		maxProbes = probes;

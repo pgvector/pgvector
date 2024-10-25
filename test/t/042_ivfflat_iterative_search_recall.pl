@@ -19,7 +19,7 @@ sub test_recall
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
 		SET ivfflat.probes = $probes;
-		SET ivfflat.iterative_scan = relaxed_order;
+		SET ivfflat.iterative_search = relaxed_order;
 		EXPLAIN ANALYZE SELECT i FROM tst WHERE i % $c = 0 ORDER BY v $operator '$queries[0]' LIMIT $limit;
 	));
 	like($explain, qr/Index Scan using idx on tst/);
@@ -29,7 +29,7 @@ sub test_recall
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET ivfflat.probes = $probes;
-			SET ivfflat.iterative_scan = relaxed_order;
+			SET ivfflat.iterative_search = relaxed_order;
 			SELECT i FROM tst WHERE i % $c = 0 ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);

@@ -50,7 +50,7 @@ CREATE TABLE t (val vector(3));
 INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 3);
 
-SET ivfflat.iterative_scan = relaxed_order;
+SET ivfflat.iterative_search = relaxed_order;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
 SET ivfflat.max_probes = 1;
@@ -59,7 +59,7 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 SET ivfflat.max_probes = 2;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
-RESET ivfflat.iterative_scan;
+RESET ivfflat.iterative_search;
 RESET ivfflat.max_probes;
 DROP TABLE t;
 
@@ -84,9 +84,9 @@ SHOW ivfflat.probes;
 SET ivfflat.probes = 0;
 SET ivfflat.probes = 32769;
 
-SHOW ivfflat.iterative_scan;
+SHOW ivfflat.iterative_search;
 
-SET ivfflat.iterative_scan = on;
+SET ivfflat.iterative_search = on;
 
 SHOW ivfflat.max_probes;
 

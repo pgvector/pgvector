@@ -109,17 +109,17 @@
 
 /* Variables */
 extern int	hnsw_ef_search;
-extern int	hnsw_iterative_scan;
+extern int	hnsw_iterative_search;
 extern int	hnsw_max_search_tuples;
 extern double hnsw_search_mem_multiplier;
 extern int	hnsw_lock_tranche_id;
 
-typedef enum HnswIterativeScanMode
+typedef enum HnswIterativeSearchMode
 {
-	HNSW_ITERATIVE_SCAN_OFF,
-	HNSW_ITERATIVE_SCAN_RELAXED,
-	HNSW_ITERATIVE_SCAN_STRICT
-}			HnswIterativeScanMode;
+	HNSW_ITERATIVE_SEARCH_OFF,
+	HNSW_ITERATIVE_SEARCH_RELAXED,
+	HNSW_ITERATIVE_SEARCH_STRICT
+}			HnswIterativeSearchMode;
 
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;

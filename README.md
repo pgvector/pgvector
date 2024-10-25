@@ -451,31 +451,31 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
-## Iterative Index Scans
+## Iterative Search
 
 *Unreleased*
 
 With approximate indexes, queries with filtering can return less results (due to post-filtering).
 
-Starting with 0.8.0, you can enable iterative index scans. If too few results from the initial index scan match the filters, the scan will resume until enough results are found (or it reaches `hnsw.max_search_tuples` or `ivfflat.max_probes`). This can significantly improve recall.
+Starting with 0.8.0, you can enable iterative search. If too few results from the initial index scan match the filters, the scan will resume until enough results are found (or it reaches `hnsw.max_search_tuples` or `ivfflat.max_probes`). This can significantly improve recall.
 
-There are two modes for iterative scans: strict and relaxed (due to the streaming nature of Postgres executor).
+There are two modes for iterative search: strict and relaxed (due to the streaming nature of Postgres executor).
 
 Strict ensures results are in the exact order by distance
 
 ```sql
-SET hnsw.iterative_scan = strict_order;
+SET hnsw.iterative_search = strict_order;
 ```
 
 Relaxed allows results to be slightly out of order by distance, but provides better recall
 
 ```sql
-SET hnsw.iterative_scan = relaxed_order;
+SET hnsw.iterative_search = relaxed_order;
 # or
-SET ivfflat.iterative_scan = relaxed_order;
+SET ivfflat.iterative_search = relaxed_order;
 ```
 
-Note: IVFFlat only supports relaxed ordering for iterative scans
+Note: IVFFlat only supports relaxed order for iterative search
 
 With relaxed ordering, you can use a [materialized CTE](https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION) to get strict ordering
 

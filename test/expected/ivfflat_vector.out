@@ -86,7 +86,7 @@ DROP TABLE t;
 CREATE TABLE t (val vector(3));
 INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 3);
-SET ivfflat.iterative_scan = relaxed_order;
+SET ivfflat.iterative_search = relaxed_order;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
    val   
 ---------
@@ -110,7 +110,7 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
  [1,1,1]
 (2 rows)
 
-RESET ivfflat.iterative_scan;
+RESET ivfflat.iterative_search;
 RESET ivfflat.max_probes;
 DROP TABLE t;
 -- unlogged
@@ -144,14 +144,14 @@ SET ivfflat.probes = 0;
 ERROR:  0 is outside the valid range for parameter "ivfflat.probes" (1 .. 32768)
 SET ivfflat.probes = 32769;
 ERROR:  32769 is outside the valid range for parameter "ivfflat.probes" (1 .. 32768)
-SHOW ivfflat.iterative_scan;
- ivfflat.iterative_scan 
-------------------------
+SHOW ivfflat.iterative_search;
+ ivfflat.iterative_search 
+--------------------------
  off
 (1 row)
 
-SET ivfflat.iterative_scan = on;
-ERROR:  invalid value for parameter "ivfflat.iterative_scan": "on"
+SET ivfflat.iterative_search = on;
+ERROR:  invalid value for parameter "ivfflat.iterative_search": "on"
 HINT:  Available values: off, relaxed_order.
 SHOW ivfflat.max_probes;
  ivfflat.max_probes 
