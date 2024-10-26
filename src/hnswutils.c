@@ -857,6 +857,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		{
 			AddToVisited(base, v, sc->element, inMemory, &found);
 
+			/* OK to count elements instead of tuples */
 			if (tuples != NULL)
 				(*tuples)++;
 		}
@@ -889,6 +890,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		else
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
 
+		/* OK to count elements instead of tuples */
 		if (tuples != NULL)
 			(*tuples) += unvisitedLength;
 
