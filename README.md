@@ -451,31 +451,31 @@ Use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
-## Iterative Search
+## Iterative Index Scans
 
 *Unreleased*
 
 With approximate indexes, queries with filtering can return less results (due to post-filtering).
 
-Starting with 0.8.0, you can enable iterative search. If too few results from the initial index scan match the filters, the scan will resume until enough results are found (or it reaches `hnsw.max_search_tuples` or `ivfflat.max_probes`). This can significantly improve recall.
+Starting with 0.8.0, you can enable iterative index scans. If too few results from the initial scan match the filters, the scan will resume until enough results are found (or it reaches `hnsw.max_scan_tuples` or `ivfflat.max_probes`). This can significantly improve recall.
 
-There are two modes for iterative search: strict and relaxed (due to the streaming nature of Postgres executor).
+There are two modes for iterative scans: strict and relaxed.
 
 Strict ensures results are in the exact order by distance
 
 ```sql
-SET hnsw.iterative_search = strict_order;
+SET hnsw.iterative_scan = strict_order;
 ```
 
 Relaxed allows results to be slightly out of order by distance, but provides better recall
 
 ```sql
-SET hnsw.iterative_search = relaxed_order;
+SET hnsw.iterative_scan = relaxed_order;
 # or
-SET ivfflat.iterative_search = relaxed_order;
+SET ivfflat.iterative_scan = relaxed_order;
 ```
 
-Note: IVFFlat only supports relaxed order for iterative search
+Note: IVFFlat only supports relaxed ordering for iterative scans
 
 With relaxed ordering, you can use a [materialized CTE](https://www.postgresql.org/docs/current/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION) to get strict ordering
 
@@ -493,16 +493,16 @@ WITH filtered_results AS MATERIALIZED (
 ) SELECT * FROM filtered_results WHERE distance < 0.1 ORDER BY distance;
 ```
 
-### Iterative Options
+### Iterative Scan Options
 
 Since scanning a large portion of an approximate index is expensive, there are options to control when a scan ends
 
 #### HNSW
 
-Specify the max number of tuples visited (20,000 by default)
+Specify the max number of tuples to visit (20,000 by default)
 
 ```sql
-SET hnsw.max_search_tuples = 20000;
+SET hnsw.max_scan_tuples = 20000;
 ```
 
 Note: This is approximate and does not apply to the initial scan
@@ -510,7 +510,7 @@ Note: This is approximate and does not apply to the initial scan
 When increasing this, you may also need to increase the max amount of memory an iterative scan can use, which is a multiple of `work_mem` (2 by default)
 
 ```sql
-SET hnsw.search_mem_multiplier = 4;
+SET hnsw.scan_mem_multiplier = 4;
 ```
 
 You can see when this is needed by enabling debug messages
@@ -523,7 +523,7 @@ which will show when a scan reaches the memory limit
 
 ```text
 DEBUG:  hnsw index scan reached memory limit after 40000 tuples
-HINT:  Increase hnsw.search_mem_multiplier to scan more tuples.
+HINT:  Increase hnsw.scan_mem_multiplier to scan more tuples.
 ```
 
 #### IVFFlat

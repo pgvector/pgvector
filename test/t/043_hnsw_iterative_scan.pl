@@ -18,29 +18,32 @@ $node->safe_psql("postgres", "CREATE TABLE tst (i int4 PRIMARY KEY, v vector($di
 $node->safe_psql("postgres",
 	"INSERT INTO tst SELECT i, ARRAY[$array_sql] FROM generate_series(1, 100000) i;"
 );
-$node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops);");
+$node->safe_psql("postgres", qq(
+	SET maintenance_work_mem = '128MB';
+	SET max_parallel_maintenance_workers = 2;
+	CREATE INDEX ON tst USING hnsw (v vector_l2_ops)
+));
 
 my $count = $node->safe_psql("postgres", qq(
 	SET enable_seqscan = off;
-	SET ivfflat.probes = 10;
-	SET ivfflat.iterative_search = relaxed_order;
+	SET hnsw.iterative_scan = relaxed_order;
+	SET hnsw.max_scan_tuples = 100000;
 	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
 ));
 is($count, 10);
 
-foreach ((30, 50, 70))
+foreach ((30000, 50000, 70000))
 {
-	my $max_probes = $_;
-	my $expected = $max_probes / 10;
+	my $max_tuples = $_;
+	my $expected = $max_tuples / 10000;
 	my $sum = 0;
 
 	for my $i (1 .. 20)
 	{
 		$count = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
-			SET ivfflat.probes = 10;
-			SET ivfflat.iterative_search = relaxed_order;
-			SET ivfflat.max_probes = $max_probes;
+			SET hnsw.iterative_scan = relaxed_order;
+			SET hnsw.max_scan_tuples = $max_tuples;
 			SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst WHERE i = $i) LIMIT 11) t;
 		));
 		$sum += $count;
@@ -50,5 +53,15 @@ foreach ((30, 50, 70))
 	cmp_ok($avg, '>', $expected - 2);
 	cmp_ok($avg, '<', $expected + 2);
 }
+
+my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
+	SET enable_seqscan = off;
+	SET hnsw.iterative_scan = relaxed_order;
+	SET client_min_messages = debug1;
+	SET work_mem = '1MB';
+	SET hnsw.scan_mem_multiplier = 1;
+	SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst LIMIT 1) LIMIT 11) t;
+));
+like($stderr, qr/hnsw index scan reached memory limit after \d+ tuples/);
 
 done_testing();

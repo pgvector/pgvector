@@ -104,7 +104,7 @@ DROP TABLE t;
 CREATE TABLE t (val vector(3));
 INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]'), (NULL);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops);
-SET hnsw.iterative_search = strict_order;
+SET hnsw.iterative_scan = strict_order;
 SET hnsw.ef_search = 1;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
    val   
@@ -114,7 +114,7 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
  [0,0,0]
 (3 rows)
 
-SET hnsw.iterative_search = relaxed_order;
+SET hnsw.iterative_scan = relaxed_order;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
    val   
 ---------
@@ -123,7 +123,7 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
  [0,0,0]
 (3 rows)
 
-RESET hnsw.iterative_search;
+RESET hnsw.iterative_scan;
 RESET hnsw.ef_search;
 DROP TABLE t;
 -- unlogged
@@ -165,21 +165,21 @@ SET hnsw.ef_search = 0;
 ERROR:  0 is outside the valid range for parameter "hnsw.ef_search" (1 .. 1000)
 SET hnsw.ef_search = 1001;
 ERROR:  1001 is outside the valid range for parameter "hnsw.ef_search" (1 .. 1000)
-SHOW hnsw.iterative_search;
- hnsw.iterative_search 
------------------------
+SHOW hnsw.iterative_scan;
+ hnsw.iterative_scan 
+---------------------
  off
 (1 row)
 
-SET hnsw.iterative_search = on;
-ERROR:  invalid value for parameter "hnsw.iterative_search": "on"
+SET hnsw.iterative_scan = on;
+ERROR:  invalid value for parameter "hnsw.iterative_scan": "on"
 HINT:  Available values: off, relaxed_order, strict_order.
-SHOW hnsw.max_search_tuples;
- hnsw.max_search_tuples 
-------------------------
+SHOW hnsw.max_scan_tuples;
+ hnsw.max_scan_tuples 
+----------------------
  20000
 (1 row)
 
-SET hnsw.max_search_tuples = 0;
-ERROR:  0 is outside the valid range for parameter "hnsw.max_search_tuples" (1 .. 2147483647)
+SET hnsw.max_scan_tuples = 0;
+ERROR:  0 is outside the valid range for parameter "hnsw.max_scan_tuples" (1 .. 2147483647)
 DROP TABLE t;

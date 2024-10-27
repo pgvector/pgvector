@@ -41,7 +41,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -138,7 +138,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	HnswInitSupport(&so->support, index);
 
-	so->maxMemory = (Size) (work_mem * 1024.0 * hnsw_search_mem_multiplier);
+	so->maxMemory = (Size) (work_mem * 1024.0 * hnsw_scan_mem_multiplier);
 
 	scan->opaque = so;
 
@@ -229,7 +229,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		if (list_length(so->w) == 0)
 		{
-			if (hnsw_iterative_search == HNSW_ITERATIVE_SEARCH_OFF)
+			if (hnsw_iterative_scan == HNSW_ITERATIVE_SCAN_OFF)
 				break;
 
 			/* Empty index */
@@ -237,7 +237,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				break;
 
 			/* Reached max number of tuples */
-			if (so->tuples >= hnsw_max_search_tuples)
+			if (so->tuples >= hnsw_max_scan_tuples)
 			{
 				if (pairingheap_is_empty(so->discarded))
 					break;
@@ -252,7 +252,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				{
 					ereport(DEBUG1,
 							(errmsg("hnsw index scan reached memory limit after " INT64_FORMAT " tuples", so->tuples),
-							 errhint("Increase hnsw.search_mem_multiplier to scan more tuples.")));
+							 errhint("Increase hnsw.scan_mem_multiplier to scan more tuples.")));
 
 					break;
 				}
@@ -295,7 +295,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			so->w = list_delete_last(so->w);
 
 			/* Mark memory as free for next iteration */
-			if (hnsw_iterative_search != HNSW_ITERATIVE_SEARCH_OFF)
+			if (hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF)
 			{
 				pfree(element);
 				pfree(sc);
@@ -306,7 +306,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		heaptid = &element->heaptids[--element->heaptidsLength];
 
-		if (hnsw_iterative_search == HNSW_ITERATIVE_SEARCH_STRICT)
+		if (hnsw_iterative_scan == HNSW_ITERATIVE_SCAN_STRICT)
 		{
 			if (sc->distance < so->previousDistance)
 				continue;
