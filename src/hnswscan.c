@@ -121,6 +121,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 {
 	IndexScanDesc scan;
 	HnswScanOpaque so;
+	double		maxMemory;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 
@@ -138,7 +139,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	HnswInitSupport(&so->support, index);
 
-	so->maxMemory = (Size) (work_mem * 1024.0 * hnsw_scan_mem_multiplier);
+	/* Calculate max memory */
+	maxMemory = (double) work_mem * hnsw_scan_mem_multiplier * 1024.0;
+	so->maxMemory = Min(maxMemory, (double) SIZE_MAX);
 
 	scan->opaque = so;
 
