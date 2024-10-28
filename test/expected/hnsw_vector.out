@@ -190,4 +190,6 @@ SHOW hnsw.scan_mem_multiplier;
 
 SET hnsw.scan_mem_multiplier = 0;
 ERROR:  0 is outside the valid range for parameter "hnsw.scan_mem_multiplier" (1 .. 1000)
+SET hnsw.scan_mem_multiplier = 1001;
+ERROR:  1001 is outside the valid range for parameter "hnsw.scan_mem_multiplier" (1 .. 1000)
 DROP TABLE t;

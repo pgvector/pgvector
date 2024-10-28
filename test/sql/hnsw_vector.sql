@@ -109,5 +109,6 @@ SET hnsw.max_scan_tuples = 0;
 SHOW hnsw.scan_mem_multiplier;
 
 SET hnsw.scan_mem_multiplier = 0;
+SET hnsw.scan_mem_multiplier = 1001;
 
 DROP TABLE t;
