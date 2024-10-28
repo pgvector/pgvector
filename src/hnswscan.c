@@ -240,26 +240,11 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 			if (so->discarded == NULL)
 				break;
 
-			/* Reached max number of tuples */
-			if (so->tuples >= hnsw_max_scan_tuples)
+			/* Reached max number of tuples or memory limit */
+			if (so->tuples >= hnsw_max_scan_tuples || MemoryContextMemAllocated(so->tmpCtx, false) > so->maxMemory)
 			{
 				if (pairingheap_is_empty(so->discarded))
 					break;
-
-				/* Return remaining tuples */
-				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
-			}
-			/* Prevent scans from consuming too much memory */
-			else if (MemoryContextMemAllocated(so->tmpCtx, false) > so->maxMemory)
-			{
-				if (pairingheap_is_empty(so->discarded))
-				{
-					ereport(DEBUG1,
-							(errmsg("hnsw index scan reached memory limit after " INT64_FORMAT " tuples", so->tuples),
-							 errhint("Increase hnsw.scan_mem_multiplier to scan more tuples.")));
-
-					break;
-				}
 
 				/* Return remaining tuples */
 				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));

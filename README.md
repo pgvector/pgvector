@@ -537,18 +537,7 @@ Specify the max amount of memory to use, as a multiple of `work_mem` (1 by defau
 SET hnsw.scan_mem_multiplier = 2;
 ```
 
-You can see when increasing this is needed by enabling debug messages
-
-```sql
-SET client_min_messages = debug1;
-```
-
-which will show when a scan reaches the memory limit
-
-```text
-DEBUG:  hnsw index scan reached memory limit after 20000 tuples
-HINT:  Increase hnsw.scan_mem_multiplier to scan more tuples.
-```
+Note: Try increasing this if increasing `hnsw.max_scan_tuples` does not improve recall
 
 #### IVFFlat
 
