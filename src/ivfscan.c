@@ -114,7 +114,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
-	double		tuples = 0;
 	TupleTableSlot *slot = so->vslot;
 	int			batchProbes = 0;
 
@@ -161,8 +160,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				ExecStoreVirtualTuple(slot);
 
 				tuplesort_puttupleslot(so->sortstate, slot);
-
-				tuples++;
 			}
 
 			searchPage = IvfflatPageGetOpaque(page)->nextblkno;
