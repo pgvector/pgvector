@@ -83,7 +83,7 @@ HnswInit(void)
 							 NULL, &hnsw_iterative_scan,
 							 HNSW_ITERATIVE_SCAN_OFF, hnsw_iterative_scan_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	/* This is approximate and does not apply to the initial scan */
+	/* This is approximate and does not affect the initial scan */
 	DefineCustomIntVariable("hnsw.max_scan_tuples", "Sets the max number of tuples to visit for iterative scans",
 							NULL, &hnsw_max_scan_tuples,
 							20000, 1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
