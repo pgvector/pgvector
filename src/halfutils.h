@@ -5,6 +5,7 @@
 
 #include "common/shortest_dec.h"
 #include "halfvec.h"
+#include "vector.h"
 
 #ifdef F16C_SUPPORT
 #include <immintrin.h>
@@ -14,6 +15,8 @@ extern float (*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 extern float (*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 extern double (*HalfvecCosineSimilarity) (int dim, half * ax, half * bx);
 extern float (*HalfvecL1Distance) (int dim, half * ax, half * bx);
+
+extern void (*Float4ToHalfVector) (Vector * vec, HalfVector * result);
 
 void		HalfvecInit(void);
 

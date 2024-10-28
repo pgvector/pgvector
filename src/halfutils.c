@@ -32,6 +32,8 @@ float		(*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 double		(*HalfvecCosineSimilarity) (int dim, half * ax, half * bx);
 float		(*HalfvecL1Distance) (int dim, half * ax, half * bx);
 
+void 		(*Float4ToHalfVector) (Vector * vec, HalfVector * result);
+
 static float
 HalfvecL2SquaredDistanceDefault(int dim, half * ax, half * bx)
 {
@@ -562,6 +564,67 @@ HalfvecL1DistanceAvx512(int dim, half * ax, half * bx)
 #endif
 #endif
 
+static void
+Float4ToHalfVectorDefault(Vector * vec, HalfVector * result) {
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = Float4ToHalf(vec->x[i]);
+}
+
+#ifdef HAVE_AVX512FP16
+TARGET_AVX512FP16 static void
+Float4ToHalfVectorAvx512(Vector * vec, HalfVector * result) {
+	unsigned long mask;
+	__m512		vec_512;
+	__m256h		vec_256h;
+	__mmask16 	vec_512_inf;
+	__mmask16 	vec_256h_inf;
+
+	for (int i = 0; i < vec->dim; i += 16)
+	{
+		if (vec->dim - i < 16)
+		{
+			mask = (1 << (vec->dim - i)) - 1;
+			vec_512 = _mm512_maskz_loadu_ps(mask, vec->x + i);
+			vec_256h = _mm512_cvtxps_ph(vec_512);
+			_mm256_mask_storeu_epi16(result->x + i, mask, _mm256_castph_si256(vec_256h));
+		}
+		else
+		{
+			vec_512 = _mm512_loadu_ps(vec->x + i);
+			vec_256h = _mm512_cvtxps_ph(vec_512);
+			_mm256_storeu_ph(result->x + i, vec_256h);
+		}
+
+		/* Test for positive and negative infinity */
+		vec_512_inf = _mm512_fpclass_ps_mask(vec_512, 0x08 + 0x10);
+		vec_256h_inf = _mm256_fpclass_ph_mask(vec_256h, 0x08 + 0x10);
+		if (unlikely(vec_512_inf != vec_256h_inf))
+		{
+			float num;
+			char* buf;
+
+			__mmask16 diff = _kxor_mask16(vec_512_inf, vec_256h_inf);
+			/* Find first element in vector to overflow after conversion (first bit set) */
+			int count = 0;
+			while (diff % 2 == 0) {
+				diff >>= 1;
+				count++;
+			}
+			num = vec->x[i + count];
+
+			/* TODO Avoid duplicate code in Float4ToHalf */
+			buf = palloc(FLOAT_SHORTEST_DECIMAL_LEN);
+
+			float_to_shortest_decimal_buf(num, buf);
+
+			ereport(ERROR,
+					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+					 errmsg("\"%s\" is out of range for type halfvec", buf)));
+		}
+	}
+}
+#endif
+
 #ifdef HALFVEC_DISPATCH
 #define CPU_FEATURE_FMA     (1 << 12)
 #define CPU_FEATURE_OSXSAVE (1 << 27)
@@ -667,6 +730,7 @@ HalfvecInit(void)
 	HalfvecInnerProduct = HalfvecInnerProductDefault;
 	HalfvecCosineSimilarity = HalfvecCosineSimilarityDefault;
 	HalfvecL1Distance = HalfvecL1DistanceDefault;
+	Float4ToHalfVector = Float4ToHalfVectorDefault;
 
 #ifdef HALFVEC_DISPATCH
 	if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_F16C | CPU_FEATURE_FMA))
@@ -685,6 +749,7 @@ HalfvecInit(void)
 		HalfvecInnerProduct = HalfvecInnerProductAvx512;
 		HalfvecCosineSimilarity = HalfvecCosineSimilarityAvx512;
 		HalfvecL1Distance = HalfvecL1DistanceAvx512;
+		Float4ToHalfVector = Float4ToHalfVectorAvx512;
 	}
 #endif
 #endif
