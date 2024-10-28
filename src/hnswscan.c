@@ -137,10 +137,11 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	 */
 	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 									   "Hnsw scan temporary context",
-									   0, 8 * 1024, 512 * 1024);
+									   0, 8 * 1024, 256 * 1024);
 
 	/* Calculate max memory */
-	maxMemory = (double) work_mem * hnsw_scan_mem_multiplier * 1024.0;
+	/* Add 256 extra bytes to fill last block when close */
+	maxMemory = (double) work_mem * hnsw_scan_mem_multiplier * 1024.0 + 256;
 	so->maxMemory = Min(maxMemory, (double) SIZE_MAX);
 
 	scan->opaque = so;
