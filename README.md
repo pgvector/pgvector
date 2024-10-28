@@ -503,7 +503,7 @@ Specify the max number of tuples to visit (20,000 by default)
 SET hnsw.max_scan_tuples = 20000;
 ```
 
-Note: This is approximate and does not apply to the initial scan
+Note: This is approximate and does not affect the initial scan
 
 Specify the max amount of memory to use, as a multiple of `work_mem` (1 by default)
 
