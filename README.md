@@ -505,13 +505,13 @@ SET hnsw.max_scan_tuples = 20000;
 
 Note: This is approximate and does not apply to the initial scan
 
-When increasing this or using a lower `work_mem` than default, you may also need to increase the max amount of memory an iterative scan can use, which is a multiple of `work_mem` (1 by default)
+Specify the max amount of memory to use, as a multiple of `work_mem` (1 by default)
 
 ```sql
 SET hnsw.scan_mem_multiplier = 2;
 ```
 
-You can see when this is needed by enabling debug messages
+You can see when increasing this will help by enabling debug messages
 
 ```sql
 SET client_min_messages = debug1;
