@@ -128,6 +128,9 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
 	so->typeInfo = HnswGetTypeInfo(index);
 
+	/* Set support functions */
+	HnswInitSupport(&so->support, index);
+
 	/*
 	 * Use a lower max allocation size than default to allow scanning more
 	 * tuples for iterative search before exceeding work_mem
@@ -135,9 +138,6 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	so->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 									   "Hnsw scan temporary context",
 									   0, 8 * 1024, 512 * 1024);
-
-	/* Set support functions */
-	HnswInitSupport(&so->support, index);
 
 	/* Calculate max memory */
 	maxMemory = (double) work_mem * hnsw_scan_mem_multiplier * 1024.0;
