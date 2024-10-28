@@ -182,4 +182,12 @@ SHOW hnsw.max_scan_tuples;
 
 SET hnsw.max_scan_tuples = 0;
 ERROR:  0 is outside the valid range for parameter "hnsw.max_scan_tuples" (1 .. 2147483647)
+SHOW hnsw.scan_mem_multiplier;
+ hnsw.scan_mem_multiplier 
+--------------------------
+ 2
+(1 row)
+
+SET hnsw.scan_mem_multiplier = 0;
+ERROR:  0 is outside the valid range for parameter "hnsw.scan_mem_multiplier" (1 .. 1000)
 DROP TABLE t;
