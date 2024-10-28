@@ -249,7 +249,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				so->w = lappend(so->w, HnswGetSearchCandidate(w_node, pairingheap_remove_first(so->discarded)));
 			}
 			/* Prevent scans from consuming too much memory */
-			else if (MemoryContextMemAllocated(so->tmpCtx, false) >= so->maxMemory)
+			else if (MemoryContextMemAllocated(so->tmpCtx, false) > so->maxMemory)
 			{
 				if (pairingheap_is_empty(so->discarded))
 				{
