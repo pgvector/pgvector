@@ -91,7 +91,7 @@ HnswInit(void)
 	/* Same range and default as hash_mem_multiplier */
 	DefineCustomRealVariable("hnsw.scan_mem_multiplier", "Sets the multiple of work_mem to use for iterative scans",
 							 NULL, &hnsw_scan_mem_multiplier,
-							 2, 1, 1000, PGC_USERSET, 0, NULL, NULL, NULL);
+							 1, 1, 1000, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }

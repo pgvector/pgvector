@@ -505,10 +505,10 @@ SET hnsw.max_scan_tuples = 20000;
 
 Note: This is approximate and does not apply to the initial scan
 
-When increasing this, you may also need to increase the max amount of memory an iterative scan can use, which is a multiple of `work_mem` (2 by default)
+When increasing this, you may also need to increase the max amount of memory an iterative scan can use, which is a multiple of `work_mem` (1 by default)
 
 ```sql
-SET hnsw.scan_mem_multiplier = 4;
+SET hnsw.scan_mem_multiplier = 2;
 ```
 
 You can see when this is needed by enabling debug messages
@@ -520,7 +520,7 @@ SET client_min_messages = debug1;
 which will show when a scan reaches the memory limit
 
 ```text
-DEBUG:  hnsw index scan reached memory limit after 40000 tuples
+DEBUG:  hnsw index scan reached memory limit after 20000 tuples
 HINT:  Increase hnsw.scan_mem_multiplier to scan more tuples.
 ```
 

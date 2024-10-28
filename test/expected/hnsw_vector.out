@@ -185,7 +185,7 @@ ERROR:  0 is outside the valid range for parameter "hnsw.max_scan_tuples" (1 .. 
 SHOW hnsw.scan_mem_multiplier;
  hnsw.scan_mem_multiplier 
 --------------------------
- 2
+ 1
 (1 row)
 
 SET hnsw.scan_mem_multiplier = 0;
