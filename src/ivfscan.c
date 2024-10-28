@@ -171,12 +171,6 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		}
 	}
 
-	if (tuples < 100 && ivfflat_iterative_scan == IVFFLAT_ITERATIVE_SCAN_OFF)
-		ereport(DEBUG1,
-				(errmsg("index scan found few tuples"),
-				 errdetail("Index may have been created with little data."),
-				 errhint("Recreate the index and possibly decrease lists.")));
-
 	tuplesort_performsort(so->sortstate);
 
 #if defined(IVFFLAT_MEMORY)
