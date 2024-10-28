@@ -88,7 +88,7 @@ HnswInit(void)
 							NULL, &hnsw_max_scan_tuples,
 							20000, 1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
 
-	/* Same range and default as hash_mem_multiplier */
+	/* Same range as hash_mem_multiplier */
 	DefineCustomRealVariable("hnsw.scan_mem_multiplier", "Sets the multiple of work_mem to use for iterative scans",
 							 NULL, &hnsw_scan_mem_multiplier,
 							 1, 1, 1000, PGC_USERSET, 0, NULL, NULL, NULL);
