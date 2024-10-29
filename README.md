@@ -445,7 +445,7 @@ For multiple columns, consider a [multicolumn index](https://www.postgresql.org/
 CREATE INDEX ON items (location_id, category_id);
 ```
 
-Exact indexes work well for conditions that match a lower percentage of rows. Otherwise, [approximate indexes](#indexing) can work better.
+Exact indexes work well for conditions that match a low percentage of rows. Otherwise, [approximate indexes](#indexing) can work better.
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
