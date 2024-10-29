@@ -722,6 +722,8 @@ CountElement(HnswElement skipElement, HnswElement e)
 static void
 HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, int lc, HnswNeighborArray * localNeighborhood, Size neighborhoodSize)
 {
+	uint32		hashes[HNSW_MAX_M * 2];
+
 	/* Get the neighborhood at layer lc */
 	HnswNeighborArray *neighborhood = HnswGetNeighbors(base, element, lc);
 
@@ -733,14 +735,33 @@ HnswLoadUnvisitedFromMemory(char *base, HnswElement element, HnswUnvisited * unv
 	*unvisitedLength = 0;
 
 	for (int i = 0; i < localNeighborhood->length; i++)
+		hashes[i] = HnswPtrAccess(base, localNeighborhood->items[i].element)->hash;
+
+	if (base != NULL)
 	{
-		HnswCandidate *hc = &localNeighborhood->items[i];
-		bool		found;
+		for (int i = 0; i < localNeighborhood->length; i++)
+		{
+			HnswCandidate *hc = &localNeighborhood->items[i];
+			bool		found;
 
-		AddToVisited(base, v, hc->element, true, &found);
+			offsethash_insert_hash(v->offsets, HnswPtrOffset(hc->element), hashes[i], &found);
 
-		if (!found)
-			unvisited[(*unvisitedLength)++].element = HnswPtrAccess(base, hc->element);
+			if (!found)
+				unvisited[(*unvisitedLength)++].element = HnswPtrAccess(base, hc->element);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < localNeighborhood->length; i++)
+		{
+			HnswCandidate *hc = &localNeighborhood->items[i];
+			bool		found;
+
+			pointerhash_insert_hash(v->pointers, (uintptr_t) HnswPtrPointer(hc->element), hashes[i], &found);
+
+			if (!found)
+				unvisited[(*unvisitedLength)++].element = HnswPtrAccess(base, hc->element);
+		}
 	}
 }
 
