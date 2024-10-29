@@ -442,7 +442,7 @@ CREATE INDEX ON items (category_id);
 For multiple columns, consider a [multicolumn index](https://www.postgresql.org/docs/current/indexes-multicolumn.html).
 
 ```sql
-CREATE INDEX ON items (store_id, category_id);
+CREATE INDEX ON items (location_id, category_id);
 ```
 
 Exact indexes work well for conditions that match a lower percentage of rows. Otherwise, [approximate indexes](#indexing) can work better.
