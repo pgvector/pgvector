@@ -463,15 +463,13 @@ Starting with 0.8.0, you can enable [iterative index scans](#iterative-index-sca
 SET hnsw.iterative_scan = strict_order;
 ```
 
-You can also create separate approximate indexes for each condition value (or groups of values).
-
-If filtering by a few distinct values, use [partial indexing](https://www.postgresql.org/docs/current/indexes-partial.html).
+If filtering by only a few distinct values, consider [partial indexing](https://www.postgresql.org/docs/current/indexes-partial.html).
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WHERE (category_id = 123);
 ```
 
-If filtering by many different values, use [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html).
+If filtering by many different values, consider [partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html).
 
 ```sql
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
