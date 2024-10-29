@@ -463,7 +463,7 @@ Starting with 0.8.0, you can enable [iterative index scans](#iterative-index-sca
 SET hnsw.iterative_scan = strict_order;
 ```
 
-You can also create different approximate indexes for each value (or groups of values).
+You can also create separate approximate indexes for each condition value (or groups of values).
 
 If filtering by a few distinct values, use [partial indexing](https://www.postgresql.org/docs/current/indexes-partial.html).
 
