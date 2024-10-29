@@ -451,7 +451,7 @@ Exact indexes work well for conditions that match a lower percentage of rows. Ot
 CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
 ```
 
-With approximate indexes, filtering is applied after the index is scanned (known as post-filtering). If a condition matches 10% of rows, with HNSW and the default `hnsw.ef_search` of 40, only 4 rows will match on average. For more rows, increase `hnsw.ef_search`.
+With approximate indexes, filtering is applied *after* the index is scanned. If a condition matches 10% of rows, with HNSW and the default `hnsw.ef_search` of 40, only 4 rows will match on average. For more rows, increase `hnsw.ef_search`.
 
 ```sql
 SET hnsw.ef_search = 200;
