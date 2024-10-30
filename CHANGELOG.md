@@ -1,4 +1,4 @@
-## 0.8.0 (unreleased)
+## 0.8.0 (2024-10-30)
 
 - Added support for iterative index scans
 - Added casts for arrays to `sparsevec`
