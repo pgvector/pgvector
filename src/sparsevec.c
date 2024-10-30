@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "catalog/pg_type.h"
+#include "common/shortest_dec.h"
 #include "common/string.h"
 #include "fmgr.h"
 #include "halfutils.h"
@@ -12,16 +13,9 @@
 #include "sparsevec.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
+#include "utils/float.h"
 #include "utils/lsyscache.h"
 #include "vector.h"
-
-#if PG_VERSION_NUM >= 120000
-#include "common/shortest_dec.h"
-#include "utils/float.h"
-#else
-#include <float.h>
-#include "utils/builtins.h"
-#endif
 
 typedef struct SparseInputElement
 {
