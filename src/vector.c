@@ -590,7 +590,7 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 }
 
 VECTOR_TARGET_CLONES static float
-VectorInnerProduct(int dim, float *ax, float *bx)
+VectorInnerProduct(int dim, float *const restrict ax, float *const restrict bx)
 {
 	float		distance = 0.0;
 
@@ -632,7 +632,7 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 }
 
 VECTOR_TARGET_CLONES static double
-VectorCosineSimilarity(int dim, float *ax, float *bx)
+VectorCosineSimilarity(int dim, float *const restrict ax, float *const restrict bx)
 {
 	float		similarity = 0.0;
 	float		norma = 0.0;
@@ -708,7 +708,7 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 
 /* Does not require FMA, but keep logic simple */
 VECTOR_TARGET_CLONES static float
-VectorL1Distance(int dim, float *ax, float *bx)
+VectorL1Distance(int dim, float *const restrict ax, float *const restrict bx)
 {
 	float		distance = 0.0;
 
