@@ -52,7 +52,7 @@ nmake /F Makefile.win
 nmake /F Makefile.win install
 ```
 
-Note: Postgres 17 is not supported yet due to an upstream issue
+Note: Postgres 17 is not supported with MSVC yet due to an [upstream issue](https://www.postgresql.org/message-id/flat/CAOdR5yF0krWrxycA04rgUKCgKugRvGWzzGLAhDZ9bzNv8g0Lag%40mail.gmail.com)
 
 See the [installation notes](#installation-notes---windows) if you run into issues
 
