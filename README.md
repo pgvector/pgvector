@@ -937,7 +937,7 @@ ALTER TABLE items ALTER COLUMN embedding SET STORAGE PLAIN;
 
 #### Why are there less results for a query after adding an HNSW index?
 
-Results are limited by the size of the dynamic candidate list (`hnsw.ef_search`). There may be even less results due to dead tuples or filtering conditions in the query. We recommend setting `hnsw.ef_search` to at least twice the `LIMIT` of the query. If you need more than 500 results, use an IVFFlat index instead.
+Results are limited by the size of the dynamic candidate list (`hnsw.ef_search`), which is 40 by default. There may be even less results due to dead tuples or filtering conditions in the query. Enabling [iterative index scans](#iterative-index-scans) can help address this.
 
 Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosine distance).
 
@@ -949,7 +949,7 @@ The index was likely created with too little data for the number of lists. Drop 
 DROP INDEX index_name;
 ```
 
-Results can also be limited by the number of probes (`ivfflat.probes`).
+Results can also be limited by the number of probes (`ivfflat.probes`). Enabling [iterative index scans](#iterative-index-scans) can address this.
 
 Also, note that `NULL` vectors are not indexed (as well as zero vectors for cosine distance).
 
