@@ -39,7 +39,7 @@ Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/buil
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
 ```
 
-Note: The exact path will vary depending on your Visual Studio version and edition
+Note: The exact path will vary depending on your Visual Studio version and edition. You need to open CMD as Administrations and follow these step
 
 Then use `nmake` to build:
 
