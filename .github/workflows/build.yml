@@ -39,6 +39,38 @@ jobs:
           sudo apt-get update
           sudo apt-get install libipc-run-perl
       - run: make prove_installcheck
+  ubuntu_spr:
+    runs-on: ubuntu-24.04
+    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Intel SDE
+        run: |
+          curl -o /tmp/sde.tar.xz https://downloadmirror.intel.com/831748/sde-external-9.44.0-2024-08-22-lin.tar.xz
+          mkdir /tmp/sde && tar -xvf /tmp/sde.tar.xz -C /tmp/sde/
+          sudo mv /tmp/sde/* /opt/sde && sudo ln -s /opt/sde/sde64 /usr/bin/sde
+      - name: Install Postgres
+        run: |
+          sudo apt-get install postgresql-16
+          sudo apt-get install postgresql-server-dev-16
+          sudo systemctl stop postgresql
+          pgdir=$(pg_config --bindir)
+          pgdata=/tmp/postgres_data
+          mkdir $pgdata
+          $pgdir/initdb -D $pgdata --username=$USER
+          sudo chmod 777 /var/run/postgresql/
+          sde -spr -mix -- $pgdir/pg_ctl -D $pgdata start
+      - run: make
+        env:
+          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+      - run: |
+          export PG_CONFIG=`which pg_config`
+          sudo --preserve-env=PG_CONFIG make install
+      - run: sde -spr -mix -- make installcheck
+      - if: ${{ failure() }}
+        run: cat regression.diffs
+      - name: Report AVX512 FP16 FMA instruction count
+        run: cat sde*.txt | grep -E "FMA.*PH"
   mac:
     runs-on: ${{ matrix.os }}
     if: ${{ !startsWith(github.ref_name, 'windows') }}
