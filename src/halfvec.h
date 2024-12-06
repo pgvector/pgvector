@@ -4,6 +4,7 @@
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 
 #include <float.h>
+#include <arm_sve.h>
 
 /* We use two types of dispatching: intrinsics and target_clones */
 /* TODO Move to better place */
@@ -31,6 +32,10 @@
 #define USE__GET_CPUID
 #endif
 
+#if defined(__ARM_FEATURE_SVE) || defined(__ARM_FEATURE_SVE2)
+#define ARM_SVE
+#endif
+
 #if defined(USE_DISPATCH)
 #define HALFVEC_DISPATCH
 #endif
@@ -42,7 +47,10 @@
 #define FLT16_SUPPORT
 #endif
 
-#ifdef FLT16_SUPPORT
+#if defined(ARM_SVE)
+#define half __fp16
+#define HALF_MAX FLT16_MAX
+#elif defined FLT16_SUPPORT
 #define half _Float16
 #define HALF_MAX FLT16_MAX
 #else
