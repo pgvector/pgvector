@@ -1,5 +1,5 @@
 ARG PG_MAJOR=16
-FROM flyio/postgres-flex:$PG_MAJOR
+FROM flyio/postgres-flex:16
 ARG PG_MAJOR
 
 COPY . /tmp/pgvector
