@@ -260,7 +260,7 @@ Supported types are:
 - `vector` - up to 2,000 dimensions
 - `halfvec` - up to 4,000 dimensions (added in 0.7.0)
 - `bit` - up to 64,000 dimensions (added in 0.7.0)
-- `sparsevec` - up to 1,000 non-zero elements (added in 0.7.0)
+- `sparsevec` - up to 16,000 non-zero elements (added in 0.7.0)
 
 ### Index Options
 
