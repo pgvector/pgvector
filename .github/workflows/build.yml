@@ -46,8 +46,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - postgres: 16
-            os: macos-14
+          - postgres: 17
+            os: macos-15
           - postgres: 14
             os: macos-13
     steps:
@@ -70,7 +70,7 @@ jobs:
           tar xf $TAG.tar.gz
           mv postgres-$TAG postgres
         env:
-          TAG: ${{ matrix.postgres == 16 && 'REL_16_2' || 'REL_14_11' }}
+          TAG: ${{ matrix.postgres == 17 && 'REL_17_2' || 'REL_14_15' }}
       - run: make prove_installcheck PROVE_FLAGS="-I ./postgres/src/test/perl -I ./test/perl"
         env:
           PERL5LIB: /Users/runner/perl5/lib/perl5
@@ -126,7 +126,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ankane/setup-postgres-valgrind@v1
         with:
-          postgres-version: 16
+          postgres-version: 17
           check-ub: yes
       - run: make OPTFLAGS=""
       - run: sudo --preserve-env=PG_CONFIG make install
