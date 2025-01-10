@@ -74,8 +74,9 @@ jobs:
       - run: make prove_installcheck PROVE_FLAGS="-I ./postgres/src/test/perl -I ./test/perl"
         env:
           PERL5LIB: /Users/runner/perl5/lib/perl5
-      - run: make clean && $(brew --prefix llvm@15)/bin/scan-build --status-bugs make
+      - run: make clean && $(brew --prefix llvm@$LLVM_VERSION)/bin/scan-build --status-bugs make
         env:
+          LLVM_VERSION: ${{ matrix.os == 'macos-15' && 18 || 15 }}
           PG_CFLAGS: -DUSE_ASSERT_CHECKING
   windows:
     runs-on: windows-latest
