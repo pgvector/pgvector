@@ -355,7 +355,7 @@ ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 	};
 
 	PG_RETURN_POINTER(&typeInfo);
-};
+}
 
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ivfflat_bit_support);
 Datum
@@ -370,4 +370,4 @@ ivfflat_bit_support(PG_FUNCTION_ARGS)
 	};
 
 	PG_RETURN_POINTER(&typeInfo);
-};
+}

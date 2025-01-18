@@ -126,7 +126,7 @@ typedef struct HnswNeighborArray HnswNeighborArray;
 
 #define HnswPtrDeclare(type, relptrtype, ptrtype) \
 	relptr_declare(type, relptrtype); \
-	typedef union { type *ptr; relptrtype relptr; } ptrtype;
+	typedef union { type *ptr; relptrtype relptr; } ptrtype
 
 /* Pointers that can be absolute or relative */
 /* Use char for DatumPtr so works with Pointer */

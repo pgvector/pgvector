@@ -1393,7 +1393,7 @@ hnsw_halfvec_support(PG_FUNCTION_ARGS)
 	};
 
 	PG_RETURN_POINTER(&typeInfo);
-};
+}
 
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_bit_support);
 Datum
@@ -1406,7 +1406,7 @@ hnsw_bit_support(PG_FUNCTION_ARGS)
 	};
 
 	PG_RETURN_POINTER(&typeInfo);
-};
+}
 
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_sparsevec_support);
 Datum
@@ -1419,4 +1419,4 @@ hnsw_sparsevec_support(PG_FUNCTION_ARGS)
 	};
 
 	PG_RETURN_POINTER(&typeInfo);
-};
+}
