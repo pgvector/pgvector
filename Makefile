@@ -12,7 +12,11 @@ REGRESS = $(patsubst test/sql/%.sql,%,$(TESTS))
 REGRESS_OPTS = --inputdir=test --load-extension=$(EXTENSION)
 
 # To compile for portability, run: make OPTFLAGS=""
-OPTFLAGS = -march=native
+ifdef SOURCE_DATE_EPOCH
+	OPTFLAGS =
+else
+	OPTFLAGS = -march=native
+endif
 
 # Mac ARM doesn't always support -march=native
 ifeq ($(shell uname -s), Darwin)
