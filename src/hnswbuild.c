@@ -53,6 +53,8 @@
 #include "tcop/tcopprot.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
+#include "fmgr.h"
+#include "halfvec.h"
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_progress.h"
@@ -1138,4 +1140,60 @@ hnswbuildempty(Relation index)
 	HnswBuildState buildstate;
 
 	BuildIndex(NULL, index, indexInfo, &buildstate, INIT_FORKNUM);
+}
+
+/*
+ * Returns the number of bytes used by a single element on average, excluding
+ * the vector value itself. The vector value size depends on the vector data
+ * type and the number of dimensions.
+ */
+static
+HnswMemoryBytesPerElementExcludingValue(int m)
+{
+	double ml = HnswGetMl(m);
+	double geometricP = 1 - exp(-1 / ml);
+
+	/*
+	 * This is the average number of levels at which the element is present.
+	 */
+	double avgLevel = 1 / geometricP;
+
+	/*
+	 * For each element we store:
+	 * - HnswElementData struct
+	 * - An array of pointers to neighbor arrays, as many as the number of
+	 *   levels where the element is present.
+	 * - The neighbor arrays themselves. We need to take into account that the
+	 *   lowest level has a different number of neighbors per node than higher
+	 *   levels. But it also helps that every node is present at the lowest
+	 *   level.
+	 */
+	return MAXALIGN(sizeof(HnswElementData)) +
+		avgLevel * sizeof(HnswNeighborArrayPtr) +
+		(
+			MAXALIGN(HNSW_NEIGHBOR_ARRAY_SIZE(HnswGetLayerM(m, 0))) +
+			(avgLevel - 1) * MAXALIGN(HNSW_NEIGHBOR_ARRAY_SIZE(m))
+		);
+}
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_build_memory_bytes_per_vector);
+Datum
+hnsw_build_memory_bytes_per_vector(PG_FUNCTION_ARGS)
+{
+	int dimensions = PG_GETARG_INT32(0);
+	int m = PG_GETARG_INT32(1);
+
+	PG_RETURN_FLOAT8(HnswMemoryBytesPerElementExcludingValue(m) +
+		VECTOR_SIZE(dimensions));
+}
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_build_memory_bytes_per_halfvec);
+Datum
+hnsw_build_memory_bytes_per_halfvec(PG_FUNCTION_ARGS)
+{
+	int dimensions = PG_GETARG_INT32(0);
+	int m = PG_GETARG_INT32(1);
+
+	PG_RETURN_FLOAT8(HnswMemoryBytesPerElementExcludingValue(m) +
+		HALFVEC_SIZE(dimensions));
 }
