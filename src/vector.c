@@ -35,6 +35,11 @@
 #define VECTOR_TARGET_CLONES
 #endif
 
+#if defined(__powerpc__)
+#include <altivec.h>   /* Required for the Power GCC built-ins  */
+#define FLOAT_VEC_SIZE 4
+#endif
+
 PG_MODULE_MAGIC;
 
 /*
@@ -542,6 +547,43 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
+#ifdef __powerpc__
+
+VECTOR_TARGET_CLONES static float VectorL2SquaredDistance(int dim, float *ax,
+                                                          float *bx) {
+  size_t i;
+
+  float res = 0;
+  /* Vector implmentaion uses vector size of FLOAT_VEC_SIZE.  If the input
+         array size is not a power of FLOAT_VEC_SIZE, do the remaining elements
+         in scalar mode.  */
+  size_t base;
+
+  vector float *vx, *vy;
+  vector float vtmp = {0, 0, 0, 0};
+  vector float vres = {0, 0, 0, 0};
+
+  base = (dim / FLOAT_VEC_SIZE) * FLOAT_VEC_SIZE;
+
+  for (i = 0; i < base; i = i + FLOAT_VEC_SIZE) {
+    vx = (vector float *)(&ax[i]);
+    vy = (vector float *)(&bx[i]);
+
+    vtmp = vx[0] - vy[0];
+    vres += vtmp * vtmp;
+  }
+
+  /* Handle any remaining data elements */
+  for (i = base; i < dim; i++) {
+    const float tmp = ax[i] - bx[i];
+    res += tmp * tmp;
+  }
+
+  return res + vres[0] + vres[1] + vres[2] + vres[3];
+}
+
+#else
+
 VECTOR_TARGET_CLONES static float
 VectorL2SquaredDistance(int dim, float *ax, float *bx)
 {
@@ -557,6 +599,8 @@ VectorL2SquaredDistance(int dim, float *ax, float *bx)
 
 	return distance;
 }
+
+#endif
 
 /*
  * Get the L2 distance between vectors
@@ -589,6 +633,35 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) VectorL2SquaredDistance(a->dim, a->x, b->x));
 }
 
+#ifdef __powerpc__
+
+VECTOR_TARGET_CLONES static float VectorInnerProduct(int dim, float *ax,
+                                                     float *bx) {
+  size_t i;
+  float res = 0;
+  size_t base;
+
+  vector float *vx, *vy;
+  vector float vres = {0, 0, 0, 0};
+
+  base = (dim / FLOAT_VEC_SIZE) * FLOAT_VEC_SIZE;
+
+  for (i = 0; i < base; i = i + FLOAT_VEC_SIZE) {
+    vx = (vector float *)(&ax[i]);
+    vy = (vector float *)(&bx[i]);
+
+    vres += vx[0] * vy[0];
+  }
+
+  /* Handle any remaining data elements */
+  for (i = base; i < dim; i++) {
+    res += ax[i] * bx[i];
+  }
+  return res + vres[0] + vres[1] + vres[2] + vres[3];
+}
+
+#else
+
 VECTOR_TARGET_CLONES static float
 VectorInnerProduct(int dim, float *ax, float *bx)
 {
@@ -600,6 +673,8 @@ VectorInnerProduct(int dim, float *ax, float *bx)
 
 	return distance;
 }
+
+#endif
 
 /*
  * Get the inner product of two vectors
@@ -631,6 +706,44 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) -VectorInnerProduct(a->dim, a->x, b->x));
 }
 
+#ifdef __powerpc__
+
+VECTOR_TARGET_CLONES static double VectorCosineSimilarity(int dim, float *ax,
+                                                          float *bx) {
+  float  dotpdt = 0.0, mag_vx = 0.0, mag_vy = 0.0;
+  size_t base;
+  vector float *vx, *vy;
+  vector float vdotpdt = {0.0, 0.0, 0.0, 0.0};
+  vector float sqr_mag_vx = {0.0, 0.0, 0.0, 0.0};
+  vector float sqr_mag_vy = {0.0, 0.0, 0.0, 0.0};
+
+  base = (dim / FLOAT_VEC_SIZE) * FLOAT_VEC_SIZE;
+
+  for (size_t i = 0; i < base; i = i + FLOAT_VEC_SIZE) {
+    vx = (vector float *)(&ax[i]);
+    vy = (vector float *)(&bx[i]);
+
+    vdotpdt += vx[0] * vy[0];
+    sqr_mag_vx += vx[0] * vx[0];
+    sqr_mag_vy += vy[0] * vy[0];
+  }
+
+  dotpdt = vdotpdt[0] + vdotpdt[1] + vdotpdt[2] + vdotpdt[3];
+
+  mag_vx = sqr_mag_vx[0] + sqr_mag_vx[1] + sqr_mag_vx[2] + sqr_mag_vx[3];
+  mag_vy = sqr_mag_vy[0] + sqr_mag_vy[1] + sqr_mag_vy[2] + sqr_mag_vy[3];
+
+  /* Handle any remaining data elements */
+  for (size_t i = base; i < dim; i++) {
+    dotpdt += ax[i] * bx[i];
+    mag_vx += ax[i] * ax[i];
+    mag_vy += bx[i] * bx[i];
+  }
+  return dotpdt / (sqrt(mag_vx * mag_vy));
+}
+
+#else
+
 VECTOR_TARGET_CLONES static double
 VectorCosineSimilarity(int dim, float *ax, float *bx)
 {
@@ -649,6 +762,8 @@ VectorCosineSimilarity(int dim, float *ax, float *bx)
 	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
 	return (double) similarity / sqrt((double) norma * (double) normb);
 }
+
+#endif
 
 /*
  * Get the cosine distance between two vectors
