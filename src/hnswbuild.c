@@ -519,7 +519,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		if (!graph->flushed)
 		{
-			ereport(NOTICE,
+			ereport(WARNING,
 					(errmsg("hnsw graph no longer fits into maintenance_work_mem after " INT64_FORMAT " tuples", (int64) graph->indtuples),
 					 errdetail("Building will take significantly more time."),
 					 errhint("Increase maintenance_work_mem to speed up builds.")));
