@@ -52,8 +52,6 @@ nmake /F Makefile.win
 nmake /F Makefile.win install
 ```
 
-Note: Postgres 17 is not supported with MSVC yet due to an [upstream issue](https://www.postgresql.org/message-id/flat/CAOdR5yF0krWrxycA04rgUKCgKugRvGWzzGLAhDZ9bzNv8g0Lag%40mail.gmail.com)
-
 See the [installation notes](#installation-notes---windows) if you run into issues
 
 You can also install it with [Docker](#docker) or [conda-forge](#conda-forge).
@@ -1138,6 +1136,10 @@ make OPTFLAGS=""
 ### Missing Header
 
 If compilation fails with `Cannot open include file: 'postgres.h': No such file or directory`, make sure `PGROOT` is correct.
+
+### Missing Symbol
+
+If linking fails with `unresolved external symbol float_to_shortest_decimal_bufn` with Postgres 17.0-17.2, upgrade to Postgres 17.3+.
 
 ### Permissions
 
