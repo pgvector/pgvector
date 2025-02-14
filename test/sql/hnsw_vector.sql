@@ -70,6 +70,9 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 SET hnsw.iterative_scan = relaxed_order;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
+TRUNCATE t;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
 RESET hnsw.iterative_scan;
 RESET hnsw.ef_search;
 DROP TABLE t;

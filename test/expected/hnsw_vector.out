@@ -123,6 +123,12 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
  [0,0,0]
 (3 rows)
 
+TRUNCATE t;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+ val 
+-----
+(0 rows)
+
 RESET hnsw.iterative_scan;
 RESET hnsw.ef_search;
 DROP TABLE t;

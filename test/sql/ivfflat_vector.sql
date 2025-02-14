@@ -59,6 +59,9 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 SET ivfflat.max_probes = 2;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 
+TRUNCATE t;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+
 RESET ivfflat.iterative_scan;
 RESET ivfflat.max_probes;
 DROP TABLE t;
