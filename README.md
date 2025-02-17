@@ -1119,7 +1119,13 @@ Note: Replace `17` with your Postgres server version
 
 ### Missing SDK
 
-If compilation fails and the output includes `warning: no such sysroot directory` on Mac, reinstall Xcode Command Line Tools.
+If compilation fails and the output includes `warning: no such sysroot directory` on Mac, your Postgres installation points to a path that no longer exists.
+
+```sh
+pg_config --ldflags
+```
+
+Reinstall Postgres to fix this.
 
 ### Portability
 
