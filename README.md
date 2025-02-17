@@ -1122,7 +1122,7 @@ Note: Replace `17` with your Postgres server version
 If compilation fails and the output includes `warning: no such sysroot directory` on Mac, your Postgres installation points to a path that no longer exists.
 
 ```sh
-pg_config --ldflags
+pg_config --cppflags
 ```
 
 Reinstall Postgres to fix this.
