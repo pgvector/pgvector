@@ -82,7 +82,7 @@ Get the nearest neighbors by L2 distance
 SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
-Also supports inner product (`<#>`), cosine distance (`<=>`), and L1 distance (`<+>`, added in 0.7.0)
+Also supports inner product (`<#>`), cosine distance (`<=>`), and L1 distance (`<+>`)
 
 Note: `<#>` returns the negative inner product since Postgres only supports `ASC` order index scans on operators
 
@@ -146,9 +146,9 @@ Supported distance functions are:
 - `<->` - L2 distance
 - `<#>` - (negative) inner product
 - `<=>` - cosine distance
-- `<+>` - L1 distance (added in 0.7.0)
-- `<~>` - Hamming distance (binary vectors, added in 0.7.0)
-- `<%>` - Jaccard distance (binary vectors, added in 0.7.0)
+- `<+>` - L1 distance
+- `<~>` - Hamming distance (binary vectors)
+- `<%>` - Jaccard distance (binary vectors)
 
 Get the nearest neighbors to a row
 
@@ -235,19 +235,19 @@ Cosine distance
 CREATE INDEX ON items USING hnsw (embedding vector_cosine_ops);
 ```
 
-L1 distance - added in 0.7.0
+L1 distance
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding vector_l1_ops);
 ```
 
-Hamming distance - added in 0.7.0
+Hamming distance
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding bit_hamming_ops);
 ```
 
-Jaccard distance - added in 0.7.0
+Jaccard distance
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
@@ -256,9 +256,9 @@ CREATE INDEX ON items USING hnsw (embedding bit_jaccard_ops);
 Supported types are:
 
 - `vector` - up to 2,000 dimensions
-- `halfvec` - up to 4,000 dimensions (added in 0.7.0)
-- `bit` - up to 64,000 dimensions (added in 0.7.0)
-- `sparsevec` - up to 1,000 non-zero elements (added in 0.7.0)
+- `halfvec` - up to 4,000 dimensions
+- `bit` - up to 64,000 dimensions
+- `sparsevec` - up to 1,000 non-zero elements
 
 ### Index Options
 
@@ -312,7 +312,7 @@ Note: Do not set `maintenance_work_mem` so high that it exhausts the memory on t
 
 Like other index types, it’s faster to create an index after loading your initial data
 
-Starting with 0.6.0, you can also speed up index creation by increasing the number of parallel workers (2 by default)
+You can also speed up index creation by increasing the number of parallel workers (2 by default)
 
 ```sql
 SET max_parallel_maintenance_workers = 7; -- plus leader
@@ -365,7 +365,7 @@ Cosine distance
 CREATE INDEX ON items USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 ```
 
-Hamming distance - added in 0.7.0
+Hamming distance
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding bit_hamming_ops) WITH (lists = 100);
@@ -374,8 +374,8 @@ CREATE INDEX ON items USING ivfflat (embedding bit_hamming_ops) WITH (lists = 10
 Supported types are:
 
 - `vector` - up to 2,000 dimensions
-- `halfvec` - up to 4,000 dimensions (added in 0.7.0)
-- `bit` - up to 64,000 dimensions (added in 0.7.0)
+- `halfvec` - up to 4,000 dimensions
+- `bit` - up to 64,000 dimensions
 
 ### Query Options
 
@@ -547,8 +547,6 @@ Note: If this is lower than `ivfflat.probes`, `ivfflat.probes` will be used
 
 ## Half-Precision Vectors
 
-*Added in 0.7.0*
-
 Use the `halfvec` type to store half-precision vectors
 
 ```sql
@@ -556,8 +554,6 @@ CREATE TABLE items (id bigserial PRIMARY KEY, embedding halfvec(3));
 ```
 
 ## Half-Precision Indexing
-
-*Added in 0.7.0*
 
 Index vectors at half precision for smaller indexes
 
@@ -580,23 +576,15 @@ CREATE TABLE items (id bigserial PRIMARY KEY, embedding bit(3));
 INSERT INTO items (embedding) VALUES ('000'), ('111');
 ```
 
-Get the nearest neighbors by Hamming distance (added in 0.7.0)
+Get the nearest neighbors by Hamming distance
 
 ```sql
 SELECT * FROM items ORDER BY embedding <~> '101' LIMIT 5;
 ```
 
-Or (before 0.7.0)
-
-```sql
-SELECT * FROM items ORDER BY bit_count(embedding # '101') LIMIT 5;
-```
-
 Also supports Jaccard distance (`<%>`)
 
 ## Binary Quantization
-
-*Added in 0.7.0*
 
 Use expression indexing for binary quantization
 
@@ -619,8 +607,6 @@ SELECT * FROM (
 ```
 
 ## Sparse Vectors
-
-*Added in 0.7.0*
 
 Use the `sparsevec` type to store sparse vectors
 
@@ -654,8 +640,6 @@ SELECT id, content FROM items, plainto_tsquery('hello search') query
 You can use [Reciprocal Rank Fusion](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search/rrf.py) or a [cross-encoder](https://github.com/pgvector/pgvector-python/blob/master/examples/hybrid_search/cross_encoder.py) to combine results.
 
 ## Indexing Subvectors
-
-*Added in 0.7.0*
 
 Use expression indexing to index subvectors
 
@@ -1171,6 +1155,12 @@ cd pgvector
 docker build --pull --build-arg PG_MAJOR=17 -t myuser/pgvector .
 ```
 
+If you increase `maintenance_work_mem`, make sure `--shm-size` is at least that size to avoid an error with parallel HNSW index builds.
+
+```sh
+docker run --shm-size=1g ...
+```
+
 ### Homebrew
 
 With Homebrew Postgres, you can use:
@@ -1256,36 +1246,6 @@ You can check the version in the current database with:
 
 ```sql
 SELECT extversion FROM pg_extension WHERE extname = 'vector';
-```
-
-## Upgrade Notes
-
-### 0.6.0
-
-#### Postgres 12
-
-If upgrading with Postgres 12, remove this line from `sql/vector--0.5.1--0.6.0.sql`:
-
-```sql
-ALTER TYPE vector SET (STORAGE = external);
-```
-
-Then run `make install` and `ALTER EXTENSION vector UPDATE;`.
-
-#### Docker
-
-The Docker image is now published in the `pgvector` org, and there are tags for each supported version of Postgres (rather than a `latest` tag).
-
-```sh
-docker pull pgvector/pgvector:pg16
-# or
-docker pull pgvector/pgvector:0.6.0-pg16
-```
-
-Also, if you’ve increased `maintenance_work_mem`, make sure `--shm-size` is at least that size to avoid an error with parallel HNSW index builds.
-
-```sh
-docker run --shm-size=1g ...
 ```
 
 ## Thanks
