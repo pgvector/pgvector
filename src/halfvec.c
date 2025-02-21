@@ -533,8 +533,7 @@ vector_to_halfvec(PG_FUNCTION_ARGS)
 
 	result = InitHalfVector(vec->dim);
 
-	for (int i = 0; i < vec->dim; i++)
-		result->x[i] = Float4ToHalf(vec->x[i]);
+	Float4ToHalfVector(vec, result);
 
 	PG_RETURN_POINTER(result);
 }
