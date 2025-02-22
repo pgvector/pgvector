@@ -60,7 +60,7 @@ You can also install it with [Docker](#docker) or [conda-forge](#conda-forge).
 
 Enable the extension (do this once in each database where you want to use it)
 
-```tsql
+```sql
 CREATE EXTENSION vector;
 ```
 
