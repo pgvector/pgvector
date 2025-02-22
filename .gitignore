@@ -4,6 +4,7 @@
 /tmp_check/
 /sql/vector--?.?.?.sql
 regression.*
+.deps
 *.o
 *.so
 *.bc
