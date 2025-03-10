@@ -9,6 +9,10 @@
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
 
+#if PG_VERSION_NUM >= 180000
+#define vacuum_delay_point() vacuum_delay_point(false)
+#endif
+
 /*
  * Check if deleted list contains an index TID
  */

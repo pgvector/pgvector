@@ -5,6 +5,10 @@
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
 
+#if PG_VERSION_NUM >= 180000
+#define vacuum_delay_point() vacuum_delay_point(false)
+#endif
+
 /*
  * Bulk delete tuples from the index
  */
