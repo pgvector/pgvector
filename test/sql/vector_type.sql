@@ -152,3 +152,7 @@ SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
 SELECT sum(v) FROM unnest(ARRAY[]::vector[]) v;
 SELECT sum(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
 SELECT sum(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
+
+SELECT vector_cross_product('[1,0,0]'::vector, '[0,1,0]'::vector);
+SELECT vector_cross_product('[1,0,0]'::vector, '[0,0,1]'::vector);
+SELECT vector_cross_product('[3,-3,1]'::vector, '[4,9,2]'::vector);

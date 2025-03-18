@@ -670,3 +670,21 @@ SELECT sum(v) FROM unnest(ARRAY['[1,2]'::vector, '[3]']) v;
 ERROR:  different vector dimensions 2 and 1
 SELECT sum(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
 ERROR:  value out of range: overflow
+
+SELECT vector_cross_product('[1,0,0]'::vector, '[0,1,0]'::vector);
+ vector_cross_product 
+----------------------
+ [0,0,1]
+(1 row)
+
+SELECT vector_cross_product('[1,0,0]'::vector, '[0,0,1]'::vector);
+ vector_cross_product 
+----------------------
+ [0,-1,0]
+(1 row)
+
+SELECT vector_cross_product('[3,-3,1]'::vector, '[4,9,2]'::vector);
+ vector_cross_product 
+----------------------
+ [-15,-2,39]
+(1 row)

@@ -617,6 +617,70 @@ inner_product(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get the cross product of two 3D vectors
+ */
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_cross_product);
+Datum
+vector_cross_product(PG_FUNCTION_ARGS)
+{
+	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *b = PG_GETARG_VECTOR_P(1);
+	bool		orientation = PG_GETARG_BOOL(2); 
+	float	   *ax = a->x;
+	float	   *bx = b->x;
+	Vector	   *result;
+	float	   *rx;	
+ 
+	/* check if vector has different dimension */
+	CheckDims(a, b);
+
+    /* define the result vector */
+	result = InitVector(a->dim);
+	rx = result->x;
+
+	/* check if vector has 3 dimensions */
+ 
+	if (a->dim != 3 || b->dim != 3)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("cross product is only defined for 3-dimensional vectors")));
+ 
+	orientation = true; /* right-handed orientation */
+				 
+	/* orientation == true is "right-handed" */			   
+	if ( orientation == true ) 
+	{
+		rx[0] = ax[1] * bx[2] - ax[2] * bx[1];
+		rx[1] = ax[2] * bx[0] - ax[0] * bx[2];
+		rx[2] = ax[0] * bx[1] - ax[1] * bx[0];
+	}
+	/* orientation == false is "left-handed" */
+	else if ( orientation == false )
+	{
+		rx[0] = ax[2] * bx[1] - ax[1] * bx[2];
+		rx[1] = ax[0] * bx[2] - ax[2] * bx[0];
+		rx[2] = ax[1] * bx[0] - ax[0] * bx[1];
+	}
+	else
+	{
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				errmsg("invalid orientation value, this could be true (right-handed) or false (left-handed) ")));
+	}
+
+	/* Check for overflow */
+	for (int i = 0; i < a->dim; i++)
+	{
+		if (isinf(rx[i]))
+			float_overflow_error();
+	}
+ 
+	PG_RETURN_POINTER(result);
+
+} 
+
+/*
  * Get the negative inner product of two vectors
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_negative_inner_product);

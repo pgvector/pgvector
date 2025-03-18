@@ -963,6 +963,7 @@ Operator | Description | Added
 <#> | negative inner product |
 <=> | cosine distance |
 <+> | taxicab distance | 0.7.0
+<*> | cross product | 0.8.0
 
 ### Vector Functions
 
@@ -977,6 +978,7 @@ l2_normalize(vector) → vector | Normalize with Euclidean norm | 0.7.0
 subvector(vector, integer, integer) → vector | subvector | 0.7.0
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
+vector_cross_product(vector,vector) → vector | Cross Product right-handed | 0.8.0
 
 ### Vector Aggregate Functions
 

@@ -111,6 +111,9 @@ CREATE FUNCTION vector_avg(double precision[]) RETURNS vector
 CREATE FUNCTION vector_combine(double precision[], double precision[]) RETURNS double precision[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION vector_cross_product(vector, vector ) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- vector aggregates
 
 CREATE AGGREGATE avg(vector) (
@@ -179,6 +182,11 @@ CREATE OPERATOR <-> (
 CREATE OPERATOR <#> (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_negative_inner_product,
 	COMMUTATOR = '<#>'
+);
+
+CREATE OPERATOR <*> (
+    LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_cross_product,
+    COMMUTATOR = '<*>'
 );
 
 CREATE OPERATOR <=> (
