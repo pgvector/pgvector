@@ -1129,7 +1129,7 @@ If compilation fails with `Cannot open include file: 'postgres.h': No such file 
 
 ### Mismatched Architecture
 
-If compilation fails with `error C2196: case value '4' already used`, make sure `vcvars64.bat` was called.
+If compilation fails with `error C2196: case value '4' already used`, make sure `vcvars64.bat` was called. Then run `nmake /F Makefile.win clean` and re-run the installation instructions.
 
 ### Missing Symbol
 
