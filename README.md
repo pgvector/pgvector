@@ -1127,6 +1127,10 @@ make OPTFLAGS=""
 
 If compilation fails with `Cannot open include file: 'postgres.h': No such file or directory`, make sure `PGROOT` is correct.
 
+### Mismatched Architecture
+
+If compilation fails with `error C2196: case value '4' already used`, make sure `vcvars64.bat` was called.
+
 ### Missing Symbol
 
 If linking fails with `unresolved external symbol float_to_shortest_decimal_bufn` with Postgres 17.0-17.2, upgrade to Postgres 17.3+.
