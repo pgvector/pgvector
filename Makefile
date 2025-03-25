@@ -5,6 +5,9 @@ MODULE_big = vector
 DATA = $(wildcard sql/*--*--*.sql)
 DATA_built = sql/$(EXTENSION)--$(EXTVERSION).sql
 OBJS = src/bitutils.o src/bitvec.o src/halfutils.o src/halfvec.o src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/sparsevec.o src/vector.o
+ifneq ($(USE_AVX512), 0)
+	OBJS += src/halfutils_avx512.o
+endif
 HEADERS = src/halfvec.h src/sparsevec.h src/vector.h
 
 TESTS = $(wildcard test/sql/*.sql)
@@ -31,6 +34,9 @@ endif
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html
 PG_CFLAGS += $(OPTFLAGS) -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math
+ifneq ($(USE_AVX512), 0)
+	PG_CFLAGS += -DUSE_AVX512
+endif
 
 # Debug GCC auto-vectorization
 # PG_CFLAGS += -fopt-info-vec
