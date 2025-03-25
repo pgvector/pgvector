@@ -20,6 +20,27 @@ SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <~> (SELECT NULL::bit)) t2;
 (1 row)
 
 DROP TABLE t;
+-- inner product
+CREATE TABLE t (val bit(3));
+INSERT INTO t (val) VALUES (B'000'), (B'100'), (B'111'), (NULL);
+CREATE INDEX ON t USING hnsw (val bit_ip_ops);
+INSERT INTO t (val) VALUES (B'110');
+SELECT * FROM t ORDER BY val <#> B'111';
+ val 
+-----
+ 111
+ 110
+ 100
+ 000
+(4 rows)
+
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <#> (SELECT NULL::bit)) t2;
+ count 
+-------
+     4
+(1 row)
+
+DROP TABLE t;
 -- jaccard
 CREATE TABLE t (val bit(4));
 INSERT INTO t (val) VALUES (B'0000'), (B'1100'), (B'1111'), (NULL);

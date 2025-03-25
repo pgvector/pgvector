@@ -13,6 +13,19 @@ SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <~> (SELECT NULL::bit)) t2;
 
 DROP TABLE t;
 
+-- inner product
+
+CREATE TABLE t (val bit(3));
+INSERT INTO t (val) VALUES (B'000'), (B'100'), (B'111'), (NULL);
+CREATE INDEX ON t USING hnsw (val bit_ip_ops);
+
+INSERT INTO t (val) VALUES (B'110');
+
+SELECT * FROM t ORDER BY val <#> B'111';
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <#> (SELECT NULL::bit)) t2;
+
+DROP TABLE t;
+
 -- jaccard
 
 CREATE TABLE t (val bit(4));

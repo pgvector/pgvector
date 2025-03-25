@@ -9,6 +9,7 @@
 #endif
 
 extern uint64 (*BitHammingDistance) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance);
+extern uint64 (*BitInnerProduct) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 innerproduct);
 extern double (*BitJaccardDistance) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb);
 
 void		BitvecInit(void);

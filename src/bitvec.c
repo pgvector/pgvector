@@ -54,6 +54,36 @@ hamming_distance(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get the inner product between two bit vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(bit_inner_product);
+Datum
+bit_inner_product(PG_FUNCTION_ARGS)
+{
+	VarBit	   *a = PG_GETARG_VARBIT_P(0);
+	VarBit	   *b = PG_GETARG_VARBIT_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8((double) BitInnerProduct(VARBITBYTES(a), VARBITS(a), VARBITS(b), 0));
+}
+
+/*
+ * Get the negative inner product between two bit vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(bit_negative_inner_product);
+Datum
+bit_negative_inner_product(PG_FUNCTION_ARGS)
+{
+	VarBit	   *a = PG_GETARG_VARBIT_P(0);
+	VarBit	   *b = PG_GETARG_VARBIT_P(1);
+
+	CheckDims(a, b);
+
+	PG_RETURN_FLOAT8((double) -((double) BitInnerProduct(VARBITBYTES(a), VARBITS(a), VARBITS(b), 0)));
+}
+
+/*
  * Get the Jaccard distance between two bit vectors
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(jaccard_distance);

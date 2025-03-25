@@ -42,6 +42,7 @@
 #endif
 
 uint64		(*BitHammingDistance) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance);
+uint64		(*BitInnerProduct) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 innerproduct);
 double		(*BitJaccardDistance) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb);
 
 BIT_TARGET_CLONES static uint64
@@ -90,6 +91,55 @@ BitHammingDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char 
 	distance += _mm512_reduce_add_epi64(dist);
 
 	return BitHammingDistanceDefault(bytes, ax, bx, distance);
+}
+#endif
+
+BIT_TARGET_CLONES static uint64
+BitInnerProductDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 innerproduct)
+{
+#ifdef popcount64
+	for (; bytes >= sizeof(uint64); bytes -= sizeof(uint64))
+	{
+		uint64		axs;
+		uint64		bxs;
+
+		/* Ensure aligned */
+		memcpy(&axs, ax, sizeof(uint64));
+		memcpy(&bxs, bx, sizeof(uint64));
+
+		innerproduct += popcount64(axs & bxs);
+
+		ax += sizeof(uint64);
+		bx += sizeof(uint64);
+	}
+#endif
+
+	for (uint32 i = 0; i < bytes; i++)
+		innerproduct += pg_number_of_ones[ax[i] & bx[i]];
+
+	return innerproduct;
+}
+
+#ifdef BIT_DISPATCH
+TARGET_AVX512_POPCOUNT static uint64
+BitInnerProductAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 innerproduct)
+{
+	__m512i		shared = _mm512_setzero_si512();
+
+	for (; bytes >= sizeof(__m512i); bytes -= sizeof(__m512i))
+	{
+		__m512i		axs = _mm512_loadu_si512((const __m512i *) ax);
+		__m512i		bxs = _mm512_loadu_si512((const __m512i *) bx);
+
+		shared = _mm512_add_epi64(shared, _mm512_popcnt_epi64(_mm512_and_si512(axs, bxs)));
+
+		ax += sizeof(__m512i);
+		bx += sizeof(__m512i);
+	}
+
+	innerproduct += _mm512_reduce_add_epi64(shared);
+
+	return BitInnerProductDefault(bytes, ax, bx, innerproduct);
 }
 #endif
 
@@ -210,12 +260,14 @@ BitvecInit(void)
 	 * performance
 	 */
 	BitHammingDistance = BitHammingDistanceDefault;
+	BitInnerProduct = BitInnerProductDefault;
 	BitJaccardDistance = BitJaccardDistanceDefault;
 
 #ifdef BIT_DISPATCH
 	if (SupportsAvx512Popcount())
 	{
 		BitHammingDistance = BitHammingDistanceAvx512Popcount;
+		BitInnerProduct = BitInnerProductAvx512Popcount;
 		BitJaccardDistance = BitJaccardDistanceAvx512Popcount;
 	}
 #endif
