@@ -881,6 +881,10 @@ No, but like other index types, you’ll likely see better performance if they d
 SELECT pg_size_pretty(pg_relation_size('index_name'));
 ```
 
+#### Is it feasible to use pgvector for bulk distance calculations? 
+
+row-oriented databases like Postgres aren’t optimized for massive distance computations. For large-scale vector operations (e.g., millions of vectors), it’s recommended to use specialized libraries that store vectors in contiguous memory and support matrix operations, as this delivers much higher performance than repeatedly calculating distances within SQL.
+
 ## Troubleshooting
 
 #### Why isn’t a query using an index?
