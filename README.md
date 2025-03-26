@@ -318,7 +318,9 @@ You can also speed up index creation by increasing the number of parallel worker
 SET max_parallel_maintenance_workers = 7; -- plus leader
 ```
 
-For a large number of workers, you may also need to increase `max_parallel_workers` (8 by default)
+For a large number of workers, you may need to increase `max_parallel_workers` (8 by default)
+
+The [index options](#index-options) also have a significant impact on build time (use the defaults unless seeing low recall)
 
 ### Indexing Progress
 
