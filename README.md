@@ -318,7 +318,9 @@ You can also speed up index creation by increasing the number of parallel worker
 SET max_parallel_maintenance_workers = 7; -- plus leader
 ```
 
-For a large number of workers, you may also need to increase `max_parallel_workers` (8 by default)
+For a large number of workers, you may need to increase `max_parallel_workers` (8 by default)
+
+The [index options](#index-options) also have a significant impact on build time (use the defaults unless seeing low recall)
 
 ### Indexing Progress
 
@@ -1126,6 +1128,10 @@ make OPTFLAGS=""
 ### Missing Header
 
 If compilation fails with `Cannot open include file: 'postgres.h': No such file or directory`, make sure `PGROOT` is correct.
+
+### Mismatched Architecture
+
+If compilation fails with `error C2196: case value '4' already used`, make sure `vcvars64.bat` was called. Then run `nmake /F Makefile.win clean` and re-run the installation instructions.
 
 ### Missing Symbol
 
