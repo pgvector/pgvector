@@ -549,37 +549,61 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 
 #ifdef __powerpc__
 
-VECTOR_TARGET_CLONES static float VectorL2SquaredDistance(int dim, float *ax,
-                                                          float *bx) {
-  size_t i;
-
-  float res = 0;
+VECTOR_TARGET_CLONES static float
+VectorL2SquaredDistance(int dim, float *ax, float *bx)
+{
   /* Vector implmentaion uses vector size of FLOAT_VEC_SIZE.  If the input
          array size is not a power of FLOAT_VEC_SIZE, do the remaining elements
          in scalar mode.  */
+
+  size_t i;
+  float res = 0;
   size_t base;
 
-  vector float *vx, *vy;
-  vector float vtmp = {0, 0, 0, 0};
-  vector float vres = {0, 0, 0, 0};
+  vector float vres1 = {0, 0, 0, 0};
+  vector float vres2 = {0, 0, 0, 0};
+  vector float vres3 = {0, 0, 0, 0};
+  vector float vres4 = {0, 0, 0, 0};
 
-  base = (dim / FLOAT_VEC_SIZE) * FLOAT_VEC_SIZE;
+  base = (dim / 16) * 16;  // Process 16 elements per loop
 
-  for (i = 0; i < base; i = i + FLOAT_VEC_SIZE) {
-    vx = (vector float *)(&ax[i]);
-    vy = (vector float *)(&bx[i]);
+  for (size_t i = 0; i < base; i += 16) {
+    vector float vx1 = vec_xl(0, &ax[i]);
+    vector float vy1 = vec_xl(0, &bx[i]);
+    vector float vx2 = vec_xl(0, &ax[i + 4]);
+    vector float vy2 = vec_xl(0, &bx[i + 4]);
+    vector float vx3 = vec_xl(0, &ax[i + 8]);
+    vector float vy3 = vec_xl(0, &bx[i + 8]);
+    vector float vx4 = vec_xl(0, &ax[i + 12]);
+    vector float vy4 = vec_xl(0, &bx[i + 12]);
 
-    vtmp = vx[0] - vy[0];
-    vres += vtmp * vtmp;
+    vector float vdiff1 = vec_sub(vx1, vy1);
+    vector float vdiff2 = vec_sub(vx2, vy2);
+    vector float vdiff3 = vec_sub(vx3, vy3);
+    vector float vdiff4 = vec_sub(vx4, vy4);
+
+    vres1 = vec_madd(vdiff1, vdiff1, vres1);
+    vres2 = vec_madd(vdiff2, vdiff2, vres2);
+    vres3 = vec_madd(vdiff3, vdiff3, vres3);
+    vres4 = vec_madd(vdiff4, vdiff4, vres4);
   }
 
-  /* Handle any remaining data elements */
-  for (i = base; i < dim; i++) {
-    const float tmp = ax[i] - bx[i];
-    res += tmp * tmp;
+  // Sum up partial results
+  vres1 = vec_add(vres1, vres2);
+  vres3 = vec_add(vres3, vres4);
+  vres1 = vec_add(vres1, vres3);
+
+  // Reduce vector sum to scalar
+  res = vec_extract(vres1, 0) + vec_extract(vres1, 1) +
+        vec_extract(vres1, 2) + vec_extract(vres1, 3);
+
+  // Compute remaining elements (if any)
+  for (size_t i = base; i < dim; i++) {
+    float diff = ax[i] - bx[i];
+    res += diff * diff;
   }
 
-  return res + vres[0] + vres[1] + vres[2] + vres[3];
+  return res;
 }
 
 #else
@@ -635,29 +659,51 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 
 #ifdef __powerpc__
 
-VECTOR_TARGET_CLONES static float VectorInnerProduct(int dim, float *ax,
-                                                     float *bx) {
+VECTOR_TARGET_CLONES static float
+VectorInnerProduct(int dim, float *ax, float *bx)
+{
   size_t i;
   float res = 0;
   size_t base;
 
-  vector float *vx, *vy;
-  vector float vres = {0, 0, 0, 0};
+  vector float vres1 = {0, 0, 0, 0};
+  vector float vres2 = {0, 0, 0, 0};
+  vector float vres3 = {0, 0, 0, 0};
+  vector float vres4 = {0, 0, 0, 0};
 
-  base = (dim / FLOAT_VEC_SIZE) * FLOAT_VEC_SIZE;
+  base = (dim / 16) * 16;
 
-  for (i = 0; i < base; i = i + FLOAT_VEC_SIZE) {
-    vx = (vector float *)(&ax[i]);
-    vy = (vector float *)(&bx[i]);
+  for (size_t i = 0; i < base; i += 16) {
+    vector float vx1 = vec_xl(0, &ax[i]);
+    vector float vy1 = vec_xl(0, &bx[i]);
+    vector float vx2 = vec_xl(0, &ax[i + 4]);
+    vector float vy2 = vec_xl(0, &bx[i + 4]);
+    vector float vx3 = vec_xl(0, &ax[i + 8]);
+    vector float vy3 = vec_xl(0, &bx[i + 8]);
+    vector float vx4 = vec_xl(0, &ax[i + 12]);
+    vector float vy4 = vec_xl(0, &bx[i + 12]);
 
-    vres += vx[0] * vy[0];
+    vres1 = vec_madd(vx1, vy1, vres1);
+    vres2 = vec_madd(vx2, vy2, vres2);
+    vres3 = vec_madd(vx3, vy3, vres3);
+    vres4 = vec_madd(vx4, vy4, vres4);
   }
 
-  /* Handle any remaining data elements */
-  for (i = base; i < dim; i++) {
+  // Sum all vector accumulators
+  vres1 = vec_add(vres1, vres2);
+  vres3 = vec_add(vres3, vres4);
+  vres1 = vec_add(vres1, vres3);
+
+  // Reduce vector sum to scalar
+  res = vec_extract(vres1, 0) + vec_extract(vres1, 1) +
+        vec_extract(vres1, 2) + vec_extract(vres1, 3);
+
+  // Handle remaining elements (if dim is not a multiple of 16)
+  for (size_t i = base; i < dim; i++) {
     res += ax[i] * bx[i];
   }
-  return res + vres[0] + vres[1] + vres[2] + vres[3];
+
+  return res;
 }
 
 #else
@@ -708,38 +754,85 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 
 #ifdef __powerpc__
 
-VECTOR_TARGET_CLONES static double VectorCosineSimilarity(int dim, float *ax,
-                                                          float *bx) {
-  float  dotpdt = 0.0, mag_vx = 0.0, mag_vy = 0.0;
+VECTOR_TARGET_CLONES static double
+VectorCosineSimilarity(int dim, float *ax, float *bx)
+{
+  size_t i;
+  float res = 0;
   size_t base;
-  vector float *vx, *vy;
-  vector float vdotpdt = {0.0, 0.0, 0.0, 0.0};
-  vector float sqr_mag_vx = {0.0, 0.0, 0.0, 0.0};
-  vector float sqr_mag_vy = {0.0, 0.0, 0.0, 0.0};
 
-  base = (dim / FLOAT_VEC_SIZE) * FLOAT_VEC_SIZE;
+  vector float vdot1 = {0, 0, 0, 0};
+  vector float vdot2 = {0, 0, 0, 0};
+  vector float vdot3 = {0, 0, 0, 0};
+  vector float vdot4 = {0, 0, 0, 0};
 
-  for (size_t i = 0; i < base; i = i + FLOAT_VEC_SIZE) {
-    vx = (vector float *)(&ax[i]);
-    vy = (vector float *)(&bx[i]);
+  vector float vmag_x1 = {0, 0, 0, 0};
+  vector float vmag_x2 = {0, 0, 0, 0};
+  vector float vmag_x3 = {0, 0, 0, 0};
+  vector float vmag_x4 = {0, 0, 0, 0};
 
-    vdotpdt += vx[0] * vy[0];
-    sqr_mag_vx += vx[0] * vx[0];
-    sqr_mag_vy += vy[0] * vy[0];
+  vector float vmag_y1 = {0, 0, 0, 0};
+  vector float vmag_y2 = {0, 0, 0, 0};
+  vector float vmag_y3 = {0, 0, 0, 0};
+  vector float vmag_y4 = {0, 0, 0, 0};
+
+  base = (dim / 16) * 16;  // Process 16 elements per iteration
+
+  for (size_t i = 0; i < base; i += 16) {
+    vector float vx1 = vec_xl(0, &ax[i]);
+    vector float vy1 = vec_xl(0, &bx[i]);
+    vector float vx2 = vec_xl(0, &ax[i + 4]);
+    vector float vy2 = vec_xl(0, &bx[i + 4]);
+    vector float vx3 = vec_xl(0, &ax[i + 8]);
+    vector float vy3 = vec_xl(0, &bx[i + 8]);
+    vector float vx4 = vec_xl(0, &ax[i + 12]);
+    vector float vy4 = vec_xl(0, &bx[i + 12]);
+
+    vdot1 = vec_madd(vx1, vy1, vdot1);
+    vdot2 = vec_madd(vx2, vy2, vdot2);
+    vdot3 = vec_madd(vx3, vy3, vdot3);
+    vdot4 = vec_madd(vx4, vy4, vdot4);
+
+    vmag_x1 = vec_madd(vx1, vx1, vmag_x1);
+    vmag_x2 = vec_madd(vx2, vx2, vmag_x2);
+    vmag_x3 = vec_madd(vx3, vx3, vmag_x3);
+    vmag_x4 = vec_madd(vx4, vx4, vmag_x4);
+
+    vmag_y1 = vec_madd(vy1, vy1, vmag_y1);
+    vmag_y2 = vec_madd(vy2, vy2, vmag_y2);
+    vmag_y3 = vec_madd(vy3, vy3, vmag_y3);
+    vmag_y4 = vec_madd(vy4, vy4, vmag_y4);
   }
 
-  dotpdt = vdotpdt[0] + vdotpdt[1] + vdotpdt[2] + vdotpdt[3];
+  // Sum vector accumulators
+  vdot1 = vec_add(vdot1, vdot2);
+  vdot3 = vec_add(vdot3, vdot4);
+  vdot1 = vec_add(vdot1, vdot3);
 
-  mag_vx = sqr_mag_vx[0] + sqr_mag_vx[1] + sqr_mag_vx[2] + sqr_mag_vx[3];
-  mag_vy = sqr_mag_vy[0] + sqr_mag_vy[1] + sqr_mag_vy[2] + sqr_mag_vy[3];
+  vmag_x1 = vec_add(vmag_x1, vmag_x2);
+  vmag_x3 = vec_add(vmag_x3, vmag_x4);
+  vmag_x1 = vec_add(vmag_x1, vmag_x3);
 
-  /* Handle any remaining data elements */
+  vmag_y1 = vec_add(vmag_y1, vmag_y2);
+  vmag_y3 = vec_add(vmag_y3, vmag_y4);
+  vmag_y1 = vec_add(vmag_y1, vmag_y3);
+
+  // Reduce vector sum to scalar
+  float dotpdt = vec_extract(vdot1, 0) + vec_extract(vdot1, 1) +
+                 vec_extract(vdot1, 2) + vec_extract(vdot1, 3);
+  float mag_vx = vec_extract(vmag_x1, 0) + vec_extract(vmag_x1, 1) +
+                 vec_extract(vmag_x1, 2) + vec_extract(vmag_x1, 3);
+  float mag_vy = vec_extract(vmag_y1, 0) + vec_extract(vmag_y1, 1) +
+                 vec_extract(vmag_y1, 2) + vec_extract(vmag_y1, 3);
+
+  // Process remaining elements (if any)
   for (size_t i = base; i < dim; i++) {
     dotpdt += ax[i] * bx[i];
     mag_vx += ax[i] * ax[i];
     mag_vy += bx[i] * bx[i];
   }
-  return dotpdt / (sqrt(mag_vx * mag_vy));
+
+  return dotpdt / (sqrt(mag_vx) * sqrt(mag_vy));
 }
 
 #else
