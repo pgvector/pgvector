@@ -28,7 +28,7 @@ jobs:
           dev-files: true
       - run: make
         env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+          PG_CFLAGS: ${{ matrix.postgres == 18 && '-Wno-missing-field-initializers' || '' }} -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
       - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
