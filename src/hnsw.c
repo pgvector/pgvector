@@ -259,6 +259,11 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amoptsprocnum = 0;
 	amroutine->amcanorder = false;
 	amroutine->amcanorderbyop = true;
+#if PG_VERSION_NUM >= 180000
+	amroutine->amcanhash = false;
+	amroutine->amconsistentequality = false;
+	amroutine->amconsistentordering = false;
+#endif
 	amroutine->amcanbackward = false;	/* can change direction mid-scan */
 	amroutine->amcanunique = false;
 	amroutine->amcanmulticol = false;
@@ -291,6 +296,9 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amvacuumcleanup = hnswvacuumcleanup;
 	amroutine->amcanreturn = NULL;
 	amroutine->amcostestimate = hnswcostestimate;
+#if PG_VERSION_NUM >= 180000
+	amroutine->amgettreeheight = NULL;
+#endif
 	amroutine->amoptions = hnswoptions;
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
 	amroutine->ambuildphasename = hnswbuildphasename;
@@ -310,6 +318,11 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amestimateparallelscan = NULL;
 	amroutine->aminitparallelscan = NULL;
 	amroutine->amparallelrescan = NULL;
+
+#if PG_VERSION_NUM >= 180000
+	amroutine->amtranslatestrategy = NULL;
+	amroutine->amtranslatecmptype = NULL;
+#endif
 
 	PG_RETURN_POINTER(amroutine);
 }
