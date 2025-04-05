@@ -151,9 +151,6 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 static bytea *
 ivfflatoptions(Datum reloptions, bool validate)
 {
-#if PG_VERSION_NUM >= 180000 && defined(__GNUC__)
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#endif
 	static const relopt_parse_elt tab[] = {
 		{"lists", RELOPT_TYPE_INT, offsetof(IvfflatOptions, lists)},
 	};

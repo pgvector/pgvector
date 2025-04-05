@@ -223,9 +223,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 static bytea *
 hnswoptions(Datum reloptions, bool validate)
 {
-#if PG_VERSION_NUM >= 180000 && defined(__GNUC__)
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#endif
 	static const relopt_parse_elt tab[] = {
 		{"m", RELOPT_TYPE_INT, offsetof(HnswOptions, m)},
 		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, efConstruction)},
