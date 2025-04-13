@@ -477,8 +477,6 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 ## Iterative Index Scans
 
-*Added in 0.8.0*
-
 With approximate indexes, queries with filtering can return less results since filtering is applied *after* the index is scanned. Starting with 0.8.0, you can enable iterative index scans, which will automatically scan more of the index until enough results are found (or it reaches `hnsw.max_scan_tuples` or `ivfflat.max_probes`).
 
 Iterative scans can use strict or relaxed ordering.
