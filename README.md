@@ -754,8 +754,6 @@ SELECT query, calls, ROUND((total_plan_time + total_exec_time) / calls) AS avg_t
     FROM pg_stat_statements ORDER BY total_plan_time + total_exec_time DESC LIMIT 20;
 ```
 
-Note: Replace `total_plan_time + total_exec_time` with `total_time` for Postgres < 13
-
 Monitor recall by comparing results from approximate search with exact search.
 
 ```sql
@@ -824,7 +822,7 @@ You can use [half-precision indexing](#half-precision-indexing) to index up to 4
 
 #### Can I store vectors with different dimensions in the same column?
 
-You can use `vector` as the type (instead of `vector(3)`).
+You can use `vector` as the type (instead of `vector(n)`).
 
 ```sql
 CREATE TABLE embeddings (model_id bigint, item_id bigint, embedding vector, PRIMARY KEY (model_id, item_id));
