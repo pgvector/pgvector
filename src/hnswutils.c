@@ -806,8 +806,11 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 			unvisited[(*unvisitedLength)++].indextid = *indextid;
 	}
 
+#ifdef USE_PREFETCH
+	/* TODO limit by get_tablespace_io_concurrency */
 	for (int i = 0; i < *unvisitedLength; i++)
 		PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i].indextid));
+#endif
 }
 
 /*
