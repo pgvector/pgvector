@@ -805,6 +805,9 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 		if (!found)
 			unvisited[(*unvisitedLength)++].indextid = *indextid;
 	}
+
+	for (int i = 0; i < *unvisitedLength; i++)
+		PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i].indextid));
 }
 
 /*
