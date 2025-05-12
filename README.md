@@ -44,7 +44,7 @@ Note: The exact path will vary depending on your Visual Studio version and editi
 Then use `nmake` to build:
 
 ```cmd
-set "PGROOT=C:\Program Files\PostgreSQL\16"
+set "PGROOT=C:\Program Files\PostgreSQL\17"
 cd %TEMP%
 git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
 cd pgvector
