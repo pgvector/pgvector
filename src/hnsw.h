@@ -60,7 +60,8 @@
 #define HNSW_MAX_SIZE (BLCKSZ - MAXALIGN(SizeOfPageHeaderData) - MAXALIGN(sizeof(HnswPageOpaqueData)) - sizeof(ItemIdData))
 #define HNSW_TUPLE_ALLOC_SIZE BLCKSZ
 
-#define HNSW_ELEMENT_TUPLE_SIZE(size)	MAXALIGN(offsetof(HnswElementTupleData, data) + (size))
+#define HNSW_ELEMENT_TUPLE_SIZE(size, index_tuple_size) \
+	MAXALIGN(offsetof(HnswElementTupleData, data) + (size) + (index_tuple_size))
 #define HNSW_NEIGHBOR_TUPLE_SIZE(level, m)	MAXALIGN(offsetof(HnswNeighborTupleData, indextids) + ((level) + 2) * (m) * sizeof(ItemPointerData))
 
 #define HNSW_NEIGHBOR_ARRAY_SIZE(lm)	(offsetof(HnswNeighborArray, items) + sizeof(HnswCandidate) * (lm))
@@ -121,9 +122,11 @@ typedef enum HnswIterativeScanMode
 	HNSW_ITERATIVE_SCAN_STRICT
 }			HnswIterativeScanMode;
 
+/* Forward declarations */
 typedef struct HnswElementData HnswElementData;
 typedef struct HnswNeighborArray HnswNeighborArray;
 
+/* Pointer declarations */
 #define HnswPtrDeclare(type, relptrtype, ptrtype) \
 	relptr_declare(type, relptrtype); \
 	typedef union { type *ptr; relptrtype relptr; } ptrtype
@@ -135,6 +138,7 @@ HnswPtrDeclare(HnswNeighborArray, HnswNeighborArrayRelptr, HnswNeighborArrayPtr)
 HnswPtrDeclare(HnswNeighborArrayPtr, HnswNeighborsRelptr, HnswNeighborsPtr);
 HnswPtrDeclare(char, DatumRelptr, DatumPtr);
 
+/* Now define the actual structures */
 struct HnswElementData
 {
 	HnswElementPtr next;
@@ -144,12 +148,14 @@ struct HnswElementData
 	uint8		deleted;
 	uint8		version;
 	uint32		hash;
+	uint16		index_tuple_size;  /* Size of the IndexTuple data */
 	HnswNeighborsPtr neighbors;
 	BlockNumber blkno;
 	OffsetNumber offno;
 	OffsetNumber neighborOffno;
 	BlockNumber neighborPage;
 	DatumPtr	value;
+	IndexTuple	indexTuple;		/* IndexTuple for INCLUDE columns (in-memory only) */
 	LWLock		lock;
 };
 
@@ -333,8 +339,9 @@ typedef struct HnswElementTupleData
 	uint8		version;
 	ItemPointerData heaptids[HNSW_HEAPTIDS];
 	ItemPointerData neighbortid;
-	uint16		unused;
+	uint16		index_tuple_size;  /* Size of the IndexTuple data */
 	Vector		data;
+	/* IndexTuple data follows the vector data */
 }			HnswElementTupleData;
 
 typedef HnswElementTupleData * HnswElementTuple;
@@ -436,6 +443,10 @@ void		HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool 
 void		HnswLoadElement(HnswElement element, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance);
 bool		HnswFormIndexValue(Datum *out, Datum *values, bool *isnull, const HnswTypeInfo * typeInfo, HnswSupport * support);
 void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element);
+void		HnswSetElementTupleIndexTuple(HnswElementTuple etup, IndexTuple itup);
+IndexTuple	HnswElementTupleGetIndexTuple(HnswElementTuple etup);
+bool		HnswElementTupleHasIndexTuple(HnswElementTuple etup);
+IndexTuple	HnswFormIndexTuple(Relation index, Datum *values, bool *isnull, const HnswTypeInfo *typeInfo, HnswSupport *support);
 void		HnswUpdateConnection(char *base, HnswNeighborArray * neighbors, HnswElement newElement, float distance, int lm, int *updateIdx, Relation index, HnswSupport * support);
 bool		HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation index, int m, int lm, int lc);
 void		HnswInitLockTranche(void);

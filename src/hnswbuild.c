@@ -65,6 +65,12 @@
 #include "utils/wait_event.h"
 #endif
 
+#include "access/genam.h"
+#include "access/generic_xlog.h"
+#include "access/relation.h"
+#include "access/xlog.h"
+#include "storage/lmgr.h"
+
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)
 #define PARALLEL_KEY_HNSW_AREA			UINT64CONST(0xA000000000000002)
 #define PARALLEL_KEY_QUERY_TEXT			UINT64CONST(0xA000000000000003)
@@ -167,6 +173,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
+		Size		vectorSize;
 		Pointer		valuePtr = HnswPtrAccess(base, element->value);
 
 		/* Update iterator */
@@ -176,7 +183,8 @@ CreateGraphPages(HnswBuildState * buildstate)
 		MemSet(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
 
 		/* Calculate sizes */
-		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(valuePtr));
+		vectorSize = VARSIZE_ANY(valuePtr);
+		etupSize = HNSW_ELEMENT_TUPLE_SIZE(vectorSize, 0);  /* No IndexTuple data during initial build */
 		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
 		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 

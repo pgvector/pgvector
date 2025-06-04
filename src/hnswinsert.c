@@ -1,13 +1,15 @@
 #include "postgres.h"
-
-#include <math.h>
-
+#include "access/genam.h"
 #include "access/generic_xlog.h"
-#include "hnsw.h"
+#include "access/relation.h"
+#include "access/xlog.h"
+#include "catalog/index.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
-#include "utils/datum.h"
 #include "utils/memutils.h"
+#include "hnsw.h"
+#include <math.h>
+#include "utils/datum.h"
 
 /*
  * Get the insert page
@@ -158,7 +160,8 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	char	   *base = NULL;
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
+	Size		vectorSize = VARSIZE_ANY(HnswPtrAccess(base, e->value));
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(vectorSize, e->index_tuple_size);
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;
