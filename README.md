@@ -33,7 +33,7 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#p
 
 ### Windows
 
-Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed and run `x64 Native Tools Command Prompt for VS 2022` as administrator. Then use `nmake` to build:
+Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed and run `x64 Native Tools Command Prompt for VS [version]` as administrator. Then use `nmake` to build:
 
 ```cmd
 set "PGROOT=C:\Program Files\PostgreSQL\17"
