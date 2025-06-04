@@ -33,15 +33,7 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#p
 
 ### Windows
 
-Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed, and run:
-
-```cmd
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-```
-
-Note: The exact path will vary depending on your Visual Studio version and edition
-
-Then use `nmake` to build:
+Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed and run `x64 Native Tools Command Prompt for VS 2022` as administrator. Then use `nmake` to build:
 
 ```cmd
 set "PGROOT=C:\Program Files\PostgreSQL\17"
@@ -1127,7 +1119,7 @@ If compilation fails with `Cannot open include file: 'postgres.h': No such file 
 
 ### Mismatched Architecture
 
-If compilation fails with `error C2196: case value '4' already used`, make sure `vcvars64.bat` was called. Then run `nmake /F Makefile.win clean` and re-run the installation instructions.
+If compilation fails with `error C2196: case value '4' already used`, make sure you’re using the `x64 Native Tools Command Prompt`. Then run `nmake /F Makefile.win clean` and re-run the installation instructions.
 
 ### Missing Symbol
 
