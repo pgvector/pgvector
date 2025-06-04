@@ -27,10 +27,36 @@ ifneq ($(filter ppc64%, $(shell uname -m)), )
 	OPTFLAGS =
 endif
 
+# Detect CPU architecture and features
+ARCH := $(shell uname -m)
+OS := $(shell uname -s)
+
+# Check for ARM architecture
+ifeq ($(filter arm% aarch64%, $(ARCH)),)
+    # Not ARM, use x86 flags
+    SIMD_FLAGS = -mavx2 -mfma
+else
+    # ARM architecture
+    ifeq ($(OS), Darwin)
+        # macOS on ARM
+        SIMD_FLAGS = -march=armv8.5-a -mtune=native
+    else
+        # Check if we can detect NEON support
+        NEON_CHECK := $(shell if [ -f /proc/cpuinfo ]; then grep -q "neon" /proc/cpuinfo && echo "yes" || echo "no"; else echo "yes"; fi)
+        ifeq ($(NEON_CHECK), yes)
+            # Enable NEON
+            SIMD_FLAGS = -march=armv8-a -mtune=native -mfpu=neon-fp-armv8
+        else
+            # Fallback for ARM without NEON
+            SIMD_FLAGS = -march=armv8-a -mtune=native
+        endif
+    endif
+endif
+
 # For auto-vectorization:
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html
-PG_CFLAGS += $(OPTFLAGS) -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math
+PG_CFLAGS += $(OPTFLAGS) $(SIMD_FLAGS) -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math
 
 # Debug GCC auto-vectorization
 # PG_CFLAGS += -fopt-info-vec
