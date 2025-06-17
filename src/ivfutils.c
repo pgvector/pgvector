@@ -295,8 +295,10 @@ static void
 VectorSumCenter(Pointer v, float *x)
 {
 	Vector	   *vec = (Vector *) v;
+	const int dim = vec->dim;
 
-	for (int k = 0; k < vec->dim; k++)
+	/* Auto-vectorized */
+	for (int k = 0; k < dim; k++)
 		x[k] += vec->x[k];
 }
 
@@ -304,8 +306,10 @@ static void
 HalfvecSumCenter(Pointer v, float *x)
 {
 	HalfVector *vec = (HalfVector *) v;
+	const int dim = vec->dim;
 
-	for (int k = 0; k < vec->dim; k++)
+	/* Auto-vectorized */
+	for (int k = 0; k < dim; k++)
 		x[k] += HalfToFloat4(vec->x[k]);
 }
 
