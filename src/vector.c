@@ -920,11 +920,16 @@ vector_concat(PG_FUNCTION_ARGS)
 	CheckDim(dim);
 	result = InitVector(dim);
 
-	for (int i = 0; i < a->dim; i++)
+	const int dim_a = a->dim;
+	const int dim_b = b->dim;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim_a; i++)
 		result->x[i] = a->x[i];
 
-	for (int i = 0; i < b->dim; i++)
-		result->x[i + a->dim] = b->x[i];
+	/* Auto-vectorized */
+	for (int i = 0; i < dim_b; i++)
+		result->x[i + dim_a] = b->x[i];
 
 	PG_RETURN_POINTER(result);
 }
