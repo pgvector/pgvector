@@ -1023,6 +1023,10 @@ ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	IndexBuildResult *result;
 	IvfflatBuildState buildstate;
 
+#ifdef IVFFLAT_BENCH
+	SeedRandom(42);
+#endif
+
 	BuildIndex(heap, index, indexInfo, &buildstate, MAIN_FORKNUM);
 
 	result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
