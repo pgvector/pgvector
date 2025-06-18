@@ -57,7 +57,7 @@ jobs:
           postgres-version: ${{ matrix.postgres }}
       - run: make
         env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter
+          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unknown-warning-option
       - run: make install
       - run: make installcheck
       - if: ${{ failure() }}
