@@ -916,8 +916,8 @@ vector_concat(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	Vector	   *result;
 	int			dim = a->dim + b->dim;
-	int dim_a = a->dim;
-	int dim_b = b->dim;
+	int     dim_a = a->dim;
+	int     dim_b = b->dim;
 
 	CheckDim(dim);
 	result = InitVector(dim);
