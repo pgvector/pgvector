@@ -259,8 +259,8 @@ VectorUpdateCenter(Pointer v, int dimensions, float *x)
 	SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
 	vec->dim = dimensions;
 
-	for (int k = 0; k < dimensions; k++)
-		vec->x[k] = x[k];
+	for (int i = 0; i < dimensions; i++)
+		vec->x[i] = x[i];
 }
 
 static void
@@ -271,8 +271,8 @@ HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 	SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
 	vec->dim = dimensions;
 
-	for (int k = 0; k < dimensions; k++)
-		vec->x[k] = Float4ToHalfUnchecked(x[k]);
+	for (int i = 0; i < dimensions; i++)
+		vec->x[i] = Float4ToHalfUnchecked(x[i]);
 }
 
 static void
@@ -284,11 +284,11 @@ BitUpdateCenter(Pointer v, int dimensions, float *x)
 	SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
 	VARBITLEN(vec) = dimensions;
 
-	for (uint32 k = 0; k < VARBITBYTES(vec); k++)
-		nx[k] = 0;
+	for (uint32 i = 0; i < VARBITBYTES(vec); i++)
+		nx[i] = 0;
 
-	for (int k = 0; k < dimensions; k++)
-		nx[k / 8] |= (x[k] > 0.5 ? 1 : 0) << (7 - (k % 8));
+	for (int i = 0; i < dimensions; i++)
+		nx[i / 8] |= (x[i] > 0.5 ? 1 : 0) << (7 - (i % 8));
 }
 
 static void
@@ -298,8 +298,8 @@ VectorSumCenter(Pointer v, float *x)
 	int			dim = vec->dim;
 
 	/* Auto-vectorized */
-	for (int k = 0; k < dim; k++)
-		x[k] += vec->x[k];
+	for (int i = 0; i < dim; i++)
+		x[i] += vec->x[i];
 }
 
 static void
@@ -309,8 +309,8 @@ HalfvecSumCenter(Pointer v, float *x)
 	int			dim = vec->dim;
 
 	/* Auto-vectorized on aarch64 */
-	for (int k = 0; k < dim; k++)
-		x[k] += HalfToFloat4(vec->x[k]);
+	for (int i = 0; i < dim; i++)
+		x[i] += HalfToFloat4(vec->x[i]);
 }
 
 static void
@@ -318,8 +318,8 @@ BitSumCenter(Pointer v, float *x)
 {
 	VarBit	   *vec = (VarBit *) v;
 
-	for (int k = 0; k < VARBITLEN(vec); k++)
-		x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
+	for (int i = 0; i < VARBITLEN(vec); i++)
+		x[i] += (float) (((VARBITS(vec)[i / 8]) >> (7 - (i % 8))) & 0x01);
 }
 
 /*
