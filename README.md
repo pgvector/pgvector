@@ -653,6 +653,82 @@ SELECT * FROM (
 ) ORDER BY embedding <=> '[1,2,3,4,5]' LIMIT 5;
 ```
 
+## Observability
+
+### Recall Tracking
+
+Monitor the quality of your approximate indexes by tracking recall metrics. Recall
+measures how many of the true nearest neighbors are found by your index - a
+recall of 1.0 (100%) means perfect accuracy, while lower values indicate the
+index is missing some nearest neighbors.
+
+pgvector estimates recall using statistical sampling without expensive exact
+searches. When enabled, it tracks query patterns and uses distance-threshold
+counting to estimate how many relevant results exist in your data.
+
+#### Enable Recall Tracking
+
+Enable recall tracking for all vector indexes
+
+```sql
+SET pgvector.track_recall = on;
+```
+
+Control sampling frequency to balance monitoring detail with performance impact
+
+```sql
+SET pgvector.recall_sample_rate = 100;  -- Sample every 100th query
+```
+
+Control the maximum number of tuples scanned during recall estimation
+
+```sql
+SET pgvector.recall_max_scan_tuples = 10000;  -- Default: scan up to 10,000 tuples
+SET pgvector.recall_max_scan_tuples = -1;     -- Unlimited: scan entire table
+```
+
+#### View Recall Statistics
+
+Get recall statistics for all indexes
+
+```sql
+SELECT * FROM pg_vector_recall_stats();
+```
+
+Get a summary with human-readable index names
+
+```sql
+SELECT * FROM pg_vector_recall_summary();
+```
+
+Get current recall for a specific index
+
+```sql
+SELECT pg_vector_recall_get('index_name'::regclass::oid);
+```
+
+Reset statistics for an index
+
+```sql
+SELECT pg_vector_recall_reset('index_name'::regclass::oid);
+```
+
+#### Function Differences
+
+- `pg_vector_recall_stats()` returns raw statistics with index OIDs
+- `pg_vector_recall_summary()` adds schema and index names for easier interpretation
+
+Both functions return the same metrics, but the summary function joins with
+PostgreSQL's system catalogs to provide human-readable names instead of just
+numeric OIDs.
+
+#### Performance Considerations
+
+For production use, a sample rate of 100-1000 typically provides good insight
+with minimal impact. The default scan limit of 10,000 tuples works well for most
+tables, but you can increase it or set it to -1 for maximum accuracy on smaller
+datasets.
+
 ## Performance
 
 ### Tuning

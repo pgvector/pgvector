@@ -11,6 +11,7 @@
 #include "utils/relptr.h"
 #include "utils/sampling.h"
 #include "vector.h"
+#include "vector_recall.h"
 
 #define HNSW_MAX_DIM 2000
 #define HNSW_MAX_NNZ 1000
@@ -378,6 +379,9 @@ typedef struct HnswScanOpaqueData
 
 	/* Support functions */
 	HnswSupport support;
+
+	/* Recall tracking */
+	VectorRecallTracker recall_tracker;
 }			HnswScanOpaqueData;
 
 typedef HnswScanOpaqueData * HnswScanOpaque;
