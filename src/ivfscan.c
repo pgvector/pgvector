@@ -11,6 +11,7 @@
 #include "pgstat.h"
 #include "storage/bufmgr.h"
 #include "utils/memutils.h"
+#include "vector_recall.h"
 
 #define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
@@ -307,6 +308,11 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->listIndex = 0;
 	so->lists = palloc(maxProbes * sizeof(IvfflatScanList));
 
+	/* Initialize recall tracking */
+	so->recall_tracker.query_value = (Datum) 0;
+	so->recall_tracker.result_count = 0;
+	so->recall_tracker.max_distance = 0.0;
+
 	MemoryContextSwitchTo(oldCtx);
 
 	scan->opaque = so;
@@ -342,6 +348,8 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	ItemPointer heaptid;
 	bool		isnull;
+	bool       dnull = false;
+	Datum      distDatum;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -370,6 +378,9 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanItems", GetScanItems(scan, value));
 		so->first = false;
 		so->value = value;
+
+		/* Store query value for recall tracking */
+		so->recall_tracker.query_value = value;
 	}
 
 	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
@@ -378,6 +389,21 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 			return false;
 
 		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
+	}
+
+	/* Track for potential recall calculation only if enabled */
+	if (pgvector_track_recall)
+	{
+		distDatum = slot_getattr(so->mslot, 1, &dnull);
+		if (!dnull)
+		{
+			double distance = DatumGetFloat8(distDatum);
+
+			if (distance > so->recall_tracker.max_distance)
+				so->recall_tracker.max_distance = distance;
+
+			so->recall_tracker.result_count++;
+		}
 	}
 
 	heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
@@ -395,6 +421,9 @@ void
 ivfflatendscan(IndexScanDesc scan)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+
+	/* Track recall if enabled */
+	TrackVectorQuery(scan->indexRelation, &so->recall_tracker, so->procinfo, so->collation);
 
 	/* Free any temporary files */
 	tuplesort_end(so->sortstate);

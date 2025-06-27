@@ -7,6 +7,7 @@
 #include "storage/lmgr.h"
 #include "utils/float.h"
 #include "utils/memutils.h"
+#include "vector_recall.h"
 
 /*
  * Algorithm 5 from paper
@@ -144,6 +145,11 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	maxMemory = (double) work_mem * hnsw_scan_mem_multiplier * 1024.0 + 256;
 	so->maxMemory = Min(maxMemory, (double) SIZE_MAX);
 
+	/* Initialize recall tracking */
+	so->recall_tracker.query_value = (Datum) 0;
+	so->recall_tracker.result_count = 0;
+	so->recall_tracker.max_distance = 0.0;
+
 	scan->opaque = so;
 
 	return scan;
@@ -216,6 +222,10 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		/* Release shared lock */
 		UnlockPage(scan->indexRelation, HNSW_SCAN_LOCK, ShareLock);
+
+		/* Store query value for recall tracking */
+		so->recall_tracker.query_value = value;
+		so->recall_tracker.result_count = 0;
 
 		so->first = false;
 
@@ -305,6 +315,15 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		MemoryContextSwitchTo(oldCtx);
 
+		/* Track for potential recall calculation only if enabled */
+		if (pgvector_track_recall)
+		{
+			if (sc->distance > so->recall_tracker.max_distance)
+				so->recall_tracker.max_distance = sc->distance;
+
+			so->recall_tracker.result_count++;
+		}
+
 		scan->xs_heaptid = *heaptid;
 		scan->xs_recheck = false;
 		scan->xs_recheckorderby = false;
@@ -322,6 +341,9 @@ void
 hnswendscan(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+
+	/* Track recall if enabled */
+	TrackVectorQuery(scan->indexRelation, &so->recall_tracker, so->support.procinfo, so->support.collation);
 
 	MemoryContextDelete(so->tmpCtx);
 
