@@ -495,6 +495,8 @@ WITH relaxed_results AS MATERIALIZED (
 ) SELECT * FROM relaxed_results ORDER BY distance + 0;
 ```
 
+Note: `+ 0` is needed for Postgres 17+
+
 For queries that filter by distance, use a materialized CTE and place the distance filter outside of it for best performance (due to the [current behavior](https://www.postgresql.org/message-id/flat/CAOdR5yGUoMQ6j7M5hNUXrySzaqZVGf_Ne%2B8fwZMRKTFxU1nbJg%40mail.gmail.com) of the Postgres executor)
 
 ```sql
