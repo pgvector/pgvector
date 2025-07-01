@@ -492,7 +492,7 @@ With relaxed ordering, you can use a [materialized CTE](https://www.postgresql.o
 ```sql
 WITH relaxed_results AS MATERIALIZED (
     SELECT id, embedding <-> '[1,2,3]' AS distance FROM items WHERE category_id = 123 ORDER BY distance LIMIT 5
-) SELECT * FROM relaxed_results ORDER BY distance;
+) SELECT * FROM relaxed_results ORDER BY distance + 0;
 ```
 
 For queries that filter by distance, use a materialized CTE and place the distance filter outside of it for best performance (due to the [current behavior](https://www.postgresql.org/message-id/flat/CAOdR5yGUoMQ6j7M5hNUXrySzaqZVGf_Ne%2B8fwZMRKTFxU1nbJg%40mail.gmail.com) of the Postgres executor)
