@@ -33,6 +33,8 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#p
 
 ### Windows
 
+> **Note:** On Windows, `maintenance_work_mem` is currently limited to 2,024MB at most (up to and including PostgreSQL 16). It might therefore take a prohibitively long time to build indices for large vector stores.
+
 Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed and run `x64 Native Tools Command Prompt for VS [version]` as administrator. Then use `nmake` to build:
 
 ```cmd
