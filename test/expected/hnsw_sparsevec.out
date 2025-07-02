@@ -101,12 +101,18 @@ SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <+> (SELECT NULL::sparsevec))
 
 DROP TABLE t;
 -- non-zero elements
-CREATE TABLE t (val sparsevec(1001));
-INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1001])::vector::sparsevec);
+-- Test at the new limit (1200 elements should work)
+CREATE TABLE t (val sparsevec(1200));
+INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1200])::vector::sparsevec);
 CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
-ERROR:  sparsevec cannot have more than 1000 non-zero elements for hnsw index
+DROP TABLE t;
+-- Test over the new limit (1201 elements should fail)
+CREATE TABLE t (val sparsevec(1201));
+INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1201])::vector::sparsevec);
+CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
+ERROR:  sparsevec cannot have more than 1200 non-zero elements for hnsw index
 TRUNCATE t;
 CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
-INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1001])::vector::sparsevec);
-ERROR:  sparsevec cannot have more than 1000 non-zero elements for hnsw index
+INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1201])::vector::sparsevec);
+ERROR:  sparsevec cannot have more than 1200 non-zero elements for hnsw index
 DROP TABLE t;

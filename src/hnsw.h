@@ -13,7 +13,7 @@
 #include "vector.h"
 
 #define HNSW_MAX_DIM 2000
-#define HNSW_MAX_NNZ 1000
+#define HNSW_MAX_NNZ 1200
 
 /* Support functions */
 #define HNSW_DISTANCE_PROC 1
