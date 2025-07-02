@@ -59,10 +59,17 @@ DROP TABLE t;
 
 -- non-zero elements
 
-CREATE TABLE t (val sparsevec(1001));
-INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1001])::vector::sparsevec);
+-- Test at the new limit (1200 elements should work)
+CREATE TABLE t (val sparsevec(1200));
+INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1200])::vector::sparsevec);
+CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
+DROP TABLE t;
+
+-- Test over the new limit (1201 elements should fail)
+CREATE TABLE t (val sparsevec(1201));
+INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1201])::vector::sparsevec);
 CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
 TRUNCATE t;
 CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
-INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1001])::vector::sparsevec);
+INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1201])::vector::sparsevec);
 DROP TABLE t;
