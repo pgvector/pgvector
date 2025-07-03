@@ -184,9 +184,15 @@ vector_in(PG_FUNCTION_ARGS)
 		pt++;
 
 	if (*pt == ']')
-		ereport(ERROR,
+		erepart(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("vector must have at least 1 dimension")));
+
+	if (*pt == '\0')
+		erepart(ERROR,
+				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+				 errmsg("invalid input syntax for type vector: \"%s\"", lit),
+				 errdetail("Empty string is not a valid vector representation.")));
 
 	for (;;)
 	{
@@ -203,9 +209,10 @@ vector_in(PG_FUNCTION_ARGS)
 
 		/* Check for empty string like float4in */
 		if (*pt == '\0')
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-					 errmsg("invalid input syntax for type vector: \"%s\"", lit)));
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+                     errmsg("invalid input syntax for type vector: \"%s\"", lit),
+                     errdetail("Empty string is not a valid vector representation.")));
 
 		errno = 0;
 
@@ -1157,11 +1164,13 @@ vector_accum(PG_FUNCTION_ARGS)
 	{
 		for (int i = 0; i < dim; i++)
 		{
-			double		v = statevalues[i + 1] + x[i];
+							double		v = statevalues[i + 1];
 
 			/* Check for overflow */
-			if (isinf(v))
+			if ((x[i] > 0 && v > DBL_MAX - x[i]) || (x[i] < 0 && v < DBL_MIN - x[i]))
 				float_overflow_error();
+
+			v += x[i];
 
 			statedatums[i + 1] = Float8GetDatum(v);
 		}
@@ -1227,11 +1236,14 @@ vector_combine(PG_FUNCTION_ARGS)
 		statedatums = CreateStateDatums(dim);
 		for (int i = 1; i <= dim; i++)
 		{
-			double		v = statevalues1[i] + statevalues2[i];
+							double		v1 = statevalues1[i];
+				double		v2 = statevalues2[i];
 
 			/* Check for overflow */
-			if (isinf(v))
+			if ((v2 > 0 && v1 > DBL_MAX - v2) || (v2 < 0 && v1 < DBL_MIN - v2))
 				float_overflow_error();
+
+			v = v1 + v2;
 
 			statedatums[i] = Float8GetDatum(v);
 		}
