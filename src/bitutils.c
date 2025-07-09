@@ -41,11 +41,11 @@
 #define popcount64(x) pg_popcount64(x)
 #endif
 
-uint64		(*BitHammingDistance) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance);
-double		(*BitJaccardDistance) (uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb);
+uint64		(*BitHammingDistance) (uint32 bytes, const unsigned char *ax, const unsigned char *bx, uint64 distance);
+double		(*BitJaccardDistance) (uint32 bytes, const unsigned char *ax, const unsigned char *bx, uint64 ab, uint64 aa, uint64 bb);
 
 BIT_TARGET_CLONES static uint64
-BitHammingDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance)
+BitHammingDistanceDefault(uint32 bytes, const unsigned char *ax, const unsigned char *bx, uint64 distance)
 {
 #ifdef popcount64
 	for (; bytes >= sizeof(uint64); bytes -= sizeof(uint64))
@@ -72,7 +72,7 @@ BitHammingDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 
 #ifdef BIT_DISPATCH
 TARGET_AVX512_POPCOUNT static uint64
-BitHammingDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance)
+BitHammingDistanceAvx512Popcount(uint32 bytes, const unsigned char *ax, const unsigned char *bx, uint64 distance)
 {
 	__m512i		dist = _mm512_setzero_si512();
 
@@ -94,7 +94,7 @@ BitHammingDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char 
 #endif
 
 BIT_TARGET_CLONES static double
-BitJaccardDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb)
+BitJaccardDistanceDefault(uint32 bytes, const unsigned char *ax, const unsigned char *bx, uint64 ab, uint64 aa, uint64 bb)
 {
 #ifdef popcount64
 	for (; bytes >= sizeof(uint64); bytes -= sizeof(uint64))
@@ -130,7 +130,7 @@ BitJaccardDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 
 #ifdef BIT_DISPATCH
 TARGET_AVX512_POPCOUNT static double
-BitJaccardDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb)
+BitJaccardDistanceAvx512Popcount(uint32 bytes, const unsigned char *ax, const unsigned char *bx, uint64 ab, uint64 aa, uint64 bb)
 {
 	__m512i		abx = _mm512_setzero_si512();
 	__m512i		aax = _mm512_setzero_si512();
