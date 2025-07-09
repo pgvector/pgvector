@@ -1,8 +1,15 @@
 /.git/
 /dist/
+/log/
 /results/
 /tmp_check/
 /sql/vector--?.?.?.sql
 regression.*
 *.o
 *.so
+*.bc
+*.dll
+*.dylib
+*.obj
+*.lib
+*.exp
