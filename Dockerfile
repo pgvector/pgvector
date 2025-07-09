@@ -1,5 +1,5 @@
 ARG PG_MAJOR=17
-FROM postgres:$PG_MAJOR
+FROM postgres:$PG_MAJOR-bookworm
 ARG PG_MAJOR
 
 COPY . /tmp/pgvector
