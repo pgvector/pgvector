@@ -362,6 +362,13 @@ typedef union
 	ItemPointerData indextid;
 }			HnswUnvisited;
 
+typedef struct HnswReadStreamData
+{
+	HnswUnvisited *unvisited;
+	int			unvisitedLength;
+	int			index;
+}			HnswReadStreamData;
+
 typedef struct HnswScanOpaqueData
 {
 	const		HnswTypeInfo *typeInfo;

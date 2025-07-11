@@ -15,6 +15,10 @@
 #include "utils/memdebug.h"
 #include "utils/rel.h"
 
+#if PG_VERSION_NUM >= 170000
+#include "storage/read_stream.h"
+#endif
+
 #if PG_VERSION_NUM < 170000
 static inline uint64
 murmurhash64(uint64 data)
@@ -525,14 +529,12 @@ HnswGetDistance(Datum a, Datum b, HnswSupport * support)
  * Load an element and optionally get its distance from q
  */
 static void
-HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance, HnswElement * element)
+HnswLoadElementImpl(Buffer buf, OffsetNumber offno, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance, HnswElement * element)
 {
-	Buffer		buf;
 	Page		page;
 	HnswElementTuple etup;
 
 	/* Read vector */
-	buf = ReadBuffer(index, blkno);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 
@@ -553,7 +555,7 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Hns
 	if (distance == NULL || maxDistance == NULL || *distance < *maxDistance)
 	{
 		if (*element == NULL)
-			*element = HnswInitElementFromBlock(blkno, offno);
+			*element = HnswInitElementFromBlock(BufferGetBlockNumber(buf), offno);
 
 		HnswLoadElementFromTuple(*element, etup, true, loadVec);
 	}
@@ -567,7 +569,9 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Hns
 void
 HnswLoadElement(HnswElement element, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance)
 {
-	HnswLoadElementImpl(element->blkno, element->offno, distance, q, index, support, loadVec, maxDistance, &element);
+	Buffer		buf = ReadBuffer(index, element->blkno);
+
+	HnswLoadElementImpl(buf, element->offno, distance, q, index, support, loadVec, maxDistance, &element);
 }
 
 /*
@@ -807,6 +811,26 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	}
 }
 
+#if PG_VERSION_NUM >= 170000
+/*
+ * Get next block number for read stream
+ */
+static BlockNumber
+HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *per_buffer_data)
+{
+	HnswReadStreamData *streamData = callback_private_data;
+	OffsetNumber *offno = per_buffer_data;
+	HnswUnvisited *uv;
+
+	if (streamData->index == streamData->unvisitedLength)
+		return InvalidBlockNumber;
+
+	uv = &streamData->unvisited[streamData->index++];
+	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
+	return ItemPointerGetBlockNumber(&uv->indextid);
+}
+#endif
+
 /*
  * Algorithm 2 from paper
  */
@@ -825,6 +849,10 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswUnvisited *unvisited = palloc(lm * sizeof(HnswUnvisited));
 	int			unvisitedLength;
 	bool		inMemory = index == NULL;
+#if PG_VERSION_NUM >= 170000
+	HnswReadStreamData streamData;
+	ReadStream *stream = inMemory ? NULL : read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &streamData, sizeof(OffsetNumber));
+#endif
 
 	if (v == NULL)
 	{
@@ -888,7 +916,16 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		if (inMemory)
 			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
 		else
+		{
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
+
+#if PG_VERSION_NUM >= 170000
+			read_stream_reset(stream);
+			streamData.unvisited = unvisited;
+			streamData.unvisitedLength = unvisitedLength;
+			streamData.index = 0;
+#endif
+		}
 
 		/* OK to count elements instead of tuples */
 		if (tuples != NULL)
@@ -910,13 +947,24 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 			}
 			else
 			{
+				Buffer		buf;
+				OffsetNumber offno;
+
+#if PG_VERSION_NUM >= 170000
+				OffsetNumber *offnoPtr;
+
+				buf = read_stream_next_buffer(stream, (void **) &offnoPtr);
+				offno = *offnoPtr;
+#else
 				ItemPointer indextid = &unvisited[i].indextid;
-				BlockNumber blkno = ItemPointerGetBlockNumber(indextid);
-				OffsetNumber offno = ItemPointerGetOffsetNumber(indextid);
+
+				buf = ReadBuffer(index, ItemPointerGetBlockNumber(indextid));
+				offno = ItemPointerGetOffsetNumber(indextid);
+#endif
 
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
-				HnswLoadElementImpl(blkno, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
+				HnswLoadElementImpl(buf, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
 
 				if (eElement == NULL)
 					continue;
@@ -971,6 +1019,11 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 		w = lappend(w, sc);
 	}
+
+#if PG_VERSION_NUM >= 170000
+	if (stream)
+		read_stream_end(stream);
+#endif
 
 	return w;
 }

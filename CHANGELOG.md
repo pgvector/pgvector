@@ -1,3 +1,7 @@
+## 0.8.1 (unreleased)
+
+- Improved performance of HNSW index scans for Postgres 17
+
 ## 0.8.0 (2024-10-30)
 
 - Added support for iterative index scans
