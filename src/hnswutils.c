@@ -854,6 +854,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswReadStreamData streamData;
 	ReadStream *stream;
 
+	/* TODO Use READ_STREAM_MAINTENANCE when creating index */
 	if (!inMemory)
 		stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &streamData, sizeof(OffsetNumber));
 #endif
