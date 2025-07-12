@@ -835,7 +835,7 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples)
+HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, bool maintenance)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -854,9 +854,12 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswReadStreamData streamData;
 	ReadStream *stream = NULL;
 
-	/* TODO Use READ_STREAM_MAINTENANCE when creating index or vacuuming */
 	if (!inMemory)
-		stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &streamData, sizeof(OffsetNumber));
+	{
+		int			flags = maintenance ? READ_STREAM_MAINTENANCE : READ_STREAM_DEFAULT;
+
+		stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &streamData, sizeof(OffsetNumber));
+	}
 #endif
 
 	if (v == NULL)
@@ -1326,7 +1329,7 @@ PrecomputeHash(char *base, HnswElement element)
  * Algorithm 1 from paper
  */
 void
-HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing)
+HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing, bool maintenance)
 {
 	List	   *ep;
 	List	   *w;
@@ -1353,7 +1356,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, maintenance);
 		ep = w;
 	}
 
@@ -1372,7 +1375,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *lw = NIL;
 		ListCell   *lc2;
 
-		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, maintenance);
 
 		/* Convert search candidates to candidates */
 		foreach(lc2, w)

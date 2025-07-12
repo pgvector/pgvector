@@ -457,7 +457,7 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	}
 
 	/* Find neighbors for element */
-	HnswFindElementNeighbors(base, element, entryPoint, NULL, support, m, efConstruction, false);
+	HnswFindElementNeighbors(base, element, entryPoint, NULL, support, m, efConstruction, false, true);
 
 	/* Update graph in memory */
 	UpdateGraphInMemory(support, element, m, efConstruction, entryPoint, buildstate);

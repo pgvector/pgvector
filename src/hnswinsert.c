@@ -725,7 +725,7 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 	}
 
 	/* Find neighbors for element */
-	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false, building);
 
 	/* Update graph on disk */
 	UpdateGraphOnDisk(index, support, element, m, efConstruction, entryPoint, building);
