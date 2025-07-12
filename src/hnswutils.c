@@ -849,9 +849,13 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswUnvisited *unvisited = palloc(lm * sizeof(HnswUnvisited));
 	int			unvisitedLength;
 	bool		inMemory = index == NULL;
+
 #if PG_VERSION_NUM >= 170000
 	HnswReadStreamData streamData;
-	ReadStream *stream = inMemory ? NULL : read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &streamData, sizeof(OffsetNumber));
+	ReadStream *stream;
+
+	if (!inMemory)
+		stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &streamData, sizeof(OffsetNumber));
 #endif
 
 	if (v == NULL)
@@ -921,6 +925,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 #if PG_VERSION_NUM >= 170000
 			read_stream_reset(stream);
+
 			streamData.unvisited = unvisited;
 			streamData.unvisitedLength = unvisitedLength;
 			streamData.index = 0;
@@ -951,10 +956,10 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 				OffsetNumber offno;
 
 #if PG_VERSION_NUM >= 170000
-				OffsetNumber *offnoPtr;
+				void	   *offnoPtr;
 
-				buf = read_stream_next_buffer(stream, (void **) &offnoPtr);
-				offno = *offnoPtr;
+				buf = read_stream_next_buffer(stream, &offnoPtr);
+				offno = *((OffsetNumber *) offnoPtr);
 #else
 				ItemPointer indextid = &unvisited[i].indextid;
 
@@ -1021,7 +1026,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	}
 
 #if PG_VERSION_NUM >= 170000
-	if (stream)
+	if (!inMemory)
 		read_stream_end(stream);
 #endif
 
