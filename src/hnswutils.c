@@ -852,7 +852,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 #if PG_VERSION_NUM >= 170000
 	HnswReadStreamData streamData;
-	ReadStream *stream;
+	ReadStream *stream = NULL;
 
 	/* TODO Use READ_STREAM_MAINTENANCE when creating index */
 	if (!inMemory)
