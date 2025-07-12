@@ -822,10 +822,10 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 	OffsetNumber *offno = per_buffer_data;
 	HnswUnvisited *uv;
 
-	if (streamData->index == streamData->unvisitedLength)
+	if (streamData->visited == streamData->unvisitedLength)
 		return InvalidBlockNumber;
 
-	uv = &streamData->unvisited[streamData->index++];
+	uv = &streamData->unvisited[streamData->visited++];
 	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
 	return ItemPointerGetBlockNumber(&uv->indextid);
 }
@@ -929,7 +929,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 			streamData.unvisited = unvisited;
 			streamData.unvisitedLength = unvisitedLength;
-			streamData.index = 0;
+			streamData.visited = 0;
 #endif
 		}
 

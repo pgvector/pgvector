@@ -366,7 +366,7 @@ typedef struct HnswReadStreamData
 {
 	HnswUnvisited *unvisited;
 	int			unvisitedLength;
-	int			index;
+	int			visited;
 }			HnswReadStreamData;
 
 typedef struct HnswScanOpaqueData
