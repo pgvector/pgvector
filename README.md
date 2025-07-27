@@ -1143,6 +1143,14 @@ docker pull pgvector/pgvector:pg17
 
 This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `17` with your Postgres server version, and run it the same way).
 
+Supported tags are:
+
+- `pg17`, `pg17-bookworm`, `0.8.0-pg17`, `0.8.0-pg17-bookworm`
+- `pg16`, `pg16-bookworm`, `0.8.0-pg16`, `0.8.0-pg16-bookworm`
+- `pg15`, `pg15-bookworm`, `0.8.0-pg15`, `0.8.0-pg15-bookworm`
+- `pg14`, `pg14-bookworm`, `0.8.0-pg14`, `0.8.0-pg14-bookworm`
+- `pg13`, `pg13-bookworm`, `0.8.0-pg13`, `0.8.0-pg13-bookworm`
+
 You can also build the image manually:
 
 ```sh
