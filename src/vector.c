@@ -916,19 +916,17 @@ vector_concat(PG_FUNCTION_ARGS)
 	Vector	   *b = PG_GETARG_VECTOR_P(1);
 	Vector	   *result;
 	int			dim = a->dim + b->dim;
-	int			dim_a = a->dim;
-	int			dim_b = b->dim;
 
 	CheckDim(dim);
 	result = InitVector(dim);
 
 	/* Auto-vectorized */
-	for (int i = 0; i < dim_a; i++)
+	for (int i = 0, imax = a->dim; i < imax; i++)
 		result->x[i] = a->x[i];
 
 	/* Auto-vectorized */
-	for (int i = 0; i < dim_b; i++)
-		result->x[i + dim_a] = b->x[i];
+	for (int i = 0, imax = b->dim, start = a->dim; i < imax; i++)
+		result->x[i + start] = b->x[i];
 
 	PG_RETURN_POINTER(result);
 }
