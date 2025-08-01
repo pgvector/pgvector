@@ -35,7 +35,11 @@
 #define VECTOR_TARGET_CLONES
 #endif
 
+#if PG_VERSION_NUM >= 180000
+PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.8.0");
+#else
 PG_MODULE_MAGIC;
+#endif
 
 /*
  * Initialize index options and variables
