@@ -1210,7 +1210,7 @@ Note: Replace `17` with your Postgres server version
 Install the FreeBSD package with:
 
 ```sh
-pkg install postgresql16-pgvector
+pkg install postgresql17-pgvector
 ```
 
 or the port with:
