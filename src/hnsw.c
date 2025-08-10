@@ -118,104 +118,97 @@ hnswbuildphasename(int64 phasenum)
  */
 static void
 hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
-				 Cost *indexStartupCost, Cost *indexTotalCost,
-				 Selectivity *indexSelectivity, double *indexCorrelation,
-				 double *indexPages)
+                 Cost *indexStartupCost, Cost *indexTotalCost,
+                 Selectivity *indexSelectivity, double *indexCorrelation,
+                 double *indexPages)
 {
-	GenericCosts costs;
-	int			m;
-	double		ratio;
-	double		startupPages;
-	double		spc_seq_page_cost;
-	Relation	index;
+    GenericCosts costs;
+    int     m;
+    double  ratio;
+    Relation index;
 
-	/* Never use index without order */
-	if (path->indexorderbys == NULL)
-	{
-		*indexStartupCost = get_float8_infinity();
-		*indexTotalCost = get_float8_infinity();
-		*indexSelectivity = 0;
-		*indexCorrelation = 0;
-		*indexPages = 0;
+    /* Only meaningful for ORDER BY <=> queries */
+    if (path->indexorderbys == NULL)
+    {
+        *indexStartupCost = get_float8_infinity();
+        *indexTotalCost   = get_float8_infinity();
+        *indexSelectivity = 0;
+        *indexCorrelation = 0;
+        *indexPages       = 0;
 #if PG_VERSION_NUM >= 180000
-		/* See "On disable_cost" thread on pgsql-hackers */
-		path->path.disabled_nodes = 2;
+        path->path.disabled_nodes = 2;
 #endif
-		return;
-	}
+        return;
+    }
 
-	MemSet(&costs, 0, sizeof(costs));
+    MemSet(&costs, 0, sizeof(costs));
+    genericcostestimate(root, path, loop_count, &costs);   /* base costs */  /* docs describe these standard params */ /* [3](https://www.postgresql.org/docs/current/index-cost-estimation.html) */
 
-	genericcostestimate(root, path, loop_count, &costs);
+    /* HNSW metadata */
+    index = index_open(path->indexinfo->indexoid, NoLock);
+    HnswGetMetaPageInfo(index, &m, NULL);
+    index_close(index, NoLock);
 
-	index = index_open(path->indexinfo->indexoid, NoLock);
-	HnswGetMetaPageInfo(index, &m, NULL);
-	index_close(index, NoLock);
+    /* --- Visit fraction -------------------------------------------------- */
+    double N  = (path->indexinfo->tuples > 1) ? path->indexinfo->tuples : 1.0;
+    int    M  = m;
+    int    ef = hnsw_ef_search;
 
-	/*
-	 * HNSW cost estimation follows a formula that accounts for the total
-	 * number of tuples indexed combined with the parameters that most
-	 * influence the duration of the index scan, namely: m - the number of
-	 * tuples that are scanned in each step of the HNSW graph traversal
-	 * ef_search - which influences the total number of steps taken at layer 0
-	 *
-	 * The source of the vector data can impact how many steps it takes to
-	 * converge on the set of vectors to return to the executor. Currently, we
-	 * use a hardcoded scaling factor (HNSWScanScalingFactor) to help
-	 * influence that, but this could later become a configurable parameter
-	 * based on the cost estimations.
-	 *
-	 * The tuple estimator formula is below:
-	 *
-	 * numIndexTuples = entryLevel * m + layer0TuplesMax * layer0Selectivity
-	 *
-	 * "entryLevel * m" represents the floor of tuples we need to scan to get
-	 * to layer 0 (L0).
-	 *
-	 * "layer0TuplesMax" is the estimated total number of tuples we'd scan at
-	 * L0 if we weren't discarding already visited tuples as part of the scan.
-	 *
-	 * "layer0Selectivity" estimates the percentage of tuples that are scanned
-	 * at L0, accounting for previously visited tuples, multiplied by the
-	 * "scalingFactor" (currently hardcoded).
-	 */
-	if (path->indexinfo->tuples > 0)
-	{
-		double		scalingFactor = 0.55;
-		int			entryLevel = (int) (log(path->indexinfo->tuples) * HnswGetMl(m));
-		int			layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
-		double		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(hnsw_ef_search)));
+	/* Defaults, should be exposed as parameters*/
+	double HNSW_C1 = 1.0
+	double HNSW_C2 = 1.0
+	double hnsw_cpu_per_distance = 0.0005
 
-		ratio = (entryLevel * m + layer0TuplesMax * layer0Selectivity) / path->indexinfo->tuples;
+    /* expected visited nodes ~ c1*M*log(N) + c2*ef  (HNSW theory) */       /* [1](https://arxiv.org/abs/1603.09320)[2](https://users.cs.utah.edu/~pandey/courses/cs6530/fall24/papers/vectordb/HNSW.pdf) */
+    double visited  = HNSW_C1 * (double)M * log(N) + HNSW_C2 * (double)ef;
+    ratio = visited / N;
+    if (ratio > 1.0) ratio = 1.0;
+    if (ratio < 0.0) ratio = 0.0;
 
-		if (ratio > 1)
-			ratio = 1;
-	}
-	else
-		ratio = 1;
+    /* LIMIT awareness (optional) */
+    double K = clamp_row_est(path->path.rows);
+    if (K > 0 && K < N)
+    {
+        double limit_bias = 1.0 - exp(-K / (ef + 1.0));
+        ratio *= limit_bias;
+    }
 
-	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
+    /* --- Scale base costs ------------------------------------------------ */
+    double baseStartup = costs.indexStartupCost;
+    double baseTotal   = costs.indexTotalCost;
+    double runPart     = baseTotal - baseStartup;
 
-	/* Startup cost is cost before returning the first row */
-	costs.indexStartupCost = costs.indexTotalCost * ratio;
+    /* model “first row” cheaper (optional) */
+    costs.indexStartupCost = baseStartup * ratio;
 
-	/* Adjust cost if needed since TOAST not included in seq scan cost */
-	startupPages = costs.numIndexPages * ratio;
-	if (startupPages > path->indexinfo->rel->pages && ratio < 0.5)
-	{
-		/* Change all page cost from random to sequential */
-		costs.indexStartupCost -= startupPages * (costs.spc_random_page_cost - spc_seq_page_cost);
+    /* run part scales with visited fraction */
+    runPart *= ratio;
 
-		/* Remove cost of extra pages */
-		costs.indexStartupCost -= (startupPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
-	}
+    /* --- Distance-evaluation CPU surcharge ------------------------------ */
+    double dims          = hnsw_vector_dims;            /* GUC or detect from index key typmod */
+    double op_cost       = Max(cpu_operator_cost, 0.0);
+    double per_eval_cpu  = hnsw_cpu_per_distance * (dims / 128.0); /* tunable */
 
-	*indexStartupCost = costs.indexStartupCost;
-	*indexTotalCost = costs.indexTotalCost;
-	*indexSelectivity = costs.indexSelectivity;
-	*indexCorrelation = costs.indexCorrelation;
-	*indexPages = costs.numIndexPages;
+    double evals = (HNSW_C1 * (double)M * log(N)) + (HNSW_C2 * (double)ef);
+    runPart += evals * (op_cost + per_eval_cpu);        /* add to run part */
+
+    costs.indexTotalCost = baseStartup + runPart;
+
+    /* --- Correlation & pages -------------------------------------------- */
+    *indexCorrelation = 0.0;                            /* HNSW ~ no heap order correlation */ /* [3](https://www.postgresql.org/docs/current/index-cost-estimation.html) */
+    costs.numIndexPages *= ratio;                       /* fewer leaf pages touched */
+    *indexPages = costs.numIndexPages;
+
+    /* --- Selectivity ----------------------------------------------------- */
+    /* Optionally base on LIMIT K; otherwise keep generic selectivity */
+    if (K > 0 && path->path.parent && path->path.parent->rows > 0)
+        costs.indexSelectivity = Min(1.0, K / path->path.parent->rows);
+
+    *indexStartupCost = costs.indexStartupCost;
+    *indexTotalCost   = costs.indexTotalCost;
+    *indexSelectivity = costs.indexSelectivity;
 }
+
 
 /*
  * Parse and validate the reloptions
