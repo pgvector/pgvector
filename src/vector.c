@@ -21,6 +21,7 @@
 #include "utils/lsyscache.h"
 #include "utils/numeric.h"
 #include "vector.h"
+#include "vectorutils.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
@@ -48,6 +49,7 @@ PGDLLEXPORT void _PG_init(void);
 void
 _PG_init(void)
 {
+	VectorInit();
 	BitvecInit();
 	HalfvecInit();
 	HnswInit();
@@ -947,8 +949,7 @@ binary_quantize(PG_FUNCTION_ARGS)
 	VarBit	   *result = InitBitVector(a->dim);
 	unsigned char *rx = VARBITS(result);
 
-	for (int i = 0; i < a->dim; i++)
-		rx[i / 8] |= (ax[i] > 0) << (7 - (i % 8));
+	BinaryQuantize(a->dim, ax, rx);
 
 	PG_RETURN_VARBIT_P(result);
 }
