@@ -901,7 +901,7 @@ halfvec_binary_quantize(PG_FUNCTION_ARGS)
 	int			i = 0;
 	int			count = (a->dim / 8) * 8;
 
-	/* Auto-vectorized */
+	/* Auto-vectorized on aarch64 */
 	for (; i < count; i += 8)
 	{
 		unsigned char result_byte = 0;
