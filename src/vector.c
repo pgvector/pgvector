@@ -946,17 +946,20 @@ binary_quantize(PG_FUNCTION_ARGS)
 	float	   *ax = a->x;
 	VarBit	   *result = InitBitVector(a->dim);
 	unsigned char *rx = VARBITS(result);
-	int			i;
+	int			i = 0;
 	int			count = (a->dim / 8) * 8;
-	unsigned char result_byte;
 
-	for (i = 0; i < count; i += 8)
+	/* Auto-vectorized */
+	for (; i < count; i += 8)
 	{
-		result_byte = 0;
+		unsigned char result_byte = 0;
+
 		for (int j = 0; j < 8; j++)
 			result_byte |= (ax[i + j] > 0) << (7 - j);
+
 		rx[i / 8] = result_byte;
 	}
+
 	for (; i < a->dim; i++)
 		rx[i / 8] |= (ax[i] > 0) << (7 - (i % 8));
 

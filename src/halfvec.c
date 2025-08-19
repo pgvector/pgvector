@@ -898,8 +898,21 @@ halfvec_binary_quantize(PG_FUNCTION_ARGS)
 	half	   *ax = a->x;
 	VarBit	   *result = InitBitVector(a->dim);
 	unsigned char *rx = VARBITS(result);
+	int			i = 0;
+	int			count = (a->dim / 8) * 8;
 
-	for (int i = 0; i < a->dim; i++)
+	/* Auto-vectorized */
+	for (; i < count; i += 8)
+	{
+		unsigned char result_byte = 0;
+
+		for (int j = 0; j < 8; j++)
+			result_byte |= (HalfToFloat4(ax[i + j]) > 0) << (7 - j);
+
+		rx[i / 8] = result_byte;
+	}
+
+	for (; i < a->dim; i++)
 		rx[i / 8] |= (HalfToFloat4(ax[i]) > 0) << (7 - (i % 8));
 
 	PG_RETURN_VARBIT_P(result);
