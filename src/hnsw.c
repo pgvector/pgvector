@@ -130,7 +130,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	Relation	index;
 
 	/* Never use index without order */
-	if (path->indexorderbys == NULL)
+	if (path->indexorderbys == NIL)
 	{
 		*indexStartupCost = get_float8_infinity();
 		*indexTotalCost = get_float8_infinity();
