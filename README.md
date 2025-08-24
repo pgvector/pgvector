@@ -1138,17 +1138,22 @@ If installation fails with `Access is denied`, re-run the installation instructi
 Get the [Docker image](https://hub.docker.com/r/pgvector/pgvector) with:
 
 ```sh
-docker pull pgvector/pgvector:pg17
+docker pull pgvector/pgvector:pg17-trixie
 ```
 
 This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `17` with your Postgres server version, and run it the same way).
 
 Supported tags are:
 
+- `pg17-trixie`, `0.8.0-pg17-trixie`
 - `pg17`, `pg17-bookworm`, `0.8.0-pg17`, `0.8.0-pg17-bookworm`
+- `pg16-trixie`, `0.8.0-pg16-trixie`
 - `pg16`, `pg16-bookworm`, `0.8.0-pg16`, `0.8.0-pg16-bookworm`
+- `pg15-trixie`, `0.8.0-pg15-trixie`
 - `pg15`, `pg15-bookworm`, `0.8.0-pg15`, `0.8.0-pg15-bookworm`
+- `pg14-trixie`, `0.8.0-pg14-trixie`
 - `pg14`, `pg14-bookworm`, `0.8.0-pg14`, `0.8.0-pg14-bookworm`
+- `pg13-trixie`, `0.8.0-pg13-trixie`
 - `pg13`, `pg13-bookworm`, `0.8.0-pg13`, `0.8.0-pg13-bookworm`
 
 You can also build the image manually:
