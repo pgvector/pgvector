@@ -1146,15 +1146,15 @@ This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (r
 Supported tags are:
 
 - `pg17-trixie`, `0.8.0-pg17-trixie`
-- `pg17`, `pg17-bookworm`, `0.8.0-pg17`, `0.8.0-pg17-bookworm`
+- `pg17-bookworm`, `0.8.0-pg17-bookworm`, `pg17`, `0.8.0-pg17`
 - `pg16-trixie`, `0.8.0-pg16-trixie`
-- `pg16`, `pg16-bookworm`, `0.8.0-pg16`, `0.8.0-pg16-bookworm`
+- `pg16-bookworm`, `0.8.0-pg16-bookworm`, `pg16`, `0.8.0-pg16`
 - `pg15-trixie`, `0.8.0-pg15-trixie`
-- `pg15`, `pg15-bookworm`, `0.8.0-pg15`, `0.8.0-pg15-bookworm`
+- `pg15-bookworm`, `0.8.0-pg15-bookworm`, `pg15`, `0.8.0-pg15`
 - `pg14-trixie`, `0.8.0-pg14-trixie`
-- `pg14`, `pg14-bookworm`, `0.8.0-pg14`, `0.8.0-pg14-bookworm`
+- `pg14-bookworm`, `0.8.0-pg14-bookworm`, `pg14`, `0.8.0-pg14`
 - `pg13-trixie`, `0.8.0-pg13-trixie`
-- `pg13`, `pg13-bookworm`, `0.8.0-pg13`, `0.8.0-pg13-bookworm`
+- `pg13-bookworm`, `0.8.0-pg13-bookworm`, `pg13`, `0.8.0-pg13`
 
 You can also build the image manually:
 
