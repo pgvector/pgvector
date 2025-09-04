@@ -52,12 +52,20 @@ HnswInitLockTranche(void)
 								  sizeof(int) * 1,
 								  &found);
 	if (!found)
+	{
+#if PG_VERSION_NUM >= 190000
+		tranche_ids[0] = LWLockNewTrancheId("HnswBuild");
+#else
 		tranche_ids[0] = LWLockNewTrancheId();
+#endif
+	}
 	hnsw_lock_tranche_id = tranche_ids[0];
 	LWLockRelease(AddinShmemInitLock);
 
+#if PG_VERSION_NUM < 190000
 	/* Per-backend registration of the tranche ID */
 	LWLockRegisterTranche(hnsw_lock_tranche_id, "HnswBuild");
+#endif
 }
 
 /*
