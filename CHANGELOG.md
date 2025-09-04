@@ -1,6 +1,6 @@
 ## 0.8.1 (unreleased)
 
-- Added support for Postgres 18
+- Added support for Postgres 18 rc1
 - Improved performance of `binary_quantize` function
 
 ## 0.8.0 (2024-10-30)
