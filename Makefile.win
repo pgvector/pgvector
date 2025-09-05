@@ -31,6 +31,9 @@ LIBDIR = $(PGROOT)\lib
 PKGLIBDIR = $(PGROOT)\lib
 SHAREDIR = $(PGROOT)\share
 
+# Use $(PGROOT)\bin\pg_regress for Postgres < 17
+PG_REGRESS = $(LIBDIR)\pgxs\src\test\regress\pg_regress
+
 CFLAGS = /nologo /I"$(INCLUDEDIR_SERVER)\port\win32_msvc" /I"$(INCLUDEDIR_SERVER)\port\win32" /I"$(INCLUDEDIR_SERVER)" /I"$(INCLUDEDIR)"
 
 CFLAGS = $(CFLAGS) $(PG_CFLAGS)
@@ -58,7 +61,7 @@ install: all
 	for %f in ($(HEADERS)) do copy %f "$(INCLUDEDIR_SERVER)\extension\$(EXTENSION)"
 
 installcheck:
-	"$(BINDIR)\pg_regress" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
+	"$(PG_REGRESS)" --bindir="$(BINDIR)" $(REGRESS_OPTS) $(REGRESS)
 
 uninstall:
 	del /f "$(PKGLIBDIR)\$(SHLIB)"

@@ -81,18 +81,26 @@ jobs:
           LLVM_VERSION: ${{ matrix.os == 'macos-15' && 18 || 15 }}
           PG_CFLAGS: -DUSE_ASSERT_CHECKING
   windows:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     if: ${{ !startsWith(github.ref_name, 'mac') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - postgres: 17
+            os: windows-2025
+          - postgres: 14
+            os: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: ankane/setup-postgres@v1
         with:
-          postgres-version: 14
+          postgres-version: ${{ matrix.postgres }}
       - run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
           nmake /NOLOGO /F Makefile.win && ^
           nmake /NOLOGO /F Makefile.win install && ^
-          nmake /NOLOGO /F Makefile.win installcheck && ^
+          nmake /NOLOGO /F Makefile.win installcheck ${{ matrix.postgres != 17 && 'PG_REGRESS=$(PGROOT)\bin\pg_regress' || '' }} && ^
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
