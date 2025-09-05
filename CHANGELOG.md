@@ -1,4 +1,4 @@
-## 0.8.1 (unreleased)
+## 0.8.1 (2025-09-04)
 
 - Added support for Postgres 18 rc1
 - Improved performance of `binary_quantize` function
