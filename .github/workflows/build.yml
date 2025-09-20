@@ -49,7 +49,7 @@ jobs:
       matrix:
         include:
           - postgres: 17
-            os: macos-15
+            os: macos-26
           - postgres: 14
             os: macos-15-intel
     steps:
@@ -78,7 +78,7 @@ jobs:
           PERL5LIB: /Users/runner/perl5/lib/perl5
       - run: make clean && $(brew --prefix llvm@$LLVM_VERSION)/bin/scan-build --status-bugs make
         env:
-          LLVM_VERSION: ${{ matrix.os == 'macos-15' && 18 || 15 }}
+          LLVM_VERSION: ${{ matrix.os == 'macos-26' && 20 || 18 }}
           PG_CFLAGS: -DUSE_ASSERT_CHECKING
   windows:
     runs-on: ${{ matrix.os }}
