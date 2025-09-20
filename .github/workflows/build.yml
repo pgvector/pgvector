@@ -51,7 +51,7 @@ jobs:
           - postgres: 17
             os: macos-15
           - postgres: 14
-            os: macos-13
+            os: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - uses: ankane/setup-postgres@v1
