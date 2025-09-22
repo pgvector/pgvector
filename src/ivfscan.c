@@ -119,6 +119,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 	tuplesort_reset(so->sortstate);
 
+	if (scan->parallel_scan != NULL)
+		elog(INFO, "parallel scan");
+
 	/* Search closest probes lists */
 	while (so->listIndex < so->maxProbes && (++batchProbes) <= so->probes)
 	{
