@@ -188,7 +188,7 @@ IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions)
 void
 IvfflatUpdateList(Relation index, ListInfo listInfo,
 				  BlockNumber insertPage, BlockNumber originalInsertPage,
-				  BlockNumber startPage, ForkNumber forkNum)
+				  BlockNumber startPage, int numBlocks, ForkNumber forkNum)
 {
 	Buffer		buf;
 	Page		page;
@@ -218,6 +218,9 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 		list->startPage = startPage;
 		changed = true;
 	}
+
+	list->numBlocks=numBlocks;
+	changed=true;
 
 	/* Only commit if changed */
 	if (changed)
@@ -259,8 +262,8 @@ VectorUpdateCenter(Pointer v, int dimensions, float *x)
 	SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
 	vec->dim = dimensions;
 
-	for (int i = 0; i < dimensions; i++)
-		vec->x[i] = x[i];
+	for (int k = 0; k < dimensions; k++)
+		vec->x[k] = x[k];
 }
 
 static void
@@ -271,8 +274,8 @@ HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 	SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
 	vec->dim = dimensions;
 
-	for (int i = 0; i < dimensions; i++)
-		vec->x[i] = Float4ToHalfUnchecked(x[i]);
+	for (int k = 0; k < dimensions; k++)
+		vec->x[k] = Float4ToHalfUnchecked(x[k]);
 }
 
 static void
@@ -284,33 +287,29 @@ BitUpdateCenter(Pointer v, int dimensions, float *x)
 	SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
 	VARBITLEN(vec) = dimensions;
 
-	for (uint32 i = 0; i < VARBITBYTES(vec); i++)
-		nx[i] = 0;
+	for (uint32 k = 0; k < VARBITBYTES(vec); k++)
+		nx[k] = 0;
 
-	for (int i = 0; i < dimensions; i++)
-		nx[i / 8] |= (x[i] > 0.5 ? 1 : 0) << (7 - (i % 8));
+	for (int k = 0; k < dimensions; k++)
+		nx[k / 8] |= (x[k] > 0.5 ? 1 : 0) << (7 - (k % 8));
 }
 
 static void
 VectorSumCenter(Pointer v, float *x)
 {
 	Vector	   *vec = (Vector *) v;
-	int			dim = vec->dim;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
-		x[i] += vec->x[i];
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += vec->x[k];
 }
 
 static void
 HalfvecSumCenter(Pointer v, float *x)
 {
 	HalfVector *vec = (HalfVector *) v;
-	int			dim = vec->dim;
 
-	/* Auto-vectorized on aarch64 */
-	for (int i = 0; i < dim; i++)
-		x[i] += HalfToFloat4(vec->x[i]);
+	for (int k = 0; k < vec->dim; k++)
+		x[k] += HalfToFloat4(vec->x[k]);
 }
 
 static void
@@ -318,8 +317,8 @@ BitSumCenter(Pointer v, float *x)
 {
 	VarBit	   *vec = (VarBit *) v;
 
-	for (int i = 0; i < VARBITLEN(vec); i++)
-		x[i] += (float) (((VARBITS(vec)[i / 8]) >> (7 - (i % 8))) & 0x01);
+	for (int k = 0; k < VARBITLEN(vec); k++)
+		x[k] += (float) (((VARBITS(vec)[k / 8]) >> (7 - (k % 8))) & 0x01);
 }
 
 /*

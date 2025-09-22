@@ -172,7 +172,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, R
 
 	/* Update the insert page */
 	if (insertPage != originalInsertPage)
-		IvfflatUpdateList(index, listInfo, insertPage, originalInsertPage, InvalidBlockNumber, MAIN_FORKNUM);
+		IvfflatUpdateList(index, listInfo, insertPage, originalInsertPage, InvalidBlockNumber, 0, MAIN_FORKNUM);
 }
 
 /*

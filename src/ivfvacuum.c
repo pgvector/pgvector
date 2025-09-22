@@ -129,7 +129,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			if (BlockNumberIsValid(insertPage))
 			{
 				listInfo.offno = coffno;
-				IvfflatUpdateList(index, listInfo, insertPage, InvalidBlockNumber, InvalidBlockNumber, MAIN_FORKNUM);
+				IvfflatUpdateList(index, listInfo, insertPage, InvalidBlockNumber, InvalidBlockNumber, 0,MAIN_FORKNUM);
 			}
 		}
 	}
