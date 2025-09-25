@@ -36,7 +36,7 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#p
 Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed and run `x64 Native Tools Command Prompt for VS [version]` as administrator. Then use `nmake` to build:
 
 ```cmd
-set "PGROOT=C:\Program Files\PostgreSQL\17"
+set "PGROOT=C:\Program Files\PostgreSQL\18"
 cd %TEMP%
 git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git
 cd pgvector
@@ -1064,7 +1064,7 @@ l2_normalize(sparsevec) → sparsevec | Normalize with Euclidean norm | 0.7.0
 If your machine has multiple Postgres installations, specify the path to [pg_config](https://www.postgresql.org/docs/current/app-pgconfig.html) with:
 
 ```sh
-export PG_CONFIG=/Library/PostgreSQL/17/bin/pg_config
+export PG_CONFIG=/Library/PostgreSQL/18/bin/pg_config
 ```
 
 Then re-run the installation instructions (run `make clean` before `make` if needed). If `sudo` is needed for `make install`, use:
@@ -1075,11 +1075,11 @@ sudo --preserve-env=PG_CONFIG make install
 
 A few common paths on Mac are:
 
-- EDB installer - `/Library/PostgreSQL/17/bin/pg_config`
-- Homebrew (arm64) - `/opt/homebrew/opt/postgresql@17/bin/pg_config`
-- Homebrew (x86-64) - `/usr/local/opt/postgresql@17/bin/pg_config`
+- EDB installer - `/Library/PostgreSQL/18/bin/pg_config`
+- Homebrew (arm64) - `/opt/homebrew/opt/postgresql@18/bin/pg_config`
+- Homebrew (x86-64) - `/usr/local/opt/postgresql@18/bin/pg_config`
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### Missing Header
 
@@ -1088,10 +1088,10 @@ If compilation fails with `fatal error: postgres.h: No such file or directory`, 
 For Ubuntu and Debian, use:
 
 ```sh
-sudo apt install postgresql-server-dev-17
+sudo apt install postgresql-server-dev-18
 ```
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### Missing SDK
 
@@ -1193,22 +1193,22 @@ pgxn install vector
 Debian and Ubuntu packages are available from the [PostgreSQL APT Repository](https://wiki.postgresql.org/wiki/Apt). Follow the [setup instructions](https://wiki.postgresql.org/wiki/Apt#Quickstart) and run:
 
 ```sh
-sudo apt install postgresql-17-pgvector
+sudo apt install postgresql-18-pgvector
 ```
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### Yum
 
 RPM packages are available from the [PostgreSQL Yum Repository](https://yum.postgresql.org/). Follow the [setup instructions](https://www.postgresql.org/download/linux/redhat/) for your distribution and run:
 
 ```sh
-sudo yum install pgvector_17
+sudo yum install pgvector_18
 # or
-sudo dnf install pgvector_17
+sudo dnf install pgvector_18
 ```
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### pkg
 
