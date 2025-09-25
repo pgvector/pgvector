@@ -131,6 +131,69 @@ HnswBuildAppendPage(Relation index, Buffer *buf, Page *page, ForkNumber forkNum)
 	HnswInitPage(*buf, *page);
 }
 
+static void
+WriteElement(char *base, HnswElement element, HnswElementTuple etup, HnswNeighborTuple ntup, HnswBuildState * buildstate, Size maxSize, Buffer *buf, Page *page, Relation index, ForkNumber forkNum)
+{
+	Size		etupSize;
+	Size		ntupSize;
+	Size		combinedSize;
+	Pointer		valuePtr;
+
+	/* Skip if already added */
+	if (BlockNumberIsValid(element->neighborPage))
+		return;
+
+	valuePtr = HnswPtrAccess(base, element->value);
+
+	/* Zero memory for each element */
+	MemSet(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
+
+	/* Calculate sizes */
+	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(valuePtr));
+	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
+	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
+
+	/* Initial size check */
+	if (etupSize > HNSW_TUPLE_ALLOC_SIZE)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("index tuple too large")));
+
+	HnswSetElementTuple(base, etup, element);
+
+	/* Keep element and neighbors on the same page if possible */
+	if (PageGetFreeSpace(*page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(*page) < combinedSize))
+		HnswBuildAppendPage(index, buf, page, forkNum);
+
+	/* Calculate offsets */
+	element->blkno = BufferGetBlockNumber(*buf);
+	element->offno = OffsetNumberNext(PageGetMaxOffsetNumber(*page));
+	if (combinedSize <= maxSize)
+	{
+		element->neighborPage = element->blkno;
+		element->neighborOffno = OffsetNumberNext(element->offno);
+	}
+	else
+	{
+		element->neighborPage = element->blkno + 1;
+		element->neighborOffno = FirstOffsetNumber;
+	}
+
+	ItemPointerSet(&etup->neighbortid, element->neighborPage, element->neighborOffno);
+
+	/* Add element */
+	if (PageAddItem(*page, (Item) etup, etupSize, InvalidOffsetNumber, false, false) != element->offno)
+		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+
+	/* Add new page if needed */
+	if (PageGetFreeSpace(*page) < ntupSize)
+		HnswBuildAppendPage(index, buf, page, forkNum);
+
+	/* Add placeholder for neighbors */
+	if (PageAddItem(*page, (Item) ntup, ntupSize, InvalidOffsetNumber, false, false) != element->neighborOffno)
+		elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
+}
+
 /*
  * Create graph pages
  */
@@ -164,61 +227,24 @@ CreateGraphPages(HnswBuildState * buildstate)
 	while (!HnswPtrIsNull(base, iter))
 	{
 		HnswElement element = HnswPtrAccess(base, iter);
-		Size		etupSize;
-		Size		ntupSize;
-		Size		combinedSize;
-		Pointer		valuePtr = HnswPtrAccess(base, element->value);
 
 		/* Update iterator */
 		iter = element->next;
 
-		/* Zero memory for each element */
-		MemSet(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
+		WriteElement(base, element, etup, ntup, buildstate, maxSize, &buf, &page, index, forkNum);
 
-		/* Calculate sizes */
-		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(valuePtr));
-		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
-		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
-
-		/* Initial size check */
-		if (etupSize > HNSW_TUPLE_ALLOC_SIZE)
-			ereport(ERROR,
-					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-					 errmsg("index tuple too large")));
-
-		HnswSetElementTuple(base, etup, element);
-
-		/* Keep element and neighbors on the same page if possible */
-		if (PageGetFreeSpace(page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(page) < combinedSize))
-			HnswBuildAppendPage(index, &buf, &page, forkNum);
-
-		/* Calculate offsets */
-		element->blkno = BufferGetBlockNumber(buf);
-		element->offno = OffsetNumberNext(PageGetMaxOffsetNumber(page));
-		if (combinedSize <= maxSize)
+		for (int lc = element->level; lc >= 0; lc--)
 		{
-			element->neighborPage = element->blkno;
-			element->neighborOffno = OffsetNumberNext(element->offno);
+			HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, lc);
+
+			for (int i = 0; i < neighbors->length; i++)
+			{
+				HnswCandidate *hc = &neighbors->items[i];
+				HnswElement hce = HnswPtrAccess(base, hc->element);
+
+				WriteElement(base, hce, etup, ntup, buildstate, maxSize, &buf, &page, index, forkNum);
+			}
 		}
-		else
-		{
-			element->neighborPage = element->blkno + 1;
-			element->neighborOffno = FirstOffsetNumber;
-		}
-
-		ItemPointerSet(&etup->neighbortid, element->neighborPage, element->neighborOffno);
-
-		/* Add element */
-		if (PageAddItem(page, (Item) etup, etupSize, InvalidOffsetNumber, false, false) != element->offno)
-			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
-
-		/* Add new page if needed */
-		if (PageGetFreeSpace(page) < ntupSize)
-			HnswBuildAppendPage(index, &buf, &page, forkNum);
-
-		/* Add placeholder for neighbors */
-		if (PageAddItem(page, (Item) ntup, ntupSize, InvalidOffsetNumber, false, false) != element->neighborOffno)
-			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 	}
 
 	insertPage = BufferGetBlockNumber(buf);

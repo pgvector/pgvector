@@ -1,3 +1,7 @@
+## 0.8.2 (unreleased)
+
+- Improved performance of HNSW index scans from disk
+
 ## 0.8.1 (2025-09-04)
 
 - Added support for Postgres 18 rc1

@@ -253,6 +253,7 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 	element->deleted = 0;
 	/* Start at one to make it easier to find issues */
 	element->version = 1;
+	element->neighborPage = InvalidBlockNumber;
 
 	HnswInitNeighbors(base, element, m, allocator);
 
