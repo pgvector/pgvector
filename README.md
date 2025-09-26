@@ -1180,7 +1180,7 @@ With Homebrew Postgres, you can use:
 brew install pgvector
 ```
 
-Note: This only adds it to the `postgresql@17` and `postgresql@14` formulas
+Note: This only adds it to the `postgresql@18` and `postgresql@17` formulas
 
 ### PGXN
 
