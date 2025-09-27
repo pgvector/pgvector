@@ -138,7 +138,7 @@ SampleRows(IvfflatBuildState * buildstate)
  * Add tuple to sort
  */
 static void
-AddTupleToSort(Relation index, ItemPointer tid, Datum *values, IvfflatBuildState * buildstate)
+AddTupleToSort(ItemPointer tid, Datum *values, IvfflatBuildState * buildstate)
 {
 	double		distance;
 	double		minDistance = DBL_MAX;
@@ -215,7 +215,7 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/* Add tuple to sort */
-	AddTupleToSort(index, tid, values, buildstate);
+	AddTupleToSort(tid, values, buildstate);
 
 	/* Reset memory context */
 	MemoryContextSwitchTo(oldCtx);
@@ -470,8 +470,8 @@ CreateMetaPage(Relation index, int dimensions, int lists, ForkNumber forkNum)
  * Create list pages
  */
 static void
-CreateListPages(Relation index, VectorArray centers, int dimensions,
-				int lists, ForkNumber forkNum, ListInfo * *listInfo)
+CreateListPages(Relation index, VectorArray centers, int lists,
+				ForkNumber forkNum, ListInfo * *listInfo)
 {
 	Buffer		buf;
 	Page		page;
@@ -1004,7 +1004,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 
 	/* Create pages */
 	CreateMetaPage(index, buildstate->dimensions, buildstate->lists, forkNum);
-	CreateListPages(index, buildstate->centers, buildstate->dimensions, buildstate->lists, forkNum, &buildstate->listInfo);
+	CreateListPages(index, buildstate->centers, buildstate->lists, forkNum, &buildstate->listInfo);
 	CreateEntryPages(buildstate, forkNum);
 
 	/* Write WAL for initialization fork since GenericXLog functions do not */
