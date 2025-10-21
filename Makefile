@@ -1,5 +1,5 @@
 EXTENSION = vector
-EXTVERSION = 0.8.0
+EXTVERSION = 0.8.1
 
 MODULE_big = vector
 DATA = $(wildcard sql/*--*--*.sql)
@@ -77,3 +77,8 @@ docker:
 
 docker-release:
 	docker buildx build --push --pull --no-cache --platform linux/amd64,linux/arm64 --build-arg PG_MAJOR=$(PG_MAJOR) --build-arg DEBIAN_CODENAME=bookworm -t pgvector/pgvector:pg$(PG_MAJOR) -t pgvector/pgvector:pg$(PG_MAJOR)-bookworm -t pgvector/pgvector:$(EXTVERSION)-pg$(PG_MAJOR) -t pgvector/pgvector:$(EXTVERSION)-pg$(PG_MAJOR)-bookworm .
+
+.PHONY: docker-release-trixie
+
+docker-release-trixie:
+	docker buildx build --push --pull --no-cache --platform linux/amd64,linux/arm64 --build-arg PG_MAJOR=$(PG_MAJOR) --build-arg DEBIAN_CODENAME=trixie -t pgvector/pgvector:pg$(PG_MAJOR)-trixie -t pgvector/pgvector:$(EXTVERSION)-pg$(PG_MAJOR)-trixie .

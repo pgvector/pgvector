@@ -23,14 +23,14 @@ jobs:
           - postgres: 13
             os: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ankane/setup-postgres@v1
         with:
           postgres-version: ${{ matrix.postgres }}
           dev-files: true
       - run: make
         env:
-          PG_CFLAGS: ${{ matrix.postgres >= 18 && '-Wno-missing-field-initializers' || '' }} -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare ${{ matrix.postgres >= 18 && '-Wno-missing-field-initializers' || '' }}
       - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
@@ -48,18 +48,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - postgres: 17
-            os: macos-15
+          - postgres: 18
+            os: macos-26
           - postgres: 14
-            os: macos-13
+            os: macos-15-intel
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ankane/setup-postgres@v1
         with:
           postgres-version: ${{ matrix.postgres }}
       - run: make
         env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unknown-warning-option
+          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unknown-warning-option ${{ matrix.postgres >= 18 && '-Wno-missing-field-initializers' || '' }}
       - run: make install
       - run: make installcheck
       - if: ${{ failure() }}
@@ -72,27 +72,35 @@ jobs:
           tar xf $TAG.tar.gz
           mv postgres-$TAG postgres
         env:
-          TAG: ${{ matrix.postgres == 17 && 'REL_17_2' || 'REL_14_15' }}
+          TAG: ${{ matrix.postgres == 18 && 'REL_18_0' || 'REL_14_19' }}
       - run: make prove_installcheck PROVE_FLAGS="-I ./postgres/src/test/perl -I ./test/perl"
         env:
           PERL5LIB: /Users/runner/perl5/lib/perl5
       - run: make clean && $(brew --prefix llvm@$LLVM_VERSION)/bin/scan-build --status-bugs make
         env:
-          LLVM_VERSION: ${{ matrix.os == 'macos-15' && 18 || 15 }}
+          LLVM_VERSION: ${{ matrix.os == 'macos-26' && 20 || 18 }}
           PG_CFLAGS: -DUSE_ASSERT_CHECKING
   windows:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     if: ${{ !startsWith(github.ref_name, 'mac') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - postgres: 17
+            os: windows-2025
+          - postgres: 14
+            os: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ankane/setup-postgres@v1
         with:
-          postgres-version: 14
+          postgres-version: ${{ matrix.postgres }}
       - run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
           nmake /NOLOGO /F Makefile.win && ^
           nmake /NOLOGO /F Makefile.win install && ^
-          nmake /NOLOGO /F Makefile.win installcheck && ^
+          nmake /NOLOGO /F Makefile.win installcheck ${{ matrix.postgres != 17 && 'PG_REGRESS=$(PGROOT)\bin\pg_regress' || '' }} && ^
           nmake /NOLOGO /F Makefile.win clean && ^
           nmake /NOLOGO /F Makefile.win uninstall
         shell: cmd
@@ -125,10 +133,10 @@ jobs:
     if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ankane/setup-postgres-valgrind@v1
         with:
-          postgres-version: 17
+          postgres-version: 18
           check-ub: yes
       - run: make OPTFLAGS=""
       - run: sudo --preserve-env=PG_CONFIG make install

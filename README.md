@@ -21,7 +21,7 @@ Compile and install the extension (supports Postgres 13+)
 
 ```sh
 cd /tmp
-git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
+git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git
 cd pgvector
 make
 make install # may need sudo
@@ -36,9 +36,9 @@ You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#p
 Ensure [C++ support in Visual Studio](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#download-and-install-the-tools) is installed and run `x64 Native Tools Command Prompt for VS [version]` as administrator. Then use `nmake` to build:
 
 ```cmd
-set "PGROOT=C:\Program Files\PostgreSQL\17"
+set "PGROOT=C:\Program Files\PostgreSQL\18"
 cd %TEMP%
-git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
+git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git
 cd pgvector
 nmake /F Makefile.win
 nmake /F Makefile.win install
@@ -1064,7 +1064,7 @@ l2_normalize(sparsevec) → sparsevec | Normalize with Euclidean norm | 0.7.0
 If your machine has multiple Postgres installations, specify the path to [pg_config](https://www.postgresql.org/docs/current/app-pgconfig.html) with:
 
 ```sh
-export PG_CONFIG=/Library/PostgreSQL/17/bin/pg_config
+export PG_CONFIG=/Library/PostgreSQL/18/bin/pg_config
 ```
 
 Then re-run the installation instructions (run `make clean` before `make` if needed). If `sudo` is needed for `make install`, use:
@@ -1075,11 +1075,11 @@ sudo --preserve-env=PG_CONFIG make install
 
 A few common paths on Mac are:
 
-- EDB installer - `/Library/PostgreSQL/17/bin/pg_config`
-- Homebrew (arm64) - `/opt/homebrew/opt/postgresql@17/bin/pg_config`
-- Homebrew (x86-64) - `/usr/local/opt/postgresql@17/bin/pg_config`
+- EDB installer - `/Library/PostgreSQL/18/bin/pg_config`
+- Homebrew (arm64) - `/opt/homebrew/opt/postgresql@18/bin/pg_config`
+- Homebrew (x86-64) - `/usr/local/opt/postgresql@18/bin/pg_config`
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### Missing Header
 
@@ -1088,10 +1088,10 @@ If compilation fails with `fatal error: postgres.h: No such file or directory`, 
 For Ubuntu and Debian, use:
 
 ```sh
-sudo apt install postgresql-server-dev-17
+sudo apt install postgresql-server-dev-18
 ```
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### Missing SDK
 
@@ -1138,25 +1138,32 @@ If installation fails with `Access is denied`, re-run the installation instructi
 Get the [Docker image](https://hub.docker.com/r/pgvector/pgvector) with:
 
 ```sh
-docker pull pgvector/pgvector:pg17
+docker pull pgvector/pgvector:pg18-trixie
 ```
 
-This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `17` with your Postgres server version, and run it the same way).
+This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `18` with your Postgres server version, and run it the same way).
 
 Supported tags are:
 
-- `pg17`, `pg17-bookworm`, `0.8.0-pg17`, `0.8.0-pg17-bookworm`
-- `pg16`, `pg16-bookworm`, `0.8.0-pg16`, `0.8.0-pg16-bookworm`
-- `pg15`, `pg15-bookworm`, `0.8.0-pg15`, `0.8.0-pg15-bookworm`
-- `pg14`, `pg14-bookworm`, `0.8.0-pg14`, `0.8.0-pg14-bookworm`
-- `pg13`, `pg13-bookworm`, `0.8.0-pg13`, `0.8.0-pg13-bookworm`
+- `pg18-trixie`, `0.8.1-pg18-trixie`
+- `pg18-bookworm`, `0.8.1-pg18-bookworm`, `pg18`, `0.8.1-pg18`
+- `pg17-trixie`, `0.8.1-pg17-trixie`
+- `pg17-bookworm`, `0.8.1-pg17-bookworm`, `pg17`, `0.8.1-pg17`
+- `pg16-trixie`, `0.8.1-pg16-trixie`
+- `pg16-bookworm`, `0.8.1-pg16-bookworm`, `pg16`, `0.8.1-pg16`
+- `pg15-trixie`, `0.8.1-pg15-trixie`
+- `pg15-bookworm`, `0.8.1-pg15-bookworm`, `pg15`, `0.8.1-pg15`
+- `pg14-trixie`, `0.8.1-pg14-trixie`
+- `pg14-bookworm`, `0.8.1-pg14-bookworm`, `pg14`, `0.8.1-pg14`
+- `pg13-trixie`, `0.8.1-pg13-trixie`
+- `pg13-bookworm`, `0.8.1-pg13-bookworm`, `pg13`, `0.8.1-pg13`
 
 You can also build the image manually:
 
 ```sh
-git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git
+git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git
 cd pgvector
-docker build --pull --build-arg PG_MAJOR=17 -t myuser/pgvector .
+docker build --pull --build-arg PG_MAJOR=18 -t myuser/pgvector .
 ```
 
 If you increase `maintenance_work_mem`, make sure `--shm-size` is at least that size to avoid an error with parallel HNSW index builds.
@@ -1173,7 +1180,7 @@ With Homebrew Postgres, you can use:
 brew install pgvector
 ```
 
-Note: This only adds it to the `postgresql@17` and `postgresql@14` formulas
+Note: This only adds it to the `postgresql@18` and `postgresql@17` formulas
 
 ### PGXN
 
@@ -1188,29 +1195,29 @@ pgxn install vector
 Debian and Ubuntu packages are available from the [PostgreSQL APT Repository](https://wiki.postgresql.org/wiki/Apt). Follow the [setup instructions](https://wiki.postgresql.org/wiki/Apt#Quickstart) and run:
 
 ```sh
-sudo apt install postgresql-17-pgvector
+sudo apt install postgresql-18-pgvector
 ```
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### Yum
 
 RPM packages are available from the [PostgreSQL Yum Repository](https://yum.postgresql.org/). Follow the [setup instructions](https://www.postgresql.org/download/linux/redhat/) for your distribution and run:
 
 ```sh
-sudo yum install pgvector_17
+sudo yum install pgvector_18
 # or
-sudo dnf install pgvector_17
+sudo dnf install pgvector_18
 ```
 
-Note: Replace `17` with your Postgres server version
+Note: Replace `18` with your Postgres server version
 
 ### pkg
 
 Install the FreeBSD package with:
 
 ```sh
-pkg install postgresql16-pgvector
+pkg install postgresql17-pgvector
 ```
 
 or the port with:

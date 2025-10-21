@@ -398,7 +398,7 @@ UpdateNeighborsInMemory(char *base, HnswSupport * support, HnswElement e, int m)
  * Update graph in memory
  */
 static void
-UpdateGraphInMemory(HnswSupport * support, HnswElement element, int m, int efConstruction, HnswElement entryPoint, HnswBuildState * buildstate)
+UpdateGraphInMemory(HnswSupport * support, HnswElement element, int m, HnswElement entryPoint, HnswBuildState * buildstate)
 {
 	HnswGraph  *graph = buildstate->graph;
 	char	   *base = buildstate->hnswarea;
@@ -460,7 +460,7 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	HnswFindElementNeighbors(base, element, entryPoint, NULL, support, m, efConstruction, false);
 
 	/* Update graph in memory */
-	UpdateGraphInMemory(support, element, m, efConstruction, entryPoint, buildstate);
+	UpdateGraphInMemory(support, element, m, entryPoint, buildstate);
 
 	/* Release entry lock */
 	LWLockRelease(entryLock);
@@ -1054,7 +1054,7 @@ ComputeParallelWorkers(Relation heap, Relation index)
  * Build graph
  */
 static void
-BuildGraph(HnswBuildState * buildstate, ForkNumber forkNum)
+BuildGraph(HnswBuildState * buildstate)
 {
 	int			parallel_workers = 0;
 
@@ -1102,7 +1102,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 
 	InitBuildState(buildstate, heap, index, indexInfo, forkNum);
 
-	BuildGraph(buildstate, forkNum);
+	BuildGraph(buildstate);
 
 	if (RelationNeedsWAL(index) || forkNum == INIT_FORKNUM)
 		log_newpage_range(index, forkNum, 0, RelationGetNumberOfBlocksInFork(index, forkNum), true);
