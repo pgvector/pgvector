@@ -355,6 +355,10 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		/* Count index scan for stats */
 		pgstat_count_index_scan(scan->indexRelation);
+#if PG_VERSION_NUM >= 180000
+		if (scan->instrument)
+			scan->instrument->nsearches++;
+#endif
 
 		/* Safety check */
 		if (scan->orderByData == NULL)

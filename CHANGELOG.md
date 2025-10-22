@@ -1,3 +1,7 @@
+## 0.8.2 (unreleased)
+
+- Fixed `Index Searches` in `EXPLAIN` output for Postgres 18
+
 ## 0.8.1 (2025-09-04)
 
 - Added support for Postgres 18 rc1
