@@ -13,6 +13,10 @@
 #include "utils/tuplesort.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
+
 #if PG_VERSION_NUM >= 150000
 #include "common/pg_prng.h"
 #endif
