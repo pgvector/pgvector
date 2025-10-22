@@ -812,7 +812,7 @@ Yes, pgvector uses the write-ahead log (WAL), which allows for replication and p
 
 #### What if I want to index vectors with more than 2,000 dimensions?
 
-You can use [half-precision indexing](#half-precision-indexing) to index up to 4,000 dimensions or [binary quantization](#binary-quantization) to index up to 64,000 dimensions. Another option is [dimensionality reduction](https://en.wikipedia.org/wiki/Dimensionality_reduction).
+You can use [half-precision vectors](#half-precision-vectors) or [half-precision indexing](#half-precision-indexing) to index up to 4,000 dimensions or [binary quantization](#binary-quantization) to index up to 64,000 dimensions. Other options are [indexing subvectors](#indexing-subvectors) (for models that support it) or [dimensionality reduction](https://en.wikipedia.org/wiki/Dimensionality_reduction).
 
 #### Can I store vectors with different dimensions in the same column?
 
