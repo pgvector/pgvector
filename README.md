@@ -695,10 +695,10 @@ CREATE INDEX CONCURRENTLY ...
 
 ### Querying
 
-Use `EXPLAIN ANALYZE` to debug performance.
+Use `EXPLAIN (ANALYZE, BUFFERS)` to debug performance.
 
 ```sql
-EXPLAIN ANALYZE SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+EXPLAIN (ANALYZE, BUFFERS) SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
 #### Exact Search
