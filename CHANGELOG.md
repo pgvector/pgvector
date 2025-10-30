@@ -1,5 +1,6 @@
 ## 0.8.2 (unreleased)
 
+- Improved `install` target on Windows
 - Fixed `Index Searches` in `EXPLAIN` output for Postgres 18
 
 ## 0.8.1 (2025-09-04)
