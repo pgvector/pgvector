@@ -771,6 +771,7 @@ Use pgvector from any language with a Postgres client. You can even generate and
 
 Language | Libraries / Examples
 --- | ---
+Ada | [pgvector-ada](https://github.com/pgvector/pgvector-ada)
 C | [pgvector-c](https://github.com/pgvector/pgvector-c)
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
 C#, F#, Visual Basic | [pgvector-dotnet](https://github.com/pgvector/pgvector-dotnet)
