@@ -12,3 +12,4 @@ regression.*
 *.obj
 *.lib
 *.exp
+.DS_Store
