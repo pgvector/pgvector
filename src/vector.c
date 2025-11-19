@@ -22,6 +22,10 @@
 #include "utils/numeric.h"
 #include "vector.h"
 
+#if defined(__x86_64__)
+#include <immintrin.h>
+#endif
+
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
 #endif
@@ -53,6 +57,65 @@ _PG_init(void)
 	HnswInit();
 	IvfflatInit();
 }
+
+#if defined(__x86_64__)
+static inline int64
+VectorNegativeProduct_avx512_vnni(int16 n, const int16 *a, const int16 *b)
+{
+	__m512i sum32_0 = _mm512_setzero_si512();
+	__m512i sum32_1 = _mm512_setzero_si512();
+	__m512i sum32_2 = _mm512_setzero_si512();
+	__m512i sum32_3 = _mm512_setzero_si512();
+
+	__m512i sum32;
+	__m512i acc_lo;
+	__m512i acc_hi;
+	int64	total = 0;
+
+	int16 i = 0;
+
+	for (; i + 127 < n; i += 128)
+	{
+		__m512i a0 = _mm512_loadu_si512((const __m512i *)(a + i));
+		__m512i a1 = _mm512_loadu_si512((const __m512i *)(a + i + 32));
+		__m512i a2 = _mm512_loadu_si512((const __m512i *)(a + i + 64));
+		__m512i a3 = _mm512_loadu_si512((const __m512i *)(a + i + 96));
+
+		__m512i b0 = _mm512_loadu_si512((const __m512i *)(b + i));
+		__m512i b1 = _mm512_loadu_si512((const __m512i *)(b + i + 32));
+		__m512i b2 = _mm512_loadu_si512((const __m512i *)(b + i + 64));
+		__m512i b3 = _mm512_loadu_si512((const __m512i *)(b + i + 96));
+
+		sum32_0 = _mm512_dpwssd_epi32(sum32_0, a0, b0);
+		sum32_1 = _mm512_dpwssd_epi32(sum32_1, a1, b1);
+		sum32_2 = _mm512_dpwssd_epi32(sum32_2, a2, b2);
+		sum32_3 = _mm512_dpwssd_epi32(sum32_3, a3, b3);
+	}
+
+	for (; i + 31 < n; i += 32)
+	{
+		__m512i a_vec = _mm512_loadu_si512((const __m512i *)(a + i));
+		__m512i b_vec = _mm512_loadu_si512((const __m512i *)(b + i));
+
+		sum32_0 = _mm512_dpwssd_epi32(sum32_0, a_vec, b_vec);
+	}
+
+	sum32 = _mm512_add_epi32(_mm512_add_epi32(sum32_0, sum32_1),
+							 _mm512_add_epi32(sum32_2, sum32_3));
+
+	acc_lo = _mm512_cvtepi32_epi64(_mm512_extracti32x8_epi32(sum32, 0));
+	acc_hi = _mm512_cvtepi32_epi64(_mm512_extracti32x8_epi32(sum32, 1));
+
+	total = _mm512_reduce_add_epi64(acc_lo) + _mm512_reduce_add_epi64(acc_hi);
+
+	for (; i < n; i++)
+	{
+		total += (int32)a[i] * (int32)b[i];
+	}
+
+	return -total;
+}
+#endif
 
 /*
  * Ensure same dimensions
@@ -123,6 +186,20 @@ InitVector(int dim)
 
 	size = VECTOR_SIZE(dim);
 	result = (Vector *) palloc0(size);
+	SET_VARSIZE(result, size);
+	result->dim = dim;
+
+	return result;
+}
+
+VectorI16 *
+InitVectorI16(int dim)
+{
+	VectorI16	*result = NULL;
+	int			size;
+
+	size = VECTOR_SIZE_I16(dim);
+	result = (VectorI16 *) palloc(size);
 	SET_VARSIZE(result, size);
 	result->dim = dim;
 
@@ -806,6 +883,88 @@ l2_normalize(PG_FUNCTION_ARGS)
 
 	PG_RETURN_POINTER(result);
 }
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_negative_inner_product_avx512);
+Datum
+vector_negative_inner_product_avx512(PG_FUNCTION_ARGS)
+{
+	VectorI16	*a = PG_GETARG_VECTORI16_P(0);
+	VectorI16	*b = PG_GETARG_VECTORI16_P(1);
+	int64		negative_product = 0;
+
+#if defined(__x86_64__)
+	negative_product = VectorNegativeProduct_avx512_vnni(a->dim, (int16 *) a->x, (int16 *) b->x);
+#else
+	elog(ERROR, "Operator class sq16_vector_cosine_ops is not supprted in arm")
+#endif
+
+	PG_RETURN_FLOAT8((double) negative_product / (a->dot_product * b->dot_product));
+}
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_should_insert_hnsw);
+Datum
+vector_should_insert_hnsw(PG_FUNCTION_ARGS)
+{
+	Vector	*a = PG_GETARG_VECTOR_P(0);
+	float	*ax = a->x;
+	float	ret = 0.0;
+
+
+	for (int i = 0, imax = a->dim; i < imax; i++)
+	{
+		if (ax[i] != 0)
+		{
+			ret = 1.0;
+			break;
+		}
+	}
+
+	PG_RETURN_FLOAT8(ret);
+}
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vec_normalize_i16);
+Datum
+vec_normalize_i16(PG_FUNCTION_ARGS)
+{
+	Vector		*a = PG_GETARG_VECTOR_P(0);
+	VectorI16	*result = NULL;
+	int16		*rx = NULL;
+	double		dot_product = 0;
+	float		max_element = 0;
+	double		scale = 0;
+	
+	result = InitVectorI16(a->dim);
+	rx = (int16 *) result->x;
+	
+	for (int i = 0; i < a->dim; ++i)
+		max_element = Max(fabs(a->x[i]), max_element);
+	
+	scale = max_element / INT16_MAX;
+	
+	for (int i = 0; i < a->dim; ++i)
+	{
+		rx[i] = (int16) round(a->x[i] / scale);
+		dot_product += rx[i] * rx[i];
+	}
+	
+	result->dot_product = sqrt(dot_product);
+	
+	PG_RETURN_POINTER(result);
+}
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sq16_hnsw_vec_support);
+Datum
+sq16_hnsw_vec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo =
+	{
+		.maxDimensions = HNSW_MAX_DIM,
+		.normalize = vec_normalize_i16,
+		.checkValue = NULL
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+};
 
 /*
  * Add vectors

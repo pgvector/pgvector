@@ -916,3 +916,25 @@ CREATE OPERATOR CLASS sparsevec_l1_ops
 	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(sparsevec, sparsevec),
 	FUNCTION 3 hnsw_sparsevec_support(internal);
+
+-- TODO:
+-- 1. Move these code into upgrade sql file.
+-- 2. More appropriate location in vector.sql
+CREATE FUNCTION vector_negative_inner_product_avx512(internal, internal) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+CREATE FUNCTION vector_should_insert_hnsw(vector) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vec_normalize_i16(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sq16_hnsw_vec_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+CREATE OPERATOR CLASS sq16_vector_cosine_ops
+	FOR TYPE vector USING hnsw AS
+	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 vector_negative_inner_product_avx512(internal, internal),
+	FUNCTION 2 vector_should_insert_hnsw(vector),
+	FUNCTION 3 sq16_hnsw_vec_support(internal);
