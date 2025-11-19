@@ -362,6 +362,13 @@ typedef union
 	ItemPointerData indextid;
 }			HnswUnvisited;
 
+typedef struct HnswReadStreamData
+{
+	HnswUnvisited *unvisited;
+	int			unvisitedLength;
+	int			visited;
+}			HnswReadStreamData;
+
 typedef struct HnswScanOpaqueData
 {
 	const		HnswTypeInfo *typeInfo;
@@ -417,13 +424,13 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
+List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, bool maintenance);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
 HnswElement HnswInitElement(char *base, ItemPointer tid, int m, double ml, int maxLevel, HnswAllocator * alloc);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
-void		HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing);
+void		HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing, bool maintenance);
 HnswSearchCandidate *HnswEntryCandidate(char *base, HnswElement em, HnswQuery * q, Relation rel, HnswSupport * support, bool loadVec);
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum, bool building);
 void		HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m);

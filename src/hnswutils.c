@@ -19,6 +19,10 @@
 #include "varatt.h"
 #endif
 
+#if PG_VERSION_NUM >= 170000
+#include "storage/read_stream.h"
+#endif
+
 #if PG_VERSION_NUM < 170000
 static inline uint64
 murmurhash64(uint64 data)
@@ -529,14 +533,12 @@ HnswGetDistance(Datum a, Datum b, HnswSupport * support)
  * Load an element and optionally get its distance from q
  */
 static void
-HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance, HnswElement * element)
+HnswLoadElementImpl(Buffer buf, OffsetNumber offno, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance, HnswElement * element)
 {
-	Buffer		buf;
 	Page		page;
 	HnswElementTuple etup;
 
 	/* Read vector */
-	buf = ReadBuffer(index, blkno);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 
@@ -557,7 +559,7 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Hns
 	if (distance == NULL || maxDistance == NULL || *distance < *maxDistance)
 	{
 		if (*element == NULL)
-			*element = HnswInitElementFromBlock(blkno, offno);
+			*element = HnswInitElementFromBlock(BufferGetBlockNumber(buf), offno);
 
 		HnswLoadElementFromTuple(*element, etup, true, loadVec);
 	}
@@ -571,7 +573,9 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Hns
 void
 HnswLoadElement(HnswElement element, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance)
 {
-	HnswLoadElementImpl(element->blkno, element->offno, distance, q, index, support, loadVec, maxDistance, &element);
+	Buffer		buf = ReadBuffer(index, element->blkno);
+
+	HnswLoadElementImpl(buf, element->offno, distance, q, index, support, loadVec, maxDistance, &element);
 }
 
 /*
@@ -811,11 +815,31 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	}
 }
 
+#if PG_VERSION_NUM >= 170000
+/*
+ * Get next block number for read stream
+ */
+static BlockNumber
+HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *per_buffer_data)
+{
+	HnswReadStreamData *streamData = callback_private_data;
+	OffsetNumber *offno = per_buffer_data;
+	HnswUnvisited *uv;
+
+	if (streamData->visited == streamData->unvisitedLength)
+		return InvalidBlockNumber;
+
+	uv = &streamData->unvisited[streamData->visited++];
+	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
+	return ItemPointerGetBlockNumber(&uv->indextid);
+}
+#endif
+
 /*
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples)
+HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, bool maintenance)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -829,6 +853,27 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswUnvisited *unvisited = palloc(lm * sizeof(HnswUnvisited));
 	int			unvisitedLength;
 	bool		inMemory = index == NULL;
+
+#if PG_VERSION_NUM >= 170000
+	HnswReadStreamData streamData;
+	ReadStream *stream = NULL;
+
+	if (!inMemory)
+	{
+		int			flags = READ_STREAM_DEFAULT;
+
+		if (maintenance)
+		{
+			flags |= READ_STREAM_MAINTENANCE;
+		}
+
+#if PG_VERSION_NUM >= 180000
+		flags |= READ_STREAM_USE_BATCHING;
+#endif
+
+		stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &streamData, sizeof(OffsetNumber));
+	}
+#endif
 
 	if (v == NULL)
 	{
@@ -892,13 +937,23 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		if (inMemory)
 			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
 		else
+		{
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
+
+#if PG_VERSION_NUM >= 170000
+			read_stream_resume(stream);
+
+			streamData.unvisited = unvisited;
+			streamData.unvisitedLength = unvisitedLength;
+			streamData.visited = 0;
+#endif
+		}
 
 		/* OK to count elements instead of tuples */
 		if (tuples != NULL)
 			(*tuples) += unvisitedLength;
 
-		for (int i = 0; i < unvisitedLength; i++)
+		for (int i = 0;; i++)
 		{
 			HnswElement eElement;
 			HnswSearchCandidate *e;
@@ -909,18 +964,40 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 			if (inMemory)
 			{
+				if (i == unvisitedLength)
+					break;
+
 				eElement = unvisited[i].element;
 				eDistance = GetElementDistance(base, eElement, q, support);
 			}
 			else
 			{
-				ItemPointer indextid = &unvisited[i].indextid;
-				BlockNumber blkno = ItemPointerGetBlockNumber(indextid);
-				OffsetNumber offno = ItemPointerGetOffsetNumber(indextid);
+				Buffer		buf;
+				OffsetNumber offno;
+
+#if PG_VERSION_NUM >= 170000
+				void	   *offnoPtr;
+
+				buf = read_stream_next_buffer(stream, &offnoPtr);
+
+				if (!BufferIsValid(buf))
+					break;
+
+				offno = *((OffsetNumber *) offnoPtr);
+#else
+				ItemPointer indextid;
+
+				if (i == unvisitedLength)
+					break;
+
+				indextid = &unvisited[i].indextid;
+				buf = ReadBuffer(index, ItemPointerGetBlockNumber(indextid));
+				offno = ItemPointerGetOffsetNumber(indextid);
+#endif
 
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
-				HnswLoadElementImpl(blkno, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
+				HnswLoadElementImpl(buf, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
 
 				if (eElement == NULL)
 					continue;
@@ -975,6 +1052,11 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 		w = lappend(w, sc);
 	}
+
+#if PG_VERSION_NUM >= 170000
+	if (!inMemory)
+		read_stream_end(stream);
+#endif
 
 	return w;
 }
@@ -1271,7 +1353,7 @@ PrecomputeHash(char *base, HnswElement element)
  * Algorithm 1 from paper
  */
 void
-HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing)
+HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing, bool maintenance)
 {
 	List	   *ep;
 	List	   *w;
@@ -1298,7 +1380,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, maintenance);
 		ep = w;
 	}
 
@@ -1317,7 +1399,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *lw = NIL;
 		ListCell   *lc2;
 
-		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, maintenance);
 
 		/* Convert search candidates to candidates */
 		foreach(lc2, w)
