@@ -772,6 +772,7 @@ Use pgvector from any language with a Postgres client. You can even generate and
 Language | Libraries / Examples
 --- | ---
 Ada | [pgvector-ada](https://github.com/pgvector/pgvector-ada)
+Algol | [pgvector-algol](https://github.com/pgvector/pgvector-algol)
 C | [pgvector-c](https://github.com/pgvector/pgvector-c)
 C++ | [pgvector-cpp](https://github.com/pgvector/pgvector-cpp)
 C#, F#, Visual Basic | [pgvector-dotnet](https://github.com/pgvector/pgvector-dotnet)
@@ -794,8 +795,10 @@ OCaml | [pgvector-ocaml](https://github.com/pgvector/pgvector-ocaml)
 Pascal | [pgvector-pascal](https://github.com/pgvector/pgvector-pascal)
 Perl | [pgvector-perl](https://github.com/pgvector/pgvector-perl)
 PHP | [pgvector-php](https://github.com/pgvector/pgvector-php)
+Prolog | [pgvector-prolog](https://github.com/pgvector/pgvector-prolog)
 Python | [pgvector-python](https://github.com/pgvector/pgvector-python)
 R | [pgvector-r](https://github.com/pgvector/pgvector-r)
+Racket | [pgvector-racket](https://github.com/pgvector/pgvector-racket)
 Raku | [pgvector-raku](https://github.com/pgvector/pgvector-raku)
 Ruby | [pgvector-ruby](https://github.com/pgvector/pgvector-ruby), [Neighbor](https://github.com/ankane/neighbor)
 Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
