@@ -29,7 +29,7 @@ make install # may need sudo
 
 See the [installation notes](#installation-notes---linux-and-mac) if you run into issues
 
-You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), [pkg](#pkg), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres). There are also instructions for [GitHub Actions](https://github.com/pgvector/setup-pgvector).
+You can also install it with [Docker](#docker), [Homebrew](#homebrew), [PGXN](#pgxn), [APT](#apt), [Yum](#yum), [pkg](#pkg), [APK](#apk), or [conda-forge](#conda-forge), and it comes preinstalled with [Postgres.app](#postgresapp) and many [hosted providers](#hosted-postgres). There are also instructions for [GitHub Actions](https://github.com/pgvector/setup-pgvector).
 
 ### Windows
 
@@ -1230,6 +1230,14 @@ or the port with:
 ```sh
 cd /usr/ports/databases/pgvector
 make install
+```
+
+### APK
+
+Install the Alpine package with:
+
+```sh
+apk add postgresql-pgvector
 ```
 
 ### conda-forge
