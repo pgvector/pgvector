@@ -97,3 +97,40 @@ SET ivfflat.max_probes = 0;
 SET ivfflat.max_probes = 32769;
 
 DROP TABLE t;
+
+-- default_probes option tests
+
+-- Test: Create index with default_probes
+CREATE TABLE t_dp (val vector(3));
+INSERT INTO t_dp (val) SELECT ARRAY[random(), random(), random()]::vector FROM generate_series(1, 100);
+CREATE INDEX idx_dp ON t_dp USING ivfflat (val vector_l2_ops) WITH (lists = 10, default_probes = 5);
+
+-- Test: Query uses index default (5 probes)
+SET enable_seqscan = off;
+SELECT COUNT(*) FROM (SELECT * FROM t_dp ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: Explicit SET overrides index default
+SET ivfflat.probes = 3;
+SELECT COUNT(*) FROM (SELECT * FROM t_dp ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: RESET returns to index default
+RESET ivfflat.probes;
+SELECT COUNT(*) FROM (SELECT * FROM t_dp ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: ALTER INDEX changes default
+ALTER INDEX idx_dp SET (default_probes = 8);
+SELECT COUNT(*) FROM (SELECT * FROM t_dp ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: ALTER INDEX RESET removes default (falls back to GUC default)
+ALTER INDEX idx_dp RESET (default_probes);
+SELECT COUNT(*) FROM (SELECT * FROM t_dp ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: default_probes = 0 acts as unset (use GUC default)
+CREATE INDEX idx_dp_zero ON t_dp USING ivfflat (val vector_l2_ops) WITH (lists = 10, default_probes = 0);
+SELECT COUNT(*) FROM (SELECT * FROM t_dp ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+DROP INDEX idx_dp_zero;
+
+-- Test: Invalid values rejected
+CREATE INDEX ON t_dp USING ivfflat (val vector_l2_ops) WITH (default_probes = -1);
+
+DROP TABLE t_dp;
