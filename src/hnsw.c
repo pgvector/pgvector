@@ -160,7 +160,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	HnswGetMetaPageInfo(index, &m, NULL);
-	index_close(index, NoLock);
 
 	/*
 	 * HNSW cost estimation follows a formula that accounts for the total
@@ -192,9 +191,10 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (path->indexinfo->tuples > 0)
 	{
 		double		scalingFactor = 0.55;
+		int			effectiveEfSearch = HnswGetEffectiveEfSearch(index);
 		int			entryLevel = (int) (log(path->indexinfo->tuples) * HnswGetMl(m));
-		int			layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
-		double		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(hnsw_ef_search)));
+		int			layer0TuplesMax = HnswGetLayerM(m, 0) * effectiveEfSearch;
+		double		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(effectiveEfSearch)));
 
 		ratio = (entryLevel * m + layer0TuplesMax * layer0Selectivity) / path->indexinfo->tuples;
 
@@ -203,6 +203,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	}
 	else
 		ratio = 1;
+
+	index_close(index, NoLock);
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
