@@ -1,5 +1,6 @@
 ## 0.8.2 (unreleased)
 
+- Added `default_probes` and `default_ef_search` index options for per-index search defaults
 - Improved `install` target on Windows
 - Fixed `Index Searches` in `EXPLAIN` output for Postgres 18
 
