@@ -245,7 +245,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	IvfflatScanOpaque so;
 	int			lists;
 	int			dimensions;
-	int			probes = ivfflat_probes;
+	int			probes = IvfflatGetEffectiveProbes(index);
 	int			maxProbes;
 	MemoryContext oldCtx;
 
