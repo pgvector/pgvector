@@ -316,6 +316,7 @@ Datum		IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum v
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 int			IvfflatGetLists(Relation index);
 int			IvfflatGetDefaultProbes(Relation index);
+int			IvfflatGetEffectiveProbes(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);
 void		IvfflatUpdateList(Relation index, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);
 void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);
