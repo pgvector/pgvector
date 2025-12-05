@@ -153,13 +153,23 @@ Extend the index option infrastructure to support the new `default_probes` and `
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Code compiles without warnings: `make clean && make`
-- [ ] Existing regression tests pass: `make installcheck`
-- [ ] New index option is accepted: SQL test with `WITH (default_probes = N)`
-- [ ] Invalid option values rejected: SQL test with out-of-range values
+- [x] Code compiles without warnings: `make clean && make`
+- [x] Existing regression tests pass: `make installcheck`
+- [ ] New index option is accepted: SQL test with `WITH (default_probes = N)` (deferred to Phase 5)
+- [ ] Invalid option values rejected: SQL test with out-of-range values (deferred to Phase 5)
 
 #### Manual Verification:
 - [ ] `\d+ index_name` shows the new option in index properties (if PostgreSQL displays reloptions)
+
+### Phase 1 Status: COMPLETE
+
+**Completed**: 2025-12-05
+
+**Summary**: Added index option infrastructure for `default_probes` (IVFFlat) and `default_ef_search` (HNSW). Extended option structs with new integer fields, registered reloptions with `add_int_reloption()` using 0 as the "unset" sentinel, added parsing table entries, and implemented getter functions following existing patterns. All 14 existing regression tests pass.
+
+**Commit**: 7f301a1 - "Add index option infrastructure for default_probes and default_ef_search"
+
+**Notes for reviewers**: The new options are now accepted by PostgreSQL but don't affect runtime behavior yet. Phase 2 will add the GUC source detection logic to implement the precedence rules.
 
 ---
 

@@ -133,6 +133,20 @@ HnswGetEfConstruction(Relation index)
 }
 
 /*
+ * Get the default ef_search for the index
+ */
+int
+HnswGetDefaultEfSearch(Relation index)
+{
+	HnswOptions *opts = (HnswOptions *) index->rd_options;
+
+	if (opts)
+		return opts->defaultEfSearch;
+
+	return 0;
+}
+
+/*
  * Get proc
  */
 FmgrInfo *

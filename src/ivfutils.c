@@ -53,6 +53,20 @@ IvfflatGetLists(Relation index)
 }
 
 /*
+ * Get the default probes for the index
+ */
+int
+IvfflatGetDefaultProbes(Relation index)
+{
+	IvfflatOptions *opts = (IvfflatOptions *) index->rd_options;
+
+	if (opts)
+		return opts->defaultProbes;
+
+	return 0;
+}
+
+/*
  * Get proc
  */
 FmgrInfo *
