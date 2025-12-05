@@ -41,7 +41,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, q, ep, HnswGetEffectiveEfSearch(index), 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -54,7 +54,7 @@ ResumeScanItems(IndexScanDesc scan)
 	Relation	index = scan->indexRelation;
 	List	   *ep = NIL;
 	char	   *base = NULL;
-	int			batch_size = hnsw_ef_search;
+	int			batch_size = HnswGetEffectiveEfSearch(index);
 
 	if (pairingheap_is_empty(so->discarded))
 		return NIL;
