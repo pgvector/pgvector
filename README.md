@@ -1282,6 +1282,7 @@ Thanks to:
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
 - [Efficient and Robust Approximate Nearest Neighbor Search using Hierarchical Navigable Small World Graphs](https://arxiv.org/ftp/arxiv/papers/1603/1603.09320.pdf)
+- [Distance Adaptive Beam Search for Provably Accurate Graph-Based Nearest Neighbor Search](https://arxiv.org/pdf/2505.15636)
 
 ## History
 

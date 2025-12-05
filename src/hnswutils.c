@@ -829,6 +829,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswUnvisited *unvisited = palloc(lm * sizeof(HnswUnvisited));
 	int			unvisitedLength;
 	bool		inMemory = index == NULL;
+	double		lambda = 0.12;
 
 	if (v == NULL)
 	{
@@ -884,7 +885,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		HnswSearchCandidate *f = HnswGetSearchCandidate(w_node, pairingheap_first(W));
 		HnswElement cElement;
 
-		if (c->distance > f->distance)
+		if (c->distance > f->distance * (1 + lambda))
 			break;
 
 		cElement = HnswPtrAccess(base, c->element);
@@ -904,8 +905,10 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 			HnswSearchCandidate *e;
 			double		eDistance;
 			bool		alwaysAdd = wlen < ef;
+			double		fDistance;
 
 			f = HnswGetSearchCandidate(w_node, pairingheap_first(W));
+			fDistance = f->distance * (1 + lambda);
 
 			if (inMemory)
 			{
@@ -920,13 +923,13 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
-				HnswLoadElementImpl(blkno, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
+				HnswLoadElementImpl(blkno, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &fDistance, &eElement);
 
 				if (eElement == NULL)
 					continue;
 			}
 
-			if (eElement == NULL || !(eDistance < f->distance || alwaysAdd))
+			if (eElement == NULL || !(eDistance < fDistance || alwaysAdd))
 			{
 				if (discarded != NULL)
 				{
