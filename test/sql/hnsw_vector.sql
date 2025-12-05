@@ -115,3 +115,40 @@ SET hnsw.scan_mem_multiplier = 0;
 SET hnsw.scan_mem_multiplier = 1001;
 
 DROP TABLE t;
+
+-- default_ef_search option tests
+
+-- Test: Create index with default_ef_search
+CREATE TABLE t_des (val vector(3));
+INSERT INTO t_des (val) SELECT ARRAY[random(), random(), random()]::vector FROM generate_series(1, 100);
+CREATE INDEX idx_des ON t_des USING hnsw (val vector_l2_ops) WITH (default_ef_search = 100);
+
+-- Test: Query uses index default (100 ef_search)
+SET enable_seqscan = off;
+SELECT COUNT(*) FROM (SELECT * FROM t_des ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: Explicit SET overrides index default
+SET hnsw.ef_search = 50;
+SELECT COUNT(*) FROM (SELECT * FROM t_des ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: RESET returns to index default
+RESET hnsw.ef_search;
+SELECT COUNT(*) FROM (SELECT * FROM t_des ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: ALTER INDEX changes default
+ALTER INDEX idx_des SET (default_ef_search = 200);
+SELECT COUNT(*) FROM (SELECT * FROM t_des ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: ALTER INDEX RESET removes default (falls back to GUC default)
+ALTER INDEX idx_des RESET (default_ef_search);
+SELECT COUNT(*) FROM (SELECT * FROM t_des ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+
+-- Test: default_ef_search = 0 acts as unset (use GUC default)
+CREATE INDEX idx_des_zero ON t_des USING hnsw (val vector_l2_ops) WITH (default_ef_search = 0);
+SELECT COUNT(*) FROM (SELECT * FROM t_des ORDER BY val <-> '[0.5, 0.5, 0.5]' LIMIT 5) t;
+DROP INDEX idx_des_zero;
+
+-- Test: Invalid values rejected
+CREATE INDEX ON t_des USING hnsw (val vector_l2_ops) WITH (default_ef_search = -1);
+
+DROP TABLE t_des;
