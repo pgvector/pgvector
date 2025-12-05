@@ -114,10 +114,11 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	IvfflatGetMetaPageInfo(index, &lists, NULL);
-	index_close(index, NoLock);
 
 	/* Get the ratio of lists that we need to visit */
-	ratio = ((double) ivfflat_probes) / lists;
+	ratio = ((double) IvfflatGetEffectiveProbes(index)) / lists;
+
+	index_close(index, NoLock);
 	if (ratio > 1.0)
 		ratio = 1.0;
 
