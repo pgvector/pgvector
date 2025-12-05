@@ -227,12 +227,27 @@ Add utility functions to detect whether a GUC was explicitly set in the current 
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Code compiles without warnings: `make clean && make`
-- [ ] Existing regression tests pass: `make installcheck`
-- [ ] GUC source detection correctly identifies explicit SET
+- [x] Code compiles without warnings: `make clean && make`
+- [x] Existing regression tests pass: `make installcheck`
+- [x] GUC source detection correctly identifies explicit SET
 
 #### Manual Verification:
 - [ ] Verify behavior with `SET LOCAL` within transaction (should also override)
+
+### Phase 2 Status: COMPLETE
+
+**Completed**: 2025-12-05
+
+**Summary**: Added `IvfflatGetEffectiveProbes()` and `HnswGetEffectiveEfSearch()` functions that implement the precedence rules for resolving search parameters:
+1. Explicit SET command takes precedence (source == PGC_S_SESSION)
+2. Index default value if set (> 0)
+3. GUC default value
+
+These functions use PostgreSQL's `find_option()` API to detect whether a GUC was explicitly set in the current session, enabling the per-index default to take effect when users haven't explicitly overridden it.
+
+**Commit**: 2dd30e6 - "Add GUC resolution logic for effective search parameters"
+
+**Notes for reviewers**: The effective value functions are now available but not yet integrated into the scan and cost estimation paths. Phase 3 will modify the scan functions to use these new resolution functions.
 
 ---
 
