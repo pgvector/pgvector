@@ -523,13 +523,45 @@ DROP TABLE t_multi;
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] All new tests pass: `make installcheck`
-- [ ] No regressions in existing tests
-- [ ] Test coverage for all acceptance scenarios from Spec.md
+- [x] All new tests pass: `make installcheck`
+- [x] No regressions in existing tests
+- [x] Test coverage for all acceptance scenarios from Spec.md
 
 #### Manual Verification:
 - [ ] Review expected output files for correctness
 - [ ] Verify edge cases (EC-001 through EC-006) are covered
+
+### Phase 5 Status: COMPLETE
+
+**Completed**: 2025-12-05
+
+**Summary**: Added comprehensive test coverage for the `default_probes` (IVFFlat) and `default_ef_search` (HNSW) index options. The tests cover all acceptance scenarios defined in the specification.
+
+Tests added for IVFFlat (`test/sql/ivfflat_vector.sql`):
+- CREATE INDEX with `default_probes` option
+- Query uses index default when GUC not explicitly SET
+- Explicit `SET ivfflat.probes` overrides index default
+- `RESET ivfflat.probes` returns to using index default
+- `ALTER INDEX ... SET (default_probes = N)` changes the default
+- `ALTER INDEX ... RESET (default_probes)` removes the default
+- `default_probes = 0` acts as unset (uses GUC default)
+- Invalid values rejected (`default_probes = -1` fails)
+
+Tests added for HNSW (`test/sql/hnsw_vector.sql`):
+- CREATE INDEX with `default_ef_search` option
+- Query uses index default when GUC not explicitly SET
+- Explicit `SET hnsw.ef_search` overrides index default
+- `RESET hnsw.ef_search` returns to using index default
+- `ALTER INDEX ... SET (default_ef_search = N)` changes the default
+- `ALTER INDEX ... RESET (default_ef_search)` removes the default
+- `default_ef_search = 0` acts as unset (uses GUC default)
+- Invalid values rejected (`default_ef_search = -1` fails)
+
+All 14 regression tests pass.
+
+**Commit**: dcc9aa7 - "Add tests for default_probes and default_ef_search index options"
+
+**Notes for reviewers**: Phase 5 completes the implementation. All five phases are now complete and the feature is ready for final review.
 
 ---
 
