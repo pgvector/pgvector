@@ -12,6 +12,7 @@
 #include "sparsevec.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
+#include "utils/guc_tables.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
 
@@ -144,6 +145,32 @@ HnswGetDefaultEfSearch(Relation index)
 		return opts->defaultEfSearch;
 
 	return 0;
+}
+
+/*
+ * Get effective ef_search for the index, implementing precedence:
+ * 1. Explicit SET hnsw.ef_search takes precedence
+ * 2. Index default_ef_search if set (> 0)
+ * 3. GUC default value
+ */
+int
+HnswGetEffectiveEfSearch(Relation index)
+{
+	struct config_generic *record;
+	int			defaultEfSearch;
+
+	/* Check if GUC was explicitly set in session */
+	record = find_option("hnsw.ef_search", false, true, ERROR);
+	if (record != NULL && record->source == PGC_S_SESSION)
+		return hnsw_ef_search;
+
+	/* Check for index default */
+	defaultEfSearch = HnswGetDefaultEfSearch(index);
+	if (defaultEfSearch > 0)
+		return defaultEfSearch;
+
+	/* Fall back to GUC default */
+	return hnsw_ef_search;
 }
 
 /*
