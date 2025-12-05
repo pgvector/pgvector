@@ -36,6 +36,8 @@ IvfflatInit(void)
 	ivfflat_relopt_kind = add_reloption_kind();
 	add_int_reloption(ivfflat_relopt_kind, "lists", "Number of inverted lists",
 					  IVFFLAT_DEFAULT_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, AccessExclusiveLock);
+	add_int_reloption(ivfflat_relopt_kind, "default_probes", "Default number of probes for searches",
+					  0, 0, IVFFLAT_MAX_LISTS, AccessExclusiveLock);
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
@@ -153,6 +155,7 @@ ivfflatoptions(Datum reloptions, bool validate)
 {
 	static const relopt_parse_elt tab[] = {
 		{"lists", RELOPT_TYPE_INT, offsetof(IvfflatOptions, lists)},
+		{"default_probes", RELOPT_TYPE_INT, offsetof(IvfflatOptions, defaultProbes)},
 	};
 
 	return (bytea *) build_reloptions(reloptions, validate,
