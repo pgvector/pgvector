@@ -295,14 +295,31 @@ Modify the scan initialization functions to use the effective search parameter v
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Code compiles without warnings: `make clean && make`
-- [ ] Existing regression tests pass: `make installcheck`
-- [ ] New SQL tests pass verifying precedence logic
+- [x] Code compiles without warnings: `make clean && make`
+- [x] Existing regression tests pass: `make installcheck`
+- [ ] New SQL tests pass verifying precedence logic (deferred to Phase 5)
 
 #### Manual Verification:
 - [ ] Query uses index default when no explicit SET
 - [ ] Explicit SET overrides index default
 - [ ] RESET returns to using index default
+
+### Phase 3 Status: COMPLETE
+
+**Completed**: 2025-12-05
+
+**Summary**: Integrated the effective search parameter resolution functions into the scan initialization code. The scan functions now resolve the effective probes/ef_search value using the precedence rules (explicit SET > index default > GUC default) rather than directly reading the GUC variables.
+
+Changes made:
+- `ivfflatbeginscan()`: Now calls `IvfflatGetEffectiveProbes(index)` instead of reading `ivfflat_probes` directly
+- `GetScanItems()`: Now calls `HnswGetEffectiveEfSearch(index)` instead of reading `hnsw_ef_search` directly  
+- `ResumeScanItems()`: Now calls `HnswGetEffectiveEfSearch(index)` for batch_size instead of `hnsw_ef_search`
+
+All 14 existing regression tests pass.
+
+**Commit**: eac9c01 - "Integrate effective search parameter resolution into scan functions"
+
+**Notes for reviewers**: The scan functions now respect per-index default search parameters. Phase 4 will update the cost estimation functions to also use the effective values for accurate query planning.
 
 ---
 
