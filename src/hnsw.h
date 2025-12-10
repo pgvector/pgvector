@@ -12,6 +12,10 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM >= 190000
+typedef Pointer Item;
+#endif
+
 #define HNSW_MAX_DIM 2000
 #define HNSW_MAX_NNZ 1000
 

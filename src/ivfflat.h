@@ -25,6 +25,10 @@
 #include "portability/instr_time.h"
 #endif
 
+#if PG_VERSION_NUM >= 190000
+typedef Pointer Item;
+#endif
+
 #define IVFFLAT_MAX_DIM 2000
 
 /* Support functions */

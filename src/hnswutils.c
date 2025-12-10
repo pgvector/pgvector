@@ -260,7 +260,7 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 
 	HnswInitNeighbors(base, element, m, allocator);
 
-	HnswPtrStore(base, element->value, (Pointer) NULL);
+	HnswPtrStore(base, element->value, (char *) NULL);
 
 	return element;
 }
@@ -286,7 +286,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 	element->blkno = blkno;
 	element->offno = offno;
 	HnswPtrStore(base, element->neighbors, (HnswNeighborArrayPtr *) NULL);
-	HnswPtrStore(base, element->value, (Pointer) NULL);
+	HnswPtrStore(base, element->value, (char *) NULL);
 	return element;
 }
 
@@ -512,7 +512,7 @@ HnswLoadElementFromTuple(HnswElement element, HnswElementTuple etup, bool loadHe
 		char	   *base = NULL;
 		Datum		value = datumCopy(PointerGetDatum(&etup->data), false, -1);
 
-		HnswPtrStore(base, element->value, DatumGetPointer(value));
+		HnswPtrStore(base, element->value, (char *) DatumGetPointer(value));
 	}
 }
 
