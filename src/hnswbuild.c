@@ -152,6 +152,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 	Page		page;
 	HnswElementPtr iter = buildstate->graph->head;
 	char	   *base = buildstate->hnswarea;
+	bool		useIndexTuple = buildstate->useIndexTuple;
 
 	/* Calculate sizes */
 	maxSize = HNSW_MAX_SIZE;
@@ -171,7 +172,6 @@ CreateGraphPages(HnswBuildState * buildstate)
 		Size		etupSize;
 		Size		ntupSize;
 		Size		combinedSize;
-		Pointer		valuePtr = HnswPtrAccess(base, element->value);
 
 		/* Update iterator */
 		iter = element->next;
@@ -180,7 +180,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		MemSet(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
 
 		/* Calculate sizes */
-		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(valuePtr));
+		etupSize = HnswGetElementTupleSize(base, element, useIndexTuple);
 		ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(element->level, buildstate->m);
 		combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 
@@ -190,7 +190,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 					 errmsg("index tuple too large")));
 
-		HnswSetElementTuple(base, etup, element);
+		HnswSetElementTuple(base, etup, element, useIndexTuple);
 
 		/* Keep element and neighbors on the same page if possible */
 		if (PageGetFreeSpace(page) < etupSize || (combinedSize <= maxSize && PageGetFreeSpace(page) < combinedSize))
@@ -331,19 +331,18 @@ AddDuplicateInMemory(HnswElement element, HnswElement dup)
  * Find duplicate element
  */
 static bool
-FindDuplicateInMemory(char *base, HnswElement element)
+FindDuplicateInMemory(char *base, HnswElement element, bool useIndexTuple, TupleDesc tupdesc)
 {
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
-	Datum		value = HnswGetValue(base, element);
+	IndexTuple	itup = HnswPtrAccess(base, element->itup);
 
 	for (int i = 0; i < neighbors->length; i++)
 	{
 		HnswCandidate *neighbor = &neighbors->items[i];
 		HnswElement neighborElement = HnswPtrAccess(base, neighbor->element);
-		Datum		neighborValue = HnswGetValue(base, neighborElement);
 
 		/* Exit early since ordered by distance */
-		if (!datumIsEqual(value, neighborValue, false, -1))
+		if (!HnswIndexTupleIsEqual(itup, HnswPtrAccess(base, neighborElement->itup), tupdesc))
 			return false;
 
 		/* Check for space */
@@ -370,7 +369,7 @@ AddElementInMemory(char *base, HnswGraph * graph, HnswElement element)
  * Update neighbors
  */
 static void
-UpdateNeighborsInMemory(char *base, HnswSupport * support, HnswElement e, int m)
+UpdateNeighborsInMemory(char *base, Relation index, HnswSupport * support, HnswElement e, int m)
 {
 	for (int lc = e->level; lc >= 0; lc--)
 	{
@@ -392,7 +391,7 @@ UpdateNeighborsInMemory(char *base, HnswSupport * support, HnswElement e, int m)
 			Assert(neighborElement);
 
 			LWLockAcquire(&neighborElement->lock, LW_EXCLUSIVE);
-			HnswUpdateConnection(base, HnswGetNeighbors(base, neighborElement, lc), e, hc->distance, lm, NULL, NULL, support);
+			HnswUpdateConnection(base, HnswGetNeighbors(base, neighborElement, lc), e, hc->distance, lm, NULL, index, support);
 			LWLockRelease(&neighborElement->lock);
 		}
 	}
@@ -408,14 +407,14 @@ UpdateGraphInMemory(HnswSupport * support, HnswElement element, int m, HnswEleme
 	char	   *base = buildstate->hnswarea;
 
 	/* Look for duplicate */
-	if (FindDuplicateInMemory(base, element))
+	if (FindDuplicateInMemory(base, element, buildstate->useIndexTuple, buildstate->tupdesc))
 		return;
 
 	/* Add element */
 	AddElementInMemory(base, graph, element);
 
 	/* Update neighbors */
-	UpdateNeighborsInMemory(base, support, element, m);
+	UpdateNeighborsInMemory(base, buildstate->index, support, element, m);
 
 	/* Update entry point if needed (already have lock) */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -428,6 +427,7 @@ UpdateGraphInMemory(HnswSupport * support, HnswElement element, int m, HnswEleme
 static void
 InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 {
+	Relation	index = buildstate->index;
 	HnswGraph  *graph = buildstate->graph;
 	HnswSupport *support = &buildstate->support;
 	HnswElement entryPoint;
@@ -461,7 +461,7 @@ InsertTupleInMemory(HnswBuildState * buildstate, HnswElement element)
 	}
 
 	/* Find neighbors for element */
-	HnswFindElementNeighbors(base, element, entryPoint, NULL, support, m, efConstruction, false);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false, true);
 
 	/* Update graph in memory */
 	UpdateGraphInMemory(support, element, m, entryPoint, buildstate);
@@ -480,18 +480,20 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	HnswElement element;
 	HnswAllocator *allocator = &buildstate->allocator;
 	HnswSupport *support = &buildstate->support;
-	Size		valueSize;
-	Pointer		valuePtr;
 	LWLock	   *flushLock = &graph->flushLock;
 	char	   *base = buildstate->hnswarea;
-	Datum		value;
+	TupleDesc	tupdesc = buildstate->tupdesc;
+	IndexTuple	itup;
+	Size		itupSize;
+	IndexTuple	itupShared;
+	bool		unused;
 
-	/* Form index value */
-	if (!HnswFormIndexValue(&value, values, isnull, buildstate->typeInfo, support))
+	/* Form index tuple */
+	if (!HnswFormIndexTuple(&itup, values, isnull, buildstate->typeInfo, support, tupdesc))
 		return false;
 
-	/* Get datum size */
-	valueSize = VARSIZE_ANY(DatumGetPointer(value));
+	/* Get tuple size */
+	itupSize = IndexTupleSize(itup);
 
 	/* Ensure graph not flushed when inserting */
 	LWLockAcquire(flushLock, LW_SHARED);
@@ -501,7 +503,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	{
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true, tupdesc);
 	}
 
 	/*
@@ -533,12 +535,12 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, support, itup, heaptid, true, tupdesc);
 	}
 
 	/* Ok, we can proceed to allocate the element */
 	element = HnswInitElement(base, heaptid, buildstate->m, buildstate->ml, buildstate->maxLevel, allocator);
-	valuePtr = HnswAlloc(allocator, valueSize);
+	itupShared = HnswAlloc(allocator, itupSize);
 
 	/*
 	 * We have now allocated the space needed for the element, so we don't
@@ -547,9 +549,10 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	 */
 	LWLockRelease(&graph->allocatorLock);
 
-	/* Copy the datum */
-	memcpy(valuePtr, DatumGetPointer(value), valueSize);
-	HnswPtrStore(base, element->value, valuePtr);
+	/* Copy the tuple */
+	memcpy(itupShared, itup, itupSize);
+	HnswPtrStore(base, element->itup, itupShared);
+	HnswPtrStore(base, element->value, DatumGetPointer(index_getattr(itupShared, 1, tupdesc, &unused)));
 
 	/* Create a lock for the element */
 	LWLockInitialize(&element->lock, hnsw_lock_tranche_id);
@@ -676,6 +679,19 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("type not supported for hnsw index")));
 
+	/* TODO See if needed */
+	if (IndexRelationGetNumberOfKeyAttributes(index) > 2)
+		elog(ERROR, "index cannot have more than two columns");
+
+	if (!OidIsValid(index_getprocid(index, 1, HNSW_DISTANCE_PROC)))
+		elog(ERROR, "first column must be a vector");
+
+	for (int i = 1; i < IndexRelationGetNumberOfKeyAttributes(index); i++)
+	{
+		if (!OidIsValid(index_getprocid(index, i + 1, HNSW_ATTRIBUTE_DISTANCE_PROC)))
+			elog(ERROR, "column %d cannot be a vector", i + 1);
+	}
+
 	/* Require column to have dimensions to be indexed */
 	if (buildstate->dimensions < 0)
 		ereport(ERROR,
@@ -702,6 +718,8 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	buildstate->graph = &buildstate->graphData;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
+	buildstate->useIndexTuple = HnswUseIndexTuple(index);
+	buildstate->tupdesc = RelationGetDescr(index);
 
 	buildstate->graphCtx = GenerationContextCreate(CurrentMemoryContext,
 												   "Hnsw build graph context",

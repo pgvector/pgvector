@@ -160,9 +160,10 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	BlockNumber newInsertPage = InvalidBlockNumber;
 	uint8		tupleVersion;
 	char	   *base = NULL;
+	bool		useIndexTuple = HnswUseIndexTuple(index);
 
 	/* Calculate sizes */
-	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
+	etupSize = HnswGetElementTupleSize(base, e, useIndexTuple);
 	ntupSize = HNSW_NEIGHBOR_TUPLE_SIZE(e->level, m);
 	combinedSize = etupSize + ntupSize + sizeof(ItemIdData);
 	maxSize = HNSW_MAX_SIZE;
@@ -170,7 +171,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 
 	/* Prepare element tuple */
 	etup = palloc0(etupSize);
-	HnswSetElementTuple(base, etup, e);
+	HnswSetElementTuple(base, etup, e, useIndexTuple);
 
 	/* Prepare neighbor tuple */
 	ntup = palloc0(ntupSize);
@@ -387,8 +388,9 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, HnswQuery * q, int *idx, Re
 		HnswCandidate *hc = &neighbors->items[i];
 		HnswElement element = HnswPtrAccess(base, hc->element);
 		double		distance;
+		bool		matches;
 
-		HnswLoadElement(element, &distance, q, index, support, true, NULL);
+		HnswLoadElement(element, &distance, &matches, q, index, support, true, NULL);
 		hc->distance = distance;
 
 		/* Prune element if being deleted */
@@ -432,6 +434,8 @@ GetUpdateIndex(HnswElement element, HnswElement newElement, float distance, int 
 		HnswQuery	q;
 
 		q.value = HnswGetValue(base, element);
+		q.itup = HnswPtrAccess(base, element->itup);
+		q.keyData = NULL;
 
 		LoadElementsForInsert(neighbors, &q, &idx, index, support);
 
@@ -637,21 +641,30 @@ AddDuplicateOnDisk(Relation index, HnswElement element, HnswElement dup, bool bu
  * Find duplicate element
  */
 static bool
-FindDuplicateOnDisk(Relation index, HnswElement element, bool building)
+FindDuplicateOnDisk(Relation index, HnswElement element, bool building, TupleDesc tupdesc)
 {
 	char	   *base = NULL;
 	HnswNeighborArray *neighbors = HnswGetNeighbors(base, element, 0);
 	Datum		value = HnswGetValue(base, element);
+	IndexTuple	itup = HnswPtrAccess(base, element->itup);
 
 	for (int i = 0; i < neighbors->length; i++)
 	{
 		HnswCandidate *neighbor = &neighbors->items[i];
 		HnswElement neighborElement = HnswPtrAccess(base, neighbor->element);
-		Datum		neighborValue = HnswGetValue(base, neighborElement);
 
-		/* Exit early since ordered by distance */
-		if (!datumIsEqual(value, neighborValue, false, -1))
-			return false;
+		if (HnswUseIndexTuple(index))
+		{
+			/* Exit early since ordered by distance */
+			if (!HnswIndexTupleIsEqual(itup, HnswPtrAccess(base, neighborElement->itup), tupdesc))
+				return false;
+		}
+		else
+		{
+			/* Exit early since ordered by distance */
+			if (!datumIsEqual(value, HnswGetValue(base, neighborElement), false, -1))
+				return false;
+		}
 
 		if (AddDuplicateOnDisk(index, element, neighborElement, building))
 			return true;
@@ -664,12 +677,12 @@ FindDuplicateOnDisk(Relation index, HnswElement element, bool building)
  * Update graph on disk
  */
 static void
-UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, int m, HnswElement entryPoint, bool building)
+UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, int m, HnswElement entryPoint, bool building, TupleDesc tupdesc)
 {
 	BlockNumber newInsertPage = InvalidBlockNumber;
 
 	/* Look for duplicate */
-	if (FindDuplicateOnDisk(index, element, building))
+	if (FindDuplicateOnDisk(index, element, building, tupdesc))
 		return;
 
 	/* Add element */
@@ -691,7 +704,7 @@ UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, in
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPointer heaptid, bool building)
+HnswInsertTupleOnDisk(Relation index, HnswSupport * support, IndexTuple itup, ItemPointer heaptid, bool building, TupleDesc tupdesc)
 {
 	HnswElement entryPoint;
 	HnswElement element;
@@ -699,6 +712,7 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 	int			efConstruction = HnswGetEfConstruction(index);
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
+	bool		unused;
 
 	/*
 	 * Get a shared lock. This allows vacuum to ensure no in-flight inserts
@@ -712,7 +726,8 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 
 	/* Create an element */
 	element = HnswInitElement(base, heaptid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
-	HnswPtrStore(base, element->value, DatumGetPointer(value));
+	HnswPtrStore(base, element->itup, itup);
+	HnswPtrStore(base, element->value, DatumGetPointer(index_getattr(itup, 1, tupdesc, &unused)));
 
 	/* Prevent concurrent inserts when likely updating entry point */
 	if (entryPoint == NULL || element->level > entryPoint->level)
@@ -729,10 +744,10 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 	}
 
 	/* Find neighbors for element */
-	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, false, false);
 
 	/* Update graph on disk */
-	UpdateGraphOnDisk(index, support, element, m, entryPoint, building);
+	UpdateGraphOnDisk(index, support, element, m, entryPoint, building, tupdesc);
 
 	/* Release lock */
 	UnlockPage(index, HNSW_UPDATE_LOCK, lockmode);
@@ -746,17 +761,18 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 static void
 HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid)
 {
-	Datum		value;
+	IndexTuple	itup;
 	const		HnswTypeInfo *typeInfo = HnswGetTypeInfo(index);
+	TupleDesc	tupdesc = RelationGetDescr(index);
 	HnswSupport support;
 
 	HnswInitSupport(&support, index);
 
-	/* Form index value */
-	if (!HnswFormIndexValue(&value, values, isnull, typeInfo, &support))
+	/* Form index tuple */
+	if (!HnswFormIndexTuple(&itup, values, isnull, typeInfo, &support, tupdesc))
 		return;
 
-	HnswInsertTupleOnDisk(index, &support, value, heaptid, false);
+	HnswInsertTupleOnDisk(index, &support, itup, heaptid, false, tupdesc);
 }
 
 /*

@@ -212,7 +212,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	element->heaptidsLength = 0;
 
 	/* Find neighbors for element, skipping itself */
-	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, true);
+	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, true, false);
 
 	/* Zero memory for each element */
 	MemSet(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
@@ -264,7 +264,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
 		/* Load element */
-		HnswLoadElement(highestPoint, NULL, NULL, index, support, true, NULL);
+		HnswLoadElement(highestPoint, NULL, NULL, NULL, index, support, true, NULL);
 
 		/* Repair if needed */
 		if (NeedsUpdated(vacuumstate, highestPoint))
@@ -302,7 +302,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 			 * is outdated, this can remove connections at higher levels in
 			 * the graph until they are repaired, but this should be fine.
 			 */
-			HnswLoadElement(entryPoint, NULL, NULL, index, support, true, NULL);
+			HnswLoadElement(entryPoint, NULL, NULL, NULL, index, support, true, NULL);
 
 			if (NeedsUpdated(vacuumstate, entryPoint))
 			{
@@ -378,7 +378,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 
 			/* Create an element */
 			element = HnswInitElementFromBlock(blkno, offno);
-			HnswLoadElementFromTuple(element, etup, false, true);
+			HnswLoadElementFromTuple(element, etup, false, true, index);
 
 			elements = lappend(elements, element);
 		}
@@ -448,6 +448,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
+	bool		useIndexTuple = HnswUseIndexTuple(index);
 
 	/*
 	 * Wait for index scans to complete. Scans before this point may contain
@@ -529,7 +530,14 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 			/* Overwrite element */
 			etup->deleted = 1;
-			MemSet(&etup->data, 0, VARSIZE_ANY(&etup->data));
+			if (useIndexTuple)
+			{
+				IndexTuple	itup = (IndexTuple) &etup->data;
+
+				MemSet(itup, 0, IndexTupleSize(itup));
+			}
+			else
+				MemSet(&etup->data, 0, VARSIZE_ANY(&etup->data));
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < ntup->count; i++)

@@ -1,3 +1,7 @@
+## 0.9.0 (unreleased)
+
+- Added support for inline filtering with HNSW
+
 ## 0.8.2 (unreleased)
 
 - Improved `install` target on Windows

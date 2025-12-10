@@ -467,6 +467,12 @@ If filtering by many different values, consider [partitioning](https://www.postg
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
+Or a composite HNSW index (added in 0.9.0)
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops, category_id);
+```
+
 ## Iterative Index Scans
 
 With approximate indexes, queries with filtering can return less results since filtering is applied *after* the index is scanned. Starting with 0.8.0, you can enable iterative index scans, which will automatically scan more of the index until enough results are found (or it reaches `hnsw.max_scan_tuples` or `ivfflat.max_probes`).
@@ -1282,6 +1288,7 @@ Thanks to:
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
 - [Efficient and Robust Approximate Nearest Neighbor Search using Hierarchical Navigable Small World Graphs](https://arxiv.org/ftp/arxiv/papers/1603/1603.09320.pdf)
+- [HQANN: Efficient and Robust Similarity Search for Hybrid Queries with Structured and Unstructured Constraints](https://arxiv.org/pdf/2207.07940.pdf)
 
 ## History
 

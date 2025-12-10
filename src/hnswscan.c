@@ -22,26 +22,30 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	int			m;
 	HnswElement entryPoint;
 	char	   *base = NULL;
+	bool		inMemory = false;
 	HnswQuery  *q = &so->q;
+
+	q->value = value;
+	q->itup = NULL;
+	q->keyData = scan->keyData;
 
 	/* Get m and entry point */
 	HnswGetMetaPageInfo(index, &m, &entryPoint);
 
-	q->value = value;
 	so->m = m;
 
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, support, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, q, index, support, false, inMemory));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, inMemory, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, inMemory, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -72,7 +76,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, sc);
 	}
 
-	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
+	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, false, &so->v, &so->discarded, false, &so->tuples);
 }
 
 /*
@@ -96,7 +100,7 @@ GetScanValue(IndexScanDesc scan)
 
 		/* Normalize if needed */
 		if (so->support.normprocinfo != NULL)
-			value = HnswNormValue(so->typeInfo, so->support.collation, value);
+			value = HnswNormValue(so->typeInfo, so->support.collation[0], value);
 	}
 
 	return value;
@@ -283,7 +287,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 		element = HnswPtrAccess(base, sc->element);
 
 		/* Move to next element if no valid heap TIDs */
-		if (element->heaptidsLength == 0)
+		if (!sc->matches || element->heaptidsLength == 0)
 		{
 			so->w = list_delete_last(so->w);
 
