@@ -4,12 +4,14 @@
 
 #include "access/genam.h"
 #include "access/generic_xlog.h"
+#include "access/itup.h"
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "nodes/execnodes.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
+#include "utils/rel.h"
 
 /*
  * Find the list that minimizes the distance function

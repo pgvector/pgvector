@@ -1,6 +1,7 @@
 #include "postgres.h"
 
 #include "access/relscan.h"
+#include "access/sdir.h"
 #include "access/skey.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"

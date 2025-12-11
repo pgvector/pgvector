@@ -4,6 +4,8 @@
 
 #include "access/genam.h"
 #include "access/generic_xlog.h"
+#include "access/itup.h"
+#include "access/relscan.h"
 #include "access/table.h"
 #include "access/tableam.h"
 #include "access/tupdesc.h"
@@ -25,8 +27,10 @@
 #include "storage/shm_toc.h"
 #include "tcop/tcopprot.h"
 #include "utils/memutils.h"
+#include "utils/rel.h"
 #include "utils/sampling.h"
 #include "utils/snapmgr.h"
+#include "utils/snapshot.h"
 #include "utils/tuplesort.h"
 
 #if PG_VERSION_NUM >= 160000
