@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "common/hashfn.h"
 #include "fmgr.h"

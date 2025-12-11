@@ -3,6 +3,7 @@
 #include <float.h>
 
 #include "access/genam.h"
+#include "access/generic_xlog.h"
 #include "access/table.h"
 #include "access/tableam.h"
 #include "access/tupdesc.h"
@@ -13,6 +14,7 @@
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
 #include "commands/progress.h"
+#include "executor/tuptable.h"
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "miscadmin.h"

@@ -2,9 +2,13 @@
 
 #include <float.h>
 
+#include "access/genam.h"
+#include "access/itup.h"
 #include "access/relscan.h"
+#include "access/skey.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
+#include "executor/tuptable.h"
 #include "lib/pairingheap.h"
 #include "ivfflat.h"
 #include "miscadmin.h"

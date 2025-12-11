@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <math.h>
 
+#include "access/genam.h"
+#include "fmgr.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "utils/memutils.h"

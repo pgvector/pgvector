@@ -1,7 +1,9 @@
 #include "postgres.h"
 
 #include "access/relscan.h"
+#include "access/skey.h"
 #include "hnsw.h"
+#include "lib/pairingheap.h"
 #include "nodes/pg_list.h"
 #include "pgstat.h"
 #include "storage/lmgr.h"

@@ -38,8 +38,10 @@
 
 #include "access/genam.h"
 #include "access/parallel.h"
+#include "access/relscan.h"
 #include "access/table.h"
 #include "access/tableam.h"
+#include "access/tupdesc.h"
 #include "access/xact.h"
 #include "access/xloginsert.h"
 #include "catalog/index.h"
@@ -49,6 +51,7 @@
 #include "miscadmin.h"
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
+#include "storage/bufpage.h"
 #include "storage/condition_variable.h"
 #include "storage/shm_toc.h"
 #include "storage/shmem.h"

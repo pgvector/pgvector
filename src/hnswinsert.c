@@ -1,8 +1,10 @@
 #include "postgres.h"
 
+#include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "hnsw.h"
 #include "storage/bufmgr.h"
+#include "storage/bufpage.h"
 #include "storage/lmgr.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
