@@ -22,6 +22,7 @@
 #include "miscadmin.h"
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
+#include "storage/bufpage.h"
 #include "storage/condition_variable.h"
 #include "storage/lockdefs.h"
 #include "storage/shm_toc.h"

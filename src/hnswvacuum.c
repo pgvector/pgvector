@@ -14,6 +14,7 @@
 #include "storage/lockdefs.h"
 #include "storage/off.h"
 #include "utils/memutils.h"
+#include "utils/rel.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

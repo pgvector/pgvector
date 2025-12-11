@@ -53,6 +53,7 @@
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
 #include "storage/condition_variable.h"
+#include "storage/dsm.h"
 #include "storage/lockdefs.h"
 #include "storage/lwlock.h"
 #include "storage/shm_toc.h"

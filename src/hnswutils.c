@@ -13,6 +13,7 @@
 #include "sparsevec.h"
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
+#include "storage/lwlock.h"
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
