@@ -15,6 +15,7 @@
 #include "storage/lockdefs.h"
 #include "utils/float.h"
 #include "utils/guc.h"
+#include "utils/relcache.h"
 #include "utils/selfuncs.h"
 #include "utils/spccache.h"
 #include "vector.h"

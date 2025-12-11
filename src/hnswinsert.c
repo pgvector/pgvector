@@ -3,13 +3,17 @@
 #include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "hnsw.h"
+#include "storage/buf.h"
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
+#include "storage/itemid.h"
+#include "storage/itemptr.h"
 #include "storage/lmgr.h"
 #include "storage/lockdefs.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
+#include "utils/relcache.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

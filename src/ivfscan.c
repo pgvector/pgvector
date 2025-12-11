@@ -16,10 +16,13 @@
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "pgstat.h"
+#include "storage/buf.h"
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
+#include "storage/itemid.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
+#include "utils/relcache.h"
 #include "utils/snapmgr.h"
 #include "utils/tuplesort.h"
 

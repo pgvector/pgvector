@@ -9,6 +9,7 @@
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "utils/memutils.h"
+#include "utils/relcache.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

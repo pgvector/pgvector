@@ -12,6 +12,7 @@
 #include "storage/lmgr.h"
 #include "utils/float.h"
 #include "utils/memutils.h"
+#include "utils/relcache.h"
 #include "utils/snapmgr.h"
 
 #if PG_VERSION_NUM >= 160000

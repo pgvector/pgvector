@@ -12,6 +12,7 @@
 #include "storage/bufpage.h"
 #include "storage/itemptr.h"
 #include "storage/off.h"
+#include "utils/relcache.h"
 
 #if PG_VERSION_NUM >= 180000
 #define vacuum_delay_point() vacuum_delay_point(false)

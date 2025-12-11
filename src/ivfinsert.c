@@ -8,12 +8,15 @@
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "nodes/execnodes.h"
+#include "storage/buf.h"
 #include "storage/bufmgr.h"
 #include "storage/bufpage.h"
+#include "storage/itemid.h"
 #include "storage/lmgr.h"
 #include "storage/lockdefs.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
+#include "utils/relcache.h"
 
 /*
  * Find the list that minimizes the distance function

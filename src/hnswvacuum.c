@@ -15,6 +15,7 @@
 #include "storage/off.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
+#include "utils/relcache.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
