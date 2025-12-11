@@ -2,6 +2,7 @@
 
 #include <float.h>
 
+#include "access/attnum.h"
 #include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "access/itup.h"
@@ -21,6 +22,7 @@
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "nodes/execnodes.h"
 #include "optimizer/optimizer.h"
 #include "storage/block.h"
 #include "storage/buf.h"

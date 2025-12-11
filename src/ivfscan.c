@@ -2,6 +2,7 @@
 
 #include <float.h>
 
+#include "access/attnum.h"
 #include "access/genam.h"
 #include "access/itup.h"
 #include "access/relscan.h"
