@@ -549,13 +549,30 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 VECTOR_TARGET_CLONES static float
 VectorL2SquaredDistance(int dim, float *ax, float *bx)
 {
-	float		distance = 0.0;
+	/* Use 4 independent accumulators to break dependency chains */
+	float dist0 = 0.0f, dist1 = 0.0f, dist2 = 0.0f, dist3 = 0.0f;
+	int i = 0;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
+	/* Auto-vectorized - main loop with 4 accumulators */
+	for (; i + 3 < dim; i += 4)
 	{
-		float		diff = ax[i] - bx[i];
+		float diff0 = ax[i] - bx[i];
+		float diff1 = ax[i + 1] - bx[i + 1];
+		float diff2 = ax[i + 2] - bx[i + 2];
+		float diff3 = ax[i + 3] - bx[i + 3];
 
+		dist0 += diff0 * diff0;
+		dist1 += diff1 * diff1;
+		dist2 += diff2 * diff2;
+		dist3 += diff3 * diff3;
+	}
+
+	float distance = dist0 + dist1 + dist2 + dist3;
+
+	/* Handle remaining elements */
+	for (; i < dim; i++)
+	{
+		float diff = ax[i] - bx[i];
 		distance += diff * diff;
 	}
 
@@ -596,10 +613,23 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 VECTOR_TARGET_CLONES static float
 VectorInnerProduct(int dim, float *ax, float *bx)
 {
-	float		distance = 0.0;
+	/* Use 4 independent accumulators to break dependency chains */
+	float prod0 = 0.0f, prod1 = 0.0f, prod2 = 0.0f, prod3 = 0.0f;
+	int i = 0;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
+	/* Auto-vectorized - main loop with 4 accumulators */
+	for (; i + 3 < dim; i += 4)
+	{
+		prod0 += ax[i] * bx[i];
+		prod1 += ax[i + 1] * bx[i + 1];
+		prod2 += ax[i + 2] * bx[i + 2];
+		prod3 += ax[i + 3] * bx[i + 3];
+	}
+
+	float distance = prod0 + prod1 + prod2 + prod3;
+
+	/* Handle remaining elements */
+	for (; i < dim; i++)
 		distance += ax[i] * bx[i];
 
 	return distance;
@@ -638,12 +668,37 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 VECTOR_TARGET_CLONES static double
 VectorCosineSimilarity(int dim, float *ax, float *bx)
 {
-	float		similarity = 0.0;
-	float		norma = 0.0;
-	float		normb = 0.0;
+	/* Use 4 independent accumulators to break dependency chains */
+	float sim0 = 0.0f, sim1 = 0.0f, sim2 = 0.0f, sim3 = 0.0f;
+	float na0 = 0.0f, na1 = 0.0f, na2 = 0.0f, na3 = 0.0f;
+	float nb0 = 0.0f, nb1 = 0.0f, nb2 = 0.0f, nb3 = 0.0f;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
+	int i = 0;
+	/* Auto-vectorized  - main loop with 4 accumulators */
+	for (; i + 3 < dim; i += 4)
+	{
+		sim0 += ax[i] * bx[i];
+		sim1 += ax[i + 1] * bx[i + 1];
+		sim2 += ax[i + 2] * bx[i + 2];
+		sim3 += ax[i + 3] * bx[i + 3];
+
+		na0 += ax[i] * ax[i];
+		na1 += ax[i + 1] * ax[i + 1];
+		na2 += ax[i + 2] * ax[i + 2];
+		na3 += ax[i + 3] * ax[i + 3];
+
+		nb0 += bx[i] * bx[i];
+		nb1 += bx[i + 1] * bx[i + 1];
+		nb2 += bx[i + 2] * bx[i + 2];
+		nb3 += bx[i + 3] * bx[i + 3];
+	}
+
+	float similarity = sim0 + sim1 + sim2 + sim3;
+	float norma = na0 + na1 + na2 + na3;
+	float normb = nb0 + nb1 + nb2 + nb3;
+
+	/* Handle remaining elements */
+	for (; i < dim; i++)
 	{
 		similarity += ax[i] * bx[i];
 		norma += ax[i] * ax[i];
@@ -714,10 +769,23 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 VECTOR_TARGET_CLONES static float
 VectorL1Distance(int dim, float *ax, float *bx)
 {
-	float		distance = 0.0;
+	/* Use 4 independent accumulators to break dependency chains */
+	float dist0 = 0.0f, dist1 = 0.0f, dist2 = 0.0f, dist3 = 0.0f;
+	int i = 0;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
+	/* Auto-vectorized - main loop with 4 accumulators */
+	for (; i + 3 < dim; i += 4)
+	{
+		dist0 += fabsf(ax[i] - bx[i]);
+		dist1 += fabsf(ax[i + 1] - bx[i + 1]);
+		dist2 += fabsf(ax[i + 2] - bx[i + 2]);
+		dist3 += fabsf(ax[i + 3] - bx[i + 3]);
+	}
+
+	float distance = dist0 + dist1 + dist2 + dist3;
+
+	/* Handle remaining elements */
+	for (; i < dim; i++)
 		distance += fabsf(ax[i] - bx[i]);
 
 	return distance;
@@ -757,13 +825,27 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_norm);
 Datum
 vector_norm(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = PG_GETARG_VECTOR_P(0);
-	float	   *ax = a->x;
-	double		norm = 0.0;
+	Vector* a = PG_GETARG_VECTOR_P(0);
+	float* ax = a->x;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		norm += (double) ax[i] * (double) ax[i];
+	/* Use 4 independent accumulators to break dependency chains */
+	double norm0 = 0.0, norm1 = 0.0, norm2 = 0.0, norm3 = 0.0;
+	int i = 0;
+
+	/* Auto-vectorized - main loop with 4 accumulators */
+	for (; i + 3 < a->dim; i += 4)
+	{
+		norm0 += (double)ax[i] * (double)ax[i];
+		norm1 += (double)ax[i + 1] * (double)ax[i + 1];
+		norm2 += (double)ax[i + 2] * (double)ax[i + 2];
+		norm3 += (double)ax[i + 3] * (double)ax[i + 3];
+	}
+
+	double norm = norm0 + norm1 + norm2 + norm3;
+
+	/* Handle remaining elements */
+	for (; i < a->dim; i++)
+		norm += (double)ax[i] * (double)ax[i];
 
 	PG_RETURN_FLOAT8(sqrt(norm));
 }
@@ -775,18 +857,32 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(l2_normalize);
 Datum
 l2_normalize(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = PG_GETARG_VECTOR_P(0);
-	float	   *ax = a->x;
-	double		norm = 0;
-	Vector	   *result;
-	float	   *rx;
+	Vector* a = PG_GETARG_VECTOR_P(0);
+	float* ax = a->x;
+	Vector* result;
+	float* rx;
+
+	/* Use 4 independent accumulators to break dependency chains */
+	double norm0 = 0.0, norm1 = 0.0, norm2 = 0.0, norm3 = 0.0;
+	int i = 0;
 
 	result = InitVector(a->dim);
 	rx = result->x;
 
-	/* Auto-vectorized */
-	for (int i = 0; i < a->dim; i++)
-		norm += (double) ax[i] * (double) ax[i];
+	/* Auto-vectorized - main loop with 4 accumulators */
+	for (; i + 3 < a->dim; i += 4)
+	{
+		norm0 += (double)ax[i] * (double)ax[i];
+		norm1 += (double)ax[i + 1] * (double)ax[i + 1];
+		norm2 += (double)ax[i + 2] * (double)ax[i + 2];
+		norm3 += (double)ax[i + 3] * (double)ax[i + 3];
+	}
+
+	double norm = norm0 + norm1 + norm2 + norm3;
+
+	/* Handle remaining elements */
+	for (; i < a->dim; i++)
+		norm += (double)ax[i] * (double)ax[i];
 
 	norm = sqrt(norm);
 
