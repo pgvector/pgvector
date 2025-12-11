@@ -178,7 +178,12 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 	/* Also update if layer 0 is not full */
 	/* This could indicate too many candidates being deleted during insert */
 	if (!needsUpdated)
+	{
+		/* Keep clang-tidy happy */
+		Assert(ntup->count > 0);
+
 		needsUpdated = !ItemPointerIsValid(&ntup->indextids[ntup->count - 1]);
+	}
 
 	UnlockReleaseBuffer(buf);
 
@@ -528,8 +533,9 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			ntup = (HnswNeighborTuple) PageGetItem(npage, PageGetItemId(npage, neighborOffno));
 
 			/* Overwrite element */
+			/* Use memset instead of MemSet to keep clang-tidy happy */
 			etup->deleted = 1;
-			MemSet(&etup->data, 0, VARSIZE_ANY(&etup->data));
+			memset(&etup->data, 0, VARSIZE_ANY(&etup->data));
 
 			/* Overwrite neighbors */
 			for (int i = 0; i < ntup->count; i++)
