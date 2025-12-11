@@ -1,5 +1,6 @@
 #include "postgres.h"
 
+#include "access/genam.h"
 #include "access/relscan.h"
 #include "access/sdir.h"
 #include "access/skey.h"

@@ -9,7 +9,9 @@
 #include "ivfflat.h"
 #include "nodes/execnodes.h"
 #include "storage/bufmgr.h"
+#include "storage/bufpage.h"
 #include "storage/lmgr.h"
+#include "storage/lockdefs.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 

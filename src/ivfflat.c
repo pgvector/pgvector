@@ -12,6 +12,7 @@
 #include "nodes/nodes.h"
 #include "nodes/pathnodes.h"
 #include "nodes/pg_list.h"
+#include "storage/lockdefs.h"
 #include "utils/float.h"
 #include "utils/guc.h"
 #include "utils/selfuncs.h"

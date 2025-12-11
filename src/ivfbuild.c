@@ -25,6 +25,7 @@
 #include "storage/condition_variable.h"
 #include "storage/lockdefs.h"
 #include "storage/shm_toc.h"
+#include "storage/spin.h"
 #include "tcop/tcopprot.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
