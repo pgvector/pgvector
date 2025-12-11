@@ -187,6 +187,7 @@ typedef struct HnswOptions
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			m;				/* number of connections */
 	int			efConstruction; /* size of dynamic candidate list */
+	int			defaultEfSearch; /* default ef_search for searches (0 = unset) */
 }			HnswOptions;
 
 typedef struct HnswGraph
@@ -414,6 +415,8 @@ typedef struct HnswVacuumState
 /* Methods */
 int			HnswGetM(Relation index);
 int			HnswGetEfConstruction(Relation index);
+int			HnswGetDefaultEfSearch(Relation index);
+int			HnswGetEffectiveEfSearch(Relation index);
 FmgrInfo   *HnswOptionalProcInfo(Relation index, uint16 procnum);
 void		HnswInitSupport(HnswSupport * support, Relation index);
 Datum		HnswNormValue(const HnswTypeInfo * typeInfo, Oid collation, Datum value);

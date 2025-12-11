@@ -8,6 +8,7 @@
 #include "halfvec.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "utils/guc_tables.h"
 
 /*
  * Allocate a vector array
@@ -50,6 +51,46 @@ IvfflatGetLists(Relation index)
 		return opts->lists;
 
 	return IVFFLAT_DEFAULT_LISTS;
+}
+
+/*
+ * Get the default probes for the index
+ */
+int
+IvfflatGetDefaultProbes(Relation index)
+{
+	IvfflatOptions *opts = (IvfflatOptions *) index->rd_options;
+
+	if (opts)
+		return opts->defaultProbes;
+
+	return 0;
+}
+
+/*
+ * Get effective probes for the index, implementing precedence:
+ * 1. Explicit SET ivfflat.probes takes precedence
+ * 2. Index default_probes if set (> 0)
+ * 3. GUC default value
+ */
+int
+IvfflatGetEffectiveProbes(Relation index)
+{
+	struct config_generic *record;
+	int			defaultProbes;
+
+	/* Check if GUC was explicitly set in session */
+	record = find_option("ivfflat.probes", false, true, ERROR);
+	if (record != NULL && record->source == PGC_S_SESSION)
+		return ivfflat_probes;
+
+	/* Check for index default */
+	defaultProbes = IvfflatGetDefaultProbes(index);
+	if (defaultProbes > 0)
+		return defaultProbes;
+
+	/* Fall back to GUC default */
+	return ivfflat_probes;
 }
 
 /*

@@ -82,6 +82,8 @@ HnswInit(void)
 					  HNSW_DEFAULT_M, HNSW_MIN_M, HNSW_MAX_M, AccessExclusiveLock);
 	add_int_reloption(hnsw_relopt_kind, "ef_construction", "Size of the dynamic candidate list for construction",
 					  HNSW_DEFAULT_EF_CONSTRUCTION, HNSW_MIN_EF_CONSTRUCTION, HNSW_MAX_EF_CONSTRUCTION, AccessExclusiveLock);
+	add_int_reloption(hnsw_relopt_kind, "default_ef_search", "Default ef_search for searches",
+					  0, 0, HNSW_MAX_EF_SEARCH, AccessExclusiveLock);
 
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
@@ -158,7 +160,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	index = index_open(path->indexinfo->indexoid, NoLock);
 	HnswGetMetaPageInfo(index, &m, NULL);
-	index_close(index, NoLock);
 
 	/*
 	 * HNSW cost estimation follows a formula that accounts for the total
@@ -190,9 +191,10 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	if (path->indexinfo->tuples > 0)
 	{
 		double		scalingFactor = 0.55;
+		int			effectiveEfSearch = HnswGetEffectiveEfSearch(index);
 		int			entryLevel = (int) (log(path->indexinfo->tuples) * HnswGetMl(m));
-		int			layer0TuplesMax = HnswGetLayerM(m, 0) * hnsw_ef_search;
-		double		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(hnsw_ef_search)));
+		int			layer0TuplesMax = HnswGetLayerM(m, 0) * effectiveEfSearch;
+		double		layer0Selectivity = scalingFactor * log(path->indexinfo->tuples) / (log(m) * (1 + log(effectiveEfSearch)));
 
 		ratio = (entryLevel * m + layer0TuplesMax * layer0Selectivity) / path->indexinfo->tuples;
 
@@ -201,6 +203,8 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	}
 	else
 		ratio = 1;
+
+	index_close(index, NoLock);
 
 	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
 
@@ -234,6 +238,7 @@ hnswoptions(Datum reloptions, bool validate)
 	static const relopt_parse_elt tab[] = {
 		{"m", RELOPT_TYPE_INT, offsetof(HnswOptions, m)},
 		{"ef_construction", RELOPT_TYPE_INT, offsetof(HnswOptions, efConstruction)},
+		{"default_ef_search", RELOPT_TYPE_INT, offsetof(HnswOptions, defaultEfSearch)},
 	};
 
 	return (bytea *) build_reloptions(reloptions, validate,

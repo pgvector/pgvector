@@ -121,6 +121,7 @@ typedef struct IvfflatOptions
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			lists;			/* number of lists */
+	int			defaultProbes;	/* default probes for searches (0 = unset) */
 }			IvfflatOptions;
 
 typedef struct IvfflatSpool
@@ -318,6 +319,8 @@ FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 Datum		IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 int			IvfflatGetLists(Relation index);
+int			IvfflatGetDefaultProbes(Relation index);
+int			IvfflatGetEffectiveProbes(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);
 void		IvfflatUpdateList(Relation index, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);
 void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);

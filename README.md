@@ -258,12 +258,19 @@ Specify HNSW parameters
 
 - `m` - the max number of connections per layer (16 by default)
 - `ef_construction` - the size of the dynamic candidate list for constructing the graph (64 by default)
+- `default_ef_search` - the default ef_search for queries using this index (unset by default)
 
 ```sql
 CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WITH (m = 16, ef_construction = 64);
 ```
 
 A higher value of `ef_construction` provides better recall at the cost of index build time / insert speed.
+
+Use `default_ef_search` to set a per-index search default (overridden by explicit `SET hnsw.ef_search`)
+
+```sql
+CREATE INDEX ON items USING hnsw (embedding vector_l2_ops) WITH (default_ef_search = 100);
+```
 
 ### Query Options
 
@@ -370,6 +377,19 @@ Supported types are:
 - `vector` - up to 2,000 dimensions
 - `halfvec` - up to 4,000 dimensions
 - `bit` - up to 64,000 dimensions
+
+### Index Options
+
+Specify IVFFlat parameters
+
+- `lists` - the number of inverted lists (required)
+- `default_probes` - the default number of probes for queries using this index (unset by default)
+
+Use `default_probes` to set a per-index search default (overridden by explicit `SET ivfflat.probes`)
+
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100, default_probes = 10);
+```
 
 ### Query Options
 
