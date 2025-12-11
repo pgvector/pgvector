@@ -22,6 +22,10 @@
 #include "utils/rel.h"
 #include "utils/relcache.h"
 
+#if PG_VERSION_NUM < 190000
+#include "storage/item.h"
+#endif
+
 /*
  * Find the list that minimizes the distance function
  */

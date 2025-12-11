@@ -4,6 +4,7 @@
 #include "access/generic_xlog.h"
 #include "common/relpath.h"
 #include "hnsw.h"
+#include "nodes/execnodes.h"
 #include "storage/block.h"
 #include "storage/buf.h"
 #include "storage/bufmgr.h"
@@ -17,6 +18,10 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/relcache.h"
+
+#if PG_VERSION_NUM < 190000
+#include "storage/item.h"
+#endif
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

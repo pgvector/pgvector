@@ -11,6 +11,7 @@
 #include "pgstat.h"
 #include "storage/itemptr.h"
 #include "storage/lmgr.h"
+#include "storage/lockdefs.h"
 #include "utils/float.h"
 #include "utils/memutils.h"
 #include "utils/relcache.h"

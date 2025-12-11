@@ -65,6 +65,7 @@
 #include "storage/off.h"
 #include "storage/shm_toc.h"
 #include "storage/shmem.h"
+#include "storage/spin.h"
 #include "tcop/tcopprot.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
@@ -72,6 +73,10 @@
 #include "utils/relcache.h"
 #include "utils/snapmgr.h"
 #include "utils/snapshot.h"
+
+#if PG_VERSION_NUM < 190000
+#include "storage/item.h"
+#endif
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
