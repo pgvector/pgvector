@@ -13,11 +13,15 @@
 #include "port.h"				/* for strtof() */
 #include "sparsevec.h"
 #include "utils/array.h"
-#include "utils/builtins.h"
 #include "utils/float.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
-#include "utils/numeric.h"
+#include "utils/varbit.h"
 #include "vector.h"
+
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
 
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))

@@ -11,6 +11,12 @@
 #include "pgstat.h"
 #include "storage/bufmgr.h"
 #include "utils/memutils.h"
+#include "utils/snapmgr.h"
+#include "utils/tuplesort.h"
+
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
 
 #define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)

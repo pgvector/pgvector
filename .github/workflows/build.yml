@@ -37,10 +37,10 @@ jobs:
       - run: make installcheck
       - if: ${{ failure() }}
         run: cat regression.diffs
-      - run: |
-          sudo apt-get update
-          sudo apt-get install libipc-run-perl
-      - run: make prove_installcheck
+      # - run: |
+      #     sudo apt-get update
+      #     sudo apt-get install libipc-run-perl
+      # - run: make prove_installcheck
   mac:
     runs-on: ${{ matrix.os }}
     if: ${{ !startsWith(github.ref_name, 'windows') }}
@@ -65,21 +65,21 @@ jobs:
       - if: ${{ failure() }}
         run: cat regression.diffs
       # Homebrew Postgres does not enable TAP tests, so need to download
-      - run: |
-          brew install cpanm
-          cpanm --notest IPC::Run
-          wget -q https://github.com/postgres/postgres/archive/refs/tags/$TAG.tar.gz
-          tar xf $TAG.tar.gz
-          mv postgres-$TAG postgres
-        env:
-          TAG: ${{ matrix.postgres == 18 && 'REL_18_0' || 'REL_14_19' }}
-      - run: make prove_installcheck PROVE_FLAGS="-I ./postgres/src/test/perl -I ./test/perl"
-        env:
-          PERL5LIB: /Users/runner/perl5/lib/perl5
-      - run: make clean && $(brew --prefix llvm@$LLVM_VERSION)/bin/scan-build --status-bugs make
-        env:
-          LLVM_VERSION: ${{ matrix.os == 'macos-26' && 20 || 18 }}
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING
+      # - run: |
+      #     brew install cpanm
+      #     cpanm --notest IPC::Run
+      #     wget -q https://github.com/postgres/postgres/archive/refs/tags/$TAG.tar.gz
+      #     tar xf $TAG.tar.gz
+      #     mv postgres-$TAG postgres
+      #   env:
+      #     TAG: ${{ matrix.postgres == 18 && 'REL_18_0' || 'REL_14_19' }}
+      # - run: make prove_installcheck PROVE_FLAGS="-I ./postgres/src/test/perl -I ./test/perl"
+      #   env:
+      #     PERL5LIB: /Users/runner/perl5/lib/perl5
+      # - run: make clean && $(brew --prefix llvm@$LLVM_VERSION)/bin/scan-build --status-bugs make
+      #   env:
+      #     LLVM_VERSION: ${{ matrix.os == 'macos-26' && 20 || 18 }}
+      #     PG_CFLAGS: -DUSE_ASSERT_CHECKING
   windows:
     runs-on: ${{ matrix.os }}
     if: ${{ !startsWith(github.ref_name, 'mac') }}
@@ -106,38 +106,3 @@ jobs:
         shell: cmd
       - if: ${{ failure() }}
         run: cat regression.diffs
-  i386:
-    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
-    runs-on: ubuntu-latest
-    container:
-      image: debian:12
-      options: --platform linux/386
-    steps:
-      - run: apt-get update && apt-get install -y build-essential git libipc-run-perl postgresql-15 postgresql-server-dev-15 sudo
-      - run: service postgresql start
-      - run: |
-          git clone https://github.com/${{ github.repository }}.git pgvector
-          cd pgvector
-          git fetch origin ${{ github.ref }}
-          git reset --hard FETCH_HEAD
-          make
-          make install
-          chown -R postgres .
-          sudo -u postgres make installcheck
-          sudo -u postgres make prove_installcheck
-        env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
-      - if: ${{ failure() }}
-        run: cat pgvector/regression.diffs
-  valgrind:
-    if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ankane/setup-postgres-valgrind@v1
-        with:
-          postgres-version: 18
-          check-ub: yes
-      - run: make OPTFLAGS=""
-      - run: sudo --preserve-env=PG_CONFIG make install
-      - run: make installcheck

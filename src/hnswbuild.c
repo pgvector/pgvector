@@ -36,8 +36,7 @@
  */
 #include "postgres.h"
 
-#include <math.h>
-
+#include "access/genam.h"
 #include "access/parallel.h"
 #include "access/table.h"
 #include "access/tableam.h"
@@ -50,9 +49,14 @@
 #include "miscadmin.h"
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
+#include "storage/condition_variable.h"
+#include "storage/shm_toc.h"
+#include "storage/shmem.h"
 #include "tcop/tcopprot.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
+#include "utils/rel.h"
+#include "utils/snapmgr.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
@@ -66,7 +70,7 @@
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
-#include "utils/wait_event.h"
+#include "utils/wait_event_types.h"
 #endif
 
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)

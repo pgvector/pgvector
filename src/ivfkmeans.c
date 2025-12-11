@@ -1,17 +1,12 @@
 #include "postgres.h"
 
 #include <float.h>
+#include <limits.h>
 #include <math.h>
 
-#include "bitvec.h"
-#include "halfutils.h"
-#include "halfvec.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
-#include "utils/builtins.h"
-#include "utils/datum.h"
 #include "utils/memutils.h"
-#include "vector.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

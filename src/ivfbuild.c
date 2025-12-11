@@ -2,23 +2,30 @@
 
 #include <float.h>
 
+#include "access/genam.h"
 #include "access/table.h"
 #include "access/tableam.h"
+#include "access/tupdesc.h"
 #include "access/parallel.h"
 #include "access/xact.h"
-#include "bitvec.h"
+#include "access/xloginsert.h"
 #include "catalog/index.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
 #include "commands/progress.h"
-#include "halfvec.h"
+#include "fmgr.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
+#include "storage/condition_variable.h"
+#include "storage/lockdefs.h"
+#include "storage/shm_toc.h"
 #include "tcop/tcopprot.h"
 #include "utils/memutils.h"
-#include "vector.h"
+#include "utils/sampling.h"
+#include "utils/snapmgr.h"
+#include "utils/tuplesort.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
@@ -32,7 +39,7 @@
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
-#include "utils/wait_event.h"
+#include "utils/wait_event_types.h"
 #endif
 
 #define PARALLEL_KEY_IVFFLAT_SHARED		UINT64CONST(0xA000000000000001)

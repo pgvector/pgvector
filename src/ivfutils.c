@@ -1,13 +1,23 @@
 #include "postgres.h"
 
+#include "access/genam.h"
 #include "access/generic_xlog.h"
-#include "bitvec.h"
-#include "catalog/pg_type.h"
+#include "common/relpath.h"
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"
+#include "storage/block.h"
+#include "storage/buf.h"
 #include "storage/bufmgr.h"
+#include "storage/bufpage.h"
+#include "utils/relcache.h"
+#include "utils/varbit.h"
+#include "vector.h"
+
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
 
 /*
  * Allocate a vector array

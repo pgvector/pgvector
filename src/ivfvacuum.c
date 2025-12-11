@@ -1,9 +1,17 @@
 #include "postgres.h"
 
+#include "access/genam.h"
 #include "access/generic_xlog.h"
+#include "access/itup.h"
 #include "commands/vacuum.h"
+#include "common/relpath.h"
 #include "ivfflat.h"
+#include "storage/block.h"
+#include "storage/buf.h"
 #include "storage/bufmgr.h"
+#include "storage/bufpage.h"
+#include "storage/itemptr.h"
+#include "storage/off.h"
 
 #if PG_VERSION_NUM >= 180000
 #define vacuum_delay_point() vacuum_delay_point(false)

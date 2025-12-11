@@ -1,5 +1,7 @@
 #include "postgres.h"
 
+#include <math.h>
+
 #include "halfutils.h"
 #include "halfvec.h"
 

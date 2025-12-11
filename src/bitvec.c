@@ -2,6 +2,7 @@
 
 #include "bitutils.h"
 #include "bitvec.h"
+#include "fmgr.h"
 #include "utils/varbit.h"
 #include "vector.h"
 
