@@ -5,17 +5,22 @@
 
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
-#include "common/string.h"
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
+#include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "sparsevec.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
 #include "utils/float.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
 #include "vector.h"
+
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
 
 typedef struct SparseInputElement
 {

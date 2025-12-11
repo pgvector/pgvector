@@ -16,10 +16,10 @@
 #include "port.h"				/* for strtof() */
 #include "sparsevec.h"
 #include "utils/array.h"
-#include "utils/builtins.h"
 #include "utils/float.h"
+#include "utils/fmgrprotos.h"
 #include "utils/lsyscache.h"
-#include "utils/numeric.h"
+#include "utils/varbit.h"
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 160000
