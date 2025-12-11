@@ -9,6 +9,7 @@
 #include "miscadmin.h"
 #include "nodes/pg_list.h"
 #include "pgstat.h"
+#include "storage/itemptr.h"
 #include "storage/lmgr.h"
 #include "utils/float.h"
 #include "utils/memutils.h"
