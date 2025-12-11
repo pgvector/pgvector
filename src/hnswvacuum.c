@@ -3,6 +3,7 @@
 #include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "commands/vacuum.h"
+#include "common/relpath.h"
 #include "hnsw.h"
 #include "nodes/pg_list.h"
 #include "storage/block.h"

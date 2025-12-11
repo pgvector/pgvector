@@ -5,6 +5,7 @@
 #include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "access/itup.h"
+#include "common/relpath.h"
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "nodes/execnodes.h"

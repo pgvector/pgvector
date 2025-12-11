@@ -2,6 +2,7 @@
 
 #include "access/genam.h"
 #include "access/generic_xlog.h"
+#include "common/relpath.h"
 #include "hnsw.h"
 #include "storage/block.h"
 #include "storage/buf.h"

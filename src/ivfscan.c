@@ -10,6 +10,7 @@
 #include "access/tupdesc.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
+#include "common/relpath.h"
 #include "executor/tuptable.h"
 #include "fmgr.h"
 #include "lib/pairingheap.h"
