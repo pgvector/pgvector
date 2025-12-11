@@ -3,6 +3,8 @@
 
 #include "postgres.h"
 
+#include <math.h>
+
 #include "access/genam.h"
 #include "access/parallel.h"
 #include "lib/pairingheap.h"

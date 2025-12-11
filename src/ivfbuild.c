@@ -39,7 +39,12 @@
 
 #if PG_VERSION_NUM >= 140000
 #include "utils/backend_status.h"
+#endif
+
+#if PG_VERSION_NUM >= 170000
 #include "utils/wait_event_types.h"
+#elif PG_VERSION_NUM >= 140000
+#include "utils/wait_event.h"
 #endif
 
 #define PARALLEL_KEY_IVFFLAT_SHARED		UINT64CONST(0xA000000000000001)
