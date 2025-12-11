@@ -1,12 +1,21 @@
 #include "postgres.h"
 
+#include "access/genam.h"
 #include "access/relscan.h"
 #include "hnsw.h"
+#include "lib/pairingheap.h"
+#include "miscadmin.h"
+#include "nodes/pg_list.h"
 #include "pgstat.h"
-#include "storage/bufmgr.h"
 #include "storage/lmgr.h"
 #include "utils/float.h"
 #include "utils/memutils.h"
+#include "utils/relcache.h"
+#include "utils/snapmgr.h"
+
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
 
 /*
  * Algorithm 5 from paper

@@ -36,11 +36,12 @@
  */
 #include "postgres.h"
 
-#include <math.h>
-
+#include "access/genam.h"
 #include "access/parallel.h"
+#include "access/relscan.h"
 #include "access/table.h"
 #include "access/tableam.h"
+#include "access/tupdesc.h"
 #include "access/xact.h"
 #include "access/xloginsert.h"
 #include "catalog/index.h"
@@ -48,11 +49,14 @@
 #include "commands/progress.h"
 #include "hnsw.h"
 #include "miscadmin.h"
+#include "nodes/execnodes.h"
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
 #include "tcop/tcopprot.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
+#include "utils/rel.h"
+#include "utils/snapmgr.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

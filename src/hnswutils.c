@@ -2,18 +2,20 @@
 
 #include <math.h>
 
+#include "access/genam.h"
 #include "access/generic_xlog.h"
-#include "catalog/pg_type.h"
-#include "catalog/pg_type_d.h"
 #include "common/hashfn.h"
 #include "fmgr.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
+#include "nodes/pg_list.h"
+#include "port/atomics.h"
 #include "sparsevec.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
+#include "vector.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

@@ -1,13 +1,14 @@
 #include "postgres.h"
 
-#include <math.h>
-
+#include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "commands/vacuum.h"
 #include "hnsw.h"
+#include "nodes/pg_list.h"
 #include "storage/bufmgr.h"
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
+#include "utils/rel.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"

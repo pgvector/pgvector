@@ -3,14 +3,19 @@
 #include <float.h>
 
 #include "access/amapi.h"
+#include "access/genam.h"
 #include "access/reloptions.h"
 #include "commands/progress.h"
 #include "commands/vacuum.h"
+#include "fmgr.h"
 #include "ivfflat.h"
+#include "nodes/pg_list.h"
 #include "utils/float.h"
 #include "utils/guc.h"
+#include "utils/relcache.h"
 #include "utils/selfuncs.h"
 #include "utils/spccache.h"
+#include "vector.h"
 
 #if PG_VERSION_NUM < 150000
 #define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)

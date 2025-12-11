@@ -2,15 +2,26 @@
 
 #include <float.h>
 
+#include "access/genam.h"
+#include "access/itup.h"
 #include "access/relscan.h"
+#include "access/tupdesc.h"
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
+#include "fmgr.h"
 #include "lib/pairingheap.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
 #include "utils/memutils.h"
+#include "utils/rel.h"
+#include "utils/snapmgr.h"
+#include "utils/tuplesort.h"
+
+#if PG_VERSION_NUM >= 160000
+#include "varatt.h"
+#endif
 
 #define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
