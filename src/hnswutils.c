@@ -936,7 +936,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 					continue;
 			}
 
-			if (eElement == NULL || !(eDistance < f->distance || alwaysAdd))
+			if (!(eDistance < f->distance || alwaysAdd))
 			{
 				if (discarded != NULL)
 				{

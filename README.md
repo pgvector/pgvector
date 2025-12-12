@@ -803,6 +803,7 @@ Raku | [pgvector-raku](https://github.com/pgvector/pgvector-raku)
 Ruby | [pgvector-ruby](https://github.com/pgvector/pgvector-ruby), [Neighbor](https://github.com/ankane/neighbor)
 Rust | [pgvector-rust](https://github.com/pgvector/pgvector-rust)
 Swift | [pgvector-swift](https://github.com/pgvector/pgvector-swift)
+Tcl | [pgvector-tcl](https://github.com/pgvector/pgvector-tcl)
 Zig | [pgvector-zig](https://github.com/pgvector/pgvector-zig)
 
 ## Frequently Asked Questions
