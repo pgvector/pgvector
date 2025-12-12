@@ -32,6 +32,12 @@ endif
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html
 PG_CFLAGS += $(OPTFLAGS) -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math
 
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+PG_CFLAGS += -mavx512f -mavx512dq  -mavx512vnni
+COMPILE.c.bc = $(CLANG) -Wno-ignored-attributes $(BITCODE_CFLAGS) $(CPPFLAGS) -flto=thin -emit-llvm -c -mavx512f -mavx512dq  -mavx512vnni -ftree-vectorize -fassociative-math -fno-signed-zeros -fno-trapping-math
+endif
+
 # Debug GCC auto-vectorization
 # PG_CFLAGS += -fopt-info-vec
 

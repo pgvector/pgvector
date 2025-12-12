@@ -3,12 +3,14 @@ use warnings FATAL => 'all';
 use PostgreSQL::Test::Cluster;
 use PostgreSQL::Test::Utils;
 use Test::More;
+use Config;
 
 my $node;
 my @queries = ();
 my @expected;
 my $limit = 20;
 my $array_sql = join(",", ('random() * random()') x 3);
+my $arch = $Config{archname};
 
 sub test_recall
 {
@@ -67,6 +69,13 @@ for (1 .. 20)
 # Check each index type
 my @operators = ("<->", "<#>", "<=>", "<+>");
 my @opclasses = ("vector_l2_ops", "vector_ip_ops", "vector_cosine_ops", "vector_l1_ops");
+
+if ($arch =~ /x86/)
+{
+	print "x86 arch, run test case for sq16_vector_cosine_ops\n";
+	push(@operators, "<=>");
+	push(@opclasses, "sq16_vector_cosine_ops");
+}
 
 for my $i (0 .. $#operators)
 {
