@@ -130,7 +130,7 @@ InitVector(int dim)
 }
 
 /*
- * Check for whitespace, since array_isspace() is static
+ * Check for whitespace, since scanner_isspace() is static
  */
 static inline bool
 vector_isspace(char ch)
