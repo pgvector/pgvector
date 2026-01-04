@@ -18,6 +18,7 @@
 #include "utils/array.h"
 #include "utils/float.h"
 #include "utils/fmgrprotos.h"
+#include "utils/jsonb.h"
 #include "utils/lsyscache.h"
 #include "utils/varbit.h"
 #include "vector.h"
@@ -496,6 +497,59 @@ array_to_vector(PG_FUNCTION_ARGS)
 	/* Check elements */
 	for (int i = 0; i < result->dim; i++)
 		CheckElement(result->x[i]);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert jsonb to vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(jsonb_to_vector);
+Datum
+jsonb_to_vector(PG_FUNCTION_ARGS)
+{
+	Jsonb	   *jsonb = PG_GETARG_JSONB_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	Vector	   *result;
+	JsonbIterator *it;
+	JsonbValue	v;
+	JsonbIteratorToken r;
+	int			dim;
+	int			i = 0;
+
+	if (!JB_ROOT_IS_ARRAY(jsonb) || JB_ROOT_IS_SCALAR(jsonb))
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("jsonb value must be array")));
+
+	dim = JsonContainerSize(&jsonb->root);
+	CheckDim(dim);
+	CheckExpectedDim(typmod, dim);
+
+	result = InitVector(dim);
+	it = JsonbIteratorInit(&jsonb->root);
+
+	while ((r = JsonbIteratorNext(&it, &v, true)) != WJB_DONE && i < dim)
+	{
+		if (r != WJB_ELEM)
+			continue;
+
+		switch (v.type) {
+			case jbvNumeric:
+				result->x[i] = DatumGetFloat4(DirectFunctionCall1(numeric_float4, NumericGetDatum(v.val.numeric)));
+				CheckElement(result->x[i]);
+				i++;
+				break;
+			case jbvNull:
+				ereport(ERROR,
+					(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+						errmsg("array must not contain nulls")));
+			default:
+				ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+						errmsg("expected number")));
+		}
+	}
 
 	PG_RETURN_POINTER(result);
 }
