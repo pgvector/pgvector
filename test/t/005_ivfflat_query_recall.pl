@@ -35,7 +35,7 @@ for my $i (0 .. $#operators)
 		my $query = $node->safe_psql("postgres", "SELECT v FROM tst WHERE i = $id;");
 		my $res = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
-			SELECT v FROM tst ORDER BY v <-> '$query' LIMIT 1;
+			SELECT v FROM tst ORDER BY v '$operator' '$query' LIMIT 1;
 		));
 		is($res, $query);
 	}
