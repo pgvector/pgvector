@@ -26,6 +26,10 @@
 #include "varatt.h"
 #endif
 
+#if PG_VERSION_NUM >= 170000
+#include "parser/scansup.h"
+#endif
+
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc(sizeof(Datum) * (dim + 1))
 
@@ -129,9 +133,9 @@ InitVector(int dim)
 	return result;
 }
 
-/*
- * Check for whitespace, since array_isspace() is static
- */
+#if PG_VERSION_NUM >= 170000
+#define vector_isspace(ch) scanner_isspace(ch)
+#else
 static inline bool
 vector_isspace(char ch)
 {
@@ -144,6 +148,7 @@ vector_isspace(char ch)
 		return true;
 	return false;
 }
+#endif
 
 /*
  * Check state array

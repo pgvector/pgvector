@@ -22,6 +22,10 @@
 #include "varatt.h"
 #endif
 
+#if PG_VERSION_NUM >= 170000
+#include "parser/scansup.h"
+#endif
+
 typedef struct SparseInputElement
 {
 	int32		index;
@@ -155,9 +159,9 @@ InitSparseVector(int dim, int nnz)
 	return result;
 }
 
-/*
- * Check for whitespace, since array_isspace() is static
- */
+#if PG_VERSION_NUM >= 170000
+#define sparsevec_isspace(ch) scanner_isspace(ch)
+#else
 static inline bool
 sparsevec_isspace(char ch)
 {
@@ -170,6 +174,7 @@ sparsevec_isspace(char ch)
 		return true;
 	return false;
 }
+#endif
 
 /*
  * Compare indices
