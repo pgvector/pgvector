@@ -146,6 +146,9 @@ CREATE FUNCTION array_to_vector(double precision[], integer, boolean) RETURNS ve
 CREATE FUNCTION array_to_vector(numeric[], integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION jsonb_to_vector(jsonb, integer, boolean) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION vector_to_float4(vector, integer, boolean) RETURNS real[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -168,6 +171,9 @@ CREATE CAST (double precision[] AS vector)
 
 CREATE CAST (numeric[] AS vector)
 	WITH FUNCTION array_to_vector(numeric[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (jsonb AS vector)
+	WITH FUNCTION jsonb_to_vector(jsonb, integer, boolean) AS ASSIGNMENT;
 
 -- vector operators
 
@@ -482,6 +488,9 @@ CREATE FUNCTION array_to_halfvec(double precision[], integer, boolean) RETURNS h
 CREATE FUNCTION array_to_halfvec(numeric[], integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION jsonb_to_halfvec(jsonb, integer, boolean) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION halfvec_to_float4(halfvec, integer, boolean) RETURNS real[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -510,6 +519,9 @@ CREATE CAST (double precision[] AS halfvec)
 
 CREATE CAST (numeric[] AS halfvec)
 	WITH FUNCTION array_to_halfvec(numeric[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (jsonb AS halfvec)
+	WITH FUNCTION jsonb_to_halfvec(jsonb, integer, boolean) AS ASSIGNMENT;
 
 -- halfvec operators
 
