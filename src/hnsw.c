@@ -91,21 +91,21 @@ HnswInit(void)
 
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
-							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
+							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	DefineCustomEnumVariable("hnsw.iterative_scan", "Sets the mode for iterative scans",
 							 NULL, &hnsw_iterative_scan,
-							 HNSW_ITERATIVE_SCAN_OFF, hnsw_iterative_scan_options, PGC_USERSET, 0, NULL, NULL, NULL);
+							 HNSW_ITERATIVE_SCAN_OFF, hnsw_iterative_scan_options, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	/* This is approximate and does not affect the initial scan */
 	DefineCustomIntVariable("hnsw.max_scan_tuples", "Sets the max number of tuples to visit for iterative scans",
 							NULL, &hnsw_max_scan_tuples,
-							20000, 1, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
+							20000, 1, INT_MAX, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	/* Same range as hash_mem_multiplier */
 	DefineCustomRealVariable("hnsw.scan_mem_multiplier", "Sets the multiple of work_mem to use for iterative scans",
 							 NULL, &hnsw_scan_mem_multiplier,
-							 1, 1, 1000, PGC_USERSET, 0, NULL, NULL, NULL);
+							 1, 1, 1000, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("hnsw");
 }
