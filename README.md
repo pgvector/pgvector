@@ -331,11 +331,12 @@ The phases for HNSW are:
 
 An IVFFlat index divides vectors into lists, and then searches a subset of those lists that are closest to the query vector. It has faster build times and uses less memory than HNSW, but has lower query performance (in terms of speed-recall tradeoff).
 
-Three keys to achieving good recall are:
+Four keys to achieving good recall are:
 
 1. Create the index *after* the table has some data
 2. Choose an appropriate number of lists - a good place to start is `rows / 1000` for up to 1M rows and `sqrt(rows)` for over 1M rows
 3. When querying, specify an appropriate number of [probes](#query-options) (higher is better for recall, lower is better for speed) - a good place to start is `sqrt(lists)`
+4. Control the number of samples used for k-means clustering during index creation with the `samples` parameter - defaults to `lists * 50` with a minimum of 10,000
 
 Add an index for each distance function you want to use.
 
@@ -343,6 +344,12 @@ L2 distance
 
 ```sql
 CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+```
+
+You can also specify the number of samples to use for k-means clustering:
+
+```sql
+CREATE INDEX ON items USING ivfflat (embedding vector_l2_ops) WITH (lists = 100, samples = 20000);
 ```
 
 Note: Use `halfvec_l2_ops` for `halfvec` (and similar with the other distance functions)

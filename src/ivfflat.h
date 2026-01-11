@@ -121,6 +121,7 @@ typedef struct IvfflatOptions
 {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int			lists;			/* number of lists */
+	int			samples;		/* number of samples for k-means */
 }			IvfflatOptions;
 
 typedef struct IvfflatSpool
@@ -320,6 +321,7 @@ bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 int			IvfflatGetLists(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);
 void		IvfflatUpdateList(Relation index, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);
+int			IvfflatGetSamples(Relation index);
 void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);
 void		IvfflatAppendPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state, ForkNumber forkNum);
 Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
