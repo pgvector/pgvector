@@ -41,6 +41,8 @@ IvfflatInit(void)
 	ivfflat_relopt_kind = add_reloption_kind();
 	add_int_reloption(ivfflat_relopt_kind, "lists", "Number of inverted lists",
 					  IVFFLAT_DEFAULT_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, AccessExclusiveLock);
+	add_int_reloption(ivfflat_relopt_kind, "samples", "Number of samples for k-means clustering",
+					  0, 0, INT_MAX, AccessExclusiveLock);
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
@@ -158,12 +160,29 @@ ivfflatoptions(Datum reloptions, bool validate)
 {
 	static const relopt_parse_elt tab[] = {
 		{"lists", RELOPT_TYPE_INT, offsetof(IvfflatOptions, lists)},
+		{"samples", RELOPT_TYPE_INT, offsetof(IvfflatOptions, samples)},
 	};
 
 	return (bytea *) build_reloptions(reloptions, validate,
 									  ivfflat_relopt_kind,
 									  sizeof(IvfflatOptions),
 									  tab, lengthof(tab));
+}
+
+/*
+ * Get the number of samples from index options
+ */
+int
+IvfflatGetSamples(Relation index)
+{
+	IvfflatOptions *opts;
+
+	opts = (IvfflatOptions *) index->rd_options;
+	if (opts && opts->samples != 0)
+		return opts->samples;
+
+	/* Default behavior: use 50 samples per list, with minimum of 10000 */
+	return 0;  /* 0 means use default calculation */
 }
 
 /*

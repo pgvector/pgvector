@@ -417,14 +417,26 @@ static void
 ComputeCenters(IvfflatBuildState * buildstate)
 {
 	int			numSamples;
+	int			userSpecifiedSamples;
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
 
-	/* Target 50 samples per list, with at least 10000 samples */
-	/* The number of samples has a large effect on index build time */
-	numSamples = buildstate->lists * 50;
-	if (numSamples < 10000)
-		numSamples = 10000;
+	/* Check if user specified a custom number of samples */
+	userSpecifiedSamples = IvfflatGetSamples(buildstate->index);
+
+	if (userSpecifiedSamples > 0)
+	{
+		/* Use user-specified number of samples */
+		numSamples = userSpecifiedSamples;
+	}
+	else
+	{
+		/* Default behavior: Target 50 samples per list, with at least 10000 samples */
+		/* The number of samples has a large effect on index build time */
+		numSamples = buildstate->lists * 50;
+		if (numSamples < 10000)
+			numSamples = 10000;
+	}
 
 	/* Skip samples for unlogged table */
 	if (buildstate->heap == NULL)

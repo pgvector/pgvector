@@ -1,0 +1,92 @@
+-- Test the samples parameter for IVFFlat indexes
+-- This tests the new functionality that allows specifying the number of samples for k-means clustering
+-- Test setup
+CREATE TABLE ivfflat_samples_test (
+    id int4,
+    vec vector(3)
+);
+INSERT INTO ivfflat_samples_test VALUES 
+    (1, '[1,0,0]'),
+    (2, '[0,1,0]'),
+    (3, '[0,0,1]'),
+    (4, '[1,1,0]'),
+    (5, '[1,0,1]'),
+    (6, '[0,1,1]'),
+    (7, '[1,1,1]'),
+    (8, '[0.5,0.5,0.5]');
+-- Test creating an IVFFlat index with the samples parameter
+CREATE INDEX idx_ivfflat_samples ON ivfflat_samples_test 
+USING ivfflat (vec vector_l2_ops) 
+WITH (lists = 2, samples = 1000);
+-- Test creating an IVFFlat index without the samples parameter (should use default)
+CREATE INDEX idx_ivfflat_default ON ivfflat_samples_test 
+USING ivfflat (vec vector_l2_ops) 
+WITH (lists = 2);
+-- Verify that both indexes were created
+SELECT indexname FROM pg_indexes WHERE tablename = 'ivfflat_samples_test' ORDER BY indexname;
+      indexname      
+---------------------
+ idx_ivfflat_default
+ idx_ivfflat_samples
+(2 rows)
+
+-- Test that queries work with both indexes
+SELECT id FROM ivfflat_samples_test 
+ORDER BY vec <-> '[0.1,0.1,0.1]'
+LIMIT 1;
+ id 
+----
+  8
+(1 row)
+
+-- Test with different distance functions
+CREATE INDEX idx_ivfflat_samples_ip ON ivfflat_samples_test 
+USING ivfflat (vec vector_ip_ops) 
+WITH (lists = 2, samples = 500);
+CREATE INDEX idx_ivfflat_samples_cosine ON ivfflat_samples_test 
+USING ivfflat (vec vector_cosine_ops) 
+WITH (lists = 2, samples = 800);
+-- Verify these indexes were also created
+SELECT indexname FROM pg_indexes WHERE tablename = 'ivfflat_samples_test' AND indexname LIKE 'idx_ivfflat_samples%' ORDER BY indexname;
+         indexname          
+----------------------------
+ idx_ivfflat_samples
+ idx_ivfflat_samples_cosine
+ idx_ivfflat_samples_ip
+(3 rows)
+
+-- Test queries with different distance functions
+SELECT id FROM ivfflat_samples_test 
+ORDER BY vec <#> '[0.1,0.1,0.1]'
+LIMIT 1;
+ id 
+----
+  7
+(1 row)
+
+SELECT id FROM ivfflat_samples_test 
+ORDER BY vec <=> '[0.1,0.1,0.1]'
+LIMIT 1;
+ id 
+----
+  7
+(1 row)
+
+-- Test with larger sample sizes
+CREATE INDEX idx_ivfflat_samples_large ON ivfflat_samples_test 
+USING ivfflat (vec vector_l2_ops) 
+WITH (lists = 3, samples = 5000);
+-- Verify the large samples index was created
+SELECT indexname FROM pg_indexes WHERE tablename = 'ivfflat_samples_test' AND indexname = 'idx_ivfflat_samples_large';
+         indexname         
+---------------------------
+ idx_ivfflat_samples_large
+(1 row)
+
+-- Clean up
+DROP INDEX idx_ivfflat_samples;
+DROP INDEX idx_ivfflat_default;
+DROP INDEX idx_ivfflat_samples_ip;
+DROP INDEX idx_ivfflat_samples_cosine;
+DROP INDEX idx_ivfflat_samples_large;
+DROP TABLE ivfflat_samples_test;
