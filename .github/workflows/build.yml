@@ -123,9 +123,8 @@ jobs:
           make
           make install
           chown -R postgres .
-          su postgres
-          make installcheck
-          make prove_installcheck
+          su postgres -c "make installcheck"
+          su postgres -c "make prove_installcheck"
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers
       - if: ${{ failure() }}
