@@ -114,7 +114,7 @@ jobs:
       options: --platform linux/386
     steps:
       - run: apk add --update build-base openrc postgresql18
-      - run: rc-update add postgresql && rc-service postgresql start
+      - run: rc-update add postgresql
       - run: |
           git clone https://github.com/${{ github.repository }}.git pgvector
           cd pgvector
