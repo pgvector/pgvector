@@ -123,6 +123,8 @@ jobs:
           make
           make install
           chown -R postgres .
+          rc-service postgresql status
+          ls /run/postgresql
           make installcheck
           make prove_installcheck
         env:
