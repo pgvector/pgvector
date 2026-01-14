@@ -113,7 +113,7 @@ jobs:
       image: alpine:3.23
       options: --platform linux/386
     steps:
-      - run: apk add --update build-base git openrc perl perl-ipc-run perl-test-harness-utils postgresql18 postgresql18-dev sudo
+      - run: apk add --update build-base git openrc perl perl-ipc-run perl-test-harness-utils postgresql18 postgresql18-dev
       - run: mkdir /run/openrc && touch /run/openrc/softlevel && rc-update add postgresql && rc-service postgresql start
       - run: |
           git clone https://github.com/${{ github.repository }}.git pgvector
@@ -123,8 +123,9 @@ jobs:
           make
           make install
           chown -R postgres .
-          sudo -u postgres make installcheck
-          sudo -u postgres make prove_installcheck
+          su postgres
+          make installcheck
+          make prove_installcheck
         env:
           PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers
       - if: ${{ failure() }}
