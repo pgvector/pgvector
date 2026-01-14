@@ -113,7 +113,7 @@ jobs:
       image: alpine:3.23
       options: --platform linux/386
     steps:
-      - run: apk add --update build-base openrc postgresql18
+      - run: apk add --update build-base git openrc postgresql18
       - run: rc-update add postgresql
       - run: |
           git clone https://github.com/${{ github.repository }}.git pgvector
