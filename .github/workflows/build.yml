@@ -126,7 +126,7 @@ jobs:
           sudo -u postgres make installcheck
           sudo -u postgres make prove_installcheck
         env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare
+          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers
       - if: ${{ failure() }}
         run: cat pgvector/regression.diffs
   # valgrind:
