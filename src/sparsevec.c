@@ -816,40 +816,38 @@ SparsevecL2SquaredDistance(SparseVector * a, SparseVector * b)
 	float	   *ax = SPARSEVEC_VALUES(a);
 	float	   *bx = SPARSEVEC_VALUES(b);
 	float		distance = 0.0;
-	int			bpos = 0;
+	int			i = 0;
+	int			j = 0;
 
-	for (int i = 0; i < a->nnz; i++)
+	while (i < a->nnz && j < b->nnz)
 	{
 		int			ai = a->indices[i];
-		int			bi = -1;
+		int			bi = b->indices[j];
 
-		for (int j = bpos; j < b->nnz; j++)
+		if (ai == bi)
 		{
-			bi = b->indices[j];
+			float		diff = ax[i] - bx[j];
 
-			if (ai == bi)
-			{
-				float		diff = ax[i] - bx[j];
-
-				distance += diff * diff;
-			}
-			else if (ai > bi)
-				distance += bx[j] * bx[j];
-
-			/* Update start for next iteration */
-			if (ai >= bi)
-				bpos = j + 1;
-
-			/* Found or passed it */
-			if (bi >= ai)
-				break;
+			distance += diff * diff;
+			i++;
+			j++;
 		}
-
-		if (ai != bi)
+		else if (ai < bi)
+		{
 			distance += ax[i] * ax[i];
+			i++;
+		}
+		else
+		{
+			distance += bx[j] * bx[j];
+			j++;
+		}
 	}
 
-	for (int j = bpos; j < b->nnz; j++)
+	for (; i < a->nnz; i++)
+		distance += ax[i] * ax[i];
+
+	for (; j < b->nnz; j++)
 		distance += bx[j] * bx[j];
 
 	return distance;
@@ -1009,38 +1007,38 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 	float	   *ax = SPARSEVEC_VALUES(a);
 	float	   *bx = SPARSEVEC_VALUES(b);
 	float		distance = 0.0;
-	int			bpos = 0;
+	int			i = 0;
+	int			j = 0;
 
 	CheckDims(a, b);
 
-	for (int i = 0; i < a->nnz; i++)
+	while (i < a->nnz && j < b->nnz)
 	{
 		int			ai = a->indices[i];
-		int			bi = -1;
+		int			bi = b->indices[j];
 
-		for (int j = bpos; j < b->nnz; j++)
+		if (ai == bi)
 		{
-			bi = b->indices[j];
-
-			if (ai == bi)
-				distance += fabsf(ax[i] - bx[j]);
-			else if (ai > bi)
-				distance += fabsf(bx[j]);
-
-			/* Update start for next iteration */
-			if (ai >= bi)
-				bpos = j + 1;
-
-			/* Found or passed it */
-			if (bi >= ai)
-				break;
+			distance += fabsf(ax[i] - bx[j]);
+			i++;
+			j++;
 		}
-
-		if (ai != bi)
+		else if (ai < bi)
+		{
 			distance += fabsf(ax[i]);
+			i++;
+		}
+		else
+		{
+			distance += fabsf(bx[j]);
+			j++;
+		}
 	}
 
-	for (int j = bpos; j < b->nnz; j++)
+	for (; i < a->nnz; i++)
+		distance += fabsf(ax[i]);
+
+	for (; j < b->nnz; j++)
 		distance += fabsf(bx[j]);
 
 	PG_RETURN_FLOAT8((double) distance);
