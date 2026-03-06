@@ -268,6 +268,74 @@ SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
+SELECT '[1,2,3]'::jsonb::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1.0,2.0,3.0]'::jsonb::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::jsonb::vector(3);
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::jsonb::vector(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '[null]'::jsonb::vector;
+ERROR:  array must not contain nulls
+SELECT '["a"]'::jsonb::vector;
+ERROR:  expected number
+SELECT '[1,2,"a"]'::jsonb::vector;
+ERROR:  expected number
+SELECT '[]'::jsonb::vector;
+ERROR:  vector must have at least 1 dimension
+SELECT '{}'::jsonb::vector;
+ERROR:  jsonb value must be array
+SELECT '1'::jsonb::vector;
+ERROR:  jsonb value must be array
+SELECT '[[1,2]]'::jsonb::vector;
+ERROR:  expected number
+SELECT '[1,2,3]'::jsonb::halfvec;
+ halfvec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1.0,2.0,3.0]'::jsonb::halfvec;
+ halfvec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::jsonb::halfvec(3);
+ halfvec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::jsonb::halfvec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '[null]'::jsonb::halfvec;
+ERROR:  array must not contain nulls
+SELECT '["a"]'::jsonb::halfvec;
+ERROR:  expected number
+SELECT '[1,2,"a"]'::jsonb::halfvec;
+ERROR:  expected number
+SELECT '[]'::jsonb::halfvec;
+ERROR:  halfvec must have at least 1 dimension
+SELECT '{}'::jsonb::halfvec;
+ERROR:  jsonb value must be array
+SELECT '1'::jsonb::halfvec;
+ERROR:  jsonb value must be array
+SELECT '[[1,2]]'::jsonb::halfvec;
+ERROR:  expected number
 -- ensure no error
 SELECT ARRAY[1,2,3] = ARRAY[1,2,3];
  ?column? 
