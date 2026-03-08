@@ -132,3 +132,46 @@ SELECT l2_normalize('{}/2'::sparsevec);
 SELECT l2_normalize('{1:3e38}/1'::sparsevec);
 SELECT l2_normalize('{1:3e38,2:1e-37}/2'::sparsevec);
 SELECT l2_normalize('{2:3e37,4:3e-37,6:4e37,8:4e-37}/9'::sparsevec);
+
+-- sparsevec constructor from indices and values arrays
+
+-- basic construction
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::real[], 5);
+-- equivalent to text literal
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::real[], 5) = '{1:1.5,3:3.5}/5'::sparsevec;
+-- unsorted input is sorted automatically
+SELECT sparsevec(ARRAY[3,1], ARRAY[3.5,1.5]::real[], 5);
+-- zero values are silently dropped
+SELECT sparsevec(ARRAY[1,2,3], ARRAY[1.0,0.0,2.0]::real[], 5);
+-- all zeros yields empty sparse vector
+SELECT sparsevec(ARRAY[1,2,3], ARRAY[0.0,0.0,0.0]::real[], 3);
+-- index equal to dim (upper bound) is valid
+SELECT sparsevec(ARRAY[5], ARRAY[1.0]::real[], 5);
+
+-- error: array length mismatch
+SELECT sparsevec(ARRAY[1,2], ARRAY[1.0]::real[], 5);
+-- error: index 0 is out of bounds (1-based)
+SELECT sparsevec(ARRAY[0], ARRAY[1.0]::real[], 5);
+-- error: index exceeds dim
+SELECT sparsevec(ARRAY[6], ARRAY[1.0]::real[], 5);
+-- error: negative index
+SELECT sparsevec(ARRAY[-1], ARRAY[1.0]::real[], 5);
+-- error: duplicate indices
+SELECT sparsevec(ARRAY[1,1], ARRAY[1.0,2.0]::real[], 5);
+-- error: NaN not allowed
+SELECT sparsevec(ARRAY[1], ARRAY['NaN']::real[], 5);
+-- error: infinite value not allowed
+SELECT sparsevec(ARRAY[1], ARRAY['Infinity']::real[], 5);
+-- error: dim must be at least 1
+SELECT sparsevec(ARRAY[1], ARRAY[1.0]::real[], 0);
+-- error: dim exceeds maximum
+SELECT sparsevec(ARRAY[1], ARRAY[1.0]::real[], 1000000001);
+-- error: 2-D arrays not accepted
+SELECT sparsevec(ARRAY[[1,2]]::int[], ARRAY[1.0,2.0]::real[], 5);
+-- error: null elements not accepted
+SELECT sparsevec(ARRAY[1, NULL]::int[], ARRAY[1.0,2.0]::real[], 5);
+
+-- value array types
+SELECT sparsevec(ARRAY[1,3], ARRAY[2,4]::integer[], 5);
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::double precision[], 5);
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::numeric[], 5);

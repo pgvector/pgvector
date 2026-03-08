@@ -651,3 +651,98 @@ SELECT l2_normalize('{2:3e37,4:3e-37,6:4e37,8:4e-37}/9'::sparsevec);
  {2:0.6,6:0.8}/9
 (1 row)
 
+-- sparsevec constructor from indices and values arrays
+-- basic construction
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::real[], 5);
+    sparsevec    
+-----------------
+ {1:1.5,3:3.5}/5
+(1 row)
+
+-- equivalent to text literal
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::real[], 5) = '{1:1.5,3:3.5}/5'::sparsevec;
+ ?column? 
+----------
+ t
+(1 row)
+
+-- unsorted input is sorted automatically
+SELECT sparsevec(ARRAY[3,1], ARRAY[3.5,1.5]::real[], 5);
+    sparsevec    
+-----------------
+ {1:1.5,3:3.5}/5
+(1 row)
+
+-- zero values are silently dropped
+SELECT sparsevec(ARRAY[1,2,3], ARRAY[1.0,0.0,2.0]::real[], 5);
+  sparsevec  
+-------------
+ {1:1,3:2}/5
+(1 row)
+
+-- all zeros yields empty sparse vector
+SELECT sparsevec(ARRAY[1,2,3], ARRAY[0.0,0.0,0.0]::real[], 3);
+ sparsevec 
+-----------
+ {}/3
+(1 row)
+
+-- index equal to dim (upper bound) is valid
+SELECT sparsevec(ARRAY[5], ARRAY[1.0]::real[], 5);
+ sparsevec 
+-----------
+ {5:1}/5
+(1 row)
+
+-- error: array length mismatch
+SELECT sparsevec(ARRAY[1,2], ARRAY[1.0]::real[], 5);
+ERROR:  indices and values arrays must have the same length
+-- error: index 0 is out of bounds (1-based)
+SELECT sparsevec(ARRAY[0], ARRAY[1.0]::real[], 5);
+ERROR:  sparsevec index out of bounds
+-- error: index exceeds dim
+SELECT sparsevec(ARRAY[6], ARRAY[1.0]::real[], 5);
+ERROR:  sparsevec index out of bounds
+-- error: negative index
+SELECT sparsevec(ARRAY[-1], ARRAY[1.0]::real[], 5);
+ERROR:  sparsevec index out of bounds
+-- error: duplicate indices
+SELECT sparsevec(ARRAY[1,1], ARRAY[1.0,2.0]::real[], 5);
+ERROR:  sparsevec indices must not contain duplicates
+-- error: NaN not allowed
+SELECT sparsevec(ARRAY[1], ARRAY['NaN']::real[], 5);
+ERROR:  NaN not allowed in sparsevec
+-- error: infinite value not allowed
+SELECT sparsevec(ARRAY[1], ARRAY['Infinity']::real[], 5);
+ERROR:  infinite value not allowed in sparsevec
+-- error: dim must be at least 1
+SELECT sparsevec(ARRAY[1], ARRAY[1.0]::real[], 0);
+ERROR:  sparsevec must have at least 1 dimension
+-- error: dim exceeds maximum
+SELECT sparsevec(ARRAY[1], ARRAY[1.0]::real[], 1000000001);
+ERROR:  sparsevec cannot have more than 1000000000 dimensions
+-- error: 2-D arrays not accepted
+SELECT sparsevec(ARRAY[[1,2]]::int[], ARRAY[1.0,2.0]::real[], 5);
+ERROR:  indices array must be 1-D
+-- error: null elements not accepted
+SELECT sparsevec(ARRAY[1, NULL]::int[], ARRAY[1.0,2.0]::real[], 5);
+ERROR:  indices array must not contain nulls
+-- value array types
+SELECT sparsevec(ARRAY[1,3], ARRAY[2,4]::integer[], 5);
+  sparsevec  
+-------------
+ {1:2,3:4}/5
+(1 row)
+
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::double precision[], 5);
+    sparsevec    
+-----------------
+ {1:1.5,3:3.5}/5
+(1 row)
+
+SELECT sparsevec(ARRAY[1,3], ARRAY[1.5,3.5]::numeric[], 5);
+    sparsevec    
+-----------------
+ {1:1.5,3:3.5}/5
+(1 row)
+

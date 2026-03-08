@@ -808,6 +808,140 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Construct a sparse vector from parallel arrays of 1-based indices and values.
+ *
+ * This is the array-based equivalent of the text constructor: the call
+ *   sparsevec(ARRAY[1,3], ARRAY[0.1,0.5]::real[], 1000)
+ * produces the same result as casting the literal '{1:0.1,3:0.5}/1000'.
+ *
+ * Indices are 1-based (SQL convention) and may be supplied in any order;
+ * they are sorted internally.  Zero values are silently discarded, matching
+ * the behaviour of sparsevec_in() and array_to_sparsevec().  The third
+ * argument is the total number of dimensions of the vector space, which
+ * cannot be inferred from the index/value arrays alone.
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_coo);
+Datum
+sparsevec_coo(PG_FUNCTION_ARGS)
+{
+	ArrayType  *indices_array = PG_GETARG_ARRAYTYPE_P(0);
+	ArrayType  *values_array = PG_GETARG_ARRAYTYPE_P(1);
+	int32		dim = PG_GETARG_INT32(2);
+	SparseVector *result;
+	int16		typlen;
+	bool		typbyval;
+	char		typalign;
+	Datum	   *idxelemp;
+	Datum	   *valelemp;
+	int			nidx,
+				nval;
+	SparseInputElement *elements;
+	int			nnz = 0;
+	float	   *rvalues;
+
+	if (ARR_NDIM(indices_array) > 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("indices array must be 1-D")));
+
+	if (ARR_NDIM(values_array) > 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("values array must be 1-D")));
+
+	if (ARR_HASNULL(indices_array) && array_contains_nulls(indices_array))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("indices array must not contain nulls")));
+
+	if (ARR_HASNULL(values_array) && array_contains_nulls(values_array))
+		ereport(ERROR,
+				(errcode(ERRCODE_NULL_VALUE_NOT_ALLOWED),
+				 errmsg("indices array must not contain nulls")));
+
+	get_typlenbyvalalign(ARR_ELEMTYPE(indices_array), &typlen, &typbyval, &typalign);
+	deconstruct_array(indices_array, ARR_ELEMTYPE(indices_array), typlen, typbyval, typalign, &idxelemp, NULL, &nidx);
+
+	get_typlenbyvalalign(ARR_ELEMTYPE(values_array), &typlen, &typbyval, &typalign);
+	deconstruct_array(values_array, ARR_ELEMTYPE(values_array), typlen, typbyval, typalign, &valelemp, NULL, &nval);
+
+	if (nidx != nval)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("indices and values arrays must have the same length")));
+
+	CheckDim(dim);
+	CheckNnz(nidx, dim);		/* nidx is an upper bound since zeros will be dropped */
+
+	elements = palloc(nidx * sizeof(SparseInputElement));
+
+	if (ARR_ELEMTYPE(values_array) != INT4OID &&
+		ARR_ELEMTYPE(values_array) != FLOAT4OID &&
+		ARR_ELEMTYPE(values_array) != FLOAT8OID &&
+		ARR_ELEMTYPE(values_array) != NUMERICOID)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("unsupported array type")));
+
+	for (int i = 0; i < nidx; i++)
+	{
+		int32		idx = DatumGetInt32(idxelemp[i]);
+		float		val;
+
+		if (ARR_ELEMTYPE(values_array) == FLOAT4OID)
+			val = DatumGetFloat4(valelemp[i]);
+		else if (ARR_ELEMTYPE(values_array) == FLOAT8OID)
+			val = (float) DatumGetFloat8(valelemp[i]);
+		else if (ARR_ELEMTYPE(values_array) == INT4OID)
+			val = (float) DatumGetInt32(valelemp[i]);
+		else
+			val = DatumGetFloat4(DirectFunctionCall1(numeric_float4, valelemp[i]));
+
+		/* Validate before converting: indices are 1-based in SQL */
+		if (idx < 1 || idx > dim)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("sparsevec index out of bounds")));
+
+		CheckElement(val);
+
+		/* Do not store zero values, consistent with sparsevec_in */
+		if (val != 0)
+		{
+			/* Convert 1-based numbering (SQL) to 0-based (C) */
+			elements[nnz].index = idx - 1;
+			elements[nnz].value = val;
+			nnz++;
+		}
+	}
+
+	/*
+	 * Sort elements (idx and val) by index so the result satisfies the ascending-order invariant.
+	 */
+	qsort(elements, nnz, sizeof(SparseInputElement), CompareIndices);
+
+	result = InitSparseVector(dim, nnz);
+	rvalues = SPARSEVEC_VALUES(result);
+
+	for (int i = 0; i < nnz; i++)
+	{
+		result->indices[i] = elements[i].index;
+		rvalues[i] = elements[i].value;
+		/* Verifies bounds and strict ascending order (catches duplicates) */
+		CheckIndex(result->indices, i, dim);
+	}
+
+	/*
+	 * Free allocations from deconstruct_array.
+	 */
+	pfree(elements);
+	pfree(idxelemp);
+	pfree(valelemp);
+
+	PG_RETURN_SPARSEVEC_P(result);
+}
+
+/*
  * Get the L2 squared distance between sparse vectors
  */
 static float

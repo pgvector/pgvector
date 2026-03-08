@@ -736,6 +736,18 @@ CREATE FUNCTION l2_norm(sparsevec) RETURNS float8
 CREATE FUNCTION l2_normalize(sparsevec) RETURNS sparsevec
 	AS 'MODULE_PATHNAME', 'sparsevec_l2_normalize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION sparsevec(int[], real[], int) RETURNS sparsevec
+	AS 'MODULE_PATHNAME', 'sparsevec_coo' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec(int[], double precision[], int) RETURNS sparsevec
+	AS 'MODULE_PATHNAME', 'sparsevec_coo' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec(int[], integer[], int) RETURNS sparsevec
+	AS 'MODULE_PATHNAME', 'sparsevec_coo' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION sparsevec(int[], numeric[], int) RETURNS sparsevec
+	AS 'MODULE_PATHNAME', 'sparsevec_coo' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 -- sparsevec private functions
 
 CREATE FUNCTION sparsevec_lt(sparsevec, sparsevec) RETURNS bool
