@@ -8,6 +8,7 @@
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
+#include "int8vec.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
@@ -1206,6 +1207,28 @@ sparsevec_to_halfvec(PG_FUNCTION_ARGS)
 	result = InitHalfVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
 		result->x[svec->indices[i]] = Float4ToHalf(values[i]);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert int8 vector to half vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(int8vec_to_halfvec);
+Datum
+int8vec_to_halfvec(PG_FUNCTION_ARGS)
+{
+	Int8Vector *vec = PG_GETARG_INT8VEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	HalfVector *result;
+
+	CheckDim(vec->dim);
+	CheckExpectedDim(typmod, vec->dim);
+
+	result = InitHalfVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = Float4ToHalfUnchecked((float) vec->x[i]);
 
 	PG_RETURN_POINTER(result);
 }

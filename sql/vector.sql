@@ -278,6 +278,12 @@ CREATE FUNCTION hnsw_bit_support(internal) RETURNS internal
 CREATE FUNCTION hnsw_sparsevec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+CREATE FUNCTION ivfflat_int8vec_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+CREATE FUNCTION hnsw_int8vec_support(internal) RETURNS internal
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
 -- vector opclasses
 
 CREATE OPERATOR CLASS vector_ops
@@ -647,6 +653,334 @@ CREATE OPERATOR CLASS halfvec_l1_ops
 	FUNCTION 1 l1_distance(halfvec, halfvec),
 	FUNCTION 3 hnsw_halfvec_support(internal);
 
+-- int8vec type
+
+CREATE TYPE int8vec;
+
+CREATE FUNCTION int8vec_in(cstring, oid, integer) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_out(int8vec) RETURNS cstring
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_typmod_in(cstring[]) RETURNS integer
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_recv(internal, oid, integer) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_send(int8vec) RETURNS bytea
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE TYPE int8vec (
+	INPUT     = int8vec_in,
+	OUTPUT    = int8vec_out,
+	TYPMOD_IN = int8vec_typmod_in,
+	RECEIVE   = int8vec_recv,
+	SEND      = int8vec_send,
+	STORAGE   = external
+);
+
+-- int8vec functions
+
+CREATE FUNCTION l2_distance(int8vec, int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'int8vec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION inner_product(int8vec, int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'int8vec_inner_product' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION cosine_distance(int8vec, int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'int8vec_cosine_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION l1_distance(int8vec, int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'int8vec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_dims(int8vec) RETURNS integer
+	AS 'MODULE_PATHNAME', 'int8vec_vector_dims' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION l2_norm(int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME', 'int8vec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION l2_normalize(int8vec) RETURNS int8vec
+	AS 'MODULE_PATHNAME', 'int8vec_l2_normalize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION binary_quantize(int8vec) RETURNS bit
+	AS 'MODULE_PATHNAME', 'int8vec_binary_quantize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION subvector(int8vec, int, int) RETURNS int8vec
+	AS 'MODULE_PATHNAME', 'int8vec_subvector' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- int8vec private functions
+
+CREATE FUNCTION int8vec_add(int8vec, int8vec) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_sub(int8vec, int8vec) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_mul(int8vec, int8vec) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_concat(int8vec, int8vec) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_lt(int8vec, int8vec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_le(int8vec, int8vec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_eq(int8vec, int8vec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_ne(int8vec, int8vec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_ge(int8vec, int8vec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_gt(int8vec, int8vec) RETURNS bool
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_cmp(int8vec, int8vec) RETURNS int4
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_l2_squared_distance(int8vec, int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_negative_inner_product(int8vec, int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_spherical_distance(int8vec, int8vec) RETURNS float8
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_accum(double precision[], int8vec) RETURNS double precision[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_avg(double precision[]) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_combine(double precision[], double precision[]) RETURNS double precision[]
+	AS 'MODULE_PATHNAME', 'vector_combine' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- int8vec aggregates
+
+CREATE AGGREGATE avg(int8vec) (
+	SFUNC = int8vec_accum,
+	STYPE = double precision[],
+	FINALFUNC = int8vec_avg,
+	COMBINEFUNC = int8vec_combine,
+	INITCOND = '{0}',
+	PARALLEL = SAFE
+);
+
+CREATE AGGREGATE sum(int8vec) (
+	SFUNC = int8vec_add,
+	STYPE = int8vec,
+	COMBINEFUNC = int8vec_add,
+	PARALLEL = SAFE
+);
+
+-- int8vec cast functions
+
+CREATE FUNCTION int8vec(int8vec, integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_to_vector(int8vec, integer, boolean) RETURNS vector
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION vector_to_int8vec(vector, integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_to_halfvec(int8vec, integer, boolean) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION halfvec_to_int8vec(halfvec, integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_int8vec(integer[], integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_int8vec(real[], integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_int8vec(double precision[], integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION array_to_int8vec(numeric[], integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_to_float4(int8vec, integer, boolean) RETURNS real[]
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+-- int8vec casts
+
+CREATE CAST (int8vec AS int8vec)
+	WITH FUNCTION int8vec(int8vec, integer, boolean) AS IMPLICIT;
+
+CREATE CAST (int8vec AS vector)
+	WITH FUNCTION int8vec_to_vector(int8vec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (vector AS int8vec)
+	WITH FUNCTION vector_to_int8vec(vector, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (int8vec AS halfvec)
+	WITH FUNCTION int8vec_to_halfvec(int8vec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (halfvec AS int8vec)
+	WITH FUNCTION halfvec_to_int8vec(halfvec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (int8vec AS real[])
+	WITH FUNCTION int8vec_to_float4(int8vec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (integer[] AS int8vec)
+	WITH FUNCTION array_to_int8vec(integer[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (real[] AS int8vec)
+	WITH FUNCTION array_to_int8vec(real[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (double precision[] AS int8vec)
+	WITH FUNCTION array_to_int8vec(double precision[], integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (numeric[] AS int8vec)
+	WITH FUNCTION array_to_int8vec(numeric[], integer, boolean) AS ASSIGNMENT;
+
+-- int8vec operators
+
+CREATE OPERATOR <-> (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = l2_distance,
+	COMMUTATOR = '<->'
+);
+
+CREATE OPERATOR <#> (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_negative_inner_product,
+	COMMUTATOR = '<#>'
+);
+
+CREATE OPERATOR <=> (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = cosine_distance,
+	COMMUTATOR = '<=>'
+);
+
+CREATE OPERATOR <+> (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = l1_distance,
+	COMMUTATOR = '<+>'
+);
+
+CREATE OPERATOR + (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_add,
+	COMMUTATOR = +
+);
+
+CREATE OPERATOR - (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_sub
+);
+
+CREATE OPERATOR * (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_mul,
+	COMMUTATOR = *
+);
+
+CREATE OPERATOR || (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_concat
+);
+
+CREATE OPERATOR < (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_lt,
+	COMMUTATOR = > , NEGATOR = >= ,
+	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
+);
+
+CREATE OPERATOR <= (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_le,
+	COMMUTATOR = >= , NEGATOR = > ,
+	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
+);
+
+CREATE OPERATOR = (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_eq,
+	COMMUTATOR = = , NEGATOR = <> ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR <> (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_ne,
+	COMMUTATOR = <> , NEGATOR = = ,
+	RESTRICT = eqsel, JOIN = eqjoinsel
+);
+
+CREATE OPERATOR >= (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_ge,
+	COMMUTATOR = <= , NEGATOR = < ,
+	RESTRICT = scalargesel, JOIN = scalargejoinsel
+);
+
+CREATE OPERATOR > (
+	LEFTARG = int8vec, RIGHTARG = int8vec, PROCEDURE = int8vec_gt,
+	COMMUTATOR = < , NEGATOR = <= ,
+	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
+);
+
+-- int8vec opclasses
+
+CREATE OPERATOR CLASS int8vec_ops
+	DEFAULT FOR TYPE int8vec USING btree AS
+	OPERATOR 1 < ,
+	OPERATOR 2 <= ,
+	OPERATOR 3 = ,
+	OPERATOR 4 >= ,
+	OPERATOR 5 > ,
+	FUNCTION 1 int8vec_cmp(int8vec, int8vec);
+
+CREATE OPERATOR CLASS int8vec_l2_ops
+	FOR TYPE int8vec USING ivfflat AS
+	OPERATOR 1 <-> (int8vec, int8vec) FOR ORDER BY float_ops,
+	FUNCTION 1 int8vec_l2_squared_distance(int8vec, int8vec),
+	FUNCTION 3 l2_distance(int8vec, int8vec),
+	FUNCTION 5 ivfflat_int8vec_support(internal);
+
+CREATE OPERATOR CLASS int8vec_ip_ops
+	FOR TYPE int8vec USING ivfflat AS
+	OPERATOR 1 <#> (int8vec, int8vec) FOR ORDER BY float_ops,
+	FUNCTION 1 int8vec_negative_inner_product(int8vec, int8vec),
+	FUNCTION 3 int8vec_spherical_distance(int8vec, int8vec),
+	FUNCTION 4 l2_norm(int8vec),
+	FUNCTION 5 ivfflat_int8vec_support(internal);
+
+CREATE OPERATOR CLASS int8vec_cosine_ops
+	FOR TYPE int8vec USING ivfflat AS
+	OPERATOR 1 <=> (int8vec, int8vec) FOR ORDER BY float_ops,
+	FUNCTION 1 int8vec_negative_inner_product(int8vec, int8vec),
+	FUNCTION 2 l2_norm(int8vec),
+	FUNCTION 3 int8vec_spherical_distance(int8vec, int8vec),
+	FUNCTION 4 l2_norm(int8vec),
+	FUNCTION 5 ivfflat_int8vec_support(internal);
+
+CREATE OPERATOR CLASS int8vec_l2_ops
+	FOR TYPE int8vec USING hnsw AS
+	OPERATOR 1 <-> (int8vec, int8vec) FOR ORDER BY float_ops,
+	FUNCTION 1 int8vec_l2_squared_distance(int8vec, int8vec),
+	FUNCTION 3 hnsw_int8vec_support(internal);
+
+CREATE OPERATOR CLASS int8vec_ip_ops
+	FOR TYPE int8vec USING hnsw AS
+	OPERATOR 1 <#> (int8vec, int8vec) FOR ORDER BY float_ops,
+	FUNCTION 1 int8vec_negative_inner_product(int8vec, int8vec),
+	FUNCTION 3 hnsw_int8vec_support(internal);
+
+CREATE OPERATOR CLASS int8vec_cosine_ops
+	FOR TYPE int8vec USING hnsw AS
+	OPERATOR 1 <=> (int8vec, int8vec) FOR ORDER BY float_ops,
+	FUNCTION 1 int8vec_negative_inner_product(int8vec, int8vec),
+	FUNCTION 2 l2_norm(int8vec),
+	FUNCTION 3 hnsw_int8vec_support(internal);
+
+CREATE OPERATOR CLASS int8vec_l1_ops
+	FOR TYPE int8vec USING hnsw AS
+	OPERATOR 1 <+> (int8vec, int8vec) FOR ORDER BY float_ops,
+	FUNCTION 1 l1_distance(int8vec, int8vec),
+	FUNCTION 3 hnsw_int8vec_support(internal);
+
 -- bit functions
 
 CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
@@ -916,3 +1250,17 @@ CREATE OPERATOR CLASS sparsevec_l1_ops
 	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(sparsevec, sparsevec),
 	FUNCTION 3 hnsw_sparsevec_support(internal);
+
+-- sparsevec <-> int8vec casts (after both types defined)
+
+CREATE FUNCTION sparsevec_to_int8vec(sparsevec, integer, boolean) RETURNS int8vec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int8vec_to_sparsevec(int8vec, integer, boolean) RETURNS sparsevec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE CAST (sparsevec AS int8vec)
+	WITH FUNCTION sparsevec_to_int8vec(sparsevec, integer, boolean) AS ASSIGNMENT;
+
+CREATE CAST (int8vec AS sparsevec)
+	WITH FUNCTION int8vec_to_sparsevec(int8vec, integer, boolean) AS ASSIGNMENT;

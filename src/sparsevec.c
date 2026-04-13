@@ -8,6 +8,7 @@
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
+#include "int8vec.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "sparsevec.h"
@@ -669,6 +670,49 @@ halfvec_to_sparsevec(PG_FUNCTION_ARGS)
 
 			result->indices[j] = i;
 			values[j] = HalfToFloat4(vec->x[i]);
+			j++;
+		}
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert int8 vector to sparse vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(int8vec_to_sparsevec);
+Datum
+int8vec_to_sparsevec(PG_FUNCTION_ARGS)
+{
+	Int8Vector *vec = PG_GETARG_INT8VEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	SparseVector *result;
+	int			dim = vec->dim;
+	int			nnz = 0;
+	float	   *values;
+	int			j = 0;
+
+	CheckDim(dim);
+	CheckExpectedDim(typmod, dim);
+
+	for (int i = 0; i < dim; i++)
+	{
+		if (vec->x[i] != 0)
+			nnz++;
+	}
+
+	result = InitSparseVector(dim, nnz);
+	values = SPARSEVEC_VALUES(result);
+	for (int i = 0; i < dim; i++)
+	{
+		if (vec->x[i] != 0)
+		{
+			/* Safety check */
+			if (j >= result->nnz)
+				elog(ERROR, "safety check failed");
+
+			result->indices[j] = i;
+			values[j] = (float) vec->x[i];
 			j++;
 		}
 	}

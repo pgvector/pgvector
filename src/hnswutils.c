@@ -7,6 +7,7 @@
 #include "common/hashfn.h"
 #include "fmgr.h"
 #include "hnsw.h"
+#include "int8vec.h"
 #include "lib/pairingheap.h"
 #include "nodes/pg_list.h"
 #include "port/atomics.h"
@@ -1354,6 +1355,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum int8vec_l2_normalize(PG_FUNCTION_ARGS);
 
 static void
 SparsevecCheckValue(Pointer v)
@@ -1422,6 +1424,19 @@ hnsw_sparsevec_support(PG_FUNCTION_ARGS)
 		.maxDimensions = SPARSEVEC_MAX_DIM,
 		.normalize = sparsevec_l2_normalize,
 		.checkValue = SparsevecCheckValue
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+}
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(hnsw_int8vec_support);
+Datum
+hnsw_int8vec_support(PG_FUNCTION_ARGS)
+{
+	static const HnswTypeInfo typeInfo = {
+		.maxDimensions = HNSW_MAX_DIM * 4,
+		.normalize = int8vec_l2_normalize,
+		.checkValue = NULL
 	};
 
 	PG_RETURN_POINTER(&typeInfo);

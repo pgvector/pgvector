@@ -1,10 +1,13 @@
 #include "postgres.h"
 
+#include <math.h>
+
 #include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
+#include "int8vec.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
 #include "utils/relcache.h"
@@ -238,6 +241,7 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum int8vec_l2_normalize(PG_FUNCTION_ARGS);
 
 static Size
 VectorItemSize(int dimensions)
@@ -328,6 +332,43 @@ BitSumCenter(Pointer v, float *x)
 		x[i] += (float) (((VARBITS(vec)[i / 8]) >> (7 - (i % 8))) & 0x01);
 }
 
+static Size
+Int8vecItemSize(int dimensions)
+{
+	return INT8VEC_SIZE(dimensions);
+}
+
+static void
+Int8vecUpdateCenter(Pointer v, int dimensions, float *x)
+{
+	Int8Vector *vec = (Int8Vector *) v;
+
+	SET_VARSIZE(vec, INT8VEC_SIZE(dimensions));
+	vec->dim = dimensions;
+
+	for (int i = 0; i < dimensions; i++)
+	{
+		int32		val = (int32) roundf(x[i]);
+
+		if (val < -128)
+			val = -128;
+		else if (val > 127)
+			val = 127;
+		vec->x[i] = (int8) val;
+	}
+}
+
+static void
+Int8vecSumCenter(Pointer v, float *x)
+{
+	Int8Vector *vec = (Int8Vector *) v;
+	int			dim = vec->dim;
+
+	/* Auto-vectorized */
+	for (int i = 0; i < dim; i++)
+		x[i] += (float) vec->x[i];
+}
+
 /*
  * Get type info
  */
@@ -377,6 +418,21 @@ ivfflat_bit_support(PG_FUNCTION_ARGS)
 		.itemSize = BitItemSize,
 		.updateCenter = BitUpdateCenter,
 		.sumCenter = BitSumCenter
+	};
+
+	PG_RETURN_POINTER(&typeInfo);
+}
+
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ivfflat_int8vec_support);
+Datum
+ivfflat_int8vec_support(PG_FUNCTION_ARGS)
+{
+	static const IvfflatTypeInfo typeInfo = {
+		.maxDimensions = IVFFLAT_MAX_DIM * 4,
+		.normalize = int8vec_l2_normalize,
+		.itemSize = Int8vecItemSize,
+		.updateCenter = Int8vecUpdateCenter,
+		.sumCenter = Int8vecSumCenter
 	};
 
 	PG_RETURN_POINTER(&typeInfo);

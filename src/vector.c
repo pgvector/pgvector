@@ -9,6 +9,8 @@
 #include "fmgr.h"
 #include "halfutils.h"
 #include "halfvec.h"
+#include "int8utils.h"
+#include "int8vec.h"
 #include "hnsw.h"
 #include "ivfflat.h"
 #include "lib/stringinfo.h"
@@ -54,6 +56,7 @@ _PG_init(void)
 {
 	BitvecInit();
 	HalfvecInit();
+	Int8vecInit();
 	HnswInit();
 	IvfflatInit();
 }
@@ -547,6 +550,28 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 
 	for (int i = 0; i < vec->dim; i++)
 		result->x[i] = HalfToFloat4(vec->x[i]);
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
+ * Convert int8 vector to vector
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(int8vec_to_vector);
+Datum
+int8vec_to_vector(PG_FUNCTION_ARGS)
+{
+	Int8Vector *vec = PG_GETARG_INT8VEC_P(0);
+	int32		typmod = PG_GETARG_INT32(1);
+	Vector	   *result;
+
+	CheckDim(vec->dim);
+	CheckExpectedDim(typmod, vec->dim);
+
+	result = InitVector(vec->dim);
+
+	for (int i = 0; i < vec->dim; i++)
+		result->x[i] = (float) vec->x[i];
 
 	PG_RETURN_POINTER(result);
 }
