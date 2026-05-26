@@ -182,10 +182,10 @@ sparsevec_isspace(char ch)
 static int
 CompareIndices(const void *a, const void *b)
 {
-	if (((SparseInputElement *) a)->index < ((SparseInputElement *) b)->index)
+	if (((const SparseInputElement *) a)->index < ((const SparseInputElement *) b)->index)
 		return -1;
 
-	if (((SparseInputElement *) a)->index > ((SparseInputElement *) b)->index)
+	if (((const SparseInputElement *) a)->index > ((const SparseInputElement *) b)->index)
 		return 1;
 
 	return 0;
