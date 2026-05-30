@@ -447,13 +447,7 @@ Exact indexes work well for conditions that match a low percentage of rows. Othe
 CREATE INDEX ON items USING hnsw (embedding vector_l2_ops);
 ```
 
-With approximate indexes, filtering is applied *after* the index is scanned. If a condition matches 10% of rows, with HNSW and the default `hnsw.ef_search` of 40, only 4 rows will match on average. For more rows, increase `hnsw.ef_search`.
-
-```sql
-SET hnsw.ef_search = 200;
-```
-
-Starting with 0.8.0, you can enable [iterative index scans](#iterative-index-scans), which will automatically scan more of the index when needed.
+With approximate indexes, filtering is applied *after* the index is scanned. If a condition matches 10% of rows, with HNSW and the default `hnsw.ef_search` of 40, only 4 rows will match on average. For more rows, enable [iterative index scans](#iterative-index-scans), which will automatically scan more of the index when needed.
 
 ```sql
 SET hnsw.iterative_scan = strict_order;
