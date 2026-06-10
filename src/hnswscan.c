@@ -344,6 +344,9 @@ hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 
 		MemoryContextSwitchTo(oldCtx);
 
+		scan->xs_recheck = false;
+		scan->xs_recheckorderby = false;
+
 		batch->firstItem = 0;
 		batch->lastItem = nitems - 1;
 		batch->dir = ForwardScanDirection;
