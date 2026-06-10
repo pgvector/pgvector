@@ -137,7 +137,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 	scan->maxitemsbatch = hnsw_ef_search * HNSW_HEAPTIDS;
-	/* unused but be > 0 */
+	/* unused but must be > 0 */
 	scan->batch_index_opaque_static = MAXALIGN(1);
 	scan->batch_index_opaque_dyn = 0;
 	scan->batch_tuples_workspace = 0;
