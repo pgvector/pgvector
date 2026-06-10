@@ -465,7 +465,7 @@ IndexBulkDeleteResult *hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResu
 IndexBulkDeleteResult *hnswvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
 IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);
 void		hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
-bool		hnswgettuple(IndexScanDesc scan, ScanDirection dir);
+IndexScanBatch hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir);
 void		hnswendscan(IndexScanDesc scan);
 
 static inline HnswNeighborArray *

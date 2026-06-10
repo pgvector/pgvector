@@ -258,6 +258,11 @@ hnswvalidate(Oid opclassoid)
 	return true;
 }
 
+static void
+hnswunguardbatch(IndexScanDesc scan, IndexScanBatch batch)
+{
+}
+
 /*
  * Define index handler
  *
@@ -279,6 +284,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 		.amconsistentequality = false,
 		.amconsistentordering = false,
 		.amcanbackward = false,
+		.amcanmarkpos = false,
 		.amcanunique = false,
 		.amcanmulticol = false,
 		.amoptionalkey = true,
@@ -311,11 +317,14 @@ hnswhandler(PG_FUNCTION_ARGS)
 		.amadjustmembers = NULL,
 		.ambeginscan = hnswbeginscan,
 		.amrescan = hnswrescan,
-		.amgettuple = hnswgettuple,
+		.amgettuple = NULL,
+		.amgetbatch = hnswgetbatch,
+		.amunguardbatch = hnswunguardbatch,
+		.amkillitemsbatch = NULL,
+		.amgettransform = NULL,
 		.amgetbitmap = NULL,
 		.amendscan = hnswendscan,
-		.ammarkpos = NULL,
-		.amrestrpos = NULL,
+		.amposreset = NULL,
 		.amestimateparallelscan = NULL,
 		.aminitparallelscan = NULL,
 		.amparallelrescan = NULL,

@@ -3,6 +3,7 @@
 #include <limits.h>
 
 #include "access/genam.h"
+#include "access/indexbatch.h"
 #include "access/relscan.h"
 #include "hnsw.h"
 #include "lib/pairingheap.h"
@@ -135,6 +136,11 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	double		maxMemory;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
+	scan->maxitemsbatch = hnsw_ef_search * HNSW_HEAPTIDS;
+	/* unused but be > 0 */
+	scan->batch_index_opaque_static = MAXALIGN(1);
+	scan->batch_index_opaque_dyn = 0;
+	scan->batch_tuples_workspace = 0;
 
 	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
 	so->typeInfo = HnswGetTypeInfo(index);
@@ -184,12 +190,13 @@ hnswrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int no
 }
 
 /*
- * Fetch the next tuple in the given scan
+ * Fetch the next batch in the given scan
  */
-bool
-hnswgettuple(IndexScanDesc scan, ScanDirection dir)
+IndexScanBatch
+hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
+	IndexScanBatch batch = indexam_util_alloc_batch(scan);
 	MemoryContext oldCtx = MemoryContextSwitchTo(so->tmpCtx);
 
 	/*
@@ -242,9 +249,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 	for (;;)
 	{
 		char	   *base = NULL;
-		HnswSearchCandidate *sc;
-		HnswElement element;
-		ItemPointer heaptid;
+		int			nitems = 0;
 
 		if (list_length(so->w) == 0)
 		{
@@ -290,44 +295,57 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 				break;
 		}
 
-		sc = llast(so->w);
-		element = HnswPtrAccess(base, sc->element);
-
-		/* Move to next element if no valid heap TIDs */
-		if (element->heaptidsLength == 0)
+		while (list_length(so->w) != 0)
 		{
-			so->w = list_delete_last(so->w);
+			HnswSearchCandidate *sc = llast(so->w);
+			HnswElement element = HnswPtrAccess(base, sc->element);
+			ItemPointer heaptid;
 
-			/* Mark memory as free for next iteration */
-			if (hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF)
+			/* Move to next element if no valid heap TIDs */
+			if (element->heaptidsLength == 0)
 			{
-				pfree(element);
-				pfree(sc);
+				so->w = list_delete_last(so->w);
+
+				/* Mark memory as free for next iteration */
+				if (hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF)
+				{
+					pfree(element);
+					pfree(sc);
+				}
+
+				continue;
 			}
 
-			continue;
+			heaptid = &element->heaptids[--element->heaptidsLength];
+
+			if (hnsw_iterative_scan == HNSW_ITERATIVE_SCAN_STRICT)
+			{
+				if (sc->distance < so->previousDistance)
+					continue;
+
+				so->previousDistance = sc->distance;
+			}
+
+			batch->items[nitems].tableTid = *heaptid;
+			batch->items[nitems].indexOffset = -1;
+			batch->items[nitems].tupleOffset = 0;
+			nitems++;
 		}
 
-		heaptid = &element->heaptids[--element->heaptidsLength];
-
-		if (hnsw_iterative_scan == HNSW_ITERATIVE_SCAN_STRICT)
-		{
-			if (sc->distance < so->previousDistance)
-				continue;
-
-			so->previousDistance = sc->distance;
-		}
+		if (nitems == 0)
+			break;
 
 		MemoryContextSwitchTo(oldCtx);
 
-		scan->xs_heaptid = *heaptid;
-		scan->xs_recheck = false;
-		scan->xs_recheckorderby = false;
-		return true;
+		batch->firstItem = 0;
+		batch->lastItem = nitems - 1;
+		batch->dir = ForwardScanDirection;
+		return batch;
 	}
 
 	MemoryContextSwitchTo(oldCtx);
-	return false;
+	indexam_util_release_batch(scan, batch);
+	return NULL;
 }
 
 /*
