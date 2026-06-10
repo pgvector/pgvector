@@ -334,6 +334,9 @@ hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 			nitems++;
 		}
 
+		if (nitems == 0)
+			break;
+
 		MemoryContextSwitchTo(oldCtx);
 
 		batch->firstItem = 0;
