@@ -3,6 +3,7 @@
 #include <float.h>
 
 #include "access/genam.h"
+#include "access/indexbatch.h"
 #include "access/itup.h"
 #include "access/relscan.h"
 #include "access/tupdesc.h"
@@ -261,6 +262,11 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	MemoryContext oldCtx;
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
+	scan->maxitemsbatch = 1000;
+	/* unused but must be > 0 */
+	scan->batch_index_opaque_static = MAXALIGN(1);
+	scan->batch_index_opaque_dyn = 0;
+	scan->batch_tuples_workspace = 0;
 
 	/* Get lists and dimensions from metapage */
 	IvfflatGetMetaPageInfo(index, &lists, &dimensions);
@@ -348,14 +354,16 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 }
 
 /*
- * Fetch the next tuple in the given scan
+ * Fetch the next batch in the given scan
  */
-bool
-ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
+IndexScanBatch
+ivfflatgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+	IndexScanBatch batch = indexam_util_alloc_batch(scan);
 	ItemPointer heaptid;
 	bool		isnull;
+	int			nitems = 0;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -393,17 +401,36 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
 	{
 		if (so->listIndex == so->maxProbes)
-			return false;
+		{
+			indexam_util_release_batch(scan, batch);
+			return NULL;
+		}
 
 		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
 	}
 
-	heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
+	for (;;)
+	{
 
-	scan->xs_heaptid = *heaptid;
-	scan->xs_recheck = false;
-	scan->xs_recheckorderby = false;
-	return true;
+		heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
+
+		batch->items[nitems].tableTid = *heaptid;
+		batch->items[nitems].indexOffset = -1;
+		batch->items[nitems].tupleOffset = 0;
+		nitems++;
+
+		if (nitems == scan->maxitemsbatch)
+			break;
+
+		if (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
+			break;
+
+	}
+
+	batch->firstItem = 0;
+	batch->lastItem = nitems - 1;
+	batch->dir = ForwardScanDirection;
+	return batch;
 }
 
 /*

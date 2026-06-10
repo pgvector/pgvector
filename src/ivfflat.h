@@ -344,7 +344,7 @@ IndexBulkDeleteResult *ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteR
 IndexBulkDeleteResult *ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
 IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);
 void		ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int norderbys);
-bool		ivfflatgettuple(IndexScanDesc scan, ScanDirection dir);
+IndexScanBatch ivfflatgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir);
 void		ivfflatendscan(IndexScanDesc scan);
 
 #endif

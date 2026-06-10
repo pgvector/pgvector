@@ -175,6 +175,11 @@ ivfflatvalidate(Oid opclassoid)
 	return true;
 }
 
+static void
+ivfflatunguardbatch(IndexScanDesc scan, IndexScanBatch batch)
+{
+}
+
 /*
  * Define index handler
  *
@@ -229,9 +234,9 @@ ivfflathandler(PG_FUNCTION_ARGS)
 		.amadjustmembers = NULL,
 		.ambeginscan = ivfflatbeginscan,
 		.amrescan = ivfflatrescan,
-		.amgettuple = ivfflatgettuple,
-		.amgetbatch = NULL,
-		.amunguardbatch = NULL,
+		.amgettuple = NULL,
+		.amgetbatch = ivfflatgetbatch,
+		.amunguardbatch = ivfflatunguardbatch,
 		.amkillitemsbatch = NULL,
 		.amgettransform = NULL,
 		.amgetbitmap = NULL,
