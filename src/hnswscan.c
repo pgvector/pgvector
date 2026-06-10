@@ -334,6 +334,7 @@ hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 			nitems++;
 		}
 
+		/* Needed for strict iterative scans */
 		if (nitems == 0)
 			break;
 
