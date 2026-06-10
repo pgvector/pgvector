@@ -332,11 +332,15 @@ hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 			batch->items[nitems].indexOffset = -1;
 			batch->items[nitems].tupleOffset = 0;
 			nitems++;
+
+			/* Keep batch size flexible */
+			if (nitems == scan->maxitemsbatch)
+				break;
 		}
 
 		/* Needed for strict iterative scans */
 		if (nitems == 0)
-			break;
+			continue;
 
 		MemoryContextSwitchTo(oldCtx);
 
