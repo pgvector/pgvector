@@ -411,7 +411,6 @@ ivfflatgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir
 
 	for (;;)
 	{
-
 		heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
 
 		batch->items[nitems].tableTid = *heaptid;
@@ -424,7 +423,6 @@ ivfflatgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir
 
 		if (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
 			break;
-
 	}
 
 	batch->firstItem = 0;
