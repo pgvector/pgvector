@@ -249,6 +249,9 @@ hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 	for (;;)
 	{
 		char	   *base = NULL;
+		HnswSearchCandidate *sc;
+		HnswElement element;
+		ItemPointer heaptid;
 		int			nitems = 0;
 
 		if (list_length(so->w) == 0)
@@ -297,9 +300,8 @@ hnswgetbatch(IndexScanDesc scan, IndexScanBatch priorbatch, ScanDirection dir)
 
 		while (list_length(so->w) != 0)
 		{
-			HnswSearchCandidate *sc = llast(so->w);
-			HnswElement element = HnswPtrAccess(base, sc->element);
-			ItemPointer heaptid;
+			sc = llast(so->w);
+			element = HnswPtrAccess(base, sc->element);
 
 			/* Move to next element if no valid heap TIDs */
 			if (element->heaptidsLength == 0)
