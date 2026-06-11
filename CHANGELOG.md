@@ -1,6 +1,6 @@
 ## 0.8.3 (unreleased)
 
-- Fixed performance regression with Hamming distance and Jaccard distance with Postgres 18 on machines without AVX-512 `VPOPCNTDQ` support
+- Fixed performance regression with Hamming distance and Jaccard distance with Postgres 18
 
 ## 0.8.2 (2026-02-25)
 
