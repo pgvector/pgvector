@@ -32,9 +32,9 @@
 #endif
 
 /* Use built-ins when possible for inlining */
-#if defined(HAVE__BUILTIN_POPCOUNT) && defined(HAVE_LONG_INT_64)
+#if defined(HAVE__BUILTIN_POPCOUNT) && (defined(HAVE_LONG_INT_64) || SIZEOF_LONG == 8)
 #define popcount64(x) __builtin_popcountl(x)
-#elif defined(HAVE__BUILTIN_POPCOUNT) && defined(HAVE_LONG_LONG_INT_64)
+#elif defined(HAVE__BUILTIN_POPCOUNT) && (defined(HAVE_LONG_LONG_INT_64) || SIZEOF_LONG_LONG == 8)
 #define popcount64(x) __builtin_popcountll(x)
 #elif !defined(_MSC_VER)
 /* Fails to resolve with MSVC */
