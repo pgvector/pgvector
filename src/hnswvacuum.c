@@ -37,6 +37,8 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 {
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 	HnswElement highestPoint = &vacuumstate->highestPoint;
+	HnswElementData fallbackPointData;
+	HnswElement fallbackPoint = &fallbackPointData;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	HnswElement entryPoint = HnswGetEntryPoint(vacuumstate->index);
@@ -44,10 +46,13 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 	/* Store separately since highestPoint.level is uint8 */
 	int			highestLevel = -1;
+	int			fallbackLevel = -1;
 
-	/* Initialize highest point */
+	/* Initialize highest point and fallback point */
 	highestPoint->blkno = InvalidBlockNumber;
 	highestPoint->offno = InvalidOffsetNumber;
+	fallbackPoint->blkno = InvalidBlockNumber;
+	fallbackPoint->offno = InvalidOffsetNumber;
 
 	while (BlockNumberIsValid(blkno))
 	{
@@ -121,11 +126,25 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			}
 			else if (etup->level > highestLevel && !(entryPoint != NULL && blkno == entryPoint->blkno && offno == entryPoint->offno))
 			{
+				/* Current highest becomes fallback */
+				fallbackPoint->blkno = highestPoint->blkno;
+				fallbackPoint->offno = highestPoint->offno;
+				fallbackPoint->level = highestPoint->level;
+				fallbackLevel = highestLevel;
+
 				/* Keep track of highest non-entry point */
 				highestPoint->blkno = blkno;
 				highestPoint->offno = offno;
 				highestPoint->level = etup->level;
 				highestLevel = etup->level;
+			}
+			else if (etup->level > fallbackLevel && !(entryPoint != NULL && blkno == entryPoint->blkno && offno == entryPoint->offno))
+			{
+				/* Keep track of second highest non-entry point */
+				fallbackPoint->blkno = blkno;
+				fallbackPoint->offno = offno;
+				fallbackPoint->level = etup->level;
+				fallbackLevel = etup->level;
 			}
 		}
 
@@ -137,6 +156,22 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			GenericXLogAbort(state);
 
 		UnlockReleaseBuffer(buf);
+	}
+
+	/*
+	 * Wait for inserts to complete. Inserts before this point may have
+	 * neighbors about to be deleted. Inserts after this point will not.
+	 */
+	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+
+	/* Check if highest point is actually the new entry point */
+	entryPoint = HnswGetEntryPoint(index);
+	if (entryPoint != NULL && highestPoint->blkno == entryPoint->blkno && highestPoint->offno == entryPoint->offno)
+	{
+		highestPoint->blkno = fallbackPoint->blkno;
+		highestPoint->offno = fallbackPoint->offno;
+		highestPoint->level = fallbackPoint->level;
 	}
 }
 
@@ -339,12 +374,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 
-	/*
-	 * Wait for inserts to complete. Inserts before this point may have
-	 * neighbors about to be deleted. Inserts after this point will not.
-	 */
-	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
-	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+
 
 	/* Repair entry point first */
 	RepairGraphEntryPoint(vacuumstate);
