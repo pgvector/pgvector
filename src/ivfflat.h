@@ -315,6 +315,8 @@ VectorArraySet(VectorArray arr, int offset, Pointer val)
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
+Size		IvfflatKmeansMemoryRequired(int numSamples, int numCenters, int dimensions, Size itemsize, int samplesCapacity);
+int			IvfflatMaxKmeansSamples(int numCenters, int dimensions, Size itemsize);
 void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 Datum		IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value);

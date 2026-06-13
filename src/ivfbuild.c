@@ -451,9 +451,20 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	/* Skip samples for unlogged table */
 	if (buildstate->heap == NULL)
 		numSamples = 1;
+	else
+	{
+		int			maxSamples = IvfflatMaxKmeansSamples(buildstate->lists, buildstate->dimensions, buildstate->centers->itemsize);
+
+		if (numSamples > maxSamples)
+		{
+			ereport(NOTICE,
+					(errmsg("reducing ivfflat index samples from %d to %d due to maintenance_work_mem", numSamples, maxSamples),
+					 errhint("Increase maintenance_work_mem for better index quality.")));
+			numSamples = maxSamples;
+		}
+	}
 
 	/* Sample rows */
-	/* TODO Ensure within maintenance_work_mem */
 	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->centers->itemsize);
 	if (buildstate->heap != NULL)
 	{

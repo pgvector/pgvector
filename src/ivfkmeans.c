@@ -16,6 +16,52 @@
 #endif
 
 /*
+ * Estimate memory required for Elkan k-means
+ */
+Size
+IvfflatKmeansMemoryRequired(int numSamples, int numCenters, int dimensions, Size itemsize, int samplesCapacity)
+{
+	Size		samplesSize = VECTOR_ARRAY_SIZE(samplesCapacity, itemsize);
+	Size		centersSize = VECTOR_ARRAY_SIZE(numCenters, itemsize);
+	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, itemsize);
+	Size		aggSize = sizeof(float) * (int64) numCenters * dimensions;
+	Size		centerCountsSize = sizeof(int) * numCenters;
+	Size		closestCentersSize = sizeof(int) * numSamples;
+	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
+	Size		upperBoundSize = sizeof(float) * numSamples;
+	Size		sSize = sizeof(float) * numCenters;
+	Size		halfcdistSize = sizeof(float) * numCenters * numCenters;
+	Size		newcdistSize = sizeof(float) * numCenters;
+
+	return samplesSize + centersSize + newCentersSize + aggSize + centerCountsSize +
+		closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
+}
+
+/*
+ * Max samples that fit in maintenance_work_mem for k-means
+ */
+int
+IvfflatMaxKmeansSamples(int numCenters, int dimensions, Size itemsize)
+{
+	Size		maxMem = (Size) maintenance_work_mem * 1024L;
+	Size		fixed;
+	Size		perSample;
+	Size		avail;
+
+	itemsize = MAXALIGN(itemsize);
+
+	fixed = IvfflatKmeansMemoryRequired(0, numCenters, dimensions, itemsize, 0);
+	perSample = itemsize + sizeof(int) + sizeof(float) * numCenters + sizeof(float);
+
+	if (maxMem <= fixed || perSample == 0)
+		return 1;
+
+	avail = maxMem - fixed;
+
+	return Max(1, (int) Min(avail / perSample, (Size) INT_MAX));
+}
+
+/*
  * Initialize with kmeans++
  *
  * https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf
@@ -276,23 +322,9 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	float	   *halfcdist;
 	float	   *newcdist;
 
-	/* Calculate allocation sizes */
-	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->itemsize);
-	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->itemsize);
-	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
-	Size		aggSize = sizeof(float) * (int64) numCenters * dimensions;
-	Size		centerCountsSize = sizeof(int) * numCenters;
-	Size		closestCentersSize = sizeof(int) * numSamples;
-	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
-	Size		upperBoundSize = sizeof(float) * numSamples;
-	Size		sSize = sizeof(float) * numCenters;
-	Size		halfcdistSize = sizeof(float) * numCenters * numCenters;
-	Size		newcdistSize = sizeof(float) * numCenters;
-
-	/* Calculate total size */
-	Size		totalSize = samplesSize + centersSize + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
-
 	/* Check memory requirements */
+	Size		totalSize = IvfflatKmeansMemoryRequired(numSamples, numCenters, dimensions, centers->itemsize, samples->maxlen);
+
 	/* Add one to error message to ceil */
 	if (totalSize > (Size) maintenance_work_mem * 1024L)
 		ereport(ERROR,
