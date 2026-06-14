@@ -1,6 +1,6 @@
 ## 0.8.3 (unreleased)
 
-- Reduced IVFFlat index sample memory to fit within `maintenance_work_mem`
+- Capped IVFFlat k-means sample count to respect `maintenance_work_mem`
 - Fixed performance regression with Hamming distance and Jaccard distance with Postgres 18
 
 ## 0.8.2 (2026-02-25)

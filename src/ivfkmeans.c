@@ -19,7 +19,7 @@
  * Estimate memory required for Elkan k-means
  */
 Size
-IvfflatKmeansMemoryRequired(int numSamples, int numCenters, int dimensions, Size itemsize, int samplesCapacity)
+IvfflatKmeansMemoryRequired(int numSamples, int numCenters, int dimensions, Size itemsize, Size samplesCapacity)
 {
 	Size		samplesSize = VECTOR_ARRAY_SIZE(samplesCapacity, itemsize);
 	Size		centersSize = VECTOR_ARRAY_SIZE(numCenters, itemsize);
@@ -38,6 +38,19 @@ IvfflatKmeansMemoryRequired(int numSamples, int numCenters, int dimensions, Size
 }
 
 /*
+ * Report error if k-means memory exceeds maintenance_work_mem
+ */
+static void
+CheckIvfflatKmeansMemory(Size totalSize)
+{
+	if (totalSize > (Size) maintenance_work_mem * 1024L)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("memory required is %zu MB, maintenance_work_mem is %d MB",
+						totalSize / (1024 * 1024) + 1, maintenance_work_mem / 1024)));
+}
+
+/*
  * Max samples that fit in maintenance_work_mem for k-means
  */
 int
@@ -47,18 +60,25 @@ IvfflatMaxKmeansSamples(int numCenters, int dimensions, Size itemsize)
 	Size		fixed;
 	Size		perSample;
 	Size		avail;
+	Size		maxSamples;
+	Size		minRequired;
 
 	itemsize = MAXALIGN(itemsize);
 
 	fixed = IvfflatKmeansMemoryRequired(0, numCenters, dimensions, itemsize, 0);
 	perSample = itemsize + sizeof(int) + sizeof(float) * numCenters + sizeof(float);
+	minRequired = IvfflatKmeansMemoryRequired(1, numCenters, dimensions, itemsize, 1);
 
-	if (maxMem <= fixed || perSample == 0)
-		return 1;
+	if (maxMem < minRequired)
+		CheckIvfflatKmeansMemory(minRequired);
 
 	avail = maxMem - fixed;
+	maxSamples = avail / perSample;
 
-	return Max(1, (int) Min(avail / perSample, (Size) INT_MAX));
+	if (maxSamples < 1)
+		CheckIvfflatKmeansMemory(minRequired);
+
+	return (int) Min(maxSamples, (Size) INT_MAX);
 }
 
 /*
@@ -323,14 +343,9 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	float	   *newcdist;
 
 	/* Check memory requirements */
-	Size		totalSize = IvfflatKmeansMemoryRequired(numSamples, numCenters, dimensions, centers->itemsize, samples->maxlen);
+	Size		totalSize = IvfflatKmeansMemoryRequired(numSamples, numCenters, dimensions, centers->itemsize, (Size) samples->maxlen);
 
-	/* Add one to error message to ceil */
-	if (totalSize > (Size) maintenance_work_mem * 1024L)
-		ereport(ERROR,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("memory required is %zu MB, maintenance_work_mem is %d MB",
-						totalSize / (1024 * 1024) + 1, maintenance_work_mem / 1024)));
+	CheckIvfflatKmeansMemory(totalSize);
 
 	/* Ensure indexing does not overflow */
 	if (numCenters * numCenters > INT_MAX)
