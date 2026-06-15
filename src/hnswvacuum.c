@@ -374,8 +374,6 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 
-
-
 	/* Repair entry point first */
 	RepairGraphEntryPoint(vacuumstate);
 
