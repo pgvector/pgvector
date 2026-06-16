@@ -37,17 +37,20 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 {
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 	HnswElement highestPoint = &vacuumstate->highestPoint;
+	HnswElement fallbackPoint = &vacuumstate->fallbackPoint;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
-	HnswElement entryPoint = HnswGetEntryPoint(vacuumstate->index);
 	IndexBulkDeleteResult *stats = vacuumstate->stats;
 
-	/* Store separately since highestPoint.level is uint8 */
+	/* Store separately since HnswElement level is uint8 */
 	int			highestLevel = -1;
+	int			fallbackLevel = -1;
 
-	/* Initialize highest point */
+	/* Initialize highest point and fallback point */
 	highestPoint->blkno = InvalidBlockNumber;
 	highestPoint->offno = InvalidOffsetNumber;
+	fallbackPoint->blkno = InvalidBlockNumber;
+	fallbackPoint->offno = InvalidOffsetNumber;
 
 	while (BlockNumberIsValid(blkno))
 	{
@@ -119,13 +122,30 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 				tidhash_insert(vacuumstate->deleted, ip, &found);
 				Assert(!found);
 			}
-			else if (etup->level > highestLevel && !(entryPoint != NULL && blkno == entryPoint->blkno && offno == entryPoint->offno))
+			else if (etup->level > highestLevel)
 			{
-				/* Keep track of highest non-entry point */
+				if (BlockNumberIsValid(highestPoint->blkno))
+				{
+					/* Current highest point becomes fallback */
+					fallbackPoint->blkno = highestPoint->blkno;
+					fallbackPoint->offno = highestPoint->offno;
+					fallbackPoint->level = highestPoint->level;
+					fallbackLevel = highestLevel;
+				}
+
+				/* Keep track of highest point */
 				highestPoint->blkno = blkno;
 				highestPoint->offno = offno;
 				highestPoint->level = etup->level;
 				highestLevel = etup->level;
+			}
+			else if (etup->level > fallbackLevel)
+			{
+				/* Keep track of second highest point */
+				fallbackPoint->blkno = blkno;
+				fallbackPoint->offno = offno;
+				fallbackPoint->level = etup->level;
+				fallbackLevel = etup->level;
 			}
 		}
 
@@ -269,12 +289,27 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 		/* Get a shared lock */
 		LockPage(index, HNSW_UPDATE_LOCK, ShareLock);
 
-		/* Load element */
-		HnswLoadElement(highestPoint, NULL, NULL, index, support, true, NULL);
+		/* Get latest entry point */
+		entryPoint = HnswGetEntryPoint(index);
 
-		/* Repair if needed */
-		if (NeedsUpdated(vacuumstate, highestPoint))
-			RepairGraphElement(vacuumstate, highestPoint, HnswGetEntryPoint(index));
+		/* Use fallback point if highest point is entry point */
+		if (entryPoint != NULL && entryPoint->blkno == highestPoint->blkno && entryPoint->offno == highestPoint->offno)
+		{
+			highestPoint = &vacuumstate->fallbackPoint;
+
+			if (!BlockNumberIsValid(highestPoint->blkno))
+				highestPoint = NULL;
+		}
+
+		if (highestPoint != NULL)
+		{
+			/* Load element */
+			HnswLoadElement(highestPoint, NULL, NULL, index, support, true, NULL);
+
+			/* Repair if needed */
+			if (NeedsUpdated(vacuumstate, highestPoint))
+				RepairGraphElement(vacuumstate, highestPoint, entryPoint);
+		}
 
 		/* Release lock */
 		UnlockPage(index, HNSW_UPDATE_LOCK, ShareLock);

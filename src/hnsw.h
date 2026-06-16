@@ -412,6 +412,7 @@ typedef struct HnswVacuumState
 	BufferAccessStrategy bas;
 	HnswNeighborTuple ntup;
 	HnswElementData highestPoint;
+	HnswElementData fallbackPoint;
 
 	/* Memory */
 	MemoryContext tmpCtx;

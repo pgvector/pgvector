@@ -1,5 +1,6 @@
 ## 0.8.3 (unreleased)
 
+- Fixed possible index corruption with HNSW vacuuming
 - Fixed performance regression with Hamming distance and Jaccard distance with Postgres 18
 
 ## 0.8.2 (2026-02-25)
