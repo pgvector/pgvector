@@ -1329,7 +1329,7 @@ make clean && PG_CFLAGS="-DUSE_ASSERT_CHECKING" make && make install
 To enable benchmarking:
 
 ```sh
-make clean && PG_CFLAGS="-DIVFFLAT_BENCH" make && make install
+make clean && PG_CFLAGS="-DHNSW_BENCH -DIVFFLAT_BENCH" make && make install
 ```
 
 To show memory usage:
