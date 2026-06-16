@@ -669,13 +669,13 @@ hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	InitVacuumState(&vacuumstate, info, stats, callback, callback_state);
 
 	/* Pass 1: Remove heap TIDs */
-	RemoveHeapTids(&vacuumstate);
+	HnswBench("RemoveHeapTids", RemoveHeapTids(&vacuumstate));
 
 	/* Pass 2: Repair graph */
-	RepairGraph(&vacuumstate);
+	HnswBench("RepairGraph", RepairGraph(&vacuumstate));
 
 	/* Pass 3: Mark as deleted */
-	MarkDeleted(&vacuumstate);
+	HnswBench("MarkDeleted", MarkDeleted(&vacuumstate));
 
 	FreeVacuumState(&vacuumstate);
 

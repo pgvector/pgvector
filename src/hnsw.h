@@ -18,6 +18,10 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
+#ifdef HNSW_BENCH
+#include "portability/instr_time.h"
+#endif
+
 #if PG_VERSION_NUM >= 190000
 typedef Pointer Item;
 #endif
@@ -77,6 +81,21 @@ typedef Pointer Item;
 
 #define HnswPageGetOpaque(page)	((HnswPageOpaque) PageGetSpecialPointer(page))
 #define HnswPageGetMeta(page)	((HnswMetaPageData *) PageGetContents(page))
+
+#ifdef HNSW_BENCH
+#define HnswBench(name, code) \
+	do { \
+		instr_time	start; \
+		instr_time	duration; \
+		INSTR_TIME_SET_CURRENT(start); \
+		(code); \
+		INSTR_TIME_SET_CURRENT(duration); \
+		INSTR_TIME_SUBTRACT(duration, start); \
+		elog(INFO, "%s: %.3f ms", name, INSTR_TIME_GET_MILLISEC(duration)); \
+	} while (0)
+#else
+#define HnswBench(name, code) (code)
+#endif
 
 #if PG_VERSION_NUM >= 150000
 #define RandomDouble() pg_prng_double(&pg_global_prng_state)
