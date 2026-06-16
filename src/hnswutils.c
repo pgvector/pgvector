@@ -546,6 +546,9 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Hns
 
 	Assert(HnswIsElementTuple(etup));
 
+	if (unlikely(etup->deleted))
+		elog(ERROR, "cannot load deleted element");
+
 	/* Calculate distance */
 	if (distance != NULL)
 	{
