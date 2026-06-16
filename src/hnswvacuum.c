@@ -484,6 +484,89 @@ RepairGraph(HnswVacuumState * vacuumstate)
 }
 
 /*
+ * Confirm graph was repaired
+ */
+static void
+ConfirmRepaired(HnswVacuumState * vacuumstate)
+{
+	BlockNumber blkno = HNSW_HEAD_BLKNO;
+	Relation	index = vacuumstate->index;
+	BufferAccessStrategy bas = vacuumstate->bas;
+
+	while (BlockNumberIsValid(blkno))
+	{
+		Buffer		buf;
+		Page		page;
+		OffsetNumber offno;
+		OffsetNumber maxoffno;
+
+		vacuum_delay_point();
+
+		buf = ReadBufferExtended(index, MAIN_FORKNUM, blkno, RBM_NORMAL, bas);
+		LockBuffer(buf, BUFFER_LOCK_SHARE);
+		page = BufferGetPage(buf);
+		maxoffno = PageGetMaxOffsetNumber(page);
+
+		/* Iterate over nodes */
+		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+		{
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			HnswNeighborTuple ntup;
+			Buffer		nbuf;
+			Page		npage;
+			BlockNumber neighborPage;
+			OffsetNumber neighborOffno;
+
+			/* Skip neighbor tuples */
+			if (!HnswIsElementTuple(etup))
+				continue;
+
+			/* Skip if being deleted */
+			if (!ItemPointerIsValid(&etup->heaptids[0]))
+				continue;
+
+			/* Get neighbor page */
+			neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+			neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
+
+			if (neighborPage == blkno)
+			{
+				nbuf = buf;
+				npage = page;
+			}
+			else
+			{
+				nbuf = ReadBufferExtended(index, MAIN_FORKNUM, neighborPage, RBM_NORMAL, bas);
+				LockBuffer(nbuf, BUFFER_LOCK_SHARE);
+				npage = BufferGetPage(nbuf);
+			}
+
+			ntup = (HnswNeighborTuple) PageGetItem(npage, PageGetItemId(npage, neighborOffno));
+
+			/* Check neighbors */
+			for (int i = 0; i < ntup->count; i++)
+			{
+				ItemPointer indextid = &ntup->indextids[i];
+
+				if (!ItemPointerIsValid(indextid))
+					continue;
+
+				/* Check if in deleted list */
+				if (DeletedContains(vacuumstate->deleted, indextid))
+					elog(ERROR, "hnsw graph not repaired");
+			}
+
+			if (nbuf != buf)
+				UnlockReleaseBuffer(nbuf);
+		}
+
+		blkno = HnswPageGetOpaque(page)->nextblkno;
+
+		UnlockReleaseBuffer(buf);
+	}
+}
+
+/*
  * Mark items as deleted
  */
 static void
@@ -678,7 +761,10 @@ hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	/* Pass 2: Repair graph */
 	HnswBench("RepairGraph", RepairGraph(&vacuumstate));
 
-	/* Pass 3: Mark as deleted */
+	/* Pass 3: Confirm repaired */
+	HnswBench("ConfirmRepaired", ConfirmRepaired(&vacuumstate));
+
+	/* Pass 4: Mark as deleted */
 	HnswBench("MarkDeleted", MarkDeleted(&vacuumstate));
 
 	FreeVacuumState(&vacuumstate);
