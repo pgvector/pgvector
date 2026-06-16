@@ -480,6 +480,16 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		/* Reset memory context */
 		MemoryContextSwitchTo(oldCtx);
 		MemoryContextReset(vacuumstate->tmpCtx);
+
+#ifdef HNSW_VACUUM_PROGRESS
+		if (!BlockNumberIsValid(blkno) || blkno % 1000 == 0)
+		{
+			BlockNumber totalBlocks = RelationGetNumberOfBlocks(index);
+			BlockNumber currentBlocks = BlockNumberIsValid(blkno) ? blkno : totalBlocks;
+
+			elog(INFO, "hnsw vacuum progress: %.1f%%", 100.0 * currentBlocks / totalBlocks);
+		}
+#endif
 	}
 }
 
