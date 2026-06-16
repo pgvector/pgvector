@@ -158,6 +158,10 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 		UnlockReleaseBuffer(buf);
 	}
+
+#ifdef HNSW_MEMORY
+	elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(CurrentMemoryContext, true) / 1024);
+#endif
 }
 
 /*
