@@ -97,7 +97,7 @@ jobs:
         with:
           postgres-version: ${{ matrix.postgres }}
       - run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
+          call "C:\Program Files\Microsoft Visual Studio\${{ matrix.os == 'windows-2025' && 18 || 2022 }}\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && ^
           nmake /NOLOGO /F Makefile.win && ^
           nmake /NOLOGO /F Makefile.win install && ^
           nmake /NOLOGO /F Makefile.win installcheck ${{ matrix.postgres != 17 && 'PG_REGRESS=$(PGROOT)\bin\pg_regress' || '' }} && ^
