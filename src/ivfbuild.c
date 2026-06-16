@@ -399,6 +399,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsVirtual);
 
+	/* TODO Ensure within maintenance_work_mem */
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->typeInfo->itemSize(buildstate->dimensions));
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
