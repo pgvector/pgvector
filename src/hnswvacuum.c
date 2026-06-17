@@ -10,6 +10,12 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
+#if PG_VERSION_NUM >= 170000
+#include "access/tidstore.h"
+#include "miscadmin.h"
+#include "postmaster/autovacuum.h"
+#endif
+
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
 #endif
@@ -22,9 +28,13 @@
  * Check if deleted list contains an index TID
  */
 static bool
-DeletedContains(tidhash_hash * deleted, ItemPointer indextid)
+DeletedContains(HnswTidStore * deleted, ItemPointer indextid)
 {
+#if PG_VERSION_NUM >= 170000
+	return TidStoreIsMember(deleted, indextid);
+#else
 	return tidhash_lookup(deleted, *indextid) != NULL;
+#endif
 }
 
 /*
@@ -60,6 +70,10 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 		OffsetNumber offno;
 		OffsetNumber maxoffno;
 		bool		updated = false;
+#if PG_VERSION_NUM >= 170000
+		OffsetNumber deletedoffs[MaxOffsetNumber];
+		int			ndeletedoffs = 0;
+#endif
 
 		vacuum_delay_point();
 
@@ -113,6 +127,9 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 			if (!ItemPointerIsValid(&etup->heaptids[0]))
 			{
+#if PG_VERSION_NUM >= 170000
+				deletedoffs[ndeletedoffs++] = offno;
+#else
 				ItemPointerData ip;
 				bool		found;
 
@@ -121,6 +138,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 				tidhash_insert(vacuumstate->deleted, ip, &found);
 				Assert(!found);
+#endif
 			}
 			else if (etup->level > highestLevel)
 			{
@@ -148,6 +166,10 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 				fallbackLevel = etup->level;
 			}
 		}
+
+#if PG_VERSION_NUM >= 170000
+		TidStoreSetBlockOffsets(vacuumstate->deleted, blkno, deletedoffs, ndeletedoffs);
+#endif
 
 		blkno = HnswPageGetOpaque(page)->nextblkno;
 
@@ -739,7 +761,11 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
 
 	/* Create hash table */
+#if PG_VERSION_NUM >= 170000
+	vacuumstate->deleted = TidStoreCreateLocal((AmAutoVacuumWorkerProcess() && autovacuum_work_mem != -1) ? autovacuum_work_mem : maintenance_work_mem, true);
+#else
 	vacuumstate->deleted = tidhash_create(CurrentMemoryContext, 256, NULL);
+#endif
 }
 
 /*
@@ -748,7 +774,11 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 static void
 FreeVacuumState(HnswVacuumState * vacuumstate)
 {
+#if PG_VERSION_NUM >= 170000
+	TidStoreDestroy(vacuumstate->deleted);
+#else
 	tidhash_destroy(vacuumstate->deleted);
+#endif
 	FreeAccessStrategy(vacuumstate->bas);
 	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);

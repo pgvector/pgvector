@@ -290,7 +290,11 @@ hnswhandler(PG_FUNCTION_ARGS)
 		.amcanparallel = false,
 		.amcanbuildparallel = true,
 		.amcaninclude = false,
+#if PG_VERSION_NUM >= 170000
+		.amusemaintenanceworkmem = true,
+#else
 		.amusemaintenanceworkmem = false,
+#endif
 		.amsummarizing = false,
 		.amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL,
 		.amkeytype = InvalidOid,
@@ -351,7 +355,11 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amcanbuildparallel = true;
 #endif
 	amroutine->amcaninclude = false;
-	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
+#if PG_VERSION_NUM >= 170000
+	amroutine->amusemaintenanceworkmem = true;
+#else
+	amroutine->amusemaintenanceworkmem = false;
+#endif
 #if PG_VERSION_NUM >= 160000
 	amroutine->amsummarizing = false;
 #endif
