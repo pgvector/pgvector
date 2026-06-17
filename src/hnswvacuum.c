@@ -482,7 +482,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		MemoryContextReset(vacuumstate->tmpCtx);
 
 #ifdef HNSW_VACUUM_PROGRESS
-		if (!BlockNumberIsValid(blkno) || ((blkno - HNSW_HEAD_BLKNO) % 1000 == 0 && blkno != HNSW_HEAD_BLKNO))
+		if (!BlockNumberIsValid(blkno) || (blkno - HNSW_HEAD_BLKNO) % 1000 == 0)
 		{
 			BlockNumber totalBlocks = RelationGetNumberOfBlocks(index);
 			BlockNumber currentBlocks = BlockNumberIsValid(blkno) ? blkno : totalBlocks;
