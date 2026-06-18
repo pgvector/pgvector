@@ -280,7 +280,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	IvfflatCheckMemoryUsage(totalSize);
 
 	/* Ensure indexing does not overflow */
-	if (numCenters * numCenters > INT_MAX)
+	if (numCenters > INT_MAX / numCenters)
 		elog(ERROR, "Indexing overflow detected. Please report a bug.");
 
 	/* Set support functions */
