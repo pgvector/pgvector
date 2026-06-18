@@ -202,13 +202,9 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 
 	/* Also update if layer 0 is not full */
 	/* This could indicate too many candidates being deleted during insert */
-	if (!needsUpdated)
-	{
-		/* Keep clang-tidy happy */
-		Assert(ntup->count > 0);
-
+	/* There should always be more than zero indextids, but check for safety */
+	if (!needsUpdated && ntup->count > 0)
 		needsUpdated = !ItemPointerIsValid(&ntup->indextids[ntup->count - 1]);
-	}
 
 	UnlockReleaseBuffer(buf);
 
