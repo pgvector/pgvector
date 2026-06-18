@@ -6,6 +6,7 @@
 #include "halfutils.h"
 #include "halfvec.h"
 #include "ivfflat.h"
+#include "miscadmin.h"
 #include "storage/bufmgr.h"
 #include "utils/memutils.h"
 #include "utils/relcache.h"
@@ -107,6 +108,20 @@ IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray 
 	}
 
 	MemoryContextSwitchTo(oldCtx);
+}
+
+/*
+ * Check memory usage
+ */
+void
+IvfflatCheckMemoryUsage(Size totalSize)
+{
+	/* Add one to error message to ceil */
+	if (totalSize > (Size) maintenance_work_mem * 1024L)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("memory required is %zu MB, maintenance_work_mem is %d MB",
+						totalSize / (1024 * 1024) + 1, maintenance_work_mem / 1024)));
 }
 
 /*

@@ -277,12 +277,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	Size		totalSize = memoryUsed + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
 
 	/* Check memory requirements */
-	/* Add one to error message to ceil */
-	if (totalSize > (Size) maintenance_work_mem * 1024L)
-		ereport(ERROR,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("memory required is %zu MB, maintenance_work_mem is %d MB",
-						totalSize / (1024 * 1024) + 1, maintenance_work_mem / 1024)));
+	IvfflatCheckMemoryUsage(totalSize);
 
 	/* Ensure indexing does not overflow */
 	if (numCenters * numCenters > INT_MAX)

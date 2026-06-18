@@ -391,8 +391,8 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->memoryUsed = 0;
 	buildstate->itemsize = buildstate->typeInfo->itemSize(buildstate->dimensions);
 
-	/* TODO Ensure within maintenance_work_mem */
 	buildstate->memoryUsed += VECTOR_ARRAY_SIZE(buildstate->lists, buildstate->itemsize);
+	IvfflatCheckMemoryUsage(buildstate->memoryUsed);
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->itemsize);
 
 	/* TODO Move allocation to page creation */
@@ -449,8 +449,8 @@ ComputeCenters(IvfflatBuildState * buildstate)
 		numSamples = 1;
 
 	/* Sample rows */
-	/* TODO Ensure within maintenance_work_mem */
 	buildstate->memoryUsed += VECTOR_ARRAY_SIZE(numSamples, buildstate->itemsize);
+	IvfflatCheckMemoryUsage(buildstate->memoryUsed);
 	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->itemsize);
 	if (buildstate->heap != NULL)
 	{
