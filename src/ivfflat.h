@@ -316,7 +316,7 @@ VectorArraySet(VectorArray arr, int offset, Pointer val)
 {
 	Size		size = VARSIZE_ANY(val);
 
-	if (offset >= arr->maxlen || size > arr->itemsize)
+	if (size > arr->itemsize)
 		elog(ERROR, "safety check failed");
 
 	memcpy(VectorArrayGet(arr, offset), val, size);
