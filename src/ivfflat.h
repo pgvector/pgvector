@@ -309,7 +309,12 @@ VectorArrayGet(VectorArray arr, int offset)
 static inline void
 VectorArraySet(VectorArray arr, int offset, Pointer val)
 {
-	memcpy(VectorArrayGet(arr, offset), val, VARSIZE_ANY(val));
+	Size		size = VARSIZE_ANY(val);
+
+	if (size > arr->itemsize)
+		elog(ERROR, "safety check failed");
+
+	memcpy(VectorArrayGet(arr, offset), val, size);
 }
 
 /* Methods */
