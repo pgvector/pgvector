@@ -719,7 +719,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	/* Get support functions */
 	HnswInitSupport(&buildstate->support, index);
 
-	InitGraph(&buildstate->graphData, NULL, (Size) maintenance_work_mem * 1024L);
+	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * (Size) 1024);
 	buildstate->graph = &buildstate->graphData;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
@@ -956,7 +956,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Leave space for other objects in shared memory */
 	/* Docker has a default limit of 64 MB for shm_size */
 	/* which happens to be the default value of maintenance_work_mem */
-	esthnswarea = maintenance_work_mem * 1024L;
+	esthnswarea = maintenance_work_mem * (Size) 1024;
 	estother = 3 * 1024 * 1024;
 	if (esthnswarea > estother)
 		esthnswarea -= estother;

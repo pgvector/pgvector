@@ -117,7 +117,7 @@ void
 IvfflatCheckMemoryUsage(Size totalSize)
 {
 	/* Add one to error message to ceil */
-	if (totalSize > (Size) maintenance_work_mem * 1024L)
+	if (totalSize > maintenance_work_mem * (Size) 1024)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("memory required is %zu MB, maintenance_work_mem is %d MB",
