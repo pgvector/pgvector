@@ -7,6 +7,7 @@
 #include "halfvec.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "utils/memutils.h"
 #include "utils/relcache.h"
 #include "utils/varbit.h"
 #include "vector.h"
@@ -86,6 +87,26 @@ bool
 IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
 {
 	return DatumGetFloat8(FunctionCall1Coll(procinfo, collation, value)) > 0;
+}
+
+/*
+ * Normalize vectors
+ */
+void
+IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray arr, MemoryContext tmpCtx)
+{
+	MemoryContext oldCtx = MemoryContextSwitchTo(tmpCtx);
+
+	for (int i = 0; i < arr->length; i++)
+	{
+		Datum		value = PointerGetDatum(VectorArrayGet(arr, i));
+		Datum		newValue = IvfflatNormValue(typeInfo, collation, value);
+
+		VectorArraySet(arr, i, DatumGetPointer(newValue));
+		MemoryContextReset(tmpCtx);
+	}
+
+	MemoryContextSwitchTo(oldCtx);
 }
 
 /*

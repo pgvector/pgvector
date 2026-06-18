@@ -152,18 +152,7 @@ SampleRows(IvfflatBuildState * buildstate)
 
 	/* Normalize if needed */
 	if (buildstate->kmeansnormprocinfo != NULL)
-	{
-		VectorArray samples = buildstate->samples;
-
-		for (int i = 0; i < samples->length; i++)
-		{
-			Datum		value = PointerGetDatum(VectorArrayGet(samples, i));
-			Datum		normValue = IvfflatNormValue(buildstate->typeInfo, buildstate->collation, value);
-
-			VectorArraySet(samples, i, DatumGetPointer(normValue));
-			pfree(DatumGetPointer(normValue));
-		}
-	}
+		IvfflatNormVectors(buildstate->typeInfo, buildstate->collation, buildstate->samples, buildstate->tmpCtx);
 }
 
 /*

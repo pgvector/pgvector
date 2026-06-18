@@ -99,18 +99,8 @@ NormCenters(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray centers
 	MemoryContext normCtx = AllocSetContextCreate(CurrentMemoryContext,
 												  "Ivfflat norm temporary context",
 												  ALLOCSET_DEFAULT_SIZES);
-	MemoryContext oldCtx = MemoryContextSwitchTo(normCtx);
 
-	for (int j = 0; j < centers->length; j++)
-	{
-		Datum		center = PointerGetDatum(VectorArrayGet(centers, j));
-		Datum		newCenter = IvfflatNormValue(typeInfo, collation, center);
-
-		VectorArraySet(centers, j, DatumGetPointer(newCenter));
-		MemoryContextReset(normCtx);
-	}
-
-	MemoryContextSwitchTo(oldCtx);
+	IvfflatNormVectors(typeInfo, collation, centers, normCtx);
 	MemoryContextDelete(normCtx);
 }
 
