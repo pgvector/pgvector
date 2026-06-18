@@ -105,12 +105,8 @@ NormCenters(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray centers
 	{
 		Datum		center = PointerGetDatum(VectorArrayGet(centers, j));
 		Datum		newCenter = IvfflatNormValue(typeInfo, collation, center);
-		Size		size = VARSIZE_ANY(DatumGetPointer(newCenter));
 
-		if (size > centers->itemsize)
-			elog(ERROR, "safety check failed");
-
-		memcpy(DatumGetPointer(center), DatumGetPointer(newCenter), size);
+		VectorArraySet(centers, j, DatumGetPointer(newCenter));
 		MemoryContextReset(normCtx);
 	}
 
