@@ -244,7 +244,7 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
  * https://www.aaai.org/Papers/ICML/2003/ICML03-022.pdf
  */
 static void
-ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
+ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo, Size memoryUsed)
 {
 	FmgrInfo   *procinfo;
 	FmgrInfo   *normprocinfo;
@@ -263,8 +263,6 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	float	   *newcdist;
 
 	/* Calculate allocation sizes */
-	Size		samplesSize = VECTOR_ARRAY_SIZE(samples->maxlen, samples->itemsize);
-	Size		centersSize = VECTOR_ARRAY_SIZE(centers->maxlen, centers->itemsize);
 	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
 	Size		aggSize = sizeof(float) * (int64) numCenters * dimensions;
 	Size		centerCountsSize = sizeof(int) * numCenters;
@@ -276,7 +274,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 	Size		newcdistSize = sizeof(float) * numCenters;
 
 	/* Calculate total size */
-	Size		totalSize = samplesSize + centersSize + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
+	Size		totalSize = memoryUsed + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
 
 	/* Check memory requirements */
 	/* Add one to error message to ceil */
@@ -548,7 +546,7 @@ CheckCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeIn
  * We use spherical k-means for inner product and cosine
  */
 void
-IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
+IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo, Size memoryUsed)
 {
 	MemoryContext kmeansCtx = AllocSetContextCreate(CurrentMemoryContext,
 													"Ivfflat kmeans temporary context",
@@ -558,7 +556,7 @@ IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const Iv
 	if (samples->length == 0)
 		RandomCenters(index, centers, typeInfo);
 	else
-		ElkanKmeans(index, samples, centers, typeInfo);
+		ElkanKmeans(index, samples, centers, typeInfo, memoryUsed);
 
 	CheckCenters(index, centers, typeInfo);
 

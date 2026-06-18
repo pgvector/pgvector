@@ -224,6 +224,7 @@ typedef struct IvfflatBuildState
 	TupleTableSlot *slot;
 
 	/* Memory */
+	Size		memoryUsed;
 	MemoryContext tmpCtx;
 
 	/* Parallel builds */
@@ -321,7 +322,7 @@ VectorArraySet(VectorArray arr, int offset, Pointer val)
 /* Methods */
 VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo);
+void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo, Size memoryUsed);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 Datum		IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
