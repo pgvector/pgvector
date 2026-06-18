@@ -388,8 +388,10 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->slot = MakeSingleTupleTableSlot(buildstate->sortdesc, &TTSOpsVirtual);
 
+	buildstate->itemsize = buildstate->typeInfo->itemSize(buildstate->dimensions);
+
 	/* TODO Ensure within maintenance_work_mem */
-	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->typeInfo->itemSize(buildstate->dimensions));
+	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->itemsize);
 	buildstate->listInfo = palloc(sizeof(ListInfo) * buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
@@ -444,7 +446,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 
 	/* Sample rows */
 	/* TODO Ensure within maintenance_work_mem */
-	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->centers->itemsize);
+	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->itemsize);
 	if (buildstate->heap != NULL)
 	{
 		IvfflatBench("sample rows", SampleRows(buildstate));

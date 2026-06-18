@@ -204,6 +204,7 @@ typedef struct IvfflatBuildState
 	VectorArray samples;
 	VectorArray centers;
 	ListInfo   *listInfo;
+	Size		itemsize;
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	double		inertia;
