@@ -1,0 +1,297 @@
+-- Test-only C wrappers from vector.so, defined per test file rather than
+-- shipped in the extension SQL (they read index internals and are not part
+-- of the public surface).
+CREATE OR REPLACE FUNCTION tqflat_test_meta(regclass) RETURNS int[]
+	AS 'vector' LANGUAGE C STRICT;
+-- tqflat scan tests: full scan + heap-fetch rerank, L2 metric.
+-- Deterministic small data where the nearest neighbours are unambiguous, so
+-- the index result is stable regardless of quantization noise once reranked.
+CREATE TABLE tqscan (id int, v vector(8));
+INSERT INTO tqscan VALUES
+	(1, '[10,0,0,0,0,0,0,0]'),
+	(2, '[9,1,0,0,0,0,0,0]'),
+	(3, '[0,10,0,0,0,0,0,0]'),
+	(4, '[0,0,10,0,0,0,0,0]'),
+	(5, '[0,0,0,10,0,0,0,0]'),
+	(6, '[-10,0,0,0,0,0,0,0]'),
+	(7, '[5,5,0,0,0,0,0,0]'),
+	(8, '[0,0,0,0,0,0,0,10]');
+CREATE INDEX tqscan_idx ON tqscan USING tqflat (v vector_l2_ops) WITH (bits = 4, tq_prod = false);
+SET enable_seqscan = off;
+-- With rerank the top-k are exact: nearest to [10,0,...] is id 1, then 2, then 7.
+SET tqflat.rerank = 100;
+SELECT id FROM tqscan ORDER BY v <-> '[10,0,0,0,0,0,0,0]'::vector LIMIT 3;
+ id 
+----
+  1
+  2
+  7
+(3 rows)
+
+-- A query aligned with id 3 returns id 3 first.
+SELECT id FROM tqscan ORDER BY v <-> '[0,10,0,0,0,0,0,0]'::vector LIMIT 1;
+ id 
+----
+  3
+(1 row)
+
+-- An exact-match query returns that row first.
+SELECT id FROM tqscan ORDER BY v <-> '[0,0,0,0,0,0,0,10]'::vector LIMIT 1;
+ id 
+----
+  8
+(1 row)
+
+-- rerank = 0 (pure quantized estimate): still returns the exact match first on
+-- this well-separated data, and returns exactly LIMIT rows.
+SET tqflat.rerank = 0;
+SELECT count(*) FROM (SELECT id FROM tqscan ORDER BY v <-> '[10,0,0,0,0,0,0,0]'::vector LIMIT 3) s;
+ count 
+-------
+     3
+(1 row)
+
+-- Empty index: returns no rows, no error.
+RESET tqflat.rerank;
+CREATE TABLE tqscan_empty (id int, v vector(4));
+CREATE INDEX tqscan_empty_idx ON tqscan_empty USING tqflat (v vector_l2_ops);
+SELECT id FROM tqscan_empty ORDER BY v <-> '[1,2,3,4]'::vector LIMIT 5;
+ id 
+----
+(0 rows)
+
+-- Insert-then-query: a newly inserted exact match is found via the index.
+-- The insert goes to the row-major tail; the new row is found by the scan.
+INSERT INTO tqscan VALUES (9, '[0,0,0,0,10,0,0,0]');
+SELECT id FROM tqscan ORDER BY v <-> '[0,0,0,0,10,0,0,0]'::vector LIMIT 1;  -- expect 9
+ id 
+----
+  9
+(1 row)
+
+-- Merge path: with rerank smaller than the table, a full (no LIMIT) consumption
+-- crosses the reranked-array/stream boundary; every row comes back exactly once.
+SET enable_seqscan = off;
+SET tqflat.rerank = 2;
+SELECT count(*), count(DISTINCT id) FROM (SELECT id FROM tqscan ORDER BY v <-> '[10,0,0,0,0,0,0,0]'::vector) s;
+ count | count 
+-------+-------
+     9 |     9
+(1 row)
+
+SET tqflat.rerank = 0;
+SELECT count(*), count(DISTINCT id) FROM (SELECT id FROM tqscan ORDER BY v <-> '[10,0,0,0,0,0,0,0]'::vector) s;
+ count | count 
+-------+-------
+     9 |     9
+(1 row)
+
+RESET tqflat.rerank;
+RESET enable_seqscan;
+-- tq_prod = true is unsupported in the blocked layout; CREATE INDEX must error.
+\set ON_ERROR_STOP 0
+CREATE INDEX tqscan_idx_prod ON tqscan USING tqflat (v vector_l2_ops) WITH (bits = 4, tq_prod = true);
+ERROR:  tqflat blocked layout does not support tq_prod (QJL); use the default tq_prod = false
+\set ON_ERROR_STOP 1
+-- The existing (tq_prod = false) index still returns the unambiguous nearest neighbours.
+SET tqflat.rerank = 100;
+SELECT id FROM tqscan ORDER BY v <-> '[10,0,0,0,0,0,0,0]'::vector LIMIT 2;  -- expect 1, 2
+ id 
+----
+  1
+  2
+(2 rows)
+
+RESET tqflat.rerank;
+RESET enable_seqscan;
+DROP TABLE tqscan;
+DROP TABLE tqscan_empty;
+-- inner-product and cosine operator classes
+-- Deterministic spike vectors: each vector has a large value in one dimension
+-- so cosine / IP nearest neighbours are unambiguous regardless of magnitude.
+CREATE TABLE tqmetrics (id int, v vector(8));
+INSERT INTO tqmetrics VALUES
+	(1,  '[10,0,0,0,0,0,0,0]'),
+	(2,  '[9,1,0,0,0,0,0,0]'),
+	(3,  '[0,10,0,0,0,0,0,0]'),
+	(4,  '[0,0,10,0,0,0,0,0]'),
+	(5,  '[100,0,0,0,0,0,0,0]'),   -- same direction as id 1, huge norm (tests cosine rerank)
+	(6,  '[0.1,0,0,0,0,0,0,0]'),   -- same direction as id 1, tiny norm
+	(7,  '[-10,0,0,0,0,0,0,0]'),
+	(8,  '[0,0,0,0,0,0,0,10]');
+CREATE INDEX tqmetrics_ip_idx ON tqmetrics USING tqflat (v vector_ip_ops) WITH (bits = 4, tq_prod = false);
+CREATE INDEX tqmetrics_cos_idx ON tqmetrics USING tqflat (v vector_cosine_ops) WITH (bits = 4, tq_prod = false);
+SET enable_seqscan = off;
+SET tqflat.rerank = 100;
+-- Inner-product: id 5 has the biggest IP with [1,0,...] (norm=100).
+-- Expect: 5, 1, 2 in that order.
+SELECT id FROM tqmetrics ORDER BY v <#> '[1,0,0,0,0,0,0,0]'::vector LIMIT 3;
+ id 
+----
+  5
+  1
+  2
+(3 rows)
+
+-- Inner-product aligned with dimension 3: id 4 wins.
+SELECT id FROM tqmetrics ORDER BY v <#> '[0,0,1,0,0,0,0,0]'::vector LIMIT 1;
+ id 
+----
+  4
+(1 row)
+
+-- Cosine: direction [1,0,...] — ids 5,6 point the same direction (cosine distance 0),
+-- id 7 is anti-parallel (cosine distance 2).  ids 5 and 6 are an exact cosine tie, so
+-- their relative order under the blocked estimate is unspecified; what matters is that
+-- both rank before id 7.  ORDER BY also breaks the 5/6 tie by id for determinism.
+SELECT id FROM tqmetrics WHERE id IN (5, 6, 7) ORDER BY v <=> '[1,0,0,0,0,0,0,0]'::vector, id LIMIT 3;
+ id 
+----
+  5
+  6
+  7
+(3 rows)
+
+-- Cosine query aligned with dimension 2: id 3 wins (independent of magnitude).
+SELECT id FROM tqmetrics ORDER BY v <=> '[0,1,0,0,0,0,0,0]'::vector LIMIT 1;
+ id 
+----
+  3
+(1 row)
+
+-- rerank = 0 path for both new opclasses still returns LIMIT rows.
+SET tqflat.rerank = 0;
+SELECT count(*) FROM (SELECT id FROM tqmetrics ORDER BY v <#> '[1,0,0,0,0,0,0,0]'::vector LIMIT 3) s;
+ count 
+-------
+     3
+(1 row)
+
+SELECT count(*) FROM (SELECT id FROM tqmetrics ORDER BY v <=> '[1,0,0,0,0,0,0,0]'::vector LIMIT 3) s;
+ count 
+-------
+     3
+(1 row)
+
+RESET tqflat.rerank;
+RESET enable_seqscan;
+DROP TABLE tqmetrics;
+-- Zero-norm vectors are skipped under cosine at build and insert time (the
+-- <=> operator returns NaN for them; mirrors hnsw/ivfflat), so an indexed scan
+-- cannot rank a zero vector ahead of an anti-parallel one.
+CREATE TABLE tqzero (id int, v vector(4));
+INSERT INTO tqzero VALUES (1, '[1,1,0,0]'), (2, '[0,0,0,0]'), (3, '[-1,-1,0,0]');
+CREATE INDEX tqzero_cos_idx ON tqzero USING tqflat (v vector_cosine_ops) WITH (bits = 4);
+INSERT INTO tqzero VALUES (4, '[0,0,0,0]');
+SET enable_seqscan = off;
+SET tqflat.rerank = 100;
+-- Both zero rows (build path id 2, insert path id 4) are absent; the
+-- anti-parallel id 3 sorts after id 1.
+SELECT id FROM tqzero ORDER BY v <=> '[1,1,0,0]'::vector LIMIT 5;  -- expect 1, 3
+ id 
+----
+  1
+  3
+(2 rows)
+
+-- L2 still indexes zero vectors.
+CREATE INDEX tqzero_l2_idx ON tqzero USING tqflat (v vector_l2_ops) WITH (bits = 4);
+SELECT count(*) FROM (SELECT id FROM tqzero ORDER BY v <-> '[1,1,0,0]'::vector LIMIT 5) q;  -- expect 4
+ count 
+-------
+     4
+(1 row)
+
+RESET tqflat.rerank;
+RESET enable_seqscan;
+DROP TABLE tqzero;
+-- fast_rotation index returns the unambiguous nearest neighbour.
+CREATE TABLE tqfast (id int, v vector(8));
+INSERT INTO tqfast VALUES
+	(1,'[10,0,0,0,0,0,0,0]'),(2,'[9,1,0,0,0,0,0,0]'),(3,'[0,10,0,0,0,0,0,0]'),
+	(4,'[0,0,10,0,0,0,0,0]'),(5,'[0,0,0,0,0,0,0,10]');
+CREATE INDEX tqfast_idx ON tqfast USING tqflat (v vector_l2_ops) WITH (bits=4, fast_rotation=true);
+SET enable_seqscan = off;
+SET tqflat.rerank = 100;
+SELECT id FROM tqfast ORDER BY v <-> '[10,0,0,0,0,0,0,0]'::vector LIMIT 2;  -- expect 1, 2
+ id 
+----
+  1
+  2
+(2 rows)
+
+SELECT id FROM tqfast ORDER BY v <-> '[0,0,0,0,0,0,0,10]'::vector LIMIT 1;  -- expect 5
+ id 
+----
+  5
+(1 row)
+
+RESET tqflat.rerank;
+RESET enable_seqscan;
+DROP TABLE tqfast;
+-- Multi-page code-plane chain: build an index large enough that the block
+-- code-plane byte stream spans several index pages, then verify the scan reads
+-- it back correctly.  At dim=32 (dimCodes=32) each block's code-plane is
+-- TQ_BLOCK_CODE_BYTES = 32*16 = 512 bytes; 2001 rows -> ceil(2001/32) = 63
+-- blocks -> 63*512 = 32256 bytes, which spans ~4 index pages (~8152 usable
+-- bytes each).  The 500-row dim=8 build in tqflat_build only fills a single
+-- code page, so this is the regression guard for cross-page code-chain
+-- read/write (e.g. the streaming build writer).
+CREATE TABLE tqbig (id int, v vector(32));
+-- 2000 deterministic filler rows with small bounded coordinates (all far from
+-- the dim-1 probe direction below), plus one planted unambiguous nearest
+-- neighbour (id 9999) that is the only large-magnitude dim-1 vector.
+INSERT INTO tqbig
+	SELECT g,
+		('[' || array_to_string(array(SELECT ((g * 7 + i * 3) % 5) - 2 FROM generate_series(1, 32) i), ',') || ']')::vector
+	FROM generate_series(1, 2000) g;
+INSERT INTO tqbig VALUES
+	(9999, ('[100,' || array_to_string(array(SELECT 0 FROM generate_series(1, 31) i), ',') || ']')::vector);
+CREATE INDEX tqbig_idx ON tqbig USING tqflat (v vector_l2_ops) WITH (bits = 4);
+-- blockCount (9th element) = ceil(2001/32) = 63: confirms the multi-page scale.
+SELECT (tqflat_test_meta('tqbig_idx'::regclass))[9] AS block_count;
+ block_count 
+-------------
+          63
+(1 row)
+
+SET enable_seqscan = off;
+-- The planted spike is the unambiguous nearest neighbour to its own direction;
+-- reranked top-1 must be id 9999, found across the multi-page code chain.
+SET tqflat.rerank = 100;
+SELECT id FROM tqbig ORDER BY v <-> ('[100,' || array_to_string(array(SELECT 0 FROM generate_series(1, 31) i), ',') || ']')::vector LIMIT 1;  -- expect 9999
+  id  
+------
+ 9999
+(1 row)
+
+-- rerank = 0 (pure kernel estimate over every block): the scan still returns
+-- exactly LIMIT rows with no error across all ~4 code pages.
+SET tqflat.rerank = 0;
+SELECT count(*) FROM (SELECT id FROM tqbig ORDER BY v <-> ('[100,' || array_to_string(array(SELECT 0 FROM generate_series(1, 31) i), ',') || ']')::vector LIMIT 10) s;
+ count 
+-------
+    10
+(1 row)
+
+RESET tqflat.rerank;
+RESET enable_seqscan;
+DROP TABLE tqbig;
+-- Cost estimate: a flat scan does ALL its work before the first row, so the
+-- whole cost is charged to startup.  With default planner settings on a tiny
+-- table, a LIMIT query must therefore prefer a plain seq scan + sort over the
+-- index's cheap-looking-first-row plan.
+CREATE TABLE tqcost (id int, v vector(8));
+INSERT INTO tqcost SELECT g, ('[' || g || ',1,0,0,0,0,0,0]')::vector FROM generate_series(1, 50) g;
+CREATE INDEX ON tqcost USING tqflat (v vector_l2_ops);
+ANALYZE tqcost;
+EXPLAIN (COSTS OFF) SELECT id FROM tqcost ORDER BY v <-> '[5,1,0,0,0,0,0,0]' LIMIT 1;
+                       QUERY PLAN                        
+---------------------------------------------------------
+ Limit
+   ->  Sort
+         Sort Key: ((v <-> '[5,1,0,0,0,0,0,0]'::vector))
+         ->  Seq Scan on tqcost
+(4 rows)
+
+DROP TABLE tqcost;

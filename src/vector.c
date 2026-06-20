@@ -11,6 +11,7 @@
 #include "halfvec.h"
 #include "hnsw.h"
 #include "ivfflat.h"
+#include "tq.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
@@ -40,7 +41,7 @@
 #endif
 
 #if PG_VERSION_NUM >= 180000
-PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.8.3");
+PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.8.4");
 #else
 PG_MODULE_MAGIC;
 #endif
@@ -56,6 +57,7 @@ _PG_init(void)
 	HalfvecInit();
 	HnswInit();
 	IvfflatInit();
+	TqInit();
 }
 
 /*
