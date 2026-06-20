@@ -343,6 +343,9 @@ void		IvfflatInit(void);
 const		IvfflatTypeInfo *IvfflatGetTypeInfo(Relation index);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
+/* exported for reuse by the tqivf access method */
+extern void IvfflatSampleRows(IvfflatBuildState * buildstate);
+
 /* Index access methods */
 IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);
 void		ivfflatbuildempty(Relation index);

@@ -4,7 +4,7 @@ EXTVERSION = 0.8.4
 MODULE_big = vector
 DATA = $(wildcard sql/*--*--*.sql)
 DATA_built = sql/$(EXTENSION)--$(EXTVERSION).sql
-OBJS = src/bitutils.o src/bitvec.o src/halfutils.o src/halfvec.o src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/sparsevec.o src/tq.o src/tqtypeinfo.o src/tqbuild.o src/tqdistance.o src/tqfastscan.o src/tqfwht.o src/tqquant.o src/tqscan.o src/tqvacuum.o src/vector.o
+OBJS = src/bitutils.o src/bitvec.o src/halfutils.o src/halfvec.o src/hnsw.o src/hnswbuild.o src/hnswinsert.o src/hnswscan.o src/hnswutils.o src/hnswvacuum.o src/ivfbuild.o src/ivfflat.o src/ivfinsert.o src/ivfkmeans.o src/ivfscan.o src/ivfutils.o src/ivfvacuum.o src/sparsevec.o src/tq.o src/tqtypeinfo.o src/tqbuild.o src/tqdistance.o src/tqfastscan.o src/tqfwht.o src/tqivf.o src/tqivfbuild.o src/tqivfscan.o src/tqivfvacuum.o src/tqquant.o src/tqscan.o src/tqvacuum.o src/vector.o
 HEADERS = src/halfvec.h src/sparsevec.h src/vector.h
 
 TESTS = $(wildcard test/sql/*.sql)

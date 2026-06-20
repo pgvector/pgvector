@@ -129,8 +129,8 @@ SampleCallback(Relation index, ItemPointer tid, Datum *values,
 /*
  * Sample rows with same logic as ANALYZE
  */
-static void
-SampleRows(IvfflatBuildState * buildstate)
+void
+IvfflatSampleRows(IvfflatBuildState * buildstate)
 {
 	int			targsamples = buildstate->samples->maxlen;
 	BlockNumber totalblocks = RelationGetNumberOfBlocks(buildstate->heap);
@@ -454,7 +454,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->itemsize);
 	if (buildstate->heap != NULL)
 	{
-		IvfflatBench("sample rows", SampleRows(buildstate));
+		IvfflatBench("sample rows", IvfflatSampleRows(buildstate));
 
 		if (buildstate->samples->length < buildstate->lists)
 		{
