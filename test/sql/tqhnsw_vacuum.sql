@@ -1,0 +1,59 @@
+SET enable_seqscan = off;
+
+-- Build a small index over the planted line v = [g,0,0,0].
+CREATE TABLE tqhnsw_vac (id int, v vector(4));
+INSERT INTO tqhnsw_vac SELECT g, ARRAY[g,0,0,0]::real[]::vector FROM generate_series(1, 200) g;
+CREATE INDEX tqhnsw_vac_idx ON tqhnsw_vac USING tqhnsw (v vector_l2_ops) WITH (m = 16, ef_construction = 64);
+
+SET tqhnsw.ef_search = 200;
+SET tqhnsw.rerank = 200;
+
+-- Delete a fraction (every 4th row in a window around the query target).
+DELETE FROM tqhnsw_vac WHERE id IN (4, 5, 6, 50, 100, 150, 198, 199, 200);
+VACUUM tqhnsw_vac;
+
+-- The plan still uses the tqhnsw index scan after vacuum.
+EXPLAIN (COSTS OFF) SELECT id FROM tqhnsw_vac ORDER BY v <-> '[5,0,0,0]' LIMIT 3;
+
+-- After deleting 4,5,6 the nearest to [5,0,0,0] are {3,7} (dist 2) then {2,8}
+-- (dist 3).  LIMIT 4 captures both tie pairs so the tie does not straddle the
+-- cutoff; re-sort by id for determinism.  Proves 4,5,6 are ABSENT and the index
+-- returns the planted survivors {2,3,7,8}.
+SELECT id FROM (
+  SELECT id FROM tqhnsw_vac ORDER BY v <-> '[5,0,0,0]' LIMIT 4
+) q ORDER BY id;
+-- expect: 2,3,7,8
+
+-- Deleted rows never appear in results.
+SELECT count(*) FROM (
+  SELECT id FROM tqhnsw_vac WHERE id IN (4,5,6,50,100,150,198,199,200)
+  ORDER BY v <-> '[5,0,0,0]' LIMIT 200
+) q;  -- 0
+
+-- Live row count after vacuum (200 - 9 deleted = 191).
+SELECT count(*) FROM tqhnsw_vac;  -- 191
+
+-- Insert new rows to exercise deleted-slot reclaim, then re-check correctness.
+INSERT INTO tqhnsw_vac VALUES (5, '[5,0,0,0]'), (4, '[4,0,0,0]'), (6, '[6,0,0,0]');
+
+-- With 4,5,6 reinserted the exact top-3 to [5,0,0,0] are {5,4,6} (dist 0,1,1);
+-- re-sort by id for the dist-1 tie.
+SELECT id FROM (
+  SELECT id FROM tqhnsw_vac ORDER BY v <-> '[5,0,0,0]' LIMIT 3
+) q ORDER BY id;
+-- expect: 4,5,6
+
+-- Count after reinsert (191 + 3 = 194).
+SELECT count(*) FROM tqhnsw_vac;  -- 194
+
+-- A second vacuum after reinsert must also be clean.  After deleting 100 the
+-- nearest to [100,0,0,0] are {99,101} (dist 1) then the TIE {98,102} (dist 2);
+-- LIMIT 4 captures both tie pairs so the tie does not straddle the cutoff.
+DELETE FROM tqhnsw_vac WHERE id = 100;
+VACUUM tqhnsw_vac;
+SELECT id FROM (
+  SELECT id FROM tqhnsw_vac ORDER BY v <-> '[100,0,0,0]' LIMIT 4
+) q ORDER BY id;
+-- expect: 98,99,101,102 (100 absent)
+
+DROP TABLE tqhnsw_vac;

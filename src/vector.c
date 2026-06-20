@@ -12,6 +12,7 @@
 #include "hnsw.h"
 #include "ivfflat.h"
 #include "tq.h"
+#include "tqhnsw.h"
 #include "tqivf.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
@@ -60,6 +61,7 @@ _PG_init(void)
 	IvfflatInit();
 	TqInit();
 	TqivfInit();
+	TqhnswInit();
 }
 
 /*
