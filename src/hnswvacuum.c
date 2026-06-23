@@ -584,15 +584,17 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 
 	/*
-	 * Wait for index scans and inserts to complete. Scans and inserts before
-	 * this point may contain tuples about to be deleted. Scans and inserts
+	 * Wait for inserts and index scans to complete. Inserts and scans before
+	 * this point may visit tuples about to be deleted. Inserts and scans
 	 * after this point will not, since the graph has been repaired.
 	 */
-	LockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
-	UnlockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
-
 	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+
+	ConfirmRepaired(vacuumstate);
+
+	LockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
+	UnlockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
 
 	while (BlockNumberIsValid(blkno))
 	{
@@ -770,10 +772,7 @@ hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	/* Pass 2: Repair graph */
 	HnswBench("RepairGraph", RepairGraph(&vacuumstate));
 
-	/* Pass 3: Confirm repaired */
-	HnswBench("ConfirmRepaired", ConfirmRepaired(&vacuumstate));
-
-	/* Pass 4: Mark as deleted */
+	/* Passes 3 and 4: Confirm repaired and mark as deleted */
 	HnswBench("MarkDeleted", MarkDeleted(&vacuumstate));
 
 	FreeVacuumState(&vacuumstate);
