@@ -584,12 +584,15 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 
 	/*
-	 * Wait for index scans to complete. Scans before this point may contain
-	 * tuples about to be deleted. Scans after this point will not, since the
-	 * graph has been repaired.
+	 * Wait for index scans and inserts to complete. Scans and inserts before
+	 * this point may contain tuples about to be deleted. Scans and inserts
+	 * after this point will not, since the graph has been repaired.
 	 */
 	LockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
 	UnlockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
+
+	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
 
 	while (BlockNumberIsValid(blkno))
 	{
