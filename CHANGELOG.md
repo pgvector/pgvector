@@ -1,3 +1,7 @@
+## 0.8.4 (unreleased)
+
+- Fixed possible error with inserts during HNSW vacuuming
+
 ## 0.8.3 (2026-06-17)
 
 - Fixed possible index corruption with HNSW vacuuming
