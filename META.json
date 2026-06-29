@@ -7,7 +7,7 @@
 		"Andrew Kane <andrew@ankane.org>"
 	],
 	"license": {
-		"PostgreSQL": "http://www.postgresql.org/about/licence"
+		"PostgreSQL": "https://www.postgresql.org/about/licence"
 	},
 	"prereqs": {
 		"runtime": {
@@ -38,7 +38,7 @@
 	"generated_by": "Andrew Kane",
 	"meta-spec": {
 		"version": "1.0.0",
-		"url": "http://pgxn.org/meta/spec.txt"
+		"url": "https://pgxn.org/meta/spec.txt"
 	},
 	"tags": [
 		"vectors",
