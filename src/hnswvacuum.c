@@ -665,7 +665,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 				 * Should not happen, but skip if it does since there may be
 				 * connections from other elements
 				 */
-				elog(INFO, "hnsw element not in deletion list");
+				Assert(false);
 				continue;
 			}
 
