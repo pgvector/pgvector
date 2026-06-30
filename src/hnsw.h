@@ -427,7 +427,7 @@ typedef struct HnswVacuumState
 	HnswSupport support;
 
 	/* Variables */
-	struct tidhash_hash *deleted;
+	struct tidhash_hash *deleting;
 	BufferAccessStrategy bas;
 	HnswNeighborTuple ntup;
 	HnswElementData highestPoint;

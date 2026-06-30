@@ -19,12 +19,12 @@
 #endif
 
 /*
- * Check if deleted list contains an index TID
+ * Check if deletion list contains an element
  */
 static bool
-DeletedContains(tidhash_hash * deleted, ItemPointer indextid)
+DeletingElement(tidhash_hash * deleting, ItemPointer indextid)
 {
-	return tidhash_lookup(deleted, *indextid) != NULL;
+	return tidhash_lookup(deleting, *indextid) != NULL;
 }
 
 /*
@@ -124,10 +124,10 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 				ItemPointerData ip;
 				bool		found;
 
-				/* Add to deleted list */
+				/* Add to deletion list */
 				ItemPointerSet(&ip, blkno, offno);
 
-				tidhash_insert(vacuumstate->deleted, ip, &found);
+				tidhash_insert(vacuumstate->deleting, ip, &found);
 				Assert(!found);
 			}
 			else if (etup->level > highestLevel)
@@ -200,8 +200,8 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 		if (!ItemPointerIsValid(indextid))
 			continue;
 
-		/* Check if in deleted list */
-		if (DeletedContains(vacuumstate->deleted, indextid))
+		/* Check if in deletion list */
+		if (DeletingElement(vacuumstate->deleting, indextid))
 		{
 			needsUpdated = true;
 			break;
@@ -335,7 +335,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		ItemPointerSet(&epData, entryPoint->blkno, entryPoint->offno);
 
-		if (DeletedContains(vacuumstate->deleted, &epData))
+		if (DeletingElement(vacuumstate->deleting, &epData))
 		{
 			/*
 			 * Replace the entry point with the highest point. If highest
@@ -565,8 +565,8 @@ ConfirmRepaired(HnswVacuumState * vacuumstate)
 				if (!ItemPointerIsValid(indextid))
 					continue;
 
-				/* Check if in deleted list */
-				if (DeletedContains(vacuumstate->deleted, indextid))
+				/* Check if in deletion list */
+				if (DeletingElement(vacuumstate->deleting, indextid))
 					elog(ERROR, "hnsw graph not repaired");
 			}
 
@@ -748,7 +748,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
 
 	/* Create hash table */
-	vacuumstate->deleted = tidhash_create(CurrentMemoryContext, 256, NULL);
+	vacuumstate->deleting = tidhash_create(CurrentMemoryContext, 256, NULL);
 }
 
 /*
@@ -757,7 +757,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 static void
 FreeVacuumState(HnswVacuumState * vacuumstate)
 {
-	tidhash_destroy(vacuumstate->deleted);
+	tidhash_destroy(vacuumstate->deleting);
 	FreeAccessStrategy(vacuumstate->bas);
 	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);
