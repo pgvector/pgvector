@@ -2,6 +2,7 @@
 
 - Fixed `hnsw graph not repaired` error with HNSW vacuuming
 - Fixed possible error with inserts during HNSW vacuuming
+- Increased HNSW index limit for `sparsevec` non-zero elements from 1,000 to 1,200
 
 ## 0.8.3 (2026-06-17)
 
