@@ -80,6 +80,14 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			if (!HnswIsElementTuple(etup))
 				continue;
 
+			/*
+			 * Skip deleted tuples. It is important they are not added to the
+			 * deleted hash to avoid false positives in NeedsUpdated and
+			 * ConfirmRepaired.
+			 */
+			if (etup->deleted)
+				continue;
+
 			if (ItemPointerIsValid(&etup->heaptids[0]))
 			{
 				for (int i = 0; i < HNSW_HEAPTIDS; i++)
