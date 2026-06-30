@@ -19,12 +19,12 @@
 #endif
 
 /*
- * Check if deleted list contains an index TID
+ * Check if deletion list contains an element
  */
 static bool
-DeletedContains(tidhash_hash * deleted, ItemPointer indextid)
+DeletingElement(tidhash_hash * deleting, ItemPointer indextid)
 {
-	return tidhash_lookup(deleted, *indextid) != NULL;
+	return tidhash_lookup(deleting, *indextid) != NULL;
 }
 
 /*
@@ -80,6 +80,14 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			if (!HnswIsElementTuple(etup))
 				continue;
 
+			/*
+			 * Skip deleted tuples. It is important they are not added to the
+			 * deletion list to avoid false positives in NeedsUpdated and
+			 * ConfirmRepaired.
+			 */
+			if (etup->deleted)
+				continue;
+
 			if (ItemPointerIsValid(&etup->heaptids[0]))
 			{
 				for (int i = 0; i < HNSW_HEAPTIDS; i++)
@@ -113,13 +121,13 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 			if (!ItemPointerIsValid(&etup->heaptids[0]))
 			{
-				ItemPointerData ip;
+				ItemPointerData indextid;
 				bool		found;
 
-				/* Add to deleted list */
-				ItemPointerSet(&ip, blkno, offno);
+				/* Add to deletion list */
+				ItemPointerSet(&indextid, blkno, offno);
 
-				tidhash_insert(vacuumstate->deleted, ip, &found);
+				tidhash_insert(vacuumstate->deleting, indextid, &found);
 				Assert(!found);
 			}
 			else if (etup->level > highestLevel)
@@ -192,8 +200,8 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 		if (!ItemPointerIsValid(indextid))
 			continue;
 
-		/* Check if in deleted list */
-		if (DeletedContains(vacuumstate->deleted, indextid))
+		/* Check if in deletion list */
+		if (DeletingElement(vacuumstate->deleting, indextid))
 		{
 			needsUpdated = true;
 			break;
@@ -327,7 +335,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		ItemPointerSet(&epData, entryPoint->blkno, entryPoint->offno);
 
-		if (DeletedContains(vacuumstate->deleted, &epData))
+		if (DeletingElement(vacuumstate->deleting, &epData))
 		{
 			/*
 			 * Replace the entry point with the highest point. If highest
@@ -411,6 +419,10 @@ RepairGraph(HnswVacuumState * vacuumstate)
 
 			/* Skip neighbor tuples */
 			if (!HnswIsElementTuple(etup))
+				continue;
+
+			/* Skip deleted tuples */
+			if (etup->deleted)
 				continue;
 
 			/* Skip updating neighbors if being deleted */
@@ -527,6 +539,10 @@ ConfirmRepaired(HnswVacuumState * vacuumstate)
 			if (!HnswIsElementTuple(etup))
 				continue;
 
+			/* Skip deleted tuples */
+			if (etup->deleted)
+				continue;
+
 			/* Skip if being deleted */
 			if (!ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
@@ -557,8 +573,8 @@ ConfirmRepaired(HnswVacuumState * vacuumstate)
 				if (!ItemPointerIsValid(indextid))
 					continue;
 
-				/* Check if in deleted list */
-				if (DeletedContains(vacuumstate->deleted, indextid))
+				/* Check if in deletion list */
+				if (DeletingElement(vacuumstate->deleting, indextid))
 					elog(ERROR, "hnsw graph not repaired");
 			}
 
@@ -740,7 +756,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
 
 	/* Create hash table */
-	vacuumstate->deleted = tidhash_create(CurrentMemoryContext, 256, NULL);
+	vacuumstate->deleting = tidhash_create(CurrentMemoryContext, 256, NULL);
 }
 
 /*
@@ -749,7 +765,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 static void
 FreeVacuumState(HnswVacuumState * vacuumstate)
 {
-	tidhash_destroy(vacuumstate->deleted);
+	tidhash_destroy(vacuumstate->deleting);
 	FreeAccessStrategy(vacuumstate->bas);
 	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);

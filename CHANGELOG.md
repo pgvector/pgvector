@@ -1,5 +1,6 @@
 ## 0.8.4 (unreleased)
 
+- Fixed `hnsw graph not repaired` error with HNSW vacuuming
 - Fixed possible error with inserts during HNSW vacuuming
 
 ## 0.8.3 (2026-06-17)
