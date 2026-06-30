@@ -421,6 +421,10 @@ RepairGraph(HnswVacuumState * vacuumstate)
 			if (!HnswIsElementTuple(etup))
 				continue;
 
+			/* Skip deleted tuples */
+			if (etup->deleted)
+				continue;
+
 			/* Skip updating neighbors if being deleted */
 			if (!ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
@@ -533,6 +537,10 @@ ConfirmRepaired(HnswVacuumState * vacuumstate)
 
 			/* Skip neighbor tuples */
 			if (!HnswIsElementTuple(etup))
+				continue;
+
+			/* Skip deleted tuples */
+			if (etup->deleted)
 				continue;
 
 			/* Skip if being deleted */
