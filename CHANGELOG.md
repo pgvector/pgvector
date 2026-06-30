@@ -1,4 +1,4 @@
-## 0.8.4 (unreleased)
+## 0.8.4 (2026-06-30)
 
 - Fixed `hnsw graph not repaired` error with HNSW vacuuming
 - Fixed possible error with inserts during HNSW vacuuming
