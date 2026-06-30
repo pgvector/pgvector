@@ -121,13 +121,13 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 			if (!ItemPointerIsValid(&etup->heaptids[0]))
 			{
-				ItemPointerData ip;
+				ItemPointerData indextid;
 				bool		found;
 
 				/* Add to deletion list */
-				ItemPointerSet(&ip, blkno, offno);
+				ItemPointerSet(&indextid, blkno, offno);
 
-				tidhash_insert(vacuumstate->deleting, ip, &found);
+				tidhash_insert(vacuumstate->deleting, indextid, &found);
 				Assert(!found);
 			}
 			else if (etup->level > highestLevel)
