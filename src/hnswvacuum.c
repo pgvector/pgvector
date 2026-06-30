@@ -645,7 +645,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			Page		npage;
 			BlockNumber neighborPage;
 			OffsetNumber neighborOffno;
-			ItemPointerData indextid;
 
 			/* Skip neighbor tuples */
 			if (!HnswIsElementTuple(etup))
@@ -664,18 +663,6 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			/* Skip live tuples */
 			if (ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
-
-			/* Confirm in deletion list */
-			ItemPointerSet(&indextid, blkno, offno);
-			if (!DeletingElement(vacuumstate->deleting, &indextid))
-			{
-				/*
-				 * Should not happen, but skip if it does since there may be
-				 * connections from other elements
-				 */
-				Assert(false);
-				continue;
-			}
 
 			/* Get neighbor page */
 			neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
