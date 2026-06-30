@@ -82,7 +82,7 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 			/*
 			 * Skip deleted tuples. It is important they are not added to the
-			 * deleted hash to avoid false positives in NeedsUpdated and
+			 * deletion list to avoid false positives in NeedsUpdated and
 			 * ConfirmRepaired.
 			 */
 			if (etup->deleted)
