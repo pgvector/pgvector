@@ -22,6 +22,7 @@ $node->safe_psql("postgres",
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops);");
 $node->safe_psql("postgres", "DELETE FROM tst");
 
+# Test HNSW_SCAN_LOCK at the beginning of MarkDeleted is effective
 $node->pgbench(
     "--no-vacuum --client=5 --transactions=1000",
     0,

@@ -21,6 +21,7 @@ $node->safe_psql("postgres",
 );
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING hnsw (v vector_l2_ops);");
 
+# Test no "hnsw graph not repaired" errors
 $node->pgbench(
     "--no-vacuum --client=5 --transactions=1000",
     0,
