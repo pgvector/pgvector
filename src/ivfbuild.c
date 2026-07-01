@@ -438,18 +438,18 @@ ComputeCenters(IvfflatBuildState * buildstate)
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_KMEANS);
 
-	/* Target 50 samples per list, with at least 10000 samples */
-	/* The number of samples has a large effect on index build time */
-	numSamples = buildstate->lists * 50;
-	if (numSamples < 10000)
-		numSamples = 10000;
-
 	/* Skip samples for unlogged table */
 	if (buildstate->heap == NULL)
 		numSamples = 1;
 	else
 	{
 		int64		maxTuples = (int64) RelationGetNumberOfBlocks(buildstate->heap) * MaxHeapTuplesPerPage;
+
+		/* Target 50 samples per list, with at least 10000 samples */
+		/* The number of samples has a large effect on index build time */
+		numSamples = buildstate->lists * 50;
+		if (numSamples < 10000)
+			numSamples = 10000;
 
 		/* Save memory since will not have more than max tuples */
 		numSamples = Max(Min(numSamples, maxTuples), 1);
