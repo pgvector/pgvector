@@ -1,5 +1,5 @@
 EXTENSION = vector
-EXTVERSION = 0.8.4
+EXTVERSION = 0.8.5
 
 DATA_built = sql\$(EXTENSION)--$(EXTVERSION).sql
 OBJS = src\bitutils.obj src\bitvec.obj src\halfutils.obj src\halfvec.obj src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\sparsevec.obj src\tq.obj src\tqtypeinfo.obj src\tqbuild.obj src\tqdistance.obj src\tqfastscan.obj src\tqfwht.obj src\tqivf.obj src\tqivfbuild.obj src\tqivfscan.obj src\tqivfvacuum.obj src\tqquant.obj src\tqscan.obj src\tqvacuum.obj src\tqhnsw.obj src\tqhnswutils.obj src\tqhnswbuild.obj src\tqhnswinsert.obj src\tqhnswscan.obj src\tqhnswvacuum.obj src\vector.obj
