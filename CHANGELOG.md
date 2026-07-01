@@ -1,3 +1,7 @@
+## 0.8.5 (unreleased)
+
+- Reduced memory usage for small tables for IVFFlat index builds
+
 ## 0.8.4 (2026-06-30)
 
 - Fixed `hnsw graph not repaired` error with HNSW vacuuming

@@ -447,6 +447,13 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	/* Skip samples for unlogged table */
 	if (buildstate->heap == NULL)
 		numSamples = 1;
+	else
+	{
+		int64		maxTuples = (int64) RelationGetNumberOfBlocks(buildstate->heap) * MaxHeapTuplesPerPage;
+
+		/* Save memory since will not have more than max tuples */
+		numSamples = Max(Min(numSamples, maxTuples), 1);
+	}
 
 	/* Sample rows */
 	buildstate->memoryUsed += VECTOR_ARRAY_SIZE(numSamples, buildstate->itemsize);

@@ -97,3 +97,22 @@ SET ivfflat.max_probes = 0;
 SET ivfflat.max_probes = 32769;
 
 DROP TABLE t;
+
+-- memory
+
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 4096);
+DROP TABLE t;
+
+SET maintenance_work_mem = '1MB';
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;
+
+SET maintenance_work_mem = '5MB';
+CREATE TABLE t (val vector(2000));
+INSERT INTO t (val) VALUES (array_fill(0, ARRAY[2000]));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;
