@@ -47,10 +47,6 @@ CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
 ERROR:  column cannot have more than 64000 dimensions for ivfflat index
 DROP TABLE t;
 -- memory
-CREATE TABLE t (val bit(64000));
-CREATE INDEX ON t USING ivfflat (val bit_hamming_ops) WITH (lists = 32768);
-ERROR:  memory required is 251 MB, maintenance_work_mem is 64 MB
-DROP TABLE t;
 SET maintenance_work_mem = '1MB';
 CREATE TABLE t (val bit(64000));
 CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);

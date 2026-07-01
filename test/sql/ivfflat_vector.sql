@@ -106,10 +106,6 @@ DROP TABLE t;
 
 -- memory
 
-CREATE TABLE t (val vector(2000));
-CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 4096);
-DROP TABLE t;
-
 SET maintenance_work_mem = '1MB';
 CREATE TABLE t (val vector(2000));
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops);

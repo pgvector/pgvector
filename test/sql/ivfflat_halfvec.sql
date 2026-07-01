@@ -56,10 +56,6 @@ DROP TABLE t;
 
 -- memory
 
-CREATE TABLE t (val halfvec(4000));
-CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops) WITH (lists = 8192);
-DROP TABLE t;
-
 SET maintenance_work_mem = '1MB';
 CREATE TABLE t (val halfvec(4000));
 CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);

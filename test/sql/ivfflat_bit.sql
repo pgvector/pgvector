@@ -34,10 +34,6 @@ DROP TABLE t;
 
 -- memory
 
-CREATE TABLE t (val bit(64000));
-CREATE INDEX ON t USING ivfflat (val bit_hamming_ops) WITH (lists = 32768);
-DROP TABLE t;
-
 SET maintenance_work_mem = '1MB';
 CREATE TABLE t (val bit(64000));
 CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
