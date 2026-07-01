@@ -95,26 +95,21 @@ CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (m = 101);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (ef_construction = 3);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (ef_construction = 1001);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (m = 16, ef_construction = 31);
+DROP TABLE t;
 
 SHOW hnsw.ef_search;
-
 SET hnsw.ef_search = 0;
 SET hnsw.ef_search = 1001;
 
 SHOW hnsw.iterative_scan;
-
 SET hnsw.iterative_scan = on;
 
 SHOW hnsw.max_scan_tuples;
-
 SET hnsw.max_scan_tuples = 0;
 
 SHOW hnsw.scan_mem_multiplier;
-
 SET hnsw.scan_mem_multiplier = 0;
 SET hnsw.scan_mem_multiplier = 1001;
-
-DROP TABLE t;
 
 -- dimensions
 

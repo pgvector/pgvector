@@ -81,22 +81,18 @@ DROP TABLE t;
 CREATE TABLE t (val vector(3));
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 0);
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 32769);
+DROP TABLE t;
 
 SHOW ivfflat.probes;
-
 SET ivfflat.probes = 0;
 SET ivfflat.probes = 32769;
 
 SHOW ivfflat.iterative_scan;
-
 SET ivfflat.iterative_scan = on;
 
 SHOW ivfflat.max_probes;
-
 SET ivfflat.max_probes = 0;
 SET ivfflat.max_probes = 32769;
-
-DROP TABLE t;
 
 -- dimensions
 
