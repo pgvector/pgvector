@@ -53,3 +53,22 @@ DROP TABLE t;
 CREATE TABLE t (val halfvec(4001));
 CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);
 DROP TABLE t;
+
+-- memory
+
+CREATE TABLE t (val halfvec(4000));
+CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops) WITH (lists = 8192);
+DROP TABLE t;
+
+SET maintenance_work_mem = '1MB';
+CREATE TABLE t (val halfvec(4000));
+CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;
+
+SET maintenance_work_mem = '6MB';
+CREATE TABLE t (val halfvec(4000));
+INSERT INTO t (val) VALUES (array_fill(0, ARRAY[4000]));
+CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;
