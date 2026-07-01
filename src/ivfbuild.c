@@ -448,6 +448,17 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	if (buildstate->heap == NULL)
 		numSamples = 1;
 
+	/*
+	 * An empty table has no rows to sample, so avoid allocating (and
+	 * requiring maintenance_work_mem for) the full sample buffer. Without
+	 * this, creating an ivfflat index on an empty table can fail with
+	 * "memory required is N MB, maintenance_work_mem is M MB" even though
+	 * nothing will be sampled - which breaks creating the index in a schema
+	 * migration before data is loaded.
+	 */
+	else if (RelationGetNumberOfBlocks(buildstate->heap) == 0)
+		numSamples = 1;
+
 	/* Sample rows */
 	buildstate->memoryUsed += VECTOR_ARRAY_SIZE(numSamples, buildstate->itemsize);
 	IvfflatCheckMemoryUsage(buildstate->memoryUsed);

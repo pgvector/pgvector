@@ -97,3 +97,10 @@ SET ivfflat.max_probes = 0;
 SET ivfflat.max_probes = 32769;
 
 DROP TABLE t;
+
+-- building on an empty table should not require worst-case maintenance_work_mem
+SET maintenance_work_mem = '1MB';
+CREATE TABLE t (val vector(1536));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 100);
+DROP TABLE t;
+RESET maintenance_work_mem;
