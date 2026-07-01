@@ -35,6 +35,17 @@ NOTICE:  ivfflat index created with little data
 DETAIL:  This will cause low recall.
 HINT:  Drop the index until the table has more data.
 DROP TABLE t;
+-- dimensions
+CREATE TABLE t (val bit(64000));
+CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
+NOTICE:  ivfflat index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
+DROP TABLE t;
+CREATE TABLE t (val bit(64001));
+CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
+ERROR:  column cannot have more than 64000 dimensions for ivfflat index
+DROP TABLE t;
 -- memory
 CREATE TABLE t (val bit(64000));
 CREATE INDEX ON t USING ivfflat (val bit_hamming_ops) WITH (lists = 32768);

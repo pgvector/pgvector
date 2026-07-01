@@ -22,6 +22,16 @@ CREATE INDEX ON t USING ivfflat ((val::bit(64001)) bit_hamming_ops) WITH (lists 
 CREATE INDEX ON t USING ivfflat ((val::bit(2)) bit_hamming_ops) WITH (lists = 5);
 DROP TABLE t;
 
+-- dimensions
+
+CREATE TABLE t (val bit(64000));
+CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
+DROP TABLE t;
+
+CREATE TABLE t (val bit(64001));
+CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
+DROP TABLE t;
+
 -- memory
 
 CREATE TABLE t (val bit(64000));
