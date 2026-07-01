@@ -26,6 +26,12 @@
 typedef Pointer Item;
 #endif
 
+#if PG_VERSION_NUM >= 170000
+#define HnswTidStore TidStore
+#else
+#define HnswTidStore tidhash_hash
+#endif
+
 #define HNSW_MAX_DIM 2000
 #define HNSW_MAX_NNZ 1000
 
@@ -427,7 +433,7 @@ typedef struct HnswVacuumState
 	HnswSupport support;
 
 	/* Variables */
-	struct tidhash_hash *deleting;
+	struct HnswTidStore *deleting;
 	BufferAccessStrategy bas;
 	HnswNeighborTuple ntup;
 	HnswElementData highestPoint;
