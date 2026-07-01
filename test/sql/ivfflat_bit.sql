@@ -21,3 +21,22 @@ CREATE INDEX ON t USING ivfflat ((val::bit(3)) bit_hamming_ops) WITH (lists = 1)
 CREATE INDEX ON t USING ivfflat ((val::bit(64001)) bit_hamming_ops) WITH (lists = 1);
 CREATE INDEX ON t USING ivfflat ((val::bit(2)) bit_hamming_ops) WITH (lists = 5);
 DROP TABLE t;
+
+-- memory
+
+CREATE TABLE t (val bit(64000));
+CREATE INDEX ON t USING ivfflat (val bit_hamming_ops) WITH (lists = 32768);
+DROP TABLE t;
+
+SET maintenance_work_mem = '1MB';
+CREATE TABLE t (val bit(64000));
+CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;
+
+SET maintenance_work_mem = '29MB';
+CREATE TABLE t (val bit(64000));
+INSERT INTO t (val) VALUES (B'0'::bit(64000));
+CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;
