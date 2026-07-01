@@ -98,6 +98,16 @@ SET ivfflat.max_probes = 32769;
 
 DROP TABLE t;
 
+-- dimensions
+
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+DROP TABLE t;
+
+CREATE TABLE t (val vector(2001));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+DROP TABLE t;
+
 -- memory
 
 CREATE TABLE t (val vector(2000));

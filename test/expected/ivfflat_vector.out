@@ -173,6 +173,17 @@ ERROR:  0 is outside the valid range for parameter "ivfflat.max_probes" (1 .. 32
 SET ivfflat.max_probes = 32769;
 ERROR:  32769 is outside the valid range for parameter "ivfflat.max_probes" (1 .. 32768)
 DROP TABLE t;
+-- dimensions
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+NOTICE:  ivfflat index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
+DROP TABLE t;
+CREATE TABLE t (val vector(2001));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+ERROR:  column cannot have more than 2000 dimensions for ivfflat index
+DROP TABLE t;
 -- memory
 CREATE TABLE t (val vector(2000));
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 4096);

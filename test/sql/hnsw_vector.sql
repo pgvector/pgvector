@@ -115,3 +115,13 @@ SET hnsw.scan_mem_multiplier = 0;
 SET hnsw.scan_mem_multiplier = 1001;
 
 DROP TABLE t;
+
+-- dimensions
+
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING hnsw (val vector_l2_ops);
+DROP TABLE t;
+
+CREATE TABLE t (val vector(2001));
+CREATE INDEX ON t USING hnsw (val vector_l2_ops);
+DROP TABLE t;
