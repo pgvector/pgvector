@@ -21,6 +21,7 @@ $node->safe_psql("postgres",
 );
 $node->safe_psql("postgres", "CREATE INDEX ON tst USING ivfflat (v vector_l2_ops) WITH (lists = 10);");
 
+# Test no errors
 $node->pgbench(
     "--no-vacuum --client=5 --transactions=1500",
     0,
