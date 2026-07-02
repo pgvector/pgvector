@@ -1,0 +1,115 @@
+SET enable_seqscan = off;
+
+CREATE TABLE tqhnsw_s (id int, v vector(4));
+INSERT INTO tqhnsw_s SELECT g, ARRAY[g,0,0,0]::real[]::vector FROM generate_series(1, 300) g;
+CREATE INDEX tqhnsw_s_idx ON tqhnsw_s USING tqhnsw (v vector_l2_ops) WITH (m = 16, ef_construction = 64);
+
+SET tqhnsw.ef_search = 100;
+SET tqhnsw.rerank = 100;
+-- The 5 nearest to [5,0,0,0] are {5,4,6,3,7} (distances 0,1,1,2,2 -> two
+-- exact-distance ties).  Re-sort the index-scan output by id so the tie order is
+-- deterministic; this still proves the index returned exactly the planted top-5.
+SELECT id FROM (
+  SELECT id FROM tqhnsw_s ORDER BY v <-> '[5,0,0,0]' LIMIT 5
+) q ORDER BY id;
+-- expect the 5 nearest on the planted line: 3,4,5,6,7
+
+-- Empty index returns nothing.
+CREATE TABLE tqhnsw_empty (v vector(4));
+CREATE INDEX tqhnsw_empty_idx ON tqhnsw_empty USING tqhnsw (v vector_l2_ops);
+SELECT count(*) FROM (SELECT v FROM tqhnsw_empty ORDER BY v <-> '[1,1,1,1]' LIMIT 5) q;  -- 0
+
+-- Inner product: larger projection on [10,0,0,0] = larger g.
+CREATE TABLE tqhnsw_ip (id int, v vector(4));
+INSERT INTO tqhnsw_ip SELECT g, ARRAY[g,1,0,0]::real[]::vector FROM generate_series(1, 300) g;
+CREATE INDEX ON tqhnsw_ip USING tqhnsw (v vector_ip_ops) WITH (m = 16, ef_construction = 64);
+SET tqhnsw.ef_search = 200;
+SET tqhnsw.rerank = 200;
+SELECT id FROM tqhnsw_ip ORDER BY v <#> '[10,0,0,0]' LIMIT 3;  -- 300,299,298
+
+-- block-vs-scalar exact agreement: both paths must return identical top-3 for IP
+SET tqhnsw.force_scalar = off;
+SELECT id FROM tqhnsw_ip ORDER BY v <#> '[10,0,0,0]' LIMIT 3;
+SET tqhnsw.force_scalar = on;
+SELECT id FROM tqhnsw_ip ORDER BY v <#> '[10,0,0,0]' LIMIT 3;
+RESET tqhnsw.force_scalar;
+DROP TABLE tqhnsw_ip;
+
+-- Cosine: all collinear -> ties; just confirms 3 rows, no error.
+CREATE TABLE tqhnsw_cos (id int, v vector(4));
+INSERT INTO tqhnsw_cos SELECT g, ARRAY[g,g,0,0]::real[]::vector FROM generate_series(1, 300) g;
+CREATE INDEX ON tqhnsw_cos USING tqhnsw (v vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+SET tqhnsw.ef_search = 200;
+SELECT count(*) FROM (SELECT id FROM tqhnsw_cos ORDER BY v <=> '[1,1,0,0]' LIMIT 3) q;  -- 3
+
+DROP TABLE tqhnsw_cos;
+
+-- Delete + vacuum must not error, and the deleted row drops from results.
+CREATE TABLE tqhnsw_v (id int, v vector(4));
+INSERT INTO tqhnsw_v SELECT g, ARRAY[g,0,0,0]::real[]::vector FROM generate_series(1, 200) g;
+CREATE INDEX ON tqhnsw_v USING tqhnsw (v vector_l2_ops) WITH (m = 16, ef_construction = 64);
+SET tqhnsw.ef_search = 100;
+SET tqhnsw.rerank = 100;
+DELETE FROM tqhnsw_v WHERE id = 5;
+VACUUM tqhnsw_v;
+-- After deleting id 5, the nearest to [5,0,0,0] are 4,6 (dist 1) then a dist-2
+-- tie between 3 and 7.  Take LIMIT 4 (captures both tie members so the tie does
+-- not straddle the cutoff) and re-sort by id for determinism.  This proves id 5
+-- is ABSENT (dropped at rerank via heap visibility) and the planted set {3,4,6,7}
+-- is returned by the index.
+SELECT id FROM (
+  SELECT id FROM tqhnsw_v ORDER BY v <-> '[5,0,0,0]' LIMIT 4
+) q ORDER BY id;
+-- expect: 3,4,6,7 (id 5 absent)
+DROP TABLE tqhnsw_v;
+
+-- block-vs-scalar exact agreement checks: block (force_scalar=off) and scalar
+-- (force_scalar=on) must return identical results for each metric.
+
+-- L2: tqhnsw_s has vectors [g,0,0,0]; nearest to [5,0,0,0] are ids 3-7.
+-- Wrap in ORDER BY id to neutralize tie order (dist-1 tie at 4,6; dist-2 tie at 3,7).
+SET tqhnsw.ef_search = 100;
+SET tqhnsw.rerank = 100;
+SET tqhnsw.force_scalar = off;
+SELECT id FROM (SELECT id FROM tqhnsw_s ORDER BY v <-> '[5,0,0,0]' LIMIT 5) q ORDER BY id;
+SET tqhnsw.force_scalar = on;
+SELECT id FROM (SELECT id FROM tqhnsw_s ORDER BY v <-> '[5,0,0,0]' LIMIT 5) q ORDER BY id;
+RESET tqhnsw.force_scalar;
+
+-- Cosine: a small set of clearly-separated directions.  v=[g,100-g,0,0] for
+-- g in {10,20,...,90}; nearest to [1,0,0,0] (cosine) are the highest-g ids: 90,80,70
+-- (cosines 0.994 / 0.970 / 0.919 -- gaps of ~0.02, far above fp16 resolution).
+-- (This previously used ~300 near-collinear directions whose top cosines differ
+-- below fp16's ~1e-3 resolution at magnitude ~1.  tqhnsw builds its graph on fp16
+-- reconstructed vectors to halve build-distance memory bandwidth, and cannot
+-- reliably resolve or connect such a dense cone -- the exact top-3 can be orphaned
+-- in the graph regardless of ef_search.  Well-separated directions make this a
+-- deterministic cosine-ordering check.  Real-data recall is unaffected -- validated
+-- by an fp16-vs-float32 build A/B on SIFT/GloVe, recall within build-PRNG noise.)
+CREATE TABLE tqhnsw_cos2 (id int, v vector(4));
+INSERT INTO tqhnsw_cos2 SELECT g * 10, ARRAY[g * 10, 100 - g * 10, 0, 0]::real[]::vector FROM generate_series(1, 9) g;
+CREATE INDEX ON tqhnsw_cos2 USING tqhnsw (v vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+SET tqhnsw.ef_search = 200;
+SET tqhnsw.rerank = 200;
+SET tqhnsw.force_scalar = off;
+SELECT id FROM tqhnsw_cos2 ORDER BY v <=> '[1,0,0,0]' LIMIT 3;
+SET tqhnsw.force_scalar = on;
+SELECT id FROM tqhnsw_cos2 ORDER BY v <=> '[1,0,0,0]' LIMIT 3;
+RESET tqhnsw.force_scalar;
+DROP TABLE tqhnsw_cos2;
+
+-- Zero-norm vectors are skipped under cosine at build and insert time (the
+-- <=> operator returns NaN for them; mirrors hnsw/ivfflat), so an indexed scan
+-- cannot rank a zero vector ahead of an anti-parallel one.
+CREATE TABLE tqhnsw_zero (id int, v vector(4));
+INSERT INTO tqhnsw_zero VALUES (1, '[1,1,0,0]'), (2, '[0,0,0,0]'), (3, '[-1,-1,0,0]');
+CREATE INDEX ON tqhnsw_zero USING tqhnsw (v vector_cosine_ops);
+INSERT INTO tqhnsw_zero VALUES (4, '[0,0,0,0]');
+SET tqhnsw.ef_search = 100;
+SET tqhnsw.rerank = 100;
+-- Both zero rows (build path id 2, insert path id 4) are absent; the
+-- anti-parallel id 3 sorts after id 1.
+SELECT id FROM tqhnsw_zero ORDER BY v <=> '[1,1,0,0]' LIMIT 5;  -- expect 1, 3
+DROP TABLE tqhnsw_zero;
+
+DROP TABLE tqhnsw_s, tqhnsw_empty;

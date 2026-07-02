@@ -1,0 +1,50 @@
+-- Test-only C wrappers from vector.so, defined per test file rather than
+-- shipped in the extension SQL (they read index internals and are not part
+-- of the public surface).
+CREATE OR REPLACE FUNCTION tqflat_test_codebook(int, int) RETURNS float8[]
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_ip_estimate(vector, vector, int, bool) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_rotation_orthogonality(int) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_roundtrip(vector, int) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+
+-- tqflat internal unit tests: quantizer core math
+-- Tests rotation, codebook, and encode/decode round-trip
+
+SET enable_seqscan = on;
+
+-- codebook for 2 bits, dim 128: 3 boundaries + 4 centroids = 7 values
+SELECT array_length(tqflat_test_codebook(128, 2), 1);
+
+-- middle boundary (index 2 of 3 for nLevels=4) should be ~0 (symmetric Beta)
+SELECT abs((tqflat_test_codebook(128, 2))[2]) < 1e-3;
+
+-- rotation matrix for dim=64 should be orthogonal (max|R*R' - I| < 1e-3)
+SELECT tqflat_test_rotation_orthogonality(64) < 1e-3;
+
+-- round-trip error at bits=2 should be greater than at bits=4 for a fixed vector
+-- (more bits = better quantization = lower reconstruction error)
+SELECT tqflat_test_roundtrip('[1.0, 0.5, -0.3, 0.8, -0.6, 0.2, 0.9, -0.4, 0.7, -0.1, 0.3, -0.8, 0.6, -0.2, 0.4, -0.7, 0.5, 0.1, -0.5, 0.9, -0.3, 0.7, 0.2, -0.6, 0.8, -0.4, 0.1, -0.9, 0.6, -0.2, 0.4, 0.7, -0.5, 0.3, -0.8, 0.6, 0.2, -0.4, 0.9, -0.7, 0.1, 0.5, -0.3, 0.8, -0.6, 0.4, -0.1, 0.7, -0.5, 0.3, 0.9, -0.2, 0.6, -0.8, 0.4, 0.1, -0.7, 0.5, -0.3, 0.8, -0.6, 0.2, 0.4, -0.9]'::vector, 2) > tqflat_test_roundtrip('[1.0, 0.5, -0.3, 0.8, -0.6, 0.2, 0.9, -0.4, 0.7, -0.1, 0.3, -0.8, 0.6, -0.2, 0.4, -0.7, 0.5, 0.1, -0.5, 0.9, -0.3, 0.7, 0.2, -0.6, 0.8, -0.4, 0.1, -0.9, 0.6, -0.2, 0.4, 0.7, -0.5, 0.3, -0.8, 0.6, 0.2, -0.4, 0.9, -0.7, 0.1, 0.5, -0.3, 0.8, -0.6, 0.4, -0.1, 0.7, -0.5, 0.3, 0.9, -0.2, 0.6, -0.8, 0.4, 0.1, -0.7, 0.5, -0.3, 0.8, -0.6, 0.2, 0.4, -0.9]'::vector, 4);
+
+-- asymmetric inner-product estimator (tqflat_test_ip_estimate).
+-- The single-pair estimate is unbiased but high variance, so assertions use a
+-- deterministic set of 8 fixed 128-d pairs (sin/cos generated -> reproducible)
+-- and check the AVERAGE absolute error, which is stable.  The signal magnitude
+-- (avg |true ip|) for these pairs is ~0.77; the observed average abs errors are
+-- ~0.43 (bits=4, tq_prod=false) and ~0.56 (bits=4, tq_prod=true), so a bound of
+-- 0.7 is meaningful (estimator tracks the true value) yet not flaky.
+CREATE TABLE tqip_pairs AS
+	SELECT g AS p,
+		('[' || array_to_string(array(SELECT round(sin(i * 0.7 + g)::numeric, 4) FROM generate_series(1, 128) i WHERE i >= 0 OR g >= 0), ',') || ']')::vector a,
+		('[' || array_to_string(array(SELECT round(cos(i * 0.5 + g * 1.3)::numeric, 4) FROM generate_series(1, 128) i WHERE i >= 0 OR g >= 0), ',') || ']')::vector b
+	FROM generate_series(1, 8) g;
+-- bits=4, tq_prod=false: average |estimate - true ip| is below the bound
+SELECT avg(abs(tqflat_test_ip_estimate(a, b, 4, false) - inner_product(a, b))) < 0.7 AS b4_noprod_close FROM tqip_pairs;
+-- bits=4, tq_prod=true: average |estimate - true ip| is below the bound
+SELECT avg(abs(tqflat_test_ip_estimate(a, b, 4, true) - inner_product(a, b))) < 0.7 AS b4_prod_close FROM tqip_pairs;
+-- Both estimators clearly beat a trivial zero predictor (error < signal magnitude).
+SELECT avg(abs(tqflat_test_ip_estimate(a, b, 4, false) - inner_product(a, b)))
+		< avg(abs(inner_product(a, b))) AS b4_noprod_beats_zero FROM tqip_pairs;
+DROP TABLE tqip_pairs;

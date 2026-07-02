@@ -1,3 +1,7 @@
+## 0.8.6 (unreleased)
+
+- Added `tqflat`, `tqivf`, and `tqhnsw` index access methods (TurboQuant 4-bit quantization)
+
 ## 0.8.5 (unreleased)
 
 - Reduced memory usage for small tables for IVFFlat index builds

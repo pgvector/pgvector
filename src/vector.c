@@ -11,6 +11,9 @@
 #include "halfvec.h"
 #include "hnsw.h"
 #include "ivfflat.h"
+#include "tq.h"
+#include "tqhnsw.h"
+#include "tqivf.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 #include "port.h"				/* for strtof() */
@@ -56,6 +59,9 @@ _PG_init(void)
 	HalfvecInit();
 	HnswInit();
 	IvfflatInit();
+	TqInit();
+	TqivfInit();
+	TqhnswInit();
 }
 
 /*

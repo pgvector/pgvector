@@ -1,0 +1,198 @@
+-- Test-only C wrappers from vector.so, defined per test file rather than
+-- shipped in the extension SQL (they read index internals and are not part
+-- of the public surface).
+CREATE OR REPLACE FUNCTION tqflat_test_codebook(int, int) RETURNS float8[]
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_codebook_mse(int, int) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_fwht_involution(int) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_ip_estimate(vector, vector, int, bool) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_lut8_recovery(int) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_pack_roundtrip(int, int) RETURNS int
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_qjl_estimate(vector, vector, int, int, bool) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_rht_coord_stats(int) RETURNS float8[]
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_rht_norm(int) RETURNS float8
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_rotation_coord_stats(int) RETURNS float8[]
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_score_block(int) RETURNS int
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_score_block_consistency(int) RETURNS int
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+CREATE OR REPLACE FUNCTION tqflat_test_transpose_roundtrip(int, int) RETURNS int
+	AS 'vector' LANGUAGE C IMMUTABLE STRICT;
+
+-- tqflat math validation: ties the quantizer core to the TurboQuant paper's
+-- theoretical guarantees, independent of index structure.  These validate the
+-- reusable core (tqquant.c / tqdistance.c) that a future HNSW/IVF integration
+-- would inherit:
+--   * Lemma 1     - random rotation induces Beta((d-1)/2,(d-1)/2) coordinates
+--   * Theorem 1   - MSE-optimal codebook distortion D_mse(b)
+--   * Theorem 2   - QJL residual stage gives an unbiased inner-product estimate
+--   * RaBitQ scale - self inner-product debiasing
+--   * bit-packing roundtrip across byte boundaries
+
+SET enable_seqscan = on;
+
+-- ============================================================
+-- Theorem 1: MSE-optimal codebook distortion.
+-- Per-coordinate MSE * d is the unit-norm vector distortion D_mse(b).  The paper
+-- displays these rounded to one sig-fig (0.117, 0.03, 0.009 for b=2,3,4); we
+-- assert against the precise continuum-limit Lloyd-Max distortions
+-- (0.1175, 0.03454, 0.009497 -- same references the turbovec suite uses).
+-- tqflat_test_codebook_mse returns the per-coordinate MSE: the integral of
+-- (x - centroid(x))^2 against the Beta coordinate density, on a fine grid.
+-- ============================================================
+-- b=2: D_mse within 3% of 0.1175
+SELECT abs(768 * tqflat_test_codebook_mse(768, 2) - 0.1175) / 0.1175 < 0.03 AS b2_mse_matches_paper;
+-- b=3: D_mse within 3% of 0.03454
+SELECT abs(768 * tqflat_test_codebook_mse(768, 3) - 0.03454) / 0.03454 < 0.03 AS b3_mse_matches_paper;
+-- b=4: D_mse within 3% of 0.009497
+SELECT abs(768 * tqflat_test_codebook_mse(768, 4) - 0.009497) / 0.009497 < 0.03 AS b4_mse_matches_paper;
+-- More bits -> strictly lower distortion.
+SELECT tqflat_test_codebook_mse(768, 2) > tqflat_test_codebook_mse(768, 3)
+   AND tqflat_test_codebook_mse(768, 3) > tqflat_test_codebook_mse(768, 4) AS mse_decreases_with_bits;
+-- Within the Shannon factor: D_mse(b) / 4^-b lies in (1, 2.7] per the paper's
+-- bound (TurboQuant is within ~2.7x of the information-theoretic lower bound).
+-- ratio = (d * mse) * 4^b.
+SELECT (768 * tqflat_test_codebook_mse(768, 2) * 16) BETWEEN 1.0 AND 2.7 AS b2_within_shannon;
+SELECT (768 * tqflat_test_codebook_mse(768, 4) * 256) BETWEEN 1.0 AND 2.7 AS b4_within_shannon;
+
+-- ============================================================
+-- Codebook structural invariants (Lloyd-Max output well-formed).
+-- tqflat_test_codebook(dim, bits) returns (nLevels-1) boundaries followed by
+-- nLevels centroids.  For bits=3: 7 boundaries + 8 centroids = 15 elements.
+-- Indexing (1-based): boundary i = a[i] (i in 1..7); centroid k = a[7+k] (k in 1..8).
+-- ============================================================
+SELECT array_length(tqflat_test_codebook(768, 3), 1) = 15 AS b3_codebook_len;
+-- Centroids strictly ascending.
+WITH c AS (SELECT tqflat_test_codebook(768, 3) AS a)
+SELECT bool_and(a[7 + i] < a[7 + i + 1]) AS centroids_ascending
+FROM c, generate_series(1, 7) i;
+-- Each boundary strictly between its adjacent centroids: c[i] < b[i] < c[i+1].
+WITH c AS (SELECT tqflat_test_codebook(768, 3) AS a)
+SELECT bool_and(a[7 + i] < a[i] AND a[i] < a[7 + i + 1]) AS boundaries_between_centroids
+FROM c, generate_series(1, 7) i;
+-- Centroids symmetric about 0: c[k] + c[9-k] ~ 0.
+WITH c AS (SELECT tqflat_test_codebook(768, 3) AS a)
+SELECT bool_and(abs(a[7 + k] + a[7 + (9 - k)]) < 1e-3) AS centroids_symmetric
+FROM c, generate_series(1, 8) k;
+-- Centroids within the unit interval (-1, 1).
+WITH c AS (SELECT tqflat_test_codebook(768, 3) AS a)
+SELECT bool_and(a[7 + k] > -1.0 AND a[7 + k] < 1.0) AS centroids_in_unit_interval
+FROM c, generate_series(1, 8) k;
+
+-- ============================================================
+-- Lemma 1: after random rotation, each coordinate follows
+-- Beta((d-1)/2,(d-1)/2), with mean 0 and variance 1/d (-> N(0,1/d) as d grows).
+-- The columns of the orthonormal rotation R are themselves random unit vectors,
+-- so the d*d entries of R are samples of this coordinate distribution.
+-- tqflat_test_rotation_coord_stats(dim) returns {mean, variance, max_abs}.
+-- Deterministic (fixed rotation seed).
+-- ============================================================
+-- mean ~ 0
+SELECT abs((tqflat_test_rotation_coord_stats(256))[1]) < 0.01 AS rot_coord_mean_zero;
+-- variance ~ 1/d  (d=256 -> 0.00390625); near-exact since R's columns are unit
+-- vectors, so the mean square of all entries is d/d^2 = 1/d.
+SELECT abs((tqflat_test_rotation_coord_stats(256))[2] - (1.0/256)) / (1.0/256) < 0.01 AS rot_coord_var_inv_d;
+-- bounded: every entry is a coordinate of a unit vector, |entry| < 1
+SELECT (tqflat_test_rotation_coord_stats(256))[3] < 1.0 AS rot_coord_bounded;
+
+-- ============================================================
+-- Bit-packing roundtrip: pack a distinct code per coordinate then unpack and
+-- compare.  Exercises the 2-byte sliding window in tq_pack_code / TqUnpackCode
+-- across byte boundaries.  bits=3 is the stress case (codes straddle bytes
+-- because 3 does not divide 8).  Returns the number of mismatching coordinates;
+-- 0 == perfect roundtrip.
+-- ============================================================
+SELECT tqflat_test_pack_roundtrip(768, 2) AS pack_b2,
+       tqflat_test_pack_roundtrip(768, 3) AS pack_b3,
+       tqflat_test_pack_roundtrip(768, 4) AS pack_b4;
+-- dims that are not multiples of 8 (tail handling)
+SELECT tqflat_test_pack_roundtrip(13, 3)  AS pack_d13_b3,
+       tqflat_test_pack_roundtrip(100, 3) AS pack_d100_b3,
+       tqflat_test_pack_roundtrip(7, 2)   AS pack_d7_b2;
+
+-- ============================================================
+-- Theorem 2: the QJL residual stage gives an UNBIASED inner-product estimate.
+-- For a fixed pair (a,b), E_S[est] = <a,b> over the randomness of the QJL
+-- sketch S.  A single-seed estimate is unbiased but high variance; averaging
+-- over many independent S seeds concentrates on <a,b>.
+-- tqflat_test_qjl_estimate(a, b, bits, qjl_seed) uses the canonical rotation
+-- seed and the given QJL seed.  Fully deterministic for fixed seeds.
+-- ============================================================
+-- max(inner_product(...)) is just the (constant) true IP wrapped in an aggregate
+-- so it can sit beside avg() without a GROUP BY.  Observed rel error ~0.5% over
+-- 200 seeds; the 3% bound has margin yet still proves unbiasedness (a biased
+-- estimator would not converge near the true value).
+WITH pair AS (
+  SELECT ('[' || array_to_string(array(SELECT round(sin(i * 0.30)::numeric, 4) FROM generate_series(1, 128) i), ',') || ']')::vector AS a,
+         ('[' || array_to_string(array(SELECT round(cos(i * 0.21)::numeric, 4) FROM generate_series(1, 128) i), ',') || ']')::vector AS b
+),
+agg AS (
+  SELECT avg(tqflat_test_qjl_estimate(pair.a, pair.b, 4, s, false)) AS est,
+         max(inner_product(pair.a, pair.b)) AS ip
+  FROM pair, generate_series(1, 200) s
+)
+SELECT abs(est - ip) < 0.03 * abs(ip) AS qjl_unbiased_over_seeds FROM agg;
+
+-- NOTE: there is intentionally NO fast_rotation (structured-RHT) counterpart to
+-- the above.  The QJL sign estimator assumes i.i.d. Gaussian sketch rows, which
+-- the orthonormal RHT is not, so the structured QJL is biased (bias grows with
+-- dim, ~20% at d=128 -- see tqflat_test_qjl_estimate's 5th `fast` arg).  Whether
+-- the QJL second stage earns its keep in fast mode is being decided by recall
+-- A/B (bench: fast tq_prod on/off vs dense); the structured rotation itself is
+-- unbiased and validated (rht_norm / rht_coord_stats above).
+
+-- ============================================================
+-- RaBitQ self-score: estimating <x,x> from quantized x (tq_prod=false) returns
+-- ~||x||^2 because scale = ||x|| / <y,yhat> removes the quantization projection
+-- loss.  For unit vectors the estimate tracks 1.0.
+-- ============================================================
+CREATE TABLE tqself AS
+  SELECT g, l2_normalize(
+    ('[' || array_to_string(array(SELECT round(sin(i * 0.13 + g * 1.7)::numeric, 4) FROM generate_series(1, 128) i), ',') || ']')::vector
+  ) AS v
+  FROM generate_series(1, 64) g;
+SELECT abs(avg(tqflat_test_ip_estimate(v, v, 4, false)) - 1.0) < 0.01 AS self_score_unbiased_b4 FROM tqself;
+DROP TABLE tqself;
+
+-- ============================================================
+-- Fast Walsh-Hadamard Transform + randomized Hadamard transform (fast rotation).
+-- ============================================================
+-- FWHT is involutive up to scale: FWHT(FWHT(x)) = n*x.  Returns max|roundtrip - n*x|.
+SELECT tqflat_test_fwht_involution(256) < 1e-6 AS fwht_involution_256;
+SELECT tqflat_test_fwht_involution(2048) < 1e-4 AS fwht_involution_2048;
+-- RHT is orthonormal: ||RHT(x)|| = ||x||.
+SELECT tqflat_test_rht_norm(200) < 1e-5 AS rht_norm_preserved_200;
+SELECT tqflat_test_rht_norm(1536) < 1e-5 AS rht_norm_preserved_1536;
+-- Lemma 1 for RHT: coordinates of RHT(unit vectors) have mean~0, var~1/d' (d'=256).
+SELECT abs((tqflat_test_rht_coord_stats(200))[1]) < 0.01 AS rht_mean_zero;
+SELECT abs((tqflat_test_rht_coord_stats(200))[2] - (1.0/256)) / (1.0/256) < 0.10 AS rht_var_inv_dprime;
+
+-- ============================================================
+-- Blocked fast-scan kernel (tqfastscan.c).
+-- ============================================================
+-- Transpose roundtrip: scatter N vectors' codes into a block code-plane and read
+-- each lane's codes back; returns mismatches (0 = identity), incl. slot>=16 and
+-- nvecs<32 tail. Args: dim int, nvecs int.
+SELECT tqflat_test_transpose_roundtrip(256, 32) AS transpose_full_0;
+SELECT tqflat_test_transpose_roundtrip(256, 19) AS transpose_partial_0;
+SELECT tqflat_test_transpose_roundtrip(2048, 32) AS transpose_highdim_0;
+-- 8-bit LUT recovery: |recovered_mse - float_mse| / |float_mse| averaged over a
+-- block of deterministic vectors; should be within the quantization bound.
+SELECT tqflat_test_lut8_recovery(256) < 0.25 AS lut8_recovery_ok;
+SELECT tqflat_test_lut8_recovery(2048) < 0.25 AS lut8_recovery_highdim_ok;
+-- Overflow flush: dc>257 must not overflow the uint16 stage. Assert exactness of
+-- the scalar lane sum vs a uint64 reference. Returns 0 on match.
+SELECT tqflat_test_score_block(2048) AS score_block_exact_0;
+
+-- SIMD block kernel is bit-identical to the scalar Default (NEON on arm64).
+SELECT tqflat_test_score_block_consistency(256) AS simd_matches_default_256;
+SELECT tqflat_test_score_block_consistency(2048) AS simd_matches_default_2048;

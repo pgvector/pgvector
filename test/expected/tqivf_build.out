@@ -1,0 +1,112 @@
+-- Test-only C wrappers from vector.so, defined per test file rather than
+-- shipped in the extension SQL (they read index internals and are not part
+-- of the public surface).
+CREATE OR REPLACE FUNCTION tqivf_test_meta(regclass) RETURNS text
+	AS 'vector' LANGUAGE C STABLE;
+CREATE OR REPLACE FUNCTION tqivf_test_list_counts(regclass) RETURNS int[]
+	AS 'vector' LANGUAGE C STABLE;
+SET enable_seqscan = off;
+CREATE TABLE tqivf_b (id int, v vector(8));
+INSERT INTO tqivf_b SELECT g, ARRAY[g,g+1,g+2,g+3,g+4,g+5,g+6,g+7]::real[]::vector
+  FROM generate_series(1, 500) g;
+CREATE INDEX tqivf_b_idx ON tqivf_b USING tqivf (v vector_l2_ops) WITH (lists = 10);
+SELECT tqivf_test_meta('tqivf_b_idx');
+               tqivf_test_meta               
+---------------------------------------------
+ dim=8 lists=10 bits=4 metric=0 nvectors=500
+(1 row)
+
+SELECT sum(c) FROM unnest(tqivf_test_list_counts('tqivf_b_idx')) AS c;
+ sum 
+-----
+ 500
+(1 row)
+
+SELECT cardinality(tqivf_test_list_counts('tqivf_b_idx'));
+ cardinality 
+-------------
+          10
+(1 row)
+
+CREATE INDEX ON tqivf_b USING tqivf (v vector_l2_ops) WITH (lists = 0);   -- ERROR: out of range
+ERROR:  value 0 out of bounds for option "lists"
+DETAIL:  Valid values are between "1" and "32768".
+CREATE INDEX ON tqivf_b USING tqivf (v vector_l2_ops) WITH (bits = 2);    -- ERROR: unrecognized parameter
+ERROR:  unrecognized parameter "bits"
+DROP TABLE tqivf_b;
+-- Multi-block-per-list: 100 identical vectors land in one list (lists=1),
+-- forcing ceil(100/32)=4 blocks in that list's code chain.
+CREATE TABLE tqivf_mb (id int, v vector(4));
+INSERT INTO tqivf_mb SELECT g, '[1,0,0,0]'::vector FROM generate_series(1, 100) g;
+CREATE INDEX tqivf_mb_idx ON tqivf_mb USING tqivf (v vector_l2_ops) WITH (lists = 1);
+SELECT tqivf_test_meta('tqivf_mb_idx');
+              tqivf_test_meta               
+--------------------------------------------
+ dim=4 lists=1 bits=4 metric=0 nvectors=100
+(1 row)
+
+SELECT max(c) FROM unnest(tqivf_test_list_counts('tqivf_mb_idx')) AS c;
+ max 
+-----
+ 100
+(1 row)
+
+DROP TABLE tqivf_mb;
+-- Parallel build: forcing workers must produce the same membership + per-list
+-- counts as a serial build (intra-list block grouping may differ; sums do not).
+SET max_parallel_maintenance_workers = 2;
+SET min_parallel_table_scan_size = 1;
+CREATE TABLE tqivf_par (id int, v vector(8));
+INSERT INTO tqivf_par SELECT g, ARRAY[g%7,g%5,g%3,g%11,g%13,g%2,g%17,g%19]::real[]::vector
+  FROM generate_series(1, 2000) g;
+CREATE INDEX tqivf_par_idx ON tqivf_par USING tqivf (v vector_l2_ops) WITH (lists = 20);
+SELECT sum(c) FROM unnest(tqivf_test_list_counts('tqivf_par_idx')) AS c;
+ sum  
+------
+ 2000
+(1 row)
+
+SELECT cardinality(tqivf_test_list_counts('tqivf_par_idx'));
+ cardinality 
+-------------
+          20
+(1 row)
+
+RESET max_parallel_maintenance_workers;
+RESET min_parallel_table_scan_size;
+DROP TABLE tqivf_par;
+-- halfvec opclasses (tqivf #6 Plan 2)
+CREATE TABLE tqivf_hv (v halfvec(4));
+INSERT INTO tqivf_hv VALUES ('[1,2,3,4]'), ('[2,3,4,5]'), ('[0,0,0,1]'), ('[5,4,3,2]');
+CREATE INDEX ON tqivf_hv USING tqivf (v halfvec_l2_ops) WITH (lists = 1);
+SELECT v FROM tqivf_hv ORDER BY v <-> '[1,2,3,4]' LIMIT 2;
+     v     
+-----------
+ [1,2,3,4]
+ [2,3,4,5]
+(2 rows)
+
+DROP TABLE tqivf_hv;
+-- IP query is [1,2,3,5] (not [1,2,3,4]) for an unambiguous top-2 (avoids an IP tie)
+CREATE TABLE tqivf_hv_ip (v halfvec(4));
+INSERT INTO tqivf_hv_ip VALUES ('[1,2,3,5]'), ('[2,3,4,5]'), ('[0,0,0,1]'), ('[5,4,3,2]');
+CREATE INDEX ON tqivf_hv_ip USING tqivf (v halfvec_ip_ops) WITH (lists = 1);
+SELECT v FROM tqivf_hv_ip ORDER BY v <#> '[1,2,3,5]' LIMIT 2;
+     v     
+-----------
+ [2,3,4,5]
+ [1,2,3,5]
+(2 rows)
+
+DROP TABLE tqivf_hv_ip;
+CREATE TABLE tqivf_hv_cos (v halfvec(4));
+INSERT INTO tqivf_hv_cos VALUES ('[1,2,3,4]'), ('[2,3,4,5]'), ('[1,0,0,0]'), ('[5,4,3,2]');
+CREATE INDEX ON tqivf_hv_cos USING tqivf (v halfvec_cosine_ops) WITH (lists = 1);
+SELECT v FROM tqivf_hv_cos ORDER BY v <=> '[1,2,3,4]' LIMIT 2;
+     v     
+-----------
+ [1,2,3,4]
+ [2,3,4,5]
+(2 rows)
+
+DROP TABLE tqivf_hv_cos;

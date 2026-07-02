@@ -1,0 +1,135 @@
+SET enable_seqscan = off;
+CREATE TABLE tqivf_s (id int, v vector(4));
+INSERT INTO tqivf_s SELECT g, ARRAY[g, 0, 0, 0]::real[]::vector FROM generate_series(1, 200) g;
+CREATE INDEX tqivf_s_idx ON tqivf_s USING tqivf (v vector_l2_ops) WITH (lists = 10);
+SET tqivf.probes = 10;
+SET tqivf.rerank = 100;
+-- The 5 nearest to [5,0,0,0] are {5,4,6,3,7} (distances 0,1,1,2,2 -> two
+-- exact-distance ties).  Re-sort by id so the tie order is deterministic.
+SELECT id FROM (
+  SELECT id FROM tqivf_s ORDER BY v <-> '[5,0,0,0]' LIMIT 5
+) q ORDER BY id;
+ id 
+----
+  3
+  4
+  5
+  6
+  7
+(5 rows)
+
+CREATE TABLE tqivf_e (v vector(4));
+CREATE INDEX tqivf_e_idx ON tqivf_e USING tqivf (v vector_l2_ops) WITH (lists = 2);
+NOTICE:  tqivf index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
+SELECT count(*) FROM (SELECT v FROM tqivf_e ORDER BY v <-> '[1,1,1,1]' LIMIT 5) q;
+ count 
+-------
+     0
+(1 row)
+
+-- Inner product
+CREATE TABLE tqivf_ip (id int, v vector(4));
+INSERT INTO tqivf_ip SELECT g, ARRAY[g, 1, 0, 0]::real[]::vector FROM generate_series(1, 200) g;
+CREATE INDEX ON tqivf_ip USING tqivf (v vector_ip_ops) WITH (lists = 10);
+SET tqivf.probes = 10;
+SELECT id FROM tqivf_ip ORDER BY v <#> '[10,0,0,0]' LIMIT 3;
+ id  
+-----
+ 200
+ 199
+ 198
+(3 rows)
+
+-- Cosine: angles to the query differ per row (low ids are nearest), so the
+-- expected order is meaningful rather than an arbitrary tie-break.
+CREATE TABLE tqivf_cos (id int, v vector(4));
+INSERT INTO tqivf_cos SELECT g, ARRAY[g, 1, 0, 0]::real[]::vector FROM generate_series(1, 200) g;
+CREATE INDEX ON tqivf_cos USING tqivf (v vector_cosine_ops) WITH (lists = 10);
+SELECT id FROM tqivf_cos ORDER BY v <=> '[0,1,0,0]' LIMIT 3;
+ id 
+----
+  1
+  2
+  3
+(3 rows)
+
+DROP TABLE tqivf_ip, tqivf_cos;
+-- Zero-norm vectors are skipped under cosine at build and insert time (the
+-- <=> operator returns NaN for them; mirrors ivfflat), so an indexed scan
+-- cannot rank a zero vector ahead of a near-anti-parallel one.  (id 3 is not
+-- exactly anti-parallel to id 1: an exact pair would average to a zero-norm
+-- k-means center, which the shared ivfflat kmeans guard rejects by design.)
+CREATE TABLE tqivf_zero (id int, v vector(4));
+INSERT INTO tqivf_zero VALUES (1, '[1,1,0,0]'), (2, '[0,0,0,0]'), (3, '[-1,-2,0,0]');
+CREATE INDEX ON tqivf_zero USING tqivf (v vector_cosine_ops) WITH (lists = 1);
+INSERT INTO tqivf_zero VALUES (4, '[0,0,0,0]');
+SET tqivf.probes = 1;
+-- Both zero rows (build path id 2, insert path id 4) are absent; the
+-- near-anti-parallel id 3 sorts after id 1.
+SELECT id FROM tqivf_zero ORDER BY v <=> '[1,1,0,0]' LIMIT 5;  -- expect 1, 3
+ id 
+----
+  1
+  3
+(2 rows)
+
+DROP TABLE tqivf_zero;
+-- Insert after build, then query (tail-chain path)
+CREATE TABLE tqivf_ins (id int, v vector(4));
+INSERT INTO tqivf_ins SELECT g, ARRAY[g,0,0,0]::real[]::vector FROM generate_series(1, 100) g;
+CREATE INDEX ON tqivf_ins USING tqivf (v vector_l2_ops) WITH (lists = 5);
+SET tqivf.probes = 5;
+INSERT INTO tqivf_ins VALUES (999, '[3,0,0,0]');
+-- ids 3 and 999 are both at distance 0 (a tie); re-sort by id.
+SELECT id FROM (
+  SELECT id FROM tqivf_ins ORDER BY v <-> '[3,0,0,0]' LIMIT 2
+) q ORDER BY id;
+ id  
+-----
+   3
+ 999
+(2 rows)
+
+DROP TABLE tqivf_ins;
+-- Iterative scan: probes=1 with many tiny lists; relaxed_order must probe more
+-- lists on demand to satisfy a LIMIT larger than one list holds.
+CREATE TABLE tqivf_it (id int, v vector(4));
+INSERT INTO tqivf_it SELECT g, ARRAY[g,0,0,0]::real[]::vector FROM generate_series(1, 200) g;
+CREATE INDEX ON tqivf_it USING tqivf (v vector_l2_ops) WITH (lists = 100);
+SET tqivf.probes = 1;
+-- non-iterative: one tiny list cannot satisfy LIMIT 10
+SET tqivf.iterative_scan = off;
+SELECT count(*) < 10 AS one_list_insufficient
+  FROM (SELECT id FROM tqivf_it ORDER BY v <-> '[100,0,0,0]' LIMIT 10) q;
+ one_list_insufficient 
+-----------------------
+ t
+(1 row)
+
+-- iterative: probes more lists to reach the full LIMIT
+SET tqivf.iterative_scan = relaxed_order;
+SET tqivf.max_probes = 100;
+SELECT count(*) AS iterative_count
+  FROM (SELECT id FROM tqivf_it ORDER BY v <-> '[100,0,0,0]' LIMIT 10) q;
+ iterative_count 
+-----------------
+              10
+(1 row)
+
+-- Consume the scan to exhaustion (no LIMIT): with probes=1 each batch covers
+-- one list, so this walks all 100 batches and exercises the per-batch result
+-- release in TqivfLoadBatch.
+SELECT count(*) AS full_iterative_count
+  FROM (SELECT id FROM tqivf_it ORDER BY v <-> '[100,0,0,0]') q;
+ full_iterative_count 
+----------------------
+                  200
+(1 row)
+
+RESET tqivf.iterative_scan;
+RESET tqivf.max_probes;
+RESET tqivf.probes;
+DROP TABLE tqivf_it;
+DROP TABLE tqivf_s, tqivf_e;
