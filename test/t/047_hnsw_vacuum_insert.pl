@@ -31,7 +31,7 @@ $node->pgbench(
     {
         "047_hnsw_vacuum_insert_insert\@500" => "INSERT INTO tst (v) VALUES (ARRAY[$array_sql]);",
         "047_hnsw_vacuum_insert_delete\@500" => "DELETE FROM tst WHERE i = (SELECT i FROM tst LIMIT 1);",
-        "047_hnsw_vacuum_insert_select\@20" => "SELECT i FROM tst ORDER BY v <-> '[0,0,0]' LIMIT 10;",
+        "047_hnsw_vacuum_insert_select\@20" => "SELECT i FROM tst ORDER BY v <-> (SELECT ARRAY[$array_sql]::vector) LIMIT 10;",
         "047_hnsw_vacuum_insert_vacuum\@1" => "VACUUM tst;"
     }
 );
