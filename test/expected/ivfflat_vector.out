@@ -143,6 +143,7 @@ DETAIL:  Valid values are between "1" and "32768".
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 32769);
 ERROR:  value 32769 out of bounds for option "lists"
 DETAIL:  Valid values are between "1" and "32768".
+DROP TABLE t;
 SHOW ivfflat.probes;
  ivfflat.probes 
 ----------------
@@ -172,4 +173,32 @@ SET ivfflat.max_probes = 0;
 ERROR:  0 is outside the valid range for parameter "ivfflat.max_probes" (1 .. 32768)
 SET ivfflat.max_probes = 32769;
 ERROR:  32769 is outside the valid range for parameter "ivfflat.max_probes" (1 .. 32768)
+-- dimensions
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+NOTICE:  ivfflat index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
 DROP TABLE t;
+CREATE TABLE t (val vector(2001));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+ERROR:  column cannot have more than 2000 dimensions for ivfflat index
+DROP TABLE t;
+-- memory
+SET maintenance_work_mem = '1MB';
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+NOTICE:  ivfflat index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
+DROP TABLE t;
+RESET maintenance_work_mem;
+SET maintenance_work_mem = '5MB';
+CREATE TABLE t (val vector(2000));
+INSERT INTO t (val) VALUES (array_fill(0, ARRAY[2000]));
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
+NOTICE:  ivfflat index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
+DROP TABLE t;
+RESET maintenance_work_mem;

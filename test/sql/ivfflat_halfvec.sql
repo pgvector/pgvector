@@ -43,3 +43,28 @@ SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> '[0,0,0]') t2;
 SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::halfvec)) t2;
 
 DROP TABLE t;
+
+-- dimensions
+
+CREATE TABLE t (val halfvec(4000));
+CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);
+DROP TABLE t;
+
+CREATE TABLE t (val halfvec(4001));
+CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);
+DROP TABLE t;
+
+-- memory
+
+SET maintenance_work_mem = '1MB';
+CREATE TABLE t (val halfvec(4000));
+CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;
+
+SET maintenance_work_mem = '6MB';
+CREATE TABLE t (val halfvec(4000));
+INSERT INTO t (val) VALUES (array_fill(0, ARRAY[4000]));
+CREATE INDEX ON t USING ivfflat (val halfvec_l2_ops);
+DROP TABLE t;
+RESET maintenance_work_mem;

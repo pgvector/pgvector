@@ -161,6 +161,7 @@ ERROR:  value 1001 out of bounds for option "ef_construction"
 DETAIL:  Valid values are between "4" and "1000".
 CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (m = 16, ef_construction = 31);
 ERROR:  ef_construction must be greater than or equal to 2 * m
+DROP TABLE t;
 SHOW hnsw.ef_search;
  hnsw.ef_search 
 ----------------
@@ -198,4 +199,11 @@ SET hnsw.scan_mem_multiplier = 0;
 ERROR:  0 is outside the valid range for parameter "hnsw.scan_mem_multiplier" (1 .. 1000)
 SET hnsw.scan_mem_multiplier = 1001;
 ERROR:  1001 is outside the valid range for parameter "hnsw.scan_mem_multiplier" (1 .. 1000)
+-- dimensions
+CREATE TABLE t (val vector(2000));
+CREATE INDEX ON t USING hnsw (val vector_l2_ops);
+DROP TABLE t;
+CREATE TABLE t (val vector(2001));
+CREATE INDEX ON t USING hnsw (val vector_l2_ops);
+ERROR:  column cannot have more than 2000 dimensions for hnsw index
 DROP TABLE t;
