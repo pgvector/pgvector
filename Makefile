@@ -32,6 +32,25 @@ ifeq ($(shell uname -m), riscv64)
 	OPTFLAGS =
 endif
 
+PG_CONFIG ?= pg_config
+
+# GCC on aarch64 miscompiles the pac-ret return sequence when -march=native
+# enables the pauth feature and the server is built with -mbranch-protection:
+# the epilogue authenticates the return address twice ("autiasp" then "retaa"),
+# which faults and crashes the backend on module load. Observed on GCC 14 and
+# applied to any GCC whose native target enables pauth (detecting which versions
+# are fixed is not worth the cost); clang and other compilers keep -march=native.
+ifneq ($(filter aarch64 arm64, $(shell uname -m)), )
+	PG_CC := $(shell $(PG_CONFIG) --cc)
+	ifneq ($(shell $(PG_CC) --version 2>/dev/null | grep -ic 'free software foundation'), 0)
+		ifneq ($(shell $(PG_CONFIG) --cflags | grep -Ec -- '-mbranch-protection=(standard|pac-ret)'), 0)
+			ifneq ($(shell $(PG_CC) -march=native -v -E - </dev/null 2>&1 | grep -c pauth), 0)
+				OPTFLAGS =
+			endif
+		endif
+	endif
+endif
+
 # For auto-vectorization:
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html
@@ -48,7 +67,6 @@ all: sql/$(EXTENSION)--$(EXTVERSION).sql
 sql/$(EXTENSION)--$(EXTVERSION).sql: sql/$(EXTENSION).sql
 	cp $< $@
 
-PG_CONFIG ?= pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
