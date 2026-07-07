@@ -9,9 +9,9 @@ jobs:
       matrix:
         include:
           - postgres: 19
-            os: ubuntu-24.04
+            os: ubuntu-26.04
           - postgres: 18
-            os: ubuntu-24.04
+            os: ubuntu-26.04-arm
           - postgres: 17
             os: ubuntu-24.04
           - postgres: 16
