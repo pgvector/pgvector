@@ -1,4 +1,4 @@
-## 0.8.5 (unreleased)
+## 0.8.5 (2026-07-08)
 
 - Reduced memory usage for small tables for IVFFlat index builds
 
