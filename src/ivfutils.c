@@ -23,11 +23,15 @@
 VectorArray
 VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 {
-	VectorArray res = palloc(sizeof(VectorArrayData));
+	VectorArray res;
+
+	if (maxlen < 1 || dimensions < 1)
+		elog(ERROR, "safety check failed");
 
 	/* Ensure items are aligned to prevent UB */
 	itemsize = MAXALIGN(itemsize);
 
+	res = palloc(sizeof(VectorArrayData));
 	res->length = 0;
 	res->maxlen = maxlen;
 	res->dim = dimensions;
