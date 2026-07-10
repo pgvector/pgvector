@@ -467,7 +467,7 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 ## Multitenancy
 
-For applications with multiple tenants, sharing an approximate index between tenants means vectors from one tenant can affect recall for other tenants.
+For applications with multiple tenants, sharing an approximate index between tenants means vectors from one tenant can affect recall (and speed) for other tenants.
 
 For tenant isolation, use [list partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html).
 
