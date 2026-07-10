@@ -469,7 +469,7 @@ CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(cate
 
 For applications with multiple tenants, sharing an approximate index between tenants means vectors from one tenant can affect recall (and speed) for other tenants.
 
-For tenant isolation, use [list partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html).
+For tenant isolation, use [list partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html) or separate tables.
 
 ```sql
 CREATE TABLE items (customer_id int, embedding vector(3)) PARTITION BY LIST(customer_id);
