@@ -465,6 +465,16 @@ If filtering by many different values, consider [partitioning](https://www.postg
 CREATE TABLE items (embedding vector(3), category_id int) PARTITION BY LIST(category_id);
 ```
 
+## Multitenancy
+
+For applications with multiple tenants, sharing an approximate index between tenants means vectors from one tenant can affect recall for other tenants.
+
+For tenant isolation, use [list partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html).
+
+```sql
+CREATE TABLE items (customer_id int, embedding vector(3)) PARTITION BY LIST(customer_id);
+```
+
 ## Iterative Index Scans
 
 With approximate indexes, queries with filtering can return less results since filtering is applied *after* the index is scanned. Starting with 0.8.0, you can enable iterative index scans, which will automatically scan more of the index until enough results are found (or it reaches `hnsw.max_scan_tuples` or `ivfflat.max_probes`).
