@@ -8,6 +8,7 @@
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
+#include "utils/datum.h"
 #include "utils/memutils.h"
 #include "utils/relcache.h"
 
@@ -105,15 +106,43 @@ NormCenters(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray centers
 }
 
 /*
- * Quick approach if we have no data
+ * Check if value exists
+ */
+static bool
+VectorArrayExists(VectorArray arr, Pointer val)
+{
+	Datum		d = PointerGetDatum(val);
+
+	for (int i = 0; i < arr->length; i++)
+	{
+		if (datumIsEqual(d, PointerGetDatum(VectorArrayGet(arr, i)), false, -1))
+			return true;
+	}
+	return false;
+}
+
+/*
+ * Quick approach if we have little data
  */
 static void
-RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeInfo)
+QuickCenters(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	int			dimensions = centers->dim;
 	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	Oid			collation = index->rd_indcollation[0];
 	float	   *x = (float *) palloc(sizeof(float) * dimensions);
+
+	/* Fill with unique samples (already normalized) */
+	for (int i = 0; i < samples->length; i++)
+	{
+		Pointer		sample = VectorArrayGet(samples, i);
+
+		if (!VectorArrayExists(centers, sample))
+		{
+			VectorArraySet(centers, centers->length, sample);
+			centers->length++;
+		}
+	}
 
 	/* Fill with random data */
 	while (centers->length < centers->maxlen)
@@ -548,8 +577,8 @@ IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const Iv
 													ALLOCSET_DEFAULT_SIZES);
 	MemoryContext oldCtx = MemoryContextSwitchTo(kmeansCtx);
 
-	if (samples->length == 0)
-		RandomCenters(index, centers, typeInfo);
+	if (samples->length <= centers->maxlen)
+		QuickCenters(index, samples, centers, typeInfo);
 	else
 		ElkanKmeans(index, samples, centers, typeInfo, memoryUsed);
 
