@@ -106,10 +106,10 @@ NormCenters(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray centers
 }
 
 /*
- * Check if value exists
+ * Check if vector array contains a vector
  */
 static bool
-VectorArrayExists(VectorArray arr, Pointer val)
+VectorArrayContains(VectorArray arr, Pointer val)
 {
 	Datum		d = PointerGetDatum(val);
 
@@ -137,7 +137,7 @@ QuickCenters(Relation index, VectorArray samples, VectorArray centers, const Ivf
 	{
 		Pointer		sample = VectorArrayGet(samples, i);
 
-		if (!VectorArrayExists(centers, sample))
+		if (!VectorArrayContains(centers, sample))
 		{
 			VectorArraySet(centers, centers->length, sample);
 			centers->length++;
