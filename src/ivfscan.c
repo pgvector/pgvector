@@ -282,6 +282,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->probes = probes;
 	so->maxProbes = maxProbes;
 	so->dimensions = dimensions;
+	so->value = PointerGetDatum(NULL);
 
 	/* Set support functions */
 	so->procinfo = index_getprocinfo(index, 1, IVFFLAT_DISTANCE_PROC);
@@ -339,6 +340,12 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 	so->first = true;
 	pairingheap_reset(so->listQueue);
 	so->listIndex = 0;
+
+	if (so->normprocinfo != NULL && DatumGetPointer(so->value) != NULL)
+	{
+		pfree(DatumGetPointer(so->value));
+		so->value = PointerGetDatum(NULL);
+	}
 
 	if (keys && scan->numberOfKeys > 0)
 		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
