@@ -305,7 +305,7 @@ typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 static inline Pointer
 VectorArrayGet(VectorArray arr, int offset)
 {
-	if (offset >= arr->maxlen)
+	if (offset < 0 || offset >= arr->maxlen)
 		elog(ERROR, "safety check failed");
 
 	return ((char *) arr->items) + (offset * arr->itemsize);
