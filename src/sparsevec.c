@@ -431,7 +431,7 @@ sparsevec_out(PG_FUNCTION_ARGS)
 	/*
 	 * Need:
 	 *
-	 * nnz * 10 bytes for index (positive integer)
+	 * nnz * 11 bytes for index (includes sign for extra safety)
 	 *
 	 * nnz bytes for :
 	 *
@@ -440,11 +440,11 @@ sparsevec_out(PG_FUNCTION_ARGS)
 	 *
 	 * max(nnz - 1, 0) bytes for ,
 	 *
-	 * 10 bytes for dimensions
+	 * 11 bytes for dimensions (includes sign for extra safety)
 	 *
 	 * 4 bytes for {, }, /, and \0
 	 */
-	buf = (char *) palloc((11 + FLOAT_SHORTEST_DECIMAL_LEN) * sparsevec->nnz + 14);
+	buf = (char *) palloc((12 + FLOAT_SHORTEST_DECIMAL_LEN) * sparsevec->nnz + 15);
 	ptr = buf;
 
 	AppendChar(ptr, '{');
