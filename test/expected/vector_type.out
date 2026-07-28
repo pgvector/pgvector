@@ -654,6 +654,22 @@ SELECT avg(v) FROM unnest(ARRAY['[3e38]'::vector, '[3e38]']) v;
 
 SELECT vector_avg(array_agg(n)) FROM generate_series(1, 16002) n;
 ERROR:  vector cannot have more than 16000 dimensions
+SELECT vector_accum('{0}', '[1,2,3]');
+ vector_accum 
+--------------
+ {1,1,2,3}
+(1 row)
+
+SELECT vector_accum('{0,0,0,0}', '[1,2,3]');
+ vector_accum 
+--------------
+ {1,1,2,3}
+(1 row)
+
+SELECT vector_accum('{}', '[1,2,3]');
+ERROR:  vector_accum: expected state array
+SELECT vector_accum('{0,0}', '[1,2,3]');
+ERROR:  expected 1 dimensions, not 3
 SELECT vector_combine('{0}', (SELECT array_agg(n) FROM generate_series(1, 16002) n));
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT vector_combine((SELECT array_agg(n) FROM generate_series(1, 16002) n), '{0}');
