@@ -1,3 +1,7 @@
+## 0.8.6 (unreleased)
+
+- Fixed array to `sparsevec` cast not limiting to 16,000 non-zero elements
+
 ## 0.8.5 (2026-07-08)
 
 - Reduced memory usage for small tables for IVFFlat index builds

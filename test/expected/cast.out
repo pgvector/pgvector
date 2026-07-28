@@ -270,6 +270,8 @@ SELECT array_to_vector(array_agg(n), 16001, false) FROM generate_series(1, 16001
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT array_agg(n)::halfvec FROM generate_series(1, 16001) n;
 ERROR:  halfvec cannot have more than 16000 dimensions
+SELECT array_agg(n)::sparsevec FROM generate_series(1, 16001) n;
+ERROR:  sparsevec cannot have more than 16000 non-zero elements
 -- ensure no error
 SELECT ARRAY[1,2,3] = ARRAY[1,2,3];
  ?column? 

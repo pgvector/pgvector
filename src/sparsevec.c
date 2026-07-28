@@ -745,6 +745,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 				 errmsg("unsupported array type")));
 	}
 
+	CheckNnz(nnz, nelemsp);
 	result = InitSparseVector(nelemsp, nnz);
 	values = SPARSEVEC_VALUES(result);
 
