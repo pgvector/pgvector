@@ -1216,7 +1216,7 @@ vector_combine(PG_FUNCTION_ARGS)
 	float8		n;
 	float8		n1;
 	float8		n2;
-	int16		dim;
+	int			dim;
 	Datum	   *statedatums;
 	ArrayType  *result;
 
@@ -1231,33 +1231,36 @@ vector_combine(PG_FUNCTION_ARGS)
 	{
 		n = n2;
 		dim = STATE_DIMS(statearray2);
+		CheckDim(dim);
 		statedatums = CreateStateDatums(dim);
-		for (int i = 1; i <= dim; i++)
-			statedatums[i] = Float8GetDatum(statevalues2[i]);
+		for (int i = 0; i < dim; i++)
+			statedatums[i + 1] = Float8GetDatum(statevalues2[i + 1]);
 	}
 	else if (n2 == 0.0)
 	{
 		n = n1;
 		dim = STATE_DIMS(statearray1);
+		CheckDim(dim);
 		statedatums = CreateStateDatums(dim);
-		for (int i = 1; i <= dim; i++)
-			statedatums[i] = Float8GetDatum(statevalues1[i]);
+		for (int i = 0; i < dim; i++)
+			statedatums[i + 1] = Float8GetDatum(statevalues1[i + 1]);
 	}
 	else
 	{
 		n = n1 + n2;
 		dim = STATE_DIMS(statearray1);
+		CheckDim(dim);
 		CheckExpectedDim(dim, STATE_DIMS(statearray2));
 		statedatums = CreateStateDatums(dim);
-		for (int i = 1; i <= dim; i++)
+		for (int i = 0; i < dim; i++)
 		{
-			double		v = statevalues1[i] + statevalues2[i];
+			double		v = statevalues1[i + 1] + statevalues2[i + 1];
 
 			/* Check for overflow */
 			if (isinf(v))
 				float_overflow_error();
 
-			statedatums[i] = Float8GetDatum(v);
+			statedatums[i + 1] = Float8GetDatum(v);
 		}
 	}
 
