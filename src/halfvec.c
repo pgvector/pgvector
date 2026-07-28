@@ -27,7 +27,7 @@
 #include "parser/scansup.h"
 #endif
 
-#if PG_VERSION_NUM < 160000
+#if PG_VERSION_NUM < 140600
 #define palloc_array(type, count) ((type *) palloc(sizeof(type) * (count)))
 #endif
 
