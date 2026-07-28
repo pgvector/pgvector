@@ -26,6 +26,10 @@
 #include "parser/scansup.h"
 #endif
 
+#if PG_VERSION_NUM < 160000
+#define palloc_array(type, count) ((type *) palloc(sizeof(type) * (count)))
+#endif
+
 typedef struct SparseInputElement
 {
 	int32		index;
@@ -223,7 +227,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("sparsevec cannot have more than %d non-zero elements", SPARSEVEC_MAX_NNZ)));
 
-	elements = palloc(maxNnz * sizeof(SparseInputElement));
+	elements = palloc_array(SparseInputElement, maxNnz);
 
 	pt = lit;
 

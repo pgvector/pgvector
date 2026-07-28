@@ -92,6 +92,8 @@ typedef Pointer Item;
 #if PG_VERSION_NUM < 160000
 #define palloc_object(type) ((type *) palloc(sizeof(type)))
 #define palloc0_object(type) ((type *) palloc0(sizeof(type)))
+#define palloc_array(type, count) ((type *) palloc(sizeof(type) * (count)))
+#define palloc0_array(type, count) ((type *) palloc0(sizeof(type) * (count)))
 #endif
 
 /* Variables */
