@@ -276,7 +276,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	if (maxProbes > lists)
 		maxProbes = lists;
 
-	so = (IvfflatScanOpaque) palloc(sizeof(IvfflatScanOpaqueData));
+	so = palloc_object(IvfflatScanOpaqueData);
 	so->typeInfo = IvfflatGetTypeInfo(index);
 	so->first = true;
 	so->probes = probes;

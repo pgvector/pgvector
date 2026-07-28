@@ -662,7 +662,7 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 	IndexInfo  *indexInfo;
 
 	/* Initialize local tuplesort coordination state */
-	coordinate = palloc0(sizeof(SortCoordinateData));
+	coordinate = palloc0_object(SortCoordinateData);
 	coordinate->isWorker = true;
 	coordinate->nParticipants = -1;
 	coordinate->sharedsort = sharedsort;
@@ -757,7 +757,7 @@ IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 	indexRel = index_open(ivfshared->indexrelid, indexLockmode);
 
 	/* Initialize worker's own spool */
-	ivfspool = (IvfflatSpool *) palloc0(sizeof(IvfflatSpool));
+	ivfspool = palloc0_object(IvfflatSpool);
 	ivfspool->heap = heapRel;
 	ivfspool->index = indexRel;
 
@@ -812,7 +812,7 @@ IvfflatLeaderParticipateAsWorker(IvfflatBuildState * buildstate)
 	int			sortmem;
 
 	/* Allocate memory and initialize private spool */
-	leaderworker = (IvfflatSpool *) palloc0(sizeof(IvfflatSpool));
+	leaderworker = palloc0_object(IvfflatSpool);
 	leaderworker->heap = buildstate->heap;
 	leaderworker->index = buildstate->index;
 
@@ -838,7 +838,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	IvfflatShared *ivfshared;
 	Sharedsort *sharedsort;
 	char	   *ivfcenters;
-	IvfflatLeader *ivfleader = (IvfflatLeader *) palloc0(sizeof(IvfflatLeader));
+	IvfflatLeader *ivfleader = palloc0_object(IvfflatLeader);
 	bool		leaderparticipates = true;
 	int			querylen;
 
@@ -987,7 +987,7 @@ AssignTuples(IvfflatBuildState * buildstate)
 	/* Set up coordination state if at least one worker launched */
 	if (buildstate->ivfleader)
 	{
-		coordinate = (SortCoordinate) palloc0(sizeof(SortCoordinateData));
+		coordinate = palloc0_object(SortCoordinateData);
 		coordinate->isWorker = false;
 		coordinate->nParticipants = buildstate->ivfleader->nparticipanttuplesorts;
 		coordinate->sharedsort = buildstate->ivfleader->sharedsort;
@@ -1072,7 +1072,7 @@ ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 
 	BuildIndex(heap, index, indexInfo, &buildstate, MAIN_FORKNUM);
 
-	result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
+	result = palloc_object(IndexBuildResult);
 	result->heap_tuples = buildstate.reltuples;
 	result->index_tuples = buildstate.indtuples;
 

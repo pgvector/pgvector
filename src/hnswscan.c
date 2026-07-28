@@ -136,7 +136,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 
 	scan = RelationGetIndexScan(index, nkeys, norderbys);
 
-	so = (HnswScanOpaque) palloc(sizeof(HnswScanOpaqueData));
+	so = palloc_object(HnswScanOpaqueData);
 	so->typeInfo = HnswGetTypeInfo(index);
 
 	/* Set support functions */

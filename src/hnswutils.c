@@ -282,7 +282,7 @@ HnswAddHeapTid(HnswElement element, ItemPointer heaptid)
 HnswElement
 HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
 {
-	HnswElement element = palloc(sizeof(HnswElementData));
+	HnswElement element = palloc_object(HnswElementData);
 	char	   *base = NULL;
 
 	element->blkno = blkno;
@@ -596,7 +596,7 @@ GetElementDistance(char *base, HnswElement element, HnswQuery * q, HnswSupport *
 static HnswSearchCandidate *
 HnswInitSearchCandidate(char *base, HnswElement element, double distance)
 {
-	HnswSearchCandidate *sc = palloc(sizeof(HnswSearchCandidate));
+	HnswSearchCandidate *sc = palloc_object(HnswSearchCandidate);
 
 	HnswPtrStore(base, sc->element, element);
 	sc->distance = distance;
@@ -1328,7 +1328,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		foreach(lc2, w)
 		{
 			HnswSearchCandidate *sc = lfirst(lc2);
-			HnswCandidate *hc = palloc(sizeof(HnswCandidate));
+			HnswCandidate *hc = palloc_object(HnswCandidate);
 
 			hc->element = sc->element;
 			hc->distance = sc->distance;

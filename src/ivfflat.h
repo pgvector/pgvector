@@ -89,6 +89,11 @@ typedef Pointer Item;
 #define SeedRandom(seed) srandom(seed)
 #endif
 
+#if PG_VERSION_NUM < 160000
+#define palloc_object(type) ((type *) palloc(sizeof(type)))
+#define palloc0_object(type) ((type *) palloc0(sizeof(type)))
+#endif
+
 /* Variables */
 extern int	ivfflat_probes;
 extern int	ivfflat_iterative_scan;

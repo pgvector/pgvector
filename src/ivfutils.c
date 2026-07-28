@@ -31,7 +31,7 @@ VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 	/* Ensure items are aligned to prevent UB */
 	itemsize = MAXALIGN(itemsize);
 
-	res = palloc(sizeof(VectorArrayData));
+	res = palloc_object(VectorArrayData);
 	res->length = 0;
 	res->maxlen = maxlen;
 	res->dim = dimensions;

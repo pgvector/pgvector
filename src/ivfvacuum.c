@@ -24,7 +24,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
 
 	if (stats == NULL)
-		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
+		stats = palloc0_object(IndexBulkDeleteResult);
 
 	/* Iterate over list pages */
 	while (BlockNumberIsValid(blkno))

@@ -930,7 +930,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	Size		estother;
 	HnswShared *hnswshared;
 	char	   *hnswarea;
-	HnswLeader *hnswleader = (HnswLeader *) palloc0(sizeof(HnswLeader));
+	HnswLeader *hnswleader = palloc0_object(HnswLeader);
 	bool		leaderparticipates = true;
 	int			querylen;
 
@@ -1151,7 +1151,7 @@ hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 
 	BuildIndex(heap, index, indexInfo, &buildstate, MAIN_FORKNUM);
 
-	result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
+	result = palloc_object(IndexBuildResult);
 	result->heap_tuples = buildstate.reltuples;
 	result->index_tuples = buildstate.indtuples;
 
