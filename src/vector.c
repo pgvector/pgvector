@@ -1285,7 +1285,7 @@ vector_avg(PG_FUNCTION_ARGS)
 	ArrayType  *statearray = PG_GETARG_ARRAYTYPE_P(0);
 	float8	   *statevalues;
 	float8		n;
-	uint16		dim;
+	int			dim;
 	Vector	   *result;
 
 	/* Check array before using */
