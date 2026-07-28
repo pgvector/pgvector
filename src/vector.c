@@ -299,11 +299,11 @@ vector_out(PG_FUNCTION_ARGS)
 	 * dim * (FLOAT_SHORTEST_DECIMAL_LEN - 1) bytes for
 	 * float_to_shortest_decimal_bufn
 	 *
-	 * dim - 1 bytes for separator
+	 * max(dim - 1, 0) bytes for separator
 	 *
 	 * 3 bytes for [, ], and \0
 	 */
-	buf = (char *) palloc(FLOAT_SHORTEST_DECIMAL_LEN * dim + 2);
+	buf = (char *) palloc(FLOAT_SHORTEST_DECIMAL_LEN * dim + 3);
 	ptr = buf;
 
 	AppendChar(ptr, '[');
