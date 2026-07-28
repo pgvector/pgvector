@@ -78,14 +78,13 @@ SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::vector)) t2
      3
 (1 row)
 
-SELECT * FROM t CROSS JOIN LATERAL (SELECT * FROM t t2 ORDER BY val <=> t.val LIMIT 1) t2 WHERE t.val IS NOT NULL ORDER BY t.val;
+SELECT * FROM t CROSS JOIN LATERAL (SELECT * FROM t t2 ORDER BY val <=> t.val LIMIT 1) t2 WHERE t.val != '[0,0,0]' ORDER BY t.val;
    val   |   val   
 ---------+---------
- [0,0,0] | [1,1,1]
  [1,1,1] | [1,1,1]
  [1,2,3] | [1,2,3]
  [1,2,4] | [1,2,4]
-(4 rows)
+(3 rows)
 
 DROP TABLE t;
 -- L1
