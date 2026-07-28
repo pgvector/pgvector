@@ -187,6 +187,12 @@ SELECT '{}/-1'::sparsevec;
 ERROR:  sparsevec must have at least 1 dimension
 LINE 1: SELECT '{}/-1'::sparsevec;
                ^
+SELECT '{}/1000000000'::sparsevec;
+   sparsevec   
+---------------
+ {}/1000000000
+(1 row)
+
 SELECT '{}/1000000001'::sparsevec;
 ERROR:  sparsevec cannot have more than 1000000000 dimensions
 LINE 1: SELECT '{}/1000000001'::sparsevec;

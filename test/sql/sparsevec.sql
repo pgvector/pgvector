@@ -38,6 +38,7 @@ SELECT '{1:1,1:1}/2'::sparsevec;
 SELECT '{1:1,2:1,1:1}/2'::sparsevec;
 SELECT '{}/5'::sparsevec;
 SELECT '{}/-1'::sparsevec;
+SELECT '{}/1000000000'::sparsevec;
 SELECT '{}/1000000001'::sparsevec;
 SELECT '{}/2147483648'::sparsevec;
 SELECT '{}/-2147483649'::sparsevec;

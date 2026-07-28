@@ -438,13 +438,13 @@ sparsevec_out(PG_FUNCTION_ARGS)
 	 * nnz * (FLOAT_SHORTEST_DECIMAL_LEN - 1) bytes for
 	 * float_to_shortest_decimal_bufn
 	 *
-	 * nnz - 1 bytes for ,
+	 * max(nnz - 1, 0) bytes for ,
 	 *
 	 * 10 bytes for dimensions
 	 *
 	 * 4 bytes for {, }, /, and \0
 	 */
-	buf = (char *) palloc((11 + FLOAT_SHORTEST_DECIMAL_LEN) * sparsevec->nnz + 13);
+	buf = (char *) palloc((11 + FLOAT_SHORTEST_DECIMAL_LEN) * sparsevec->nnz + 14);
 	ptr = buf;
 
 	AppendChar(ptr, '{');
