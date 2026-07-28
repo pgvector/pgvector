@@ -666,6 +666,8 @@ SELECT vector_accum('{0,0,0,0}', '[1,2,3]');
  {1,1,2,3}
 (1 row)
 
+SELECT vector_accum('{{0}}', '[1,2,3]');
+ERROR:  vector_accum: expected state array
 SELECT vector_accum('{}', '[1,2,3]');
 ERROR:  vector_accum: expected state array
 SELECT vector_accum('{0,0}', '[1,2,3]');
