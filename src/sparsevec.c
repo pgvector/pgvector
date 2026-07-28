@@ -614,6 +614,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 			nnz++;
 	}
 
+	CheckNnz(nnz, dim);
 	result = InitSparseVector(dim, nnz);
 	values = SPARSEVEC_VALUES(result);
 	for (int i = 0; i < dim; i++)
@@ -657,6 +658,7 @@ halfvec_to_sparsevec(PG_FUNCTION_ARGS)
 			nnz++;
 	}
 
+	CheckNnz(nnz, dim);
 	result = InitSparseVector(dim, nnz);
 	values = SPARSEVEC_VALUES(result);
 	for (int i = 0; i < dim; i++)
