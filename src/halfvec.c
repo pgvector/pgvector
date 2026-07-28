@@ -32,7 +32,7 @@
 #endif
 
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
-#define CreateStateDatums(dim) palloc_array(Datum, (dim + 1))
+#define CreateStateDatums(dim) palloc_array(Datum, (dim) + 1)
 
 /*
  * Get a half from a message buffer
