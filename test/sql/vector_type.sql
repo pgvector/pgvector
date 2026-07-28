@@ -151,18 +151,22 @@ SELECT vector_avg('{2,2,4,6}');
 SELECT vector_avg('{0}');
 SELECT vector_avg('{1}');
 SELECT vector_avg('{{2,2,4,6}}');
+SELECT vector_avg('{NULL,2,4,6}');
 SELECT vector_avg('{}');
 SELECT vector_avg(array_agg(n)) FROM generate_series(1, 16002) n;
 
 SELECT vector_accum('{0}', '[1,2,3]');
 SELECT vector_accum('{0,0,0,0}', '[1,2,3]');
 SELECT vector_accum('{{0}}', '[1,2,3]');
+SELECT vector_accum('{NULL}', '[1,2,3]');
 SELECT vector_accum('{}', '[1,2,3]');
 SELECT vector_accum('{0,0}', '[1,2,3]');
 
 SELECT vector_combine('{1,2}', '{3,4}');
 SELECT vector_combine('{{1,2}}', '{3,4}');
 SELECT vector_combine('{1,2}', '{{3,4}}');
+SELECT vector_combine('{NULL,2}', '{3,4}');
+SELECT vector_combine('{1,2}', '{3,NULL}');
 SELECT vector_combine('{}', '{0}');
 SELECT vector_combine('{0}', '{}');
 SELECT vector_combine('{0}', '{0}');

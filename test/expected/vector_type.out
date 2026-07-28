@@ -668,6 +668,8 @@ SELECT vector_avg('{1}');
 ERROR:  vector must have at least 1 dimension
 SELECT vector_avg('{{2,2,4,6}}');
 ERROR:  vector_avg: expected state array
+SELECT vector_avg('{NULL,2,4,6}');
+ERROR:  vector_avg: expected state array
 SELECT vector_avg('{}');
 ERROR:  vector_avg: expected state array
 SELECT vector_avg(array_agg(n)) FROM generate_series(1, 16002) n;
@@ -686,6 +688,8 @@ SELECT vector_accum('{0,0,0,0}', '[1,2,3]');
 
 SELECT vector_accum('{{0}}', '[1,2,3]');
 ERROR:  vector_accum: expected state array
+SELECT vector_accum('{NULL}', '[1,2,3]');
+ERROR:  vector_accum: expected state array
 SELECT vector_accum('{}', '[1,2,3]');
 ERROR:  vector_accum: expected state array
 SELECT vector_accum('{0,0}', '[1,2,3]');
@@ -699,6 +703,10 @@ SELECT vector_combine('{1,2}', '{3,4}');
 SELECT vector_combine('{{1,2}}', '{3,4}');
 ERROR:  vector_combine: expected state array
 SELECT vector_combine('{1,2}', '{{3,4}}');
+ERROR:  vector_combine: expected state array
+SELECT vector_combine('{NULL,2}', '{3,4}');
+ERROR:  vector_combine: expected state array
+SELECT vector_combine('{1,2}', '{3,NULL}');
 ERROR:  vector_combine: expected state array
 SELECT vector_combine('{}', '{0}');
 ERROR:  vector_combine: expected state array
