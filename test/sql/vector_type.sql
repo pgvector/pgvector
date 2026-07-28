@@ -151,6 +151,13 @@ SELECT vector_accum('{0}', '[1,2,3]');
 SELECT vector_accum('{0,0,0,0}', '[1,2,3]');
 SELECT vector_accum('{}', '[1,2,3]');
 SELECT vector_accum('{0,0}', '[1,2,3]');
+
+SELECT vector_combine('{1,2}', '{3,4}');
+SELECT vector_combine('{{1,2}}', '{3,4}');
+SELECT vector_combine('{1,2}', '{{3,4}}');
+SELECT vector_combine('{}', '{0}');
+SELECT vector_combine('{0}', '{}');
+SELECT vector_combine('{0}', '{0}');
 SELECT vector_combine('{0}', (SELECT array_agg(n) FROM generate_series(1, 16002) n));
 SELECT vector_combine((SELECT array_agg(n) FROM generate_series(1, 16002) n), '{0}');
 SELECT vector_combine((SELECT array_agg(n) FROM generate_series(1, 16002) n), (SELECT array_agg(n) FROM generate_series(1, 16002) n));

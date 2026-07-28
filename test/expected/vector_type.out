@@ -670,6 +670,22 @@ SELECT vector_accum('{}', '[1,2,3]');
 ERROR:  vector_accum: expected state array
 SELECT vector_accum('{0,0}', '[1,2,3]');
 ERROR:  expected 1 dimensions, not 3
+SELECT vector_combine('{1,2}', '{3,4}');
+ vector_combine 
+----------------
+ {4,6}
+(1 row)
+
+SELECT vector_combine('{{1,2}}', '{3,4}');
+ERROR:  vector_combine: expected state array
+SELECT vector_combine('{1,2}', '{{3,4}}');
+ERROR:  vector_combine: expected state array
+SELECT vector_combine('{}', '{0}');
+ERROR:  vector_combine: expected state array
+SELECT vector_combine('{0}', '{}');
+ERROR:  vector_combine: expected state array
+SELECT vector_combine('{0}', '{0}');
+ERROR:  vector must have at least 1 dimension
 SELECT vector_combine('{0}', (SELECT array_agg(n) FROM generate_series(1, 16002) n));
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT vector_combine((SELECT array_agg(n) FROM generate_series(1, 16002) n), '{0}');
