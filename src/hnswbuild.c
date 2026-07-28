@@ -527,7 +527,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	 * Check that we have enough memory available for the new element now that
 	 * we have the allocator lock, and flush pages if needed.
 	 */
-	if (graph->memoryUsed + memoryMargin >= graph->memoryTotal)
+	if (add_size(graph->memoryUsed, memoryMargin) >= graph->memoryTotal)
 	{
 		LWLockRelease(&graph->allocatorLock);
 
@@ -662,16 +662,18 @@ HnswSharedMemoryAlloc(Size size, void *state)
 {
 	HnswBuildState *buildstate = (HnswBuildState *) state;
 	Size		alignedSize = MAXALIGN(size);
+	Size		newMemoryUsed;
 	void	   *chunk;
 
 	if (alignedSize > 1024 * 1024)
 		elog(ERROR, "hnsw allocation too large");
 
-	if (buildstate->graph->memoryUsed + alignedSize > buildstate->graph->memoryTotal)
+	newMemoryUsed = add_size(buildstate->graph->memoryUsed, alignedSize);
+	if (newMemoryUsed > buildstate->graph->memoryTotal)
 		elog(ERROR, "hnsw allocator out of memory");
 
 	chunk = buildstate->hnswarea + buildstate->graph->memoryUsed;
-	buildstate->graph->memoryUsed += alignedSize;
+	buildstate->graph->memoryUsed = newMemoryUsed;
 	return chunk;
 }
 
