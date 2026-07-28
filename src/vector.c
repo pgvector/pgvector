@@ -1150,7 +1150,7 @@ vector_accum(PG_FUNCTION_ARGS)
 	ArrayType  *statearray = PG_GETARG_ARRAYTYPE_P(0);
 	Vector	   *newval = PG_GETARG_VECTOR_P(1);
 	float8	   *statevalues;
-	int16		dim;
+	int			dim;
 	bool		newarr;
 	float8		n;
 	Datum	   *statedatums;
