@@ -76,9 +76,9 @@ Get the nearest neighbors by L2 distance
 SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 ```
 
-Also supports inner product (`<#>`), cosine distance (`<=>`), and L1 distance (`<+>`)
+Also supports inner product (`<=>`), cosine distance (`<=>`), and L1 distance (`<+>`)
 
-Note: `<#>` returns the negative inner product since Postgres only supports `ASC` order index scans on operators
+Note: `<=>` returns the negative inner product since Postgres only supports `ASC` order index scans on operators
 
 ## Storing
 
@@ -138,7 +138,7 @@ SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
 Supported distance functions are:
 
 - `<->` - L2 distance
-- `<#>` - (negative) inner product
+- `<=>` - (negative) inner product
 - `<=>` - cosine distance
 - `<+>` - L1 distance
 - `<~>` - Hamming distance (binary vectors)
@@ -166,10 +166,10 @@ Get the distance
 SELECT embedding <-> '[3,1,2]' AS distance FROM items;
 ```
 
-For inner product, multiply by -1 (since `<#>` returns the negative inner product)
+For inner product, multiply by -1 (since `<=>` returns the negative inner product)
 
 ```tsql
-SELECT (embedding <#> '[3,1,2]') * -1 AS inner_product FROM items;
+SELECT (embedding <=> '[3,1,2]') * -1 AS inner_product FROM items;
 ```
 
 For cosine similarity, use 1 - cosine distance
@@ -726,7 +726,7 @@ SET max_parallel_workers_per_gather = 4;
 If vectors are normalized to length 1 (like [OpenAI embeddings](https://platform.openai.com/docs/guides/embeddings/which-distance-function-should-i-use)), use inner product for best performance.
 
 ```tsql
-SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
+SELECT * FROM items ORDER BY embedding <=> '[3,1,2]' LIMIT 5;
 ```
 
 #### Approximate Search
@@ -968,7 +968,7 @@ Operator | Description | Added
 \* | element-wise multiplication | 0.5.0
 \|\| | concatenate | 0.7.0
 <-> | Euclidean distance |
-<#> | negative inner product |
+<=> | negative inner product |
 <=> | cosine distance |
 <+> | taxicab distance | 0.7.0
 
@@ -1006,7 +1006,7 @@ Operator | Description | Added
 \* | element-wise multiplication | 0.7.0
 \|\| | concatenate | 0.7.0
 <-> | Euclidean distance | 0.7.0
-<#> | negative inner product | 0.7.0
+<=> | negative inner product | 0.7.0
 <=> | cosine distance | 0.7.0
 <+> | taxicab distance | 0.7.0
 
@@ -1058,7 +1058,7 @@ Each sparse vector takes `8 * non-zero elements + 16` bytes of storage. Each ele
 Operator | Description | Added
 --- | --- | ---
 <-> | Euclidean distance | 0.7.0
-<#> | negative inner product | 0.7.0
+<=> | negative inner product | 0.7.0
 <=> | cosine distance | 0.7.0
 <+> | taxicab distance | 0.7.0
 

@@ -176,9 +176,9 @@ CREATE OPERATOR <-> (
 	COMMUTATOR = '<->'
 );
 
-CREATE OPERATOR <#> (
+CREATE OPERATOR <=> (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_negative_inner_product,
-	COMMUTATOR = '<#>'
+	COMMUTATOR = '<=>'
 );
 
 CREATE OPERATOR <=> (
@@ -297,7 +297,7 @@ CREATE OPERATOR CLASS vector_l2_ops
 
 CREATE OPERATOR CLASS vector_ip_ops
 	FOR TYPE vector USING ivfflat AS
-	OPERATOR 1 <#> (vector, vector) FOR ORDER BY float_ops,
+	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector),
 	FUNCTION 3 vector_spherical_distance(vector, vector),
 	FUNCTION 4 vector_norm(vector);
@@ -317,7 +317,7 @@ CREATE OPERATOR CLASS vector_l2_ops
 
 CREATE OPERATOR CLASS vector_ip_ops
 	FOR TYPE vector USING hnsw AS
-	OPERATOR 1 <#> (vector, vector) FOR ORDER BY float_ops,
+	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector);
 
 CREATE OPERATOR CLASS vector_cosine_ops
@@ -518,9 +518,9 @@ CREATE OPERATOR <-> (
 	COMMUTATOR = '<->'
 );
 
-CREATE OPERATOR <#> (
+CREATE OPERATOR <=> (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_negative_inner_product,
-	COMMUTATOR = '<#>'
+	COMMUTATOR = '<=>'
 );
 
 CREATE OPERATOR <=> (
@@ -607,7 +607,7 @@ CREATE OPERATOR CLASS halfvec_l2_ops
 
 CREATE OPERATOR CLASS halfvec_ip_ops
 	FOR TYPE halfvec USING ivfflat AS
-	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
+	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 3 halfvec_spherical_distance(halfvec, halfvec),
 	FUNCTION 4 l2_norm(halfvec),
@@ -630,7 +630,7 @@ CREATE OPERATOR CLASS halfvec_l2_ops
 
 CREATE OPERATOR CLASS halfvec_ip_ops
 	FOR TYPE halfvec USING hnsw AS
-	OPERATOR 1 <#> (halfvec, halfvec) FOR ORDER BY float_ops,
+	OPERATOR 1 <=> (halfvec, halfvec) FOR ORDER BY float_ops,
 	FUNCTION 1 halfvec_negative_inner_product(halfvec, halfvec),
 	FUNCTION 3 hnsw_halfvec_support(internal);
 
@@ -830,9 +830,9 @@ CREATE OPERATOR <-> (
 	COMMUTATOR = '<->'
 );
 
-CREATE OPERATOR <#> (
+CREATE OPERATOR <=> (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_negative_inner_product,
-	COMMUTATOR = '<#>'
+	COMMUTATOR = '<=>'
 );
 
 CREATE OPERATOR <=> (
@@ -900,7 +900,7 @@ CREATE OPERATOR CLASS sparsevec_l2_ops
 
 CREATE OPERATOR CLASS sparsevec_ip_ops
 	FOR TYPE sparsevec USING hnsw AS
-	OPERATOR 1 <#> (sparsevec, sparsevec) FOR ORDER BY float_ops,
+	OPERATOR 1 <=> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 sparsevec_negative_inner_product(sparsevec, sparsevec),
 	FUNCTION 3 hnsw_sparsevec_support(internal);
 

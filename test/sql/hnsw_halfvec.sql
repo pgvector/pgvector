@@ -25,8 +25,8 @@ CREATE INDEX ON t USING hnsw (val halfvec_ip_ops);
 
 INSERT INTO t (val) VALUES ('[1,2,4]');
 
-SELECT * FROM t ORDER BY val <#> '[3,3,3]';
-SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <#> (SELECT NULL::halfvec)) t2;
+SELECT * FROM t ORDER BY val <=> '[3,3,3]';
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::halfvec)) t2;
 
 DROP TABLE t;
 

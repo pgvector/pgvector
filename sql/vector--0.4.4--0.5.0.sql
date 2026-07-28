@@ -33,7 +33,7 @@ CREATE OPERATOR CLASS vector_l2_ops
 
 CREATE OPERATOR CLASS vector_ip_ops
 	FOR TYPE vector USING hnsw AS
-	OPERATOR 1 <#> (vector, vector) FOR ORDER BY float_ops,
+	OPERATOR 1 <=> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 vector_negative_inner_product(vector, vector);
 
 CREATE OPERATOR CLASS vector_cosine_ops

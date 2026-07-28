@@ -25,8 +25,8 @@ CREATE INDEX ON t USING hnsw (val sparsevec_ip_ops);
 
 INSERT INTO t (val) VALUES ('{1:1,2:2,3:4}/3');
 
-SELECT * FROM t ORDER BY val <#> '{1:3,2:3,3:3}/3';
-SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <#> (SELECT NULL::sparsevec)) t2;
+SELECT * FROM t ORDER BY val <=> '{1:3,2:3,3:3}/3';
+SELECT COUNT(*) FROM (SELECT * FROM t ORDER BY val <=> (SELECT NULL::sparsevec)) t2;
 
 DROP TABLE t;
 
