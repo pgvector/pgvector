@@ -1,6 +1,7 @@
 ## 0.8.6 (unreleased)
 
 - Fixed array to `sparsevec` cast not limiting to 16,000 non-zero elements
+- Fixed memory usage for IVFFlat index scans with nested loop joins
 
 ## 0.8.5 (2026-07-08)
 
