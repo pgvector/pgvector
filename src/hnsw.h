@@ -18,6 +18,10 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM < 190000
+#include "storage/shmem.h"		/* for mul_size() in earlier patch versions */
+#endif
+
 #ifdef HNSW_BENCH
 #include "portability/instr_time.h"
 #endif
@@ -108,7 +112,12 @@ typedef Pointer Item;
 #if PG_VERSION_NUM < 140006
 #define palloc_object(type) ((type *) palloc(sizeof(type)))
 #define palloc0_object(type) ((type *) palloc0(sizeof(type)))
-#define palloc_array(type, count) ((type *) palloc(sizeof(type) * (count)))
+#endif
+
+#if PG_VERSION_NUM >= 190000
+#define palloc_array_checked(type, count) ((type *) palloc_array(type, count))
+#else
+#define palloc_array_checked(type, count) ((type *) palloc(mul_size(sizeof(type), count)))
 #endif
 
 #define HnswIsElementTuple(tup) ((tup)->type == HNSW_ELEMENT_TUPLE_TYPE)

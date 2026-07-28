@@ -26,7 +26,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	FmgrInfo   *procinfo;
 	Oid			collation;
 	int64		j;
-	float	   *weight = palloc_array(float, samples->length);
+	float	   *weight = palloc_array_checked(float, samples->length);
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
 
@@ -113,7 +113,7 @@ RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeI
 	int			dimensions = centers->dim;
 	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	Oid			collation = index->rd_indcollation[0];
-	float	   *x = palloc_array(float, dimensions);
+	float	   *x = palloc_array_checked(float, dimensions);
 
 	/* Fill with random data */
 	while (centers->length < centers->maxlen)
@@ -480,7 +480,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 static void
 CheckElements(VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
-	float	   *scratch = palloc_array(float, centers->dim);
+	float	   *scratch = palloc_array_checked(float, centers->dim);
 
 	for (int i = 0; i < centers->length; i++)
 	{

@@ -396,7 +396,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->itemsize);
 
 	/* TODO Move allocation to page creation */
-	buildstate->listInfo = palloc_array(ListInfo, buildstate->lists);
+	buildstate->listInfo = palloc_array_checked(ListInfo, buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Ivfflat build temporary context",
@@ -404,8 +404,8 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	buildstate->inertia = 0;
-	buildstate->listSums = palloc0_array(double, buildstate->lists);
-	buildstate->listCounts = palloc0_array(int, buildstate->lists);
+	buildstate->listSums = palloc0_array_checked(double, buildstate->lists);
+	buildstate->listCounts = palloc0_array_checked(int, buildstate->lists);
 #endif
 
 	buildstate->ivfleader = NULL;

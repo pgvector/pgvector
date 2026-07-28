@@ -831,7 +831,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswNeighborArray *localNeighborhood = NULL;
 	Size		neighborhoodSize = 0;
 	int			lm = HnswGetLayerM(m, lc);
-	HnswUnvisited *unvisited = palloc_array(HnswUnvisited, lm);
+	HnswUnvisited *unvisited = palloc_array_checked(HnswUnvisited, lm);
 	int			unvisitedLength;
 	bool		inMemory = index == NULL;
 
@@ -1074,7 +1074,7 @@ SelectNeighbors(char *base, List *c, int lm, HnswSupport * support, bool *closer
 	if (list_length(w) <= lm)
 		return w;
 
-	wd = palloc_array(HnswCandidate *, list_length(w));
+	wd = palloc_array_checked(HnswCandidate *, list_length(w));
 
 	/* Ensure order of candidates is deterministic for closer caching */
 	if (sortCandidates)

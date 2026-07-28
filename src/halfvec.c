@@ -27,12 +27,18 @@
 #include "parser/scansup.h"
 #endif
 
-#if PG_VERSION_NUM < 140006
-#define palloc_array(type, count) ((type *) palloc(sizeof(type) * (count)))
+#if PG_VERSION_NUM < 190000
+#include "storage/shmem.h"		/* for mul_size() in earlier patch versions */
+#endif
+
+#if PG_VERSION_NUM >= 190000
+#define palloc_array_checked(type, count) ((type *) palloc_array(type, count))
+#else
+#define palloc_array_checked(type, count) ((type *) palloc(mul_size(sizeof(type), count)))
 #endif
 
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
-#define CreateStateDatums(dim) palloc_array(Datum, (dim) + 1)
+#define CreateStateDatums(dim) palloc_array_checked(Datum, (dim) + 1)
 
 /*
  * Get a half from a message buffer
@@ -517,7 +523,7 @@ halfvec_to_float4(PG_FUNCTION_ARGS)
 	Datum	   *datums;
 	ArrayType  *result;
 
-	datums = palloc_array(Datum, vec->dim);
+	datums = palloc_array_checked(Datum, vec->dim);
 
 	for (int i = 0; i < vec->dim; i++)
 		datums[i] = Float4GetDatum(HalfToFloat4(vec->x[i]));

@@ -318,9 +318,9 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
-	so->listPages = palloc_array(BlockNumber, maxProbes);
+	so->listPages = palloc_array_checked(BlockNumber, maxProbes);
 	so->listIndex = 0;
-	so->lists = palloc_array(IvfflatScanList, maxProbes);
+	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 
 	MemoryContextSwitchTo(oldCtx);
 
