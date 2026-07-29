@@ -391,7 +391,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->memoryUsed = 0;
 	buildstate->itemsize = buildstate->typeInfo->itemSize(buildstate->dimensions);
 
-	buildstate->memoryUsed += VECTOR_ARRAY_SIZE(buildstate->lists, buildstate->itemsize);
+	buildstate->memoryUsed = add_size(buildstate->memoryUsed, VECTOR_ARRAY_SIZE(buildstate->lists, buildstate->itemsize));
 	IvfflatCheckMemoryUsage(buildstate->memoryUsed);
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->itemsize);
 
@@ -456,7 +456,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	}
 
 	/* Sample rows */
-	buildstate->memoryUsed += VECTOR_ARRAY_SIZE(numSamples, buildstate->itemsize);
+	buildstate->memoryUsed = add_size(buildstate->memoryUsed, VECTOR_ARRAY_SIZE(numSamples, buildstate->itemsize));
 	IvfflatCheckMemoryUsage(buildstate->memoryUsed);
 	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->itemsize);
 	if (buildstate->heap != NULL)
