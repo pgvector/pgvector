@@ -958,7 +958,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Leave space for other objects in shared memory */
 	/* Docker has a default limit of 64 MB for shm_size */
 	/* which happens to be the default value of maintenance_work_mem */
-	esthnswarea = maintenance_work_mem * (Size) 1024;
+	esthnswarea = mul_size(maintenance_work_mem, 1024);
 	estother = 3 * 1024 * 1024;
 	if (esthnswarea > estother)
 		esthnswarea -= estother;
@@ -1014,7 +1014,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	 * https://github.com/postgres/postgres/commit/7201cd18627afc64850537806da7f22150d1a83b
 	 */
 #if PG_VERSION_NUM < 140005
-	hnswshared->graphData.memoryUsed += MAXALIGN(1);
+	hnswshared->graphData.memoryUsed = add_size(hnswshared->graphData.memoryUsed, MAXALIGN(1));
 #endif
 
 	shm_toc_insert(pcxt->toc, PARALLEL_KEY_HNSW_SHARED, hnswshared);
