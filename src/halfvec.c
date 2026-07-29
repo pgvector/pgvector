@@ -314,7 +314,7 @@ halfvec_out(PG_FUNCTION_ARGS)
 	 *
 	 * 3 bytes for [, ], and \0
 	 */
-	buf = (char *) palloc(FLOAT_SHORTEST_DECIMAL_LEN * dim + 3);
+	buf = (char *) palloc(add_size(mul_size(FLOAT_SHORTEST_DECIMAL_LEN, dim), 3));
 	ptr = buf;
 
 	AppendChar(ptr, '[');
