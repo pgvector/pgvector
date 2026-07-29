@@ -26,10 +26,6 @@
 #include "parser/scansup.h"
 #endif
 
-#if PG_VERSION_NUM < 190000
-#include "storage/shmem.h"		/* for mul_size() in earlier patch versions */
-#endif
-
 #if PG_VERSION_NUM >= 190000
 #define palloc_array_checked(type, count) ((type *) palloc_array(type, count))
 #else

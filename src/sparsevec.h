@@ -1,6 +1,10 @@
 #ifndef SPARSEVEC_H
 #define SPARSEVEC_H
 
+#if PG_VERSION_NUM < 190000
+#include "storage/shmem.h"		/* for add_size()/mul_size() in some versions */
+#endif
+
 #define SPARSEVEC_MAX_DIM 1000000000
 #define SPARSEVEC_MAX_NNZ 16000
 
