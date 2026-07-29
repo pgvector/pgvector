@@ -264,17 +264,27 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 
 	/* Calculate allocation sizes */
 	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
-	Size		aggSize = sizeof(float) * (int64) numCenters * dimensions;
-	Size		centerCountsSize = sizeof(int) * numCenters;
-	Size		closestCentersSize = sizeof(int) * numSamples;
-	Size		lowerBoundSize = sizeof(float) * numSamples * numCenters;
-	Size		upperBoundSize = sizeof(float) * numSamples;
-	Size		sSize = sizeof(float) * numCenters;
-	Size		halfcdistSize = sizeof(float) * numCenters * numCenters;
-	Size		newcdistSize = sizeof(float) * numCenters;
+	Size		aggSize = mul_size(sizeof(float), mul_size(numCenters, dimensions));
+	Size		centerCountsSize = mul_size(sizeof(int), numCenters);
+	Size		closestCentersSize = mul_size(sizeof(int), numSamples);
+	Size		lowerBoundSize = mul_size(sizeof(float), mul_size(numSamples, numCenters));
+	Size		upperBoundSize = mul_size(sizeof(float), numSamples);
+	Size		sSize = mul_size(sizeof(float), numCenters);
+	Size		halfcdistSize = mul_size(sizeof(float), mul_size(numCenters, numCenters));
+	Size		newcdistSize = mul_size(sizeof(float), numCenters);
 
 	/* Calculate total size */
-	Size		totalSize = memoryUsed + newCentersSize + aggSize + centerCountsSize + closestCentersSize + lowerBoundSize + upperBoundSize + sSize + halfcdistSize + newcdistSize;
+	Size		totalSize = memoryUsed;
+
+	totalSize = add_size(totalSize, newCentersSize);
+	totalSize = add_size(totalSize, aggSize);
+	totalSize = add_size(totalSize, centerCountsSize);
+	totalSize = add_size(totalSize, closestCentersSize);
+	totalSize = add_size(totalSize, lowerBoundSize);
+	totalSize = add_size(totalSize, upperBoundSize);
+	totalSize = add_size(totalSize, sSize);
+	totalSize = add_size(totalSize, halfcdistSize);
+	totalSize = add_size(totalSize, newcdistSize);
 
 	/* Check memory requirements */
 	IvfflatCheckMemoryUsage(totalSize);
