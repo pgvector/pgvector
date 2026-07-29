@@ -36,7 +36,7 @@ VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 	res->maxlen = maxlen;
 	res->dim = dimensions;
 	res->itemsize = itemsize;
-	res->items = palloc_extended(maxlen * itemsize, MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
+	res->items = palloc_extended(mul_size(maxlen, itemsize), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
 	return res;
 }
 
