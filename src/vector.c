@@ -129,7 +129,7 @@ Vector *
 InitVector(int dim)
 {
 	Vector	   *result;
-	int			size;
+	Size		size;
 
 	size = VECTOR_SIZE(dim);
 	result = (Vector *) palloc0(size);

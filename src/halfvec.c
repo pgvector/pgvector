@@ -133,7 +133,7 @@ HalfVector *
 InitHalfVector(int dim)
 {
 	HalfVector *result;
-	int			size;
+	Size		size;
 
 	size = HALFVEC_SIZE(dim);
 	result = (HalfVector *) palloc0(size);

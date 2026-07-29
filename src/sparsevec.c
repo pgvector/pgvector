@@ -154,7 +154,7 @@ SparseVector *
 InitSparseVector(int dim, int nnz)
 {
 	SparseVector *result;
-	int			size;
+	Size		size;
 
 	size = SPARSEVEC_SIZE(nnz);
 	result = (SparseVector *) palloc0(size);
