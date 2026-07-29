@@ -19,7 +19,7 @@
 #include "vector.h"
 
 #if PG_VERSION_NUM < 190000
-#include "storage/shmem.h"		/* for mul_size() in earlier patch versions */
+#include "storage/shmem.h"		/* for add_size()/mul_size() in some versions */
 #endif
 
 #ifdef HNSW_BENCH
