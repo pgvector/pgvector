@@ -25,7 +25,6 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 {
 	FmgrInfo   *procinfo;
 	Oid			collation;
-	int64		j;
 	float	   *weight = palloc_array_checked(float, samples->length);
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
@@ -37,11 +36,12 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	VectorArraySet(centers, 0, VectorArrayGet(samples, RandomInt() % samples->length));
 	centers->length++;
 
-	for (j = 0; j < numSamples; j++)
-		weight[j] = FLT_MAX;
+	for (int i = 0; i < numSamples; i++)
+		weight[i] = FLT_MAX;
 
 	for (int i = 0; i < numCenters; i++)
 	{
+		int64		j;
 		double		sum;
 		double		choice;
 
