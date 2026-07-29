@@ -616,8 +616,48 @@ SELECT avg(v) FROM unnest(ARRAY['[65504]'::halfvec, '[65504]']) v;
  [65504]
 (1 row)
 
+SELECT halfvec_avg('{2,2,4,6}');
+ halfvec_avg 
+-------------
+ [1,2,3]
+(1 row)
+
+SELECT halfvec_avg('{0}');
+ halfvec_avg 
+-------------
+ 
+(1 row)
+
+SELECT halfvec_avg('{1}');
+ERROR:  halfvec must have at least 1 dimension
+SELECT halfvec_avg('{{2,2,4,6}}');
+ERROR:  halfvec_avg: expected state array
+SELECT halfvec_avg('{NULL,2,4,6}');
+ERROR:  halfvec_avg: expected state array
+SELECT halfvec_avg('{}');
+ERROR:  halfvec_avg: expected state array
 SELECT halfvec_avg(array_agg(n)) FROM generate_series(1, 16002) n;
 ERROR:  halfvec cannot have more than 16000 dimensions
+SELECT halfvec_accum('{0}', '[1,2,3]');
+ halfvec_accum 
+---------------
+ {1,1,2,3}
+(1 row)
+
+SELECT halfvec_accum('{0,0,0,0}', '[1,2,3]');
+ halfvec_accum 
+---------------
+ {1,1,2,3}
+(1 row)
+
+SELECT halfvec_accum('{{0}}', '[1,2,3]');
+ERROR:  halfvec_accum: expected state array
+SELECT halfvec_accum('{NULL}', '[1,2,3]');
+ERROR:  halfvec_accum: expected state array
+SELECT halfvec_accum('{}', '[1,2,3]');
+ERROR:  halfvec_accum: expected state array
+SELECT halfvec_accum('{0,0}', '[1,2,3]');
+ERROR:  expected 1 dimensions, not 3
 SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]']) v;
    sum    
 ----------
