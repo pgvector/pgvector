@@ -218,7 +218,7 @@ void
 HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * allocator)
 {
 	int			level = element->level;
-	HnswNeighborArrayPtr *neighborList = (HnswNeighborArrayPtr *) HnswAlloc(allocator, sizeof(HnswNeighborArrayPtr) * (level + 1));
+	HnswNeighborArrayPtr *neighborList = (HnswNeighborArrayPtr *) HnswAlloc(allocator, mul_size(sizeof(HnswNeighborArrayPtr), add_size(level, 1)));
 
 	HnswPtrStore(base, element->neighbors, neighborList);
 
