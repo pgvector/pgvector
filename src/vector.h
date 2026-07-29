@@ -1,6 +1,13 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#include "fmgr.h"
+#include "utils/palloc.h"
+
+#if PG_VERSION_NUM < 190000
+#include "storage/shmem.h"		/* for add_size()/mul_size() in some versions */
+#endif
+
 #define VECTOR_MAX_DIM 16000
 
 #define VECTOR_SIZE(_dim)		add_size(offsetof(Vector, x), mul_size(sizeof(float), _dim))
