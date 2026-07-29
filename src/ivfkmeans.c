@@ -188,8 +188,8 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
 	{
 		float	   *x = agg + ((int64) i * dimensions);
 
-		for (int k = 0; k < dimensions; k++)
-			x[k] = 0.0;
+		for (int j = 0; j < dimensions; j++)
+			x[j] = 0.0;
 
 		centerCounts[i] = 0;
 	}
@@ -210,20 +210,20 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
 		{
 			/* Double avoids overflow, but requires more memory */
 			/* TODO Update bounds */
-			for (int k = 0; k < dimensions; k++)
+			for (int j = 0; j < dimensions; j++)
 			{
-				if (isinf(x[k]))
-					x[k] = x[k] > 0 ? FLT_MAX : -FLT_MAX;
+				if (isinf(x[j]))
+					x[j] = x[j] > 0 ? FLT_MAX : -FLT_MAX;
 			}
 
-			for (int k = 0; k < dimensions; k++)
-				x[k] /= centerCounts[i];
+			for (int j = 0; j < dimensions; j++)
+				x[j] /= centerCounts[i];
 		}
 		else
 		{
 			/* TODO Handle empty centers properly */
-			for (int k = 0; k < dimensions; k++)
-				x[k] = RandomDouble();
+			for (int j = 0; j < dimensions; j++)
+				x[j] = RandomDouble();
 		}
 	}
 
