@@ -762,7 +762,7 @@ HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation i
 	Buffer		buf;
 	Page		page;
 	HnswNeighborTuple ntup;
-	int			start;
+	Size		start;
 
 	buf = ReadBuffer(index, element->neighborPage);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
@@ -781,7 +781,7 @@ HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation i
 	}
 
 	/* Copy to minimize lock time */
-	start = (element->level - lc) * m;
+	start = mul_size(element->level - lc, m);
 	memcpy(indextids, ntup->indextids + start, mul_size(sizeof(ItemPointerData), lm));
 
 	UnlockReleaseBuffer(buf);
