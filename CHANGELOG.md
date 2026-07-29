@@ -1,5 +1,6 @@
-## 0.8.6 (unreleased)
+## 0.8.6 (2026-07-29)
 
+- Fixed buffer overflow with IVFFlat index build on 32-bit systems - [more info](https://github.com/pgvector/pgvector/issues/1006)
 - Fixed array to `sparsevec` cast not limiting non-zero elements
 - Fixed memory usage for IVFFlat index scans with nested loop joins
 
