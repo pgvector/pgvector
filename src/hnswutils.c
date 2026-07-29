@@ -782,7 +782,7 @@ HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation i
 
 	/* Copy to minimize lock time */
 	start = (element->level - lc) * m;
-	memcpy(indextids, ntup->indextids + start, lm * sizeof(ItemPointerData));
+	memcpy(indextids, ntup->indextids + start, mul_size(sizeof(ItemPointerData), lm));
 
 	UnlockReleaseBuffer(buf);
 	return true;
