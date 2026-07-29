@@ -151,11 +151,11 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 static void
 SumCenters(VectorArray samples, float *agg, int *closestCenters, const IvfflatTypeInfo * typeInfo)
 {
-	for (int j = 0; j < samples->length; j++)
+	for (int i = 0; i < samples->length; i++)
 	{
-		float	   *x = agg + ((int64) closestCenters[j] * samples->dim);
+		float	   *x = agg + ((int64) closestCenters[i] * samples->dim);
 
-		typeInfo->sumCenter(VectorArrayGet(samples, j), x);
+		typeInfo->sumCenter(VectorArrayGet(samples, i), x);
 	}
 }
 
@@ -165,11 +165,11 @@ SumCenters(VectorArray samples, float *agg, int *closestCenters, const IvfflatTy
 static void
 UpdateCenters(float *agg, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
-	for (int j = 0; j < centers->length; j++)
+	for (int i = 0; i < centers->length; i++)
 	{
-		float	   *x = agg + ((int64) j * centers->dim);
+		float	   *x = agg + ((int64) i * centers->dim);
 
-		typeInfo->updateCenter(VectorArrayGet(centers, j), centers->dim, x);
+		typeInfo->updateCenter(VectorArrayGet(centers, i), centers->dim, x);
 	}
 }
 
@@ -184,29 +184,29 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
 	int			numSamples = samples->length;
 
 	/* Reset sum and count */
-	for (int j = 0; j < numCenters; j++)
+	for (int i = 0; i < numCenters; i++)
 	{
-		float	   *x = agg + ((int64) j * dimensions);
+		float	   *x = agg + ((int64) i * dimensions);
 
 		for (int k = 0; k < dimensions; k++)
 			x[k] = 0.0;
 
-		centerCounts[j] = 0;
+		centerCounts[i] = 0;
 	}
 
 	/* Increment sum of closest center */
 	SumCenters(samples, agg, closestCenters, typeInfo);
 
 	/* Increment count of closest center */
-	for (int j = 0; j < numSamples; j++)
-		centerCounts[closestCenters[j]] += 1;
+	for (int i = 0; i < numSamples; i++)
+		centerCounts[closestCenters[i]] += 1;
 
 	/* Divide sum by count */
-	for (int j = 0; j < numCenters; j++)
+	for (int i = 0; i < numCenters; i++)
 	{
-		float	   *x = agg + ((int64) j * dimensions);
+		float	   *x = agg + ((int64) i * dimensions);
 
-		if (centerCounts[j] > 0)
+		if (centerCounts[i] > 0)
 		{
 			/* Double avoids overflow, but requires more memory */
 			/* TODO Update bounds */
@@ -217,7 +217,7 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
 			}
 
 			for (int k = 0; k < dimensions; k++)
-				x[k] /= centerCounts[j];
+				x[k] /= centerCounts[i];
 		}
 		else
 		{
