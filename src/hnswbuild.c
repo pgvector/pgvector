@@ -721,7 +721,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	/* Get support functions */
 	HnswInitSupport(&buildstate->support, index);
 
-	InitGraph(&buildstate->graphData, NULL, maintenance_work_mem * (Size) 1024);
+	InitGraph(&buildstate->graphData, NULL, mul_size(maintenance_work_mem, 1024));
 	buildstate->graph = &buildstate->graphData;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
