@@ -31,6 +31,11 @@ LIBDIR = $(PGROOT)\lib
 PKGLIBDIR = $(PGROOT)\lib
 SHAREDIR = $(PGROOT)\share
 
+# For Postgres 19+
+!if exists("$(INCLUDEDIR_SERVER)\catalog\pg_propgraph_property.h")
+PG_CFLAGS = $(PG_CFLAGS) /std:c11
+!endif
+
 # Use $(PGROOT)\bin\pg_regress for Postgres < 17
 PG_REGRESS = $(LIBDIR)\pgxs\src\test\regress\pg_regress
 
