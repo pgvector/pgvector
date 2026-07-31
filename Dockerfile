@@ -6,29 +6,48 @@ ARG DEBIAN_CODENAME=bookworm
 FROM debian:$DEBIAN_CODENAME AS builder
 
 ARG PG_MAJOR
-ARG DEBIAN_CODENAME
+# Upstream source tag from the official GitHub mirror. Keep the minor roughly in sync
+# with the postgres:$PG_MAJOR-$DEBIAN_CODENAME runtime image (extension ABI is stable
+# across minors, so a small drift is fine).
+ARG PG_SOURCE_TAG=REL_18_4
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        curl \
-        gnupg \
-        ca-certificates \
-    && \
-    curl -sSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] http://apt.postgresql.org/pub/repos/apt/ $DEBIAN_CODENAME-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
-    \
-    apt-get update && \
-    \
+# Toolchain comes from Debian's own repos ONLY. apt.postgresql.org is deliberately NOT
+# used: the org network refuses that host entirely (verified on both 80 and 443), so
+# PostgreSQL headers/pgxs are built from source below instead of postgresql-server-dev.
+# Error-Mode=any makes apt fail loudly on a dead repo instead of silently ignoring it
+# and dying later with a misleading "Unable to locate package".
+# perl/flex/bison are required because a GitHub source snapshot (unlike release
+# tarballs) ships no pre-generated parser/scanner files.
+RUN apt-get update -o APT::Update::Error-Mode=any && \
     apt-get install -y --no-install-recommends \
         build-essential \
-        postgresql-server-dev-$PG_MAJOR \
+        perl \
+        flex \
+        bison \
         wget \
         unzip \
         git \
+        ca-certificates \
         default-jdk-headless \
     && \
-    apt-get purge -y --auto-remove curl gnupg && \
     rm -rf /var/lib/apt/lists/*
+
+# PostgreSQL from source: gives pg_config, server headers and pgxs at /usr/local/pgsql
+# without touching apt.postgresql.org. Readline/zlib/icu are irrelevant for building
+# extensions, so they are disabled to keep the dependency list minimal.
+RUN cd /tmp && \
+    wget -O postgres.tar.gz https://github.com/postgres/postgres/archive/refs/tags/${PG_SOURCE_TAG}.tar.gz && \
+    mkdir postgres && \
+    tar -xzf postgres.tar.gz -C postgres --strip-components=1 && \
+    rm postgres.tar.gz && \
+    cd postgres && \
+    ./configure --without-readline --without-zlib --without-icu && \
+    make -j"$(nproc)" && \
+    make install && \
+    rm -rf /tmp/postgres
+
+# PGXS-based extension builds pick this up (their Makefiles use PG_CONFIG ?= pg_config).
+ENV PG_CONFIG=/usr/local/pgsql/bin/pg_config
 
 RUN mkdir -p /tmp/pgvector && \
     cd /tmp && \
@@ -61,11 +80,13 @@ FROM postgres:$PG_MAJOR-$DEBIAN_CODENAME
 
 ARG PG_MAJOR
 
-COPY --from=builder /usr/lib/postgresql/$PG_MAJOR/lib/vector.so /usr/lib/postgresql/$PG_MAJOR/lib/
-COPY --from=builder /usr/share/postgresql/$PG_MAJOR/extension/vector* /usr/share/postgresql/$PG_MAJOR/extension/
+# Source-built artifacts live under /usr/local/pgsql; copy them into the PGDG layout
+# the runtime image actually loads from.
+COPY --from=builder /usr/local/pgsql/lib/vector.so /usr/lib/postgresql/$PG_MAJOR/lib/
+COPY --from=builder /usr/local/pgsql/share/extension/vector* /usr/share/postgresql/$PG_MAJOR/extension/
 
-COPY --from=builder /usr/lib/postgresql/$PG_MAJOR/lib/pg_textsearch.so /usr/lib/postgresql/$PG_MAJOR/lib/
-COPY --from=builder /usr/share/postgresql/$PG_MAJOR/extension/pg_textsearch* /usr/share/postgresql/$PG_MAJOR/extension/
+COPY --from=builder /usr/local/pgsql/lib/pg_textsearch.so /usr/lib/postgresql/$PG_MAJOR/lib/
+COPY --from=builder /usr/local/pgsql/share/extension/pg_textsearch* /usr/share/postgresql/$PG_MAJOR/extension/
 
 COPY --from=builder /tmp/dict_uk/distr/hunspell/build/hunspell/uk_UA.aff /usr/share/postgresql/$PG_MAJOR/tsearch_data/uk_ua.affix
 COPY --from=builder /tmp/dict_uk/distr/hunspell/build/hunspell/uk_UA.dic /usr/share/postgresql/$PG_MAJOR/tsearch_data/uk_ua.dict
