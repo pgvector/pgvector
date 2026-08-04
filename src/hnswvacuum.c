@@ -270,7 +270,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	UnlockReleaseBuffer(buf);
 
 	/* Update neighbors */
-	HnswUpdateNeighborsOnDisk(index, support, element, m, true, false);
+	HnswUpdateNeighborsOnDisk(index, support, element, m, false);
 }
 
 /*
