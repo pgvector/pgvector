@@ -471,7 +471,7 @@ ConnectionExists(HnswElement e, HnswNeighborTuple ntup, int startIdx, int lm)
  * Update neighbor
  */
 static void
-UpdateNeighborOnDisk(HnswElement element, HnswElement newElement, int idx, int m, int lm, int lc, Relation index, bool checkExisting, bool building)
+UpdateNeighborOnDisk(HnswElement element, HnswElement newElement, int idx, int m, int lm, int lc, Relation index, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -501,7 +501,7 @@ UpdateNeighborOnDisk(HnswElement element, HnswElement newElement, int idx, int m
 	startIdx = (element->level - lc) * m;
 
 	/* Check for existing connection */
-	if (checkExisting && ConnectionExists(newElement, ntup, startIdx, lm))
+	if (ConnectionExists(newElement, ntup, startIdx, lm))
 		idx = -1;
 	else if (idx == -2)
 	{
@@ -543,7 +543,7 @@ UpdateNeighborOnDisk(HnswElement element, HnswElement newElement, int idx, int m
  * Update neighbors
  */
 void
-HnswUpdateNeighborsOnDisk(Relation index, HnswSupport * support, HnswElement e, int m, bool checkExisting, bool building)
+HnswUpdateNeighborsOnDisk(Relation index, HnswSupport * support, HnswElement e, int m, bool building)
 {
 	char	   *base = NULL;
 
@@ -572,7 +572,7 @@ HnswUpdateNeighborsOnDisk(Relation index, HnswSupport * support, HnswElement e, 
 			if (idx == -1)
 				continue;
 
-			UpdateNeighborOnDisk(neighborElement, e, idx, m, lm, lc, index, checkExisting, building);
+			UpdateNeighborOnDisk(neighborElement, e, idx, m, lm, lc, index, building);
 		}
 	}
 
@@ -682,7 +682,7 @@ UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, in
 		HnswUpdateMetaPage(index, 0, NULL, newInsertPage, MAIN_FORKNUM, building);
 
 	/* Update neighbors */
-	HnswUpdateNeighborsOnDisk(index, support, element, m, false, building);
+	HnswUpdateNeighborsOnDisk(index, support, element, m, building);
 
 	/* Update entry point if needed */
 	if (entryPoint == NULL || element->level > entryPoint->level)
