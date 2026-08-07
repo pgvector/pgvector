@@ -713,7 +713,11 @@ ERROR:  vector_combine: expected state array
 SELECT vector_combine('{0}', '{}');
 ERROR:  vector_combine: expected state array
 SELECT vector_combine('{0}', '{0}');
-ERROR:  vector must have at least 1 dimension
+ vector_combine 
+----------------
+ {0}
+(1 row)
+
 SELECT vector_combine('{0}', (SELECT array_agg(n) FROM generate_series(1, 16002) n));
 ERROR:  vector cannot have more than 16000 dimensions
 SELECT vector_combine((SELECT array_agg(n) FROM generate_series(1, 16002) n), '{0}');

@@ -42,6 +42,10 @@ sub test_aggregate
 	my $explain = $node->safe_psql("postgres", "EXPLAIN SELECT $agg(v) FROM tst;");
 	like($explain, qr/Partial Aggregate/);
 
+	# Test no matching rows
+	$res = $node->safe_psql("postgres", "SELECT $agg(v) FROM tst WHERE r1 < 0;");
+	is($res, '');
+
 	# Test halfvec
 	$res = $node->safe_psql("postgres", "SELECT $agg(v::halfvec) FROM tst;");
 	if ($agg eq 'avg')
@@ -55,6 +59,10 @@ sub test_aggregate
 		# Does not raise overflow error in this instance due to loss of precision
 		is($res, "[24576,24576,49152]");
 	}
+
+	# Test halfvec no matching rows
+	$res = $node->safe_psql("postgres", "SELECT $agg(v::halfvec) FROM tst WHERE r1 < 0;");
+	is($res, '');
 }
 
 test_aggregate('avg');

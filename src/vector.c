@@ -1233,7 +1233,8 @@ vector_combine(PG_FUNCTION_ARGS)
 	{
 		n = n2;
 		dim = STATE_DIMS(statearray2);
-		CheckDim(dim);
+		if (dim != 0)
+			CheckDim(dim);
 		statedatums = CreateStateDatums(dim);
 		for (int i = 0; i < dim; i++)
 			statedatums[i + 1] = Float8GetDatum(statevalues2[i + 1]);
