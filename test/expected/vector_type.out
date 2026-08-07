@@ -700,6 +700,8 @@ SELECT vector_combine('{1,2}', '{3,4}');
  {4,6}
 (1 row)
 
+SELECT vector_combine('{1,2}', '{3,4,5}');
+ERROR:  expected 1 dimensions, not 2
 SELECT vector_combine('{{1,2}}', '{3,4}');
 ERROR:  vector_combine: expected state array
 SELECT vector_combine('{1,2}', '{{3,4}}');

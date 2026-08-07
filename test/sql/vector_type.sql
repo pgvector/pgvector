@@ -163,6 +163,7 @@ SELECT vector_accum('{}', '[1,2,3]');
 SELECT vector_accum('{0,0}', '[1,2,3]');
 
 SELECT vector_combine('{1,2}', '{3,4}');
+SELECT vector_combine('{1,2}', '{3,4,5}');
 SELECT vector_combine('{{1,2}}', '{3,4}');
 SELECT vector_combine('{1,2}', '{{3,4}}');
 SELECT vector_combine('{NULL,2}', '{3,4}');
