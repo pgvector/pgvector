@@ -1215,10 +1215,11 @@ vector_combine(PG_FUNCTION_ARGS)
 	ArrayType  *statearray2 = PG_GETARG_ARRAYTYPE_P(1);
 	float8	   *statevalues1;
 	float8	   *statevalues2;
-	float8		n;
 	float8		n1;
 	float8		n2;
 	int			dim;
+	int			dim1;
+	int			dim2;
 	Datum	   *statedatums;
 	ArrayType  *result;
 
@@ -1229,20 +1230,25 @@ vector_combine(PG_FUNCTION_ARGS)
 	n1 = statevalues1[0];
 	n2 = statevalues2[0];
 
-	if (n1 == 0.0)
+	dim1 = STATE_DIMS(statearray1);
+	dim2 = STATE_DIMS(statearray2);
+
+	if (dim1 == 0 && dim2 == 0)
 	{
-		n = n2;
-		dim = STATE_DIMS(statearray2);
-		if (dim != 0)
-			CheckDim(dim);
+		dim = 0;
+		statedatums = CreateStateDatums(dim);
+	}
+	else if (dim1 == 0)
+	{
+		dim = dim2;
+		CheckDim(dim);
 		statedatums = CreateStateDatums(dim);
 		for (int i = 0; i < dim; i++)
 			statedatums[i + 1] = Float8GetDatum(statevalues2[i + 1]);
 	}
-	else if (n2 == 0.0)
+	else if (dim2 == 0)
 	{
-		n = n1;
-		dim = STATE_DIMS(statearray1);
+		dim = dim1;
 		CheckDim(dim);
 		statedatums = CreateStateDatums(dim);
 		for (int i = 0; i < dim; i++)
@@ -1250,10 +1256,9 @@ vector_combine(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		n = n1 + n2;
-		dim = STATE_DIMS(statearray1);
+		dim = dim1;
 		CheckDim(dim);
-		CheckExpectedDim(dim, STATE_DIMS(statearray2));
+		CheckExpectedDim(dim, dim2);
 		statedatums = CreateStateDatums(dim);
 		for (int i = 0; i < dim; i++)
 		{
@@ -1267,7 +1272,7 @@ vector_combine(PG_FUNCTION_ARGS)
 		}
 	}
 
-	statedatums[0] = Float8GetDatum(n);
+	statedatums[0] = Float8GetDatum(n1 + n2);
 
 	result = construct_array(statedatums, dim + 1,
 							 FLOAT8OID,
