@@ -39,7 +39,6 @@ SELECT '[1,2,3]'::vector(16001);
 SELECT unnest('{"[1,2,3]", "[4,5,6]"}'::vector[]);
 SELECT '{"[1,2,3]"}'::vector(2)[];
 
-
 SELECT '[1,2,3]'::vector + '[4,5,6]';
 SELECT '[3e38]'::vector + '[3e38]';
 SELECT '[1,2]'::vector + '[3]';
