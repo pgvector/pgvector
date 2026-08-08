@@ -981,7 +981,7 @@ cosine_distance(vector, vector) → double precision | cosine distance |
 inner_product(vector, vector) → double precision | inner product |
 l1_distance(vector, vector) → double precision | taxicab distance | 0.5.0
 l2_distance(vector, vector) → double precision | Euclidean distance |
-l2_normalize(vector) → vector | Normalize with Euclidean norm | 0.7.0
+l2_normalize(vector) → vector | normalize with Euclidean norm | 0.7.0
 subvector(vector, integer, integer) → vector | subvector | 0.7.0
 vector_dims(vector) → integer | number of dimensions |
 vector_norm(vector) → double precision | Euclidean norm |
@@ -1020,7 +1020,7 @@ inner_product(halfvec, halfvec) → double precision | inner product | 0.7.0
 l1_distance(halfvec, halfvec) → double precision | taxicab distance | 0.7.0
 l2_distance(halfvec, halfvec) → double precision | Euclidean distance | 0.7.0
 l2_norm(halfvec) → double precision | Euclidean norm | 0.7.0
-l2_normalize(halfvec) → halfvec | Normalize with Euclidean norm | 0.7.0
+l2_normalize(halfvec) → halfvec | normalize with Euclidean norm | 0.7.0
 subvector(halfvec, integer, integer) → halfvec | subvector | 0.7.0
 vector_dims(halfvec) → integer | number of dimensions | 0.7.0
 
@@ -1071,7 +1071,7 @@ inner_product(sparsevec, sparsevec) → double precision | inner product | 0.7.0
 l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | 0.7.0
 l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | 0.7.0
 l2_norm(sparsevec) → double precision | Euclidean norm | 0.7.0
-l2_normalize(sparsevec) → sparsevec | Normalize with Euclidean norm | 0.7.0
+l2_normalize(sparsevec) → sparsevec | normalize with Euclidean norm | 0.7.0
 
 ## Installation Notes - Linux and Mac
 
