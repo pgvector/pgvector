@@ -186,12 +186,16 @@ CREATE AGGREGATE avg(vector) (
 	PARALLEL = SAFE
 );
 
+COMMENT ON AGGREGATE avg(vector) IS 'the average (arithmetic mean) as vector of all vector values';
+
 CREATE AGGREGATE sum(vector) (
 	SFUNC = vector_add,
 	STYPE = vector,
 	COMBINEFUNC = vector_add,
 	PARALLEL = SAFE
 );
+
+COMMENT ON AGGREGATE sum(vector) IS 'sum as vector across all vector input values';
 
 -- vector cast functions
 
@@ -606,12 +610,16 @@ CREATE AGGREGATE avg(halfvec) (
 	PARALLEL = SAFE
 );
 
+COMMENT ON AGGREGATE avg(halfvec) IS 'the average (arithmetic mean) as halfvec of all halfvec values';
+
 CREATE AGGREGATE sum(halfvec) (
 	SFUNC = halfvec_add,
 	STYPE = halfvec,
 	COMBINEFUNC = halfvec_add,
 	PARALLEL = SAFE
 );
+
+COMMENT ON AGGREGATE sum(halfvec) IS 'sum as halfvec across all halfvec input values';
 
 -- halfvec cast functions
 

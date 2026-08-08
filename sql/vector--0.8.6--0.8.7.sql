@@ -65,6 +65,10 @@ COMMENT ON FUNCTION vector_avg(double precision[]) IS 'aggregate final function'
 
 COMMENT ON FUNCTION vector_combine(double precision[], double precision[]) IS 'aggregate combine function';
 
+COMMENT ON AGGREGATE avg(vector) IS 'the average (arithmetic mean) as vector of all vector values';
+
+COMMENT ON AGGREGATE sum(vector) IS 'sum as vector across all vector input values';
+
 COMMENT ON FUNCTION vector(vector, integer, boolean) IS 'adjust vector to typmod';
 
 COMMENT ON FUNCTION array_to_vector(integer[], integer, boolean) IS 'convert int4 array to vector';
@@ -154,6 +158,10 @@ COMMENT ON FUNCTION halfvec_accum(double precision[], halfvec) IS 'aggregate tra
 COMMENT ON FUNCTION halfvec_avg(double precision[]) IS 'aggregate final function';
 
 COMMENT ON FUNCTION halfvec_combine(double precision[], double precision[]) IS 'aggregate combine function';
+
+COMMENT ON AGGREGATE avg(halfvec) IS 'the average (arithmetic mean) as halfvec of all halfvec values';
+
+COMMENT ON AGGREGATE sum(halfvec) IS 'sum as halfvec across all halfvec input values';
 
 COMMENT ON FUNCTION halfvec(halfvec, integer, boolean) IS 'adjust halfvec to typmod';
 
