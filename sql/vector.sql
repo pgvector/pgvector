@@ -910,7 +910,7 @@ CREATE OPERATOR CLASS bit_jaccard_ops
 	FUNCTION 1 jaccard_distance(bit, bit),
 	FUNCTION 3 hnsw_bit_support(internal);
 
---- sparsevec type
+-- sparsevec type
 
 CREATE TYPE sparsevec;
 
