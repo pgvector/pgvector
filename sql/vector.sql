@@ -8,17 +8,27 @@ CREATE TYPE vector;
 CREATE FUNCTION vector_in(cstring, oid, integer) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_in(cstring, oid, integer) IS 'I/O';
+
 CREATE FUNCTION vector_out(vector) RETURNS cstring
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_out(vector) IS 'I/O';
 
 CREATE FUNCTION vector_typmod_in(cstring[]) RETURNS integer
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_typmod_in(cstring[]) IS 'I/O typmod';
+
 CREATE FUNCTION vector_recv(internal, oid, integer) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_recv(internal, oid, integer) IS 'I/O';
+
 CREATE FUNCTION vector_send(vector) RETURNS bytea
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_send(vector) IS 'I/O';
 
 CREATE TYPE vector (
 	INPUT     = vector_in,
@@ -36,82 +46,134 @@ COMMENT ON TYPE vector IS 'single-precision vector';
 CREATE FUNCTION l2_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION l2_distance(vector, vector) IS 'Euclidean distance';
+
 CREATE FUNCTION inner_product(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION inner_product(vector, vector) IS 'inner product';
 
 CREATE FUNCTION cosine_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION cosine_distance(vector, vector) IS 'cosine distance';
+
 CREATE FUNCTION l1_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION l1_distance(vector, vector) IS 'taxicab distance';
 
 CREATE FUNCTION vector_dims(vector) RETURNS integer
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_dims(vector) IS 'number of dimensions';
+
 CREATE FUNCTION vector_norm(vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_norm(vector) IS 'Euclidean norm';
 
 CREATE FUNCTION l2_normalize(vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION l2_normalize(vector) IS 'normalize with Euclidean norm';
+
 CREATE FUNCTION binary_quantize(vector) RETURNS bit
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION binary_quantize(vector) IS 'binary quantize';
+
 CREATE FUNCTION subvector(vector, int, int) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION subvector(vector, int, int) IS 'subvector';
 
 -- vector private functions
 
 CREATE FUNCTION vector_add(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_add(vector, vector) IS 'implementation of + operator';
+
 CREATE FUNCTION vector_sub(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_sub(vector, vector) IS 'implementation of - operator';
 
 CREATE FUNCTION vector_mul(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_mul(vector, vector) IS 'implementation of * operator';
+
 CREATE FUNCTION vector_concat(vector, vector) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_concat(vector, vector) IS 'implementation of || operator';
 
 CREATE FUNCTION vector_lt(vector, vector) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_lt(vector, vector) IS 'implementation of < operator';
+
 CREATE FUNCTION vector_le(vector, vector) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_le(vector, vector) IS 'implementation of <= operator';
 
 CREATE FUNCTION vector_eq(vector, vector) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_eq(vector, vector) IS 'implementation of = operator';
+
 CREATE FUNCTION vector_ne(vector, vector) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_ne(vector, vector) IS 'implementation of <> operator';
 
 CREATE FUNCTION vector_ge(vector, vector) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_ge(vector, vector) IS 'implementation of >= operator';
+
 CREATE FUNCTION vector_gt(vector, vector) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_gt(vector, vector) IS 'implementation of > operator';
 
 CREATE FUNCTION vector_cmp(vector, vector) RETURNS int4
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_cmp(vector, vector) IS 'less-equal-greater';
+
 CREATE FUNCTION vector_l2_squared_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_l2_squared_distance(vector, vector) IS 'squared Euclidean distance';
 
 CREATE FUNCTION vector_negative_inner_product(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_negative_inner_product(vector, vector) IS 'negative inner product';
+
 CREATE FUNCTION vector_spherical_distance(vector, vector) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_spherical_distance(vector, vector) IS 'spherical distance';
 
 CREATE FUNCTION vector_accum(double precision[], vector) RETURNS double precision[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_accum(double precision[], vector) IS 'aggregate transition function';
+
 CREATE FUNCTION vector_avg(double precision[]) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_avg(double precision[]) IS 'aggregate final function';
+
 CREATE FUNCTION vector_combine(double precision[], double precision[]) RETURNS double precision[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_combine(double precision[], double precision[]) IS 'aggregate combine function';
 
 -- vector aggregates
 
@@ -136,20 +198,32 @@ CREATE AGGREGATE sum(vector) (
 CREATE FUNCTION vector(vector, integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector(vector, integer, boolean) IS 'adjust vector to typmod';
+
 CREATE FUNCTION array_to_vector(integer[], integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION array_to_vector(integer[], integer, boolean) IS 'convert int4 array to vector';
 
 CREATE FUNCTION array_to_vector(real[], integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION array_to_vector(real[], integer, boolean) IS 'convert float4 array to vector';
+
 CREATE FUNCTION array_to_vector(double precision[], integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION array_to_vector(double precision[], integer, boolean) IS 'convert float8 array to vector';
 
 CREATE FUNCTION array_to_vector(numeric[], integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION array_to_vector(numeric[], integer, boolean) IS 'convert numeric array to vector';
+
 CREATE FUNCTION vector_to_float4(vector, integer, boolean) RETURNS real[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_to_float4(vector, integer, boolean) IS 'convert vector to float4 array';
 
 -- vector casts
 
@@ -252,12 +326,16 @@ CREATE OPERATOR > (
 CREATE FUNCTION ivfflathandler(internal) RETURNS index_am_handler
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+COMMENT ON FUNCTION ivfflathandler(internal) IS 'ivfflat index access method handler';
+
 CREATE ACCESS METHOD ivfflat TYPE INDEX HANDLER ivfflathandler;
 
 COMMENT ON ACCESS METHOD ivfflat IS 'ivfflat index access method';
 
 CREATE FUNCTION hnswhandler(internal) RETURNS index_am_handler
 	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+COMMENT ON FUNCTION hnswhandler(internal) IS 'hnsw index access method handler';
 
 CREATE ACCESS METHOD hnsw TYPE INDEX HANDLER hnswhandler;
 
@@ -268,17 +346,27 @@ COMMENT ON ACCESS METHOD hnsw IS 'hnsw index access method';
 CREATE FUNCTION ivfflat_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+COMMENT ON FUNCTION ivfflat_halfvec_support(internal) IS 'ivfflat halfvec support';
+
 CREATE FUNCTION ivfflat_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+COMMENT ON FUNCTION ivfflat_bit_support(internal) IS 'ivfflat bit support';
 
 CREATE FUNCTION hnsw_halfvec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+COMMENT ON FUNCTION hnsw_halfvec_support(internal) IS 'hnsw halfvec support';
+
 CREATE FUNCTION hnsw_bit_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
 
+COMMENT ON FUNCTION hnsw_bit_support(internal) IS 'hnsw bit support';
+
 CREATE FUNCTION hnsw_sparsevec_support(internal) RETURNS internal
 	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+COMMENT ON FUNCTION hnsw_sparsevec_support(internal) IS 'hnsw sparsevec support';
 
 -- vector opclasses
 
@@ -340,17 +428,27 @@ CREATE TYPE halfvec;
 CREATE FUNCTION halfvec_in(cstring, oid, integer) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_in(cstring, oid, integer) IS 'I/O';
+
 CREATE FUNCTION halfvec_out(halfvec) RETURNS cstring
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_out(halfvec) IS 'I/O';
 
 CREATE FUNCTION halfvec_typmod_in(cstring[]) RETURNS integer
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_typmod_in(cstring[]) IS 'I/O typmod';
+
 CREATE FUNCTION halfvec_recv(internal, oid, integer) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_recv(internal, oid, integer) IS 'I/O';
+
 CREATE FUNCTION halfvec_send(halfvec) RETURNS bytea
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_send(halfvec) IS 'I/O';
 
 CREATE TYPE halfvec (
 	INPUT     = halfvec_in,
@@ -368,82 +466,134 @@ COMMENT ON TYPE halfvec IS 'half-precision vector';
 CREATE FUNCTION l2_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION l2_distance(halfvec, halfvec) IS 'Euclidean distance';
+
 CREATE FUNCTION inner_product(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_inner_product' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION inner_product(halfvec, halfvec) IS 'inner product';
 
 CREATE FUNCTION cosine_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_cosine_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION cosine_distance(halfvec, halfvec) IS 'cosine distance';
+
 CREATE FUNCTION l1_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION l1_distance(halfvec, halfvec) IS 'taxicab distance';
 
 CREATE FUNCTION vector_dims(halfvec) RETURNS integer
 	AS 'MODULE_PATHNAME', 'halfvec_vector_dims' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_dims(halfvec) IS 'number of dimensions';
+
 CREATE FUNCTION l2_norm(halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'halfvec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION l2_norm(halfvec) IS 'Euclidean norm';
 
 CREATE FUNCTION l2_normalize(halfvec) RETURNS halfvec
 	AS 'MODULE_PATHNAME', 'halfvec_l2_normalize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION l2_normalize(halfvec) IS 'normalize with Euclidean norm';
+
 CREATE FUNCTION binary_quantize(halfvec) RETURNS bit
 	AS 'MODULE_PATHNAME', 'halfvec_binary_quantize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION binary_quantize(halfvec) IS 'binary quantize';
+
 CREATE FUNCTION subvector(halfvec, int, int) RETURNS halfvec
 	AS 'MODULE_PATHNAME', 'halfvec_subvector' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION subvector(halfvec, int, int) IS 'subvector';
 
 -- halfvec private functions
 
 CREATE FUNCTION halfvec_add(halfvec, halfvec) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_add(halfvec, halfvec) IS 'implementation of + operator';
+
 CREATE FUNCTION halfvec_sub(halfvec, halfvec) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_sub(halfvec, halfvec) IS 'implementation of - operator';
 
 CREATE FUNCTION halfvec_mul(halfvec, halfvec) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_mul(halfvec, halfvec) IS 'implementation of * operator';
+
 CREATE FUNCTION halfvec_concat(halfvec, halfvec) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_concat(halfvec, halfvec) IS 'implementation of || operator';
 
 CREATE FUNCTION halfvec_lt(halfvec, halfvec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_lt(halfvec, halfvec) IS 'implementation of < operator';
+
 CREATE FUNCTION halfvec_le(halfvec, halfvec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_le(halfvec, halfvec) IS 'implementation of <= operator';
 
 CREATE FUNCTION halfvec_eq(halfvec, halfvec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_eq(halfvec, halfvec) IS 'implementation of = operator';
+
 CREATE FUNCTION halfvec_ne(halfvec, halfvec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_ne(halfvec, halfvec) IS 'implementation of <> operator';
 
 CREATE FUNCTION halfvec_ge(halfvec, halfvec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_ge(halfvec, halfvec) IS 'implementation of >= operator';
+
 CREATE FUNCTION halfvec_gt(halfvec, halfvec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_gt(halfvec, halfvec) IS 'implementation of > operator';
 
 CREATE FUNCTION halfvec_cmp(halfvec, halfvec) RETURNS int4
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_cmp(halfvec, halfvec) IS 'less-equal-greater';
+
 CREATE FUNCTION halfvec_l2_squared_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_l2_squared_distance(halfvec, halfvec) IS 'squared Euclidean distance';
 
 CREATE FUNCTION halfvec_negative_inner_product(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_negative_inner_product(halfvec, halfvec) IS 'negative inner product';
+
 CREATE FUNCTION halfvec_spherical_distance(halfvec, halfvec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_spherical_distance(halfvec, halfvec) IS 'spherical distance';
 
 CREATE FUNCTION halfvec_accum(double precision[], halfvec) RETURNS double precision[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_accum(double precision[], halfvec) IS 'aggregate transition function';
+
 CREATE FUNCTION halfvec_avg(double precision[]) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec_avg(double precision[]) IS 'aggregate final function';
+
 CREATE FUNCTION halfvec_combine(double precision[], double precision[]) RETURNS double precision[]
 	AS 'MODULE_PATHNAME', 'vector_combine' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_combine(double precision[], double precision[]) IS 'aggregate combine function';
 
 -- halfvec aggregates
 
@@ -468,26 +618,42 @@ CREATE AGGREGATE sum(halfvec) (
 CREATE FUNCTION halfvec(halfvec, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION halfvec(halfvec, integer, boolean) IS 'adjust halfvec to typmod';
+
 CREATE FUNCTION halfvec_to_vector(halfvec, integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_to_vector(halfvec, integer, boolean) IS 'convert halfvec to vector';
 
 CREATE FUNCTION vector_to_halfvec(vector, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION vector_to_halfvec(vector, integer, boolean) IS 'convert vector to halfvec';
+
 CREATE FUNCTION array_to_halfvec(integer[], integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION array_to_halfvec(integer[], integer, boolean) IS 'convert int4 array to halfvec';
 
 CREATE FUNCTION array_to_halfvec(real[], integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION array_to_halfvec(real[], integer, boolean) IS 'convert float4 array to halfvec';
+
 CREATE FUNCTION array_to_halfvec(double precision[], integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION array_to_halfvec(double precision[], integer, boolean) IS 'convert float8 array to halfvec';
 
 CREATE FUNCTION array_to_halfvec(numeric[], integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION array_to_halfvec(numeric[], integer, boolean) IS 'convert numeric array to halfvec';
+
 CREATE FUNCTION halfvec_to_float4(halfvec, integer, boolean) RETURNS real[]
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_to_float4(halfvec, integer, boolean) IS 'convert halfvec to float4 array';
 
 -- halfvec casts
 
@@ -656,8 +822,12 @@ CREATE OPERATOR CLASS halfvec_l1_ops
 CREATE FUNCTION hamming_distance(bit, bit) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION hamming_distance(bit, bit) IS 'Hamming distance';
+
 CREATE FUNCTION jaccard_distance(bit, bit) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION jaccard_distance(bit, bit) IS 'Jaccard distance';
 
 -- bit operators
 
@@ -699,17 +869,27 @@ CREATE TYPE sparsevec;
 CREATE FUNCTION sparsevec_in(cstring, oid, integer) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_in(cstring, oid, integer) IS 'I/O';
+
 CREATE FUNCTION sparsevec_out(sparsevec) RETURNS cstring
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION sparsevec_out(sparsevec) IS 'I/O';
 
 CREATE FUNCTION sparsevec_typmod_in(cstring[]) RETURNS integer
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_typmod_in(cstring[]) IS 'I/O typmod';
+
 CREATE FUNCTION sparsevec_recv(internal, oid, integer) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_recv(internal, oid, integer) IS 'I/O';
+
 CREATE FUNCTION sparsevec_send(sparsevec) RETURNS bytea
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION sparsevec_send(sparsevec) IS 'I/O';
 
 CREATE TYPE sparsevec (
 	INPUT     = sparsevec_in,
@@ -727,78 +907,126 @@ COMMENT ON TYPE sparsevec IS 'single-precision sparse vector';
 CREATE FUNCTION l2_distance(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_l2_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION l2_distance(sparsevec, sparsevec) IS 'Euclidean distance';
+
 CREATE FUNCTION inner_product(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_inner_product' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION inner_product(sparsevec, sparsevec) IS 'inner product';
 
 CREATE FUNCTION cosine_distance(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_cosine_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION cosine_distance(sparsevec, sparsevec) IS 'cosine distance';
+
 CREATE FUNCTION l1_distance(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_l1_distance' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION l1_distance(sparsevec, sparsevec) IS 'taxicab distance';
 
 CREATE FUNCTION l2_norm(sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION l2_norm(sparsevec) IS 'Euclidean norm';
+
 CREATE FUNCTION l2_normalize(sparsevec) RETURNS sparsevec
 	AS 'MODULE_PATHNAME', 'sparsevec_l2_normalize' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION l2_normalize(sparsevec) IS 'normalize with Euclidean norm';
 
 -- sparsevec private functions
 
 CREATE FUNCTION sparsevec_lt(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_lt(sparsevec, sparsevec) IS 'implementation of < operator';
+
 CREATE FUNCTION sparsevec_le(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION sparsevec_le(sparsevec, sparsevec) IS 'implementation of <= operator';
 
 CREATE FUNCTION sparsevec_eq(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_eq(sparsevec, sparsevec) IS 'implementation of = operator';
+
 CREATE FUNCTION sparsevec_ne(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION sparsevec_ne(sparsevec, sparsevec) IS 'implementation of <> operator';
 
 CREATE FUNCTION sparsevec_ge(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_ge(sparsevec, sparsevec) IS 'implementation of >= operator';
+
 CREATE FUNCTION sparsevec_gt(sparsevec, sparsevec) RETURNS bool
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION sparsevec_gt(sparsevec, sparsevec) IS 'implementation of > operator';
 
 CREATE FUNCTION sparsevec_cmp(sparsevec, sparsevec) RETURNS int4
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_cmp(sparsevec, sparsevec) IS 'less-equal-greater';
+
 CREATE FUNCTION sparsevec_l2_squared_distance(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_l2_squared_distance(sparsevec, sparsevec) IS 'squared Euclidean distance';
+
 CREATE FUNCTION sparsevec_negative_inner_product(sparsevec, sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION sparsevec_negative_inner_product(sparsevec, sparsevec) IS 'negative inner product';
 
 -- sparsevec cast functions
 
 CREATE FUNCTION sparsevec(sparsevec, integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec(sparsevec, integer, boolean) IS 'adjust sparsevec to typmod';
+
 CREATE FUNCTION vector_to_sparsevec(vector, integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_to_sparsevec(vector, integer, boolean) IS 'convert vector to sparsevec';
 
 CREATE FUNCTION sparsevec_to_vector(sparsevec, integer, boolean) RETURNS vector
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_to_vector(sparsevec, integer, boolean) IS 'convert sparsevec to vector';
+
 CREATE FUNCTION halfvec_to_sparsevec(halfvec, integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_to_sparsevec(halfvec, integer, boolean) IS 'convert halfvec to sparsevec';
 
 CREATE FUNCTION sparsevec_to_halfvec(sparsevec, integer, boolean) RETURNS halfvec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION sparsevec_to_halfvec(sparsevec, integer, boolean) IS 'convert sparsevec to halfvec';
+
 CREATE FUNCTION array_to_sparsevec(integer[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION array_to_sparsevec(integer[], integer, boolean) IS 'convert int4 array to sparsevec';
 
 CREATE FUNCTION array_to_sparsevec(real[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION array_to_sparsevec(real[], integer, boolean) IS 'convert float4 array to sparsevec';
+
 CREATE FUNCTION array_to_sparsevec(double precision[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+COMMENT ON FUNCTION array_to_sparsevec(double precision[], integer, boolean) IS 'convert float8 array to sparsevec';
+
 CREATE FUNCTION array_to_sparsevec(numeric[], integer, boolean) RETURNS sparsevec
 	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION array_to_sparsevec(numeric[], integer, boolean) IS 'convert numeric array to sparsevec';
 
 -- sparsevec casts
 
