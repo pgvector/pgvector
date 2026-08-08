@@ -29,6 +29,8 @@ CREATE TYPE vector (
 	STORAGE   = external
 );
 
+COMMENT ON TYPE vector IS 'single-precision vector';
+
 -- vector functions
 
 CREATE FUNCTION l2_distance(vector, vector) RETURNS float8
@@ -358,6 +360,8 @@ CREATE TYPE halfvec (
 	SEND      = halfvec_send,
 	STORAGE   = external
 );
+
+COMMENT ON TYPE halfvec IS 'half-precision vector';
 
 -- halfvec functions
 
@@ -715,6 +719,8 @@ CREATE TYPE sparsevec (
 	SEND      = sparsevec_send,
 	STORAGE   = external
 );
+
+COMMENT ON TYPE sparsevec IS 'single-precision sparse vector';
 
 -- sparsevec functions
 
