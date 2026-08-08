@@ -276,18 +276,26 @@ CREATE OPERATOR + (
 	COMMUTATOR = +
 );
 
+COMMENT ON OPERATOR + (vector, vector) IS 'add';
+
 CREATE OPERATOR - (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_sub
 );
+
+COMMENT ON OPERATOR - (vector, vector) IS 'subtract';
 
 CREATE OPERATOR * (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_mul,
 	COMMUTATOR = *
 );
 
+COMMENT ON OPERATOR * (vector, vector) IS 'multiply';
+
 CREATE OPERATOR || (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_concat
 );
+
+COMMENT ON OPERATOR || (vector, vector) IS 'concatenate';
 
 CREATE OPERATOR < (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_lt,
@@ -295,11 +303,15 @@ CREATE OPERATOR < (
 	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
 );
 
+COMMENT ON OPERATOR < (vector, vector) IS 'less than';
+
 CREATE OPERATOR <= (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_le,
 	COMMUTATOR = >= , NEGATOR = > ,
 	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
 );
+
+COMMENT ON OPERATOR <= (vector, vector) IS 'less than or equal';
 
 CREATE OPERATOR = (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_eq,
@@ -307,11 +319,15 @@ CREATE OPERATOR = (
 	RESTRICT = eqsel, JOIN = eqjoinsel
 );
 
+COMMENT ON OPERATOR = (vector, vector) IS 'equal';
+
 CREATE OPERATOR <> (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_ne,
 	COMMUTATOR = <> , NEGATOR = = ,
 	RESTRICT = eqsel, JOIN = eqjoinsel
 );
+
+COMMENT ON OPERATOR <> (vector, vector) IS 'not equal';
 
 CREATE OPERATOR >= (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_ge,
@@ -319,11 +335,15 @@ CREATE OPERATOR >= (
 	RESTRICT = scalargesel, JOIN = scalargejoinsel
 );
 
+COMMENT ON OPERATOR >= (vector, vector) IS 'greater than or equal';
+
 CREATE OPERATOR > (
 	LEFTARG = vector, RIGHTARG = vector, PROCEDURE = vector_gt,
 	COMMUTATOR = < , NEGATOR = <= ,
 	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
 );
+
+COMMENT ON OPERATOR > (vector, vector) IS 'greater than';
 
 -- access methods
 
@@ -716,18 +736,26 @@ CREATE OPERATOR + (
 	COMMUTATOR = +
 );
 
+COMMENT ON OPERATOR + (halfvec, halfvec) IS 'add';
+
 CREATE OPERATOR - (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_sub
 );
+
+COMMENT ON OPERATOR - (halfvec, halfvec) IS 'subtract';
 
 CREATE OPERATOR * (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_mul,
 	COMMUTATOR = *
 );
 
+COMMENT ON OPERATOR * (halfvec, halfvec) IS 'multiply';
+
 CREATE OPERATOR || (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_concat
 );
+
+COMMENT ON OPERATOR || (halfvec, halfvec) IS 'concatenate';
 
 CREATE OPERATOR < (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_lt,
@@ -735,11 +763,15 @@ CREATE OPERATOR < (
 	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
 );
 
+COMMENT ON OPERATOR < (halfvec, halfvec) IS 'less than';
+
 CREATE OPERATOR <= (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_le,
 	COMMUTATOR = >= , NEGATOR = > ,
 	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
 );
+
+COMMENT ON OPERATOR <= (halfvec, halfvec) IS 'less than or equal';
 
 CREATE OPERATOR = (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_eq,
@@ -747,11 +779,15 @@ CREATE OPERATOR = (
 	RESTRICT = eqsel, JOIN = eqjoinsel
 );
 
+COMMENT ON OPERATOR = (halfvec, halfvec) IS 'equal';
+
 CREATE OPERATOR <> (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_ne,
 	COMMUTATOR = <> , NEGATOR = = ,
 	RESTRICT = eqsel, JOIN = eqjoinsel
 );
+
+COMMENT ON OPERATOR <> (halfvec, halfvec) IS 'not equal';
 
 CREATE OPERATOR >= (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_ge,
@@ -759,11 +795,15 @@ CREATE OPERATOR >= (
 	RESTRICT = scalargesel, JOIN = scalargejoinsel
 );
 
+COMMENT ON OPERATOR >= (halfvec, halfvec) IS 'greater than or equal';
+
 CREATE OPERATOR > (
 	LEFTARG = halfvec, RIGHTARG = halfvec, PROCEDURE = halfvec_gt,
 	COMMUTATOR = < , NEGATOR = <= ,
 	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
 );
+
+COMMENT ON OPERATOR > (halfvec, halfvec) IS 'greater than';
 
 -- halfvec opclasses
 
@@ -1093,11 +1133,15 @@ CREATE OPERATOR < (
 	RESTRICT = scalarltsel, JOIN = scalarltjoinsel
 );
 
+COMMENT ON OPERATOR < (sparsevec, sparsevec) IS 'less than';
+
 CREATE OPERATOR <= (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_le,
 	COMMUTATOR = >= , NEGATOR = > ,
 	RESTRICT = scalarlesel, JOIN = scalarlejoinsel
 );
+
+COMMENT ON OPERATOR <= (sparsevec, sparsevec) IS 'less than or equal';
 
 CREATE OPERATOR = (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_eq,
@@ -1105,11 +1149,15 @@ CREATE OPERATOR = (
 	RESTRICT = eqsel, JOIN = eqjoinsel
 );
 
+COMMENT ON OPERATOR = (sparsevec, sparsevec) IS 'equal';
+
 CREATE OPERATOR <> (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_ne,
 	COMMUTATOR = <> , NEGATOR = = ,
 	RESTRICT = eqsel, JOIN = eqjoinsel
 );
+
+COMMENT ON OPERATOR <> (sparsevec, sparsevec) IS 'not equal';
 
 CREATE OPERATOR >= (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_ge,
@@ -1117,11 +1165,15 @@ CREATE OPERATOR >= (
 	RESTRICT = scalargesel, JOIN = scalargejoinsel
 );
 
+COMMENT ON OPERATOR >= (sparsevec, sparsevec) IS 'greater than or equal';
+
 CREATE OPERATOR > (
 	LEFTARG = sparsevec, RIGHTARG = sparsevec, PROCEDURE = sparsevec_gt,
 	COMMUTATOR = < , NEGATOR = <= ,
 	RESTRICT = scalargtsel, JOIN = scalargtjoinsel
 );
+
+COMMENT ON OPERATOR > (sparsevec, sparsevec) IS 'greater than';
 
 -- sparsevec opclasses
 

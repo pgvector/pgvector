@@ -81,6 +81,26 @@ COMMENT ON FUNCTION array_to_vector(numeric[], integer, boolean) IS 'convert num
 
 COMMENT ON FUNCTION vector_to_float4(vector, integer, boolean) IS 'convert vector to float4 array';
 
+COMMENT ON OPERATOR + (vector, vector) IS 'add';
+
+COMMENT ON OPERATOR - (vector, vector) IS 'subtract';
+
+COMMENT ON OPERATOR * (vector, vector) IS 'multiply';
+
+COMMENT ON OPERATOR || (vector, vector) IS 'concatenate';
+
+COMMENT ON OPERATOR < (vector, vector) IS 'less than';
+
+COMMENT ON OPERATOR <= (vector, vector) IS 'less than or equal';
+
+COMMENT ON OPERATOR = (vector, vector) IS 'equal';
+
+COMMENT ON OPERATOR <> (vector, vector) IS 'not equal';
+
+COMMENT ON OPERATOR >= (vector, vector) IS 'greater than or equal';
+
+COMMENT ON OPERATOR > (vector, vector) IS 'greater than';
+
 COMMENT ON FUNCTION ivfflathandler(internal) IS 'ivfflat index access method handler';
 
 COMMENT ON FUNCTION hnswhandler(internal) IS 'hnsw index access method handler';
@@ -179,6 +199,26 @@ COMMENT ON FUNCTION array_to_halfvec(numeric[], integer, boolean) IS 'convert nu
 
 COMMENT ON FUNCTION halfvec_to_float4(halfvec, integer, boolean) IS 'convert halfvec to float4 array';
 
+COMMENT ON OPERATOR + (halfvec, halfvec) IS 'add';
+
+COMMENT ON OPERATOR - (halfvec, halfvec) IS 'subtract';
+
+COMMENT ON OPERATOR * (halfvec, halfvec) IS 'multiply';
+
+COMMENT ON OPERATOR || (halfvec, halfvec) IS 'concatenate';
+
+COMMENT ON OPERATOR < (halfvec, halfvec) IS 'less than';
+
+COMMENT ON OPERATOR <= (halfvec, halfvec) IS 'less than or equal';
+
+COMMENT ON OPERATOR = (halfvec, halfvec) IS 'equal';
+
+COMMENT ON OPERATOR <> (halfvec, halfvec) IS 'not equal';
+
+COMMENT ON OPERATOR >= (halfvec, halfvec) IS 'greater than or equal';
+
+COMMENT ON OPERATOR > (halfvec, halfvec) IS 'greater than';
+
 COMMENT ON FUNCTION hamming_distance(bit, bit) IS 'Hamming distance';
 
 COMMENT ON FUNCTION jaccard_distance(bit, bit) IS 'Jaccard distance';
@@ -242,3 +282,15 @@ COMMENT ON FUNCTION array_to_sparsevec(real[], integer, boolean) IS 'convert flo
 COMMENT ON FUNCTION array_to_sparsevec(double precision[], integer, boolean) IS 'convert float8 array to sparsevec';
 
 COMMENT ON FUNCTION array_to_sparsevec(numeric[], integer, boolean) IS 'convert numeric array to sparsevec';
+
+COMMENT ON OPERATOR < (sparsevec, sparsevec) IS 'less than';
+
+COMMENT ON OPERATOR <= (sparsevec, sparsevec) IS 'less than or equal';
+
+COMMENT ON OPERATOR = (sparsevec, sparsevec) IS 'equal';
+
+COMMENT ON OPERATOR <> (sparsevec, sparsevec) IS 'not equal';
+
+COMMENT ON OPERATOR >= (sparsevec, sparsevec) IS 'greater than or equal';
+
+COMMENT ON OPERATOR > (sparsevec, sparsevec) IS 'greater than';
