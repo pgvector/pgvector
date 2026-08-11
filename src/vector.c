@@ -1329,7 +1329,12 @@ sparsevec_to_vector(PG_FUNCTION_ARGS)
 
 	result = InitVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
+	{
+		if (svec->indices[i] < 0 || svec->indices[i] >= dim)
+			ereport(ERROR, (errcode(ERRCODE_DATA_EXCEPTION),
+				errmsg("sparsevec index out of bounds")));
 		result->x[svec->indices[i]] = values[i];
+	}
 
 	PG_RETURN_POINTER(result);
 }
