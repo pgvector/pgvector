@@ -1108,7 +1108,7 @@ halfvec_accum(PG_FUNCTION_ARGS)
 	ArrayType  *statearray = PG_GETARG_ARRAYTYPE_P(0);
 	HalfVector *newval = PG_GETARG_HALFVEC_P(1);
 	float8	   *statevalues;
-	int16		dim;
+	int			dim;
 	bool		newarr;
 	float8		n;
 	Datum	   *statedatums;
@@ -1169,7 +1169,7 @@ halfvec_avg(PG_FUNCTION_ARGS)
 	ArrayType  *statearray = PG_GETARG_ARRAYTYPE_P(0);
 	float8	   *statevalues;
 	float8		n;
-	uint16		dim;
+	int			dim;
 	HalfVector *result;
 
 	/* Check array before using */
