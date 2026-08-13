@@ -391,7 +391,7 @@ LoadElementsForInsert(HnswNeighborArray * neighbors, HnswQuery * q, int *idx, Re
 		double		distance;
 
 		HnswLoadElement(element, &distance, q, index, support, true, NULL);
-		hc->distance = distance;
+		hc->distance = (float) distance;
 
 		/* Prune element if being deleted */
 		if (element->heaptidsLength == 0)

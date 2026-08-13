@@ -474,12 +474,12 @@ array_to_vector(PG_FUNCTION_ARGS)
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = DatumGetInt32(elemsp[i]);
+			result->x[i] = (float) DatumGetInt32(elemsp[i]);
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = DatumGetFloat8(elemsp[i]);
+			result->x[i] = (float) DatumGetFloat8(elemsp[i]);
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
@@ -805,7 +805,7 @@ l2_normalize(PG_FUNCTION_ARGS)
 	if (norm > 0)
 	{
 		for (int i = 0; i < a->dim; i++)
-			rx[i] = ax[i] / norm;
+			rx[i] = (float) (ax[i] / norm);
 
 		/* Check for overflow */
 		for (int i = 0; i < a->dim; i++)
@@ -1310,7 +1310,7 @@ vector_avg(PG_FUNCTION_ARGS)
 	result = InitVector(dim);
 	for (int i = 0; i < dim; i++)
 	{
-		result->x[i] = statevalues[i + 1] / n;
+		result->x[i] = (float) (statevalues[i + 1] / n);
 		CheckElement(result->x[i]);
 	}
 

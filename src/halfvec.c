@@ -471,12 +471,12 @@ array_to_halfvec(PG_FUNCTION_ARGS)
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = Float4ToHalf(DatumGetInt32(elemsp[i]));
+			result->x[i] = Float4ToHalf((float) DatumGetInt32(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = Float4ToHalf(DatumGetFloat8(elemsp[i]));
+			result->x[i] = Float4ToHalf((float) DatumGetFloat8(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
@@ -745,7 +745,7 @@ halfvec_l2_normalize(PG_FUNCTION_ARGS)
 	if (norm > 0)
 	{
 		for (int i = 0; i < a->dim; i++)
-			rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) / norm);
+			rx[i] = Float4ToHalfUnchecked((float) (HalfToFloat4(ax[i]) / norm));
 
 		/* Check for overflow */
 		for (int i = 0; i < a->dim; i++)
@@ -1186,7 +1186,7 @@ halfvec_avg(PG_FUNCTION_ARGS)
 	result = InitHalfVector(dim);
 	for (int i = 0; i < dim; i++)
 	{
-		result->x[i] = Float4ToHalf(statevalues[i + 1] / n);
+		result->x[i] = Float4ToHalf((float) (statevalues[i + 1] / n));
 		CheckElement(result->x[i]);
 	}
 

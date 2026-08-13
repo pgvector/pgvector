@@ -1103,7 +1103,7 @@ sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 		for (int i = 0; i < a->nnz; i++)
 		{
 			result->indices[i] = a->indices[i];
-			rx[i] = ax[i] / norm;
+			rx[i] = (float) (ax[i] / norm);
 
 			if (isinf(rx[i]))
 				float_overflow_error();

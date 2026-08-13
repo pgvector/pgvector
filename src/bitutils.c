@@ -127,7 +127,7 @@ BitJaccardDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 	if (ab == 0)
 		return 1;
 	else
-		return 1 - (ab / ((double) (aa + bb - ab)));
+		return 1 - ((double) ab / (double) (aa + bb - ab));
 }
 
 #ifdef BIT_DISPATCH

@@ -1047,7 +1047,7 @@ CheckElementCloser(char *base, HnswCandidate * e, List *r, HnswSupport * support
 		HnswCandidate *ri = lfirst(lc2);
 		HnswElement riElement = HnswPtrAccess(base, ri->element);
 		Datum		riValue = HnswGetValue(base, riElement);
-		float		distance = HnswGetDistance(eValue, riValue, support);
+		float		distance = (float) HnswGetDistance(eValue, riValue, support);
 
 		if (distance <= e->distance)
 			return false;
@@ -1331,7 +1331,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 			HnswCandidate *hc = palloc_object(HnswCandidate);
 
 			hc->element = sc->element;
-			hc->distance = sc->distance;
+			hc->distance = (float) sc->distance;
 
 			lw = lappend(lw, hc);
 		}
