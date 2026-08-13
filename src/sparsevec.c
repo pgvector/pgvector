@@ -629,7 +629,7 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 		{
 			/* Safety check */
 			if (j >= result->nnz)
-				elog(ERROR, "safety check failed");
+				elog(ERROR, "index out of bounds");
 
 			result->indices[j] = i;
 			values[j] = vec->x[i];
@@ -673,7 +673,7 @@ halfvec_to_sparsevec(PG_FUNCTION_ARGS)
 		{
 			/* Safety check */
 			if (j >= result->nnz)
-				elog(ERROR, "safety check failed");
+				elog(ERROR, "index out of bounds");
 
 			result->indices[j] = i;
 			values[j] = HalfToFloat4(vec->x[i]);
@@ -763,7 +763,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 		if (IS_NOT_ZERO(v)) { \
 			/* Safety check */ \
 			if (j >= result->nnz) \
-				elog(ERROR, "safety check failed"); \
+				elog(ERROR, "index out of bounds"); \
 			result->indices[j] = i; \
 			values[j] = v; \
 			j++; \
@@ -1126,7 +1126,7 @@ sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 
 				/* Safety check */
 				if (j >= newResult->nnz)
-					elog(ERROR, "safety check failed");
+					elog(ERROR, "index out of bounds");
 
 				newResult->indices[j] = result->indices[i];
 				nx[j] = rx[i];

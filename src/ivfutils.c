@@ -25,6 +25,7 @@ VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 {
 	VectorArray res;
 
+	/* Safety check */
 	if (maxlen < 1 || dimensions < 1 || itemsize == 0)
 		elog(ERROR, "cannot create vector array");
 
