@@ -452,7 +452,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 			numSamples = 10000;
 
 		/* Save memory since will not have more than max tuples */
-		numSamples = Max(Min(numSamples, maxTuples), 1);
+		numSamples = Max((int) Min(numSamples, maxTuples), 1);
 	}
 
 	/* Sample rows */
@@ -497,8 +497,8 @@ CreateMetaPage(Relation index, int dimensions, int lists, ForkNumber forkNum)
 	metap = IvfflatPageGetMeta(page);
 	metap->magicNumber = IVFFLAT_MAGIC_NUMBER;
 	metap->version = IVFFLAT_VERSION;
-	metap->dimensions = dimensions;
-	metap->lists = lists;
+	metap->dimensions = (uint16) dimensions;
+	metap->lists = (uint16) lists;
 	((PageHeader) page)->pd_lower =
 		((char *) metap + sizeof(IvfflatMetaPageData)) - (char *) page;
 
@@ -840,7 +840,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	char	   *ivfcenters;
 	IvfflatLeader *ivfleader = palloc0_object(IvfflatLeader);
 	bool		leaderparticipates = true;
-	int			querylen;
+	long		querylen;
 
 #ifdef DISABLE_LEADER_PARTICIPATION
 	leaderparticipates = false;

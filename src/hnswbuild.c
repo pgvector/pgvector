@@ -103,8 +103,8 @@ CreateMetaPage(HnswBuildState * buildstate)
 	metap->magicNumber = HNSW_MAGIC_NUMBER;
 	metap->version = HNSW_VERSION;
 	metap->dimensions = buildstate->dimensions;
-	metap->m = buildstate->m;
-	metap->efConstruction = buildstate->efConstruction;
+	metap->m = (uint16) buildstate->m;
+	metap->efConstruction = (uint16) buildstate->efConstruction;
 	metap->entryBlkno = InvalidBlockNumber;
 	metap->entryOffno = InvalidOffsetNumber;
 	metap->entryLevel = -1;
@@ -934,7 +934,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	char	   *hnswarea;
 	HnswLeader *hnswleader = palloc0_object(HnswLeader);
 	bool		leaderparticipates = true;
-	int			querylen;
+	long		querylen;
 
 #ifdef DISABLE_LEADER_PARTICIPATION
 	leaderparticipates = false;

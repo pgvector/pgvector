@@ -134,7 +134,7 @@ InitVector(int dim)
 	size = VECTOR_SIZE(dim);
 	result = (Vector *) palloc0(size);
 	SET_VARSIZE(result, size);
-	result->dim = dim;
+	result->dim = (int16) dim;
 
 	return result;
 }
@@ -378,8 +378,8 @@ vector_recv(PG_FUNCTION_ARGS)
 	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
 	int32		typmod = PG_GETARG_INT32(2);
 	Vector	   *result;
-	int16		dim;
-	int16		unused;
+	int			dim;
+	int			unused;
 
 	dim = pq_getmsgint(buf, sizeof(int16));
 	unused = pq_getmsgint(buf, sizeof(int16));

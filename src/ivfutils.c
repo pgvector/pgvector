@@ -304,7 +304,7 @@ VectorUpdateCenter(Pointer v, int dimensions, float *x)
 	Vector	   *vec = (Vector *) v;
 
 	SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-	vec->dim = dimensions;
+	vec->dim = (int16) dimensions;
 
 	for (int i = 0; i < dimensions; i++)
 		vec->x[i] = x[i];
@@ -316,7 +316,7 @@ HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 	HalfVector *vec = (HalfVector *) v;
 
 	SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
-	vec->dim = dimensions;
+	vec->dim = (int16) dimensions;
 
 	for (int i = 0; i < dimensions; i++)
 		vec->x[i] = Float4ToHalfUnchecked(x[i]);

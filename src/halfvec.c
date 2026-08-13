@@ -48,7 +48,7 @@ pq_getmsghalf(StringInfo msg)
 		uint16		i;
 	}			swap;
 
-	swap.i = pq_getmsgint(msg, 2);
+	swap.i = (uint16) pq_getmsgint(msg, 2);
 	return swap.h;
 }
 
@@ -138,7 +138,7 @@ InitHalfVector(int dim)
 	size = HALFVEC_SIZE(dim);
 	result = (HalfVector *) palloc0(size);
 	SET_VARSIZE(result, size);
-	result->dim = dim;
+	result->dim = (int16) dim;
 
 	return result;
 }
@@ -375,8 +375,8 @@ halfvec_recv(PG_FUNCTION_ARGS)
 	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
 	int32		typmod = PG_GETARG_INT32(2);
 	HalfVector *result;
-	int16		dim;
-	int16		unused;
+	int			dim;
+	int			unused;
 
 	dim = pq_getmsgint(buf, sizeof(int16));
 	unused = pq_getmsgint(buf, sizeof(int16));

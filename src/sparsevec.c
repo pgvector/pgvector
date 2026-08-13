@@ -206,7 +206,8 @@ sparsevec_in(PG_FUNCTION_ARGS)
 {
 	char	   *lit = PG_GETARG_CSTRING(0);
 	int32		typmod = PG_GETARG_INT32(2);
-	long		dim;
+	int			dim;
+	long		ldim;
 	char	   *pt = lit;
 	char	   *stringEnd;
 	SparseVector *result;
@@ -322,7 +323,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			if (value != 0)
 			{
 				/* Convert 1-based numbering (SQL) to 0-based (C) */
-				elements[nnz].index = index - 1;
+				elements[nnz].index = (int) (index - 1);
 				elements[nnz].value = value;
 				nnz++;
 			}
@@ -361,7 +362,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		pt++;
 
 	/* Use similar logic as int2vectorin */
-	dim = strtol(pt, &stringEnd, 10);
+	ldim = strtol(pt, &stringEnd, 10);
 
 	if (stringEnd == pt)
 		ereport(ERROR,
@@ -369,10 +370,12 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				 errmsg("invalid input syntax for type sparsevec: \"%s\"", lit)));
 
 	/* Keep in int range for correct error message later */
-	if (dim > INT_MAX)
-		dim = INT_MAX;
-	else if (dim < INT_MIN)
-		dim = INT_MIN;
+	if (ldim > INT_MAX)
+		ldim = INT_MAX;
+	else if (ldim < INT_MIN)
+		ldim = INT_MIN;
+
+	dim = (int) ldim;
 
 	pt = stringEnd;
 

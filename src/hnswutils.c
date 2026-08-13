@@ -51,7 +51,7 @@ hash_tid(ItemPointerData tid)
 	x.i = 0;
 	x.tid = tid;
 
-	return murmurhash64(x.i);
+	return (uint32) murmurhash64(x.i);
 }
 
 #define SH_PREFIX		tidhash
@@ -69,7 +69,7 @@ static uint32
 hash_pointer(uintptr_t ptr)
 {
 #if SIZEOF_VOID_P == 8
-	return murmurhash64((uint64) ptr);
+	return (uint32) murmurhash64((uint64) ptr);
 #else
 	return murmurhash32((uint32) ptr);
 #endif
@@ -90,7 +90,7 @@ static uint32
 hash_offset(Size offset)
 {
 #if SIZEOF_SIZE_T == 8
-	return murmurhash64((uint64) offset);
+	return (uint32) murmurhash64((uint64) offset);
 #else
 	return murmurhash32((uint32) offset);
 #endif
@@ -255,7 +255,7 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 	element->heaptidsLength = 0;
 	HnswAddHeapTid(element, heaptid);
 
-	element->level = level;
+	element->level = (uint8) level;
 	element->deleted = 0;
 	/* Start at one to make it easier to find issues */
 	element->version = 1;
@@ -318,7 +318,7 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 		if (BlockNumberIsValid(metap->entryBlkno))
 		{
 			*entryPoint = HnswInitElementFromBlock(metap->entryBlkno, metap->entryOffno);
-			(*entryPoint)->level = metap->entryLevel;
+			(*entryPoint)->level = (uint8) metap->entryLevel;
 		}
 		else
 			*entryPoint = NULL;
@@ -480,7 +480,7 @@ HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m)
 		}
 	}
 
-	ntup->count = idx;
+	ntup->count = (uint16) idx;
 	ntup->version = e->version;
 }
 
