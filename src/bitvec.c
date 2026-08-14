@@ -51,7 +51,7 @@ hamming_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8((double) BitHammingDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b), 0));
+	PG_RETURN_FLOAT8((double) BitHammingDistance((uint32) VARBITBYTES(a), VARBITS(a), VARBITS(b), 0));
 }
 
 /*
@@ -66,5 +66,5 @@ jaccard_distance(PG_FUNCTION_ARGS)
 
 	CheckDims(a, b);
 
-	PG_RETURN_FLOAT8(BitJaccardDistance(VARBITBYTES(a), VARBITS(a), VARBITS(b), 0, 0, 0));
+	PG_RETURN_FLOAT8(BitJaccardDistance((uint32) VARBITBYTES(a), VARBITS(a), VARBITS(b), 0, 0, 0));
 }
