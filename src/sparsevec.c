@@ -257,7 +257,8 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			long		index;
 			float		value;
 
-			if (nnz == maxNnz)
+			/* Safety check */
+			if (nnz >= maxNnz)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
 						 errmsg("ran out of buffer: \"%s\"", lit)));
