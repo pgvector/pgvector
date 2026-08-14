@@ -710,7 +710,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions)));
 
-	if (buildstate->efConstruction < 2 * buildstate->m)
+	if (buildstate->efConstruction / 2 < buildstate->m)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("ef_construction must be greater than or equal to 2 * m")));
