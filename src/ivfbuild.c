@@ -396,7 +396,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->itemsize);
 
 	/* TODO Move allocation to page creation */
-	buildstate->listInfo = palloc_array_checked(ListInfo, buildstate->lists);
+	buildstate->listInfo = palloc_array_checked(ListInfo, (Size) buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Ivfflat build temporary context",
