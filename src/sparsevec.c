@@ -724,20 +724,20 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 
 #ifdef _MSC_VER
 /* /fp:fast may not propagate +/-Infinity or NaN */
-#define IS_NOT_ZERO(v) (isnan((float) (v)) || isinf((float) (v)) || ((float) (v)) != 0)
+#define IS_NOT_ZERO(v) (isnan(v) || isinf(v) || (v) != 0.0f)
 #else
-#define IS_NOT_ZERO(v) (((float) (v)) != 0)
+#define IS_NOT_ZERO(v) ((v) != 0.0f)
 #endif
 
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += IS_NOT_ZERO(DatumGetInt32(elemsp[i]));
+			nnz += IS_NOT_ZERO((float) DatumGetInt32(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += IS_NOT_ZERO(DatumGetFloat8(elemsp[i]));
+			nnz += IS_NOT_ZERO((float) DatumGetFloat8(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
