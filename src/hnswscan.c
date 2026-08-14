@@ -153,7 +153,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Calculate max memory */
 	/* Add 256 extra bytes to fill last block when close */
 	maxMemory = (double) work_mem * hnsw_scan_mem_multiplier * 1024.0 + 256;
-	so->maxMemory = Min(maxMemory, (double) (SIZE_MAX / 2));
+	so->maxMemory = (Size) Min(maxMemory, (double) (SIZE_MAX / 2));
 
 	scan->opaque = so;
 

@@ -280,7 +280,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 
-	pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->indtuples);
+	pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_TOTAL, (int64) buildstate->indtuples);
 
 	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 

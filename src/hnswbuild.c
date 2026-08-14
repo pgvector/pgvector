@@ -599,7 +599,7 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
 	{
 		/* Update progress */
 		SpinLockAcquire(&graph->lock);
-		pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE, ++graph->indtuples);
+		pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE, (int64) ++graph->indtuples);
 		SpinLockRelease(&graph->lock);
 	}
 
