@@ -500,7 +500,7 @@ CreateMetaPage(Relation index, int dimensions, int lists, ForkNumber forkNum)
 	metap->dimensions = (uint16) dimensions;
 	metap->lists = (uint16) lists;
 	((PageHeader) page)->pd_lower =
-		((char *) metap + sizeof(IvfflatMetaPageData)) - (char *) page;
+		(LocationIndex) (((char *) metap + sizeof(IvfflatMetaPageData)) - (char *) page);
 
 	IvfflatCommitBuffer(buf, state);
 }

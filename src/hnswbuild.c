@@ -110,7 +110,7 @@ CreateMetaPage(HnswBuildState * buildstate)
 	metap->entryLevel = -1;
 	metap->insertPage = InvalidBlockNumber;
 	((PageHeader) page)->pd_lower =
-		((char *) metap + sizeof(HnswMetaPageData)) - (char *) page;
+		(LocationIndex) (((char *) metap + sizeof(HnswMetaPageData)) - (char *) page);
 
 	MarkBufferDirty(buf);
 	UnlockReleaseBuffer(buf);
