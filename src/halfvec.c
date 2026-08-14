@@ -410,8 +410,8 @@ halfvec_send(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint16(&buf, vec->dim);
-	pq_sendint16(&buf, vec->unused);
+	pq_sendint16(&buf, (uint16) vec->dim);
+	pq_sendint16(&buf, (uint16) vec->unused);
 	for (int i = 0; i < vec->dim; i++)
 		pq_sendhalf(&buf, vec->x[i]);
 

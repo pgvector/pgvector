@@ -569,13 +569,13 @@ sparsevec_send(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint32(&buf, svec->dim);
-	pq_sendint32(&buf, svec->nnz);
-	pq_sendint32(&buf, svec->unused);
+	pq_sendint32(&buf, (uint32) svec->dim);
+	pq_sendint32(&buf, (uint32) svec->nnz);
+	pq_sendint32(&buf, (uint32) svec->unused);
 
 	/* Binary representation uses zero-based numbering for indices */
 	for (int i = 0; i < svec->nnz; i++)
-		pq_sendint32(&buf, svec->indices[i]);
+		pq_sendint32(&buf, (uint32) svec->indices[i]);
 
 	for (int i = 0; i < svec->nnz; i++)
 		pq_sendfloat4(&buf, values[i]);
