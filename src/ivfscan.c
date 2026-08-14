@@ -348,10 +348,10 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 	}
 
 	if (keys && scan->numberOfKeys > 0)
-		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
+		memmove(scan->keyData, keys, (Size) scan->numberOfKeys * sizeof(ScanKeyData));
 
 	if (orderbys && scan->numberOfOrderBys > 0)
-		memmove(scan->orderByData, orderbys, scan->numberOfOrderBys * sizeof(ScanKeyData));
+		memmove(scan->orderByData, orderbys, (Size) scan->numberOfOrderBys * sizeof(ScanKeyData));
 }
 
 /*
