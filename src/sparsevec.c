@@ -747,7 +747,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	else if (ARR_ELEMTYPE(array) == NUMERICOID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			nnz += IS_NOT_ZERO(DirectFunctionCall1(numeric_float4, elemsp[i]));
+			nnz += IS_NOT_ZERO(DatumGetFloat4(DirectFunctionCall1(numeric_float4, elemsp[i])));
 	}
 	else
 	{
