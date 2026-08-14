@@ -520,9 +520,9 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	int32		unused;
 	float	   *values;
 
-	dim = pq_getmsgint(buf, sizeof(int32));
-	nnz = pq_getmsgint(buf, sizeof(int32));
-	unused = pq_getmsgint(buf, sizeof(int32));
+	dim = (int32) pq_getmsgint(buf, sizeof(int32));
+	nnz = (int32) pq_getmsgint(buf, sizeof(int32));
+	unused = (int32) pq_getmsgint(buf, sizeof(int32));
 
 	CheckDim(dim);
 	CheckNnz(nnz, dim);
@@ -539,7 +539,7 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	/* Binary representation uses zero-based numbering for indices */
 	for (int i = 0; i < nnz; i++)
 	{
-		result->indices[i] = pq_getmsgint(buf, sizeof(int32));
+		result->indices[i] = (int32) pq_getmsgint(buf, sizeof(int32));
 		CheckIndex(result->indices, i, dim);
 	}
 

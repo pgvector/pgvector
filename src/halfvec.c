@@ -378,8 +378,8 @@ halfvec_recv(PG_FUNCTION_ARGS)
 	int			dim;
 	int			unused;
 
-	dim = pq_getmsgint(buf, sizeof(int16));
-	unused = pq_getmsgint(buf, sizeof(int16));
+	dim = (int) pq_getmsgint(buf, sizeof(int16));
+	unused = (int) pq_getmsgint(buf, sizeof(int16));
 
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
