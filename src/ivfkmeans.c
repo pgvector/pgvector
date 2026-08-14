@@ -33,7 +33,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	collation = index->rd_indcollation[0];
 
 	/* Choose an initial center uniformly at random */
-	VectorArraySet(centers, 0, VectorArrayGet(samples, RandomInt() % samples->length));
+	VectorArraySet(centers, 0, VectorArrayGet(samples, (int) (RandomInt() % samples->length)));
 	centers->length++;
 
 	for (int i = 0; i < numSamples; i++)
@@ -59,7 +59,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 			distance = DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, i))));
 
 			/* Set lower bound */
-			lowerBound[(Size) j * numCenters + i] = (float) distance;
+			lowerBound[(Size) j * (Size) numCenters + (Size) i] = (float) distance;
 
 			/* Use distance squared for weighted probability distribution */
 			distance *= distance;
@@ -153,7 +153,7 @@ SumCenters(VectorArray samples, float *agg, int *closestCenters, const IvfflatTy
 {
 	for (int i = 0; i < samples->length; i++)
 	{
-		float	   *x = agg + ((Size) closestCenters[i] * samples->dim);
+		float	   *x = agg + ((Size) closestCenters[i] * (Size) samples->dim);
 
 		typeInfo->sumCenter(VectorArrayGet(samples, i), x);
 	}
@@ -167,7 +167,7 @@ UpdateCenters(float *agg, VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
 	for (int i = 0; i < centers->length; i++)
 	{
-		float	   *x = agg + ((Size) i * centers->dim);
+		float	   *x = agg + ((Size) i * (Size) centers->dim);
 
 		typeInfo->updateCenter(VectorArrayGet(centers, i), centers->dim, x);
 	}
@@ -186,7 +186,7 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
 	/* Reset sum and count */
 	for (int i = 0; i < numCenters; i++)
 	{
-		float	   *x = agg + ((Size) i * dimensions);
+		float	   *x = agg + ((Size) i * (Size) dimensions);
 
 		for (int j = 0; j < dimensions; j++)
 			x[j] = 0.0;
@@ -204,7 +204,7 @@ ComputeNewCenters(VectorArray samples, float *agg, VectorArray newCenters, int *
 	/* Divide sum by count */
 	for (int i = 0; i < numCenters; i++)
 	{
-		float	   *x = agg + ((Size) i * dimensions);
+		float	   *x = agg + ((Size) i * (Size) dimensions);
 
 		if (centerCounts[i] > 0)
 		{
@@ -330,7 +330,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 		for (int k = 0; k < numCenters; k++)
 		{
 			/* TODO Use Lemma 1 in k-means++ initialization */
-			float		distance = lowerBound[(Size) j * numCenters + k];
+			float		distance = lowerBound[(Size) j * (Size) numCenters + (Size) k];
 
 			if (distance < minDistance)
 			{
@@ -361,8 +361,8 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 			{
 				float		distance = (float) (0.5 * DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, k)))));
 
-				halfcdist[(Size) j * numCenters + k] = distance;
-				halfcdist[(Size) k * numCenters + j] = distance;
+				halfcdist[(Size) j * (Size) numCenters + (Size) k] = distance;
+				halfcdist[(Size) k * (Size) numCenters + (Size) j] = distance;
 			}
 		}
 
@@ -378,7 +378,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 				if (j == k)
 					continue;
 
-				distance = halfcdist[(Size) j * numCenters + k];
+				distance = halfcdist[(Size) j * (Size) numCenters + (Size) k];
 				if (distance < minDistance)
 					minDistance = distance;
 			}
@@ -407,10 +407,10 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 				if (k == closestCenters[j])
 					continue;
 
-				if (upperBound[j] <= lowerBound[(Size) j * numCenters + k])
+				if (upperBound[j] <= lowerBound[(Size) j * (Size) numCenters + (Size) k])
 					continue;
 
-				if (upperBound[j] <= halfcdist[(Size) closestCenters[j] * numCenters + k])
+				if (upperBound[j] <= halfcdist[(Size) closestCenters[j] * (Size) numCenters + (Size) k])
 					continue;
 
 				vec = PointerGetDatum(VectorArrayGet(samples, j));
@@ -421,7 +421,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 					dxcx = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, closestCenters[j]))));
 
 					/* d(x,c(x)) computed, which is a form of d(x,c) */
-					lowerBound[(Size) j * numCenters + closestCenters[j]] = dxcx;
+					lowerBound[(Size) j * (Size) numCenters + (Size) closestCenters[j]] = dxcx;
 					upperBound[j] = dxcx;
 
 					rj = false;
@@ -430,12 +430,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 					dxcx = upperBound[j];
 
 				/* Step 3b */
-				if (dxcx > lowerBound[(Size) j * numCenters + k] || dxcx > halfcdist[(Size) closestCenters[j] * numCenters + k])
+				if (dxcx > lowerBound[(Size) j * (Size) numCenters + (Size) k] || dxcx > halfcdist[(Size) closestCenters[j] * (Size) numCenters + (Size) k])
 				{
 					float		dxc = (float) DatumGetFloat8(FunctionCall2Coll(procinfo, collation, vec, PointerGetDatum(VectorArrayGet(centers, k))));
 
 					/* d(x,c) calculated */
-					lowerBound[(Size) j * numCenters + k] = dxc;
+					lowerBound[(Size) j * (Size) numCenters + (Size) k] = dxc;
 
 					if (dxc < dxcx)
 					{
@@ -461,12 +461,12 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 		{
 			for (int k = 0; k < numCenters; k++)
 			{
-				float		distance = lowerBound[(Size) j * numCenters + k] - newcdist[k];
+				float		distance = lowerBound[(Size) j * (Size) numCenters + (Size) k] - newcdist[k];
 
 				if (distance < 0)
 					distance = 0;
 
-				lowerBound[(Size) j * numCenters + k] = distance;
+				lowerBound[(Size) j * (Size) numCenters + (Size) k] = distance;
 			}
 		}
 
