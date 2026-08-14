@@ -1211,7 +1211,15 @@ sparsevec_to_halfvec(PG_FUNCTION_ARGS)
 
 	result = InitHalfVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
-		result->x[svec->indices[i]] = Float4ToHalf(values[i]);
+	{
+		int32		index = svec->indices[i];
+
+		/* Safety check */
+		if (index < 0 || index >= dim)
+			elog(ERROR, "index out of bounds");
+
+		result->x[index] = Float4ToHalf(values[i]);
+	}
 
 	PG_RETURN_POINTER(result);
 }
