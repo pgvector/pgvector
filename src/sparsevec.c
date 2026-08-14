@@ -323,7 +323,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			if (value != 0)
 			{
 				/* Convert 1-based numbering (SQL) to 0-based (C) */
-				elements[nnz].index = (int) (index - 1);
+				elements[nnz].index = (int32) (index - 1);
 				elements[nnz].value = value;
 				nnz++;
 			}
