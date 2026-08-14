@@ -832,8 +832,8 @@ SparsevecL2SquaredDistance(SparseVector * a, SparseVector * b)
 
 	for (int i = 0; i < a->nnz; i++)
 	{
-		int			ai = a->indices[i];
-		int			bi = -1;
+		int32		ai = a->indices[i];
+		int32		bi = -1;
 
 		for (int j = bpos; j < b->nnz; j++)
 		{
@@ -911,11 +911,11 @@ SparsevecInnerProduct(SparseVector * a, SparseVector * b)
 
 	for (int i = 0; i < a->nnz; i++)
 	{
-		int			ai = a->indices[i];
+		int32		ai = a->indices[i];
 
 		for (int j = bpos; j < b->nnz; j++)
 		{
-			int			bi = b->indices[j];
+			int32		bi = b->indices[j];
 
 			/* Only update when the same index */
 			if (ai == bi)
@@ -1027,8 +1027,8 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 
 	for (int i = 0; i < a->nnz; i++)
 	{
-		int			ai = a->indices[i];
-		int			bi = -1;
+		int32		ai = a->indices[i];
+		int32		bi = -1;
 
 		for (int j = bpos; j < b->nnz; j++)
 		{
