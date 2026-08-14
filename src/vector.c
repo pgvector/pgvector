@@ -1335,7 +1335,15 @@ sparsevec_to_vector(PG_FUNCTION_ARGS)
 
 	result = InitVector(dim);
 	for (int i = 0; i < svec->nnz; i++)
-		result->x[svec->indices[i]] = values[i];
+	{
+		int32		index = svec->indices[i];
+
+		/* Safety check */
+		if (index < 0 || index >= dim)
+			elog(ERROR, "index out of bounds");
+
+		result->x[index] = values[i];
+	}
 
 	PG_RETURN_POINTER(result);
 }
