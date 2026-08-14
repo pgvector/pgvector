@@ -218,7 +218,7 @@ void
 HnswInitNeighbors(char *base, HnswElement element, int m, HnswAllocator * allocator)
 {
 	int			level = element->level;
-	HnswNeighborArrayPtr *neighborList = (HnswNeighborArrayPtr *) HnswAlloc(allocator, mul_size(sizeof(HnswNeighborArrayPtr), add_size(level, 1)));
+	HnswNeighborArrayPtr *neighborList = (HnswNeighborArrayPtr *) HnswAlloc(allocator, mul_size(sizeof(HnswNeighborArrayPtr), add_size((Size) level, 1)));
 
 	HnswPtrStore(base, element->neighbors, neighborList);
 
@@ -671,12 +671,14 @@ CompareFurthestCandidates(const pairingheap_node *a, const pairingheap_node *b, 
 static inline void
 InitVisited(char *base, visited_hash * v, bool inMemory, int ef, int m)
 {
+	uint32		initialElements = (uint32) ef * (uint32) m * 2;
+
 	if (!inMemory)
-		v->tids = tidhash_create(CurrentMemoryContext, ef * m * 2, NULL);
+		v->tids = tidhash_create(CurrentMemoryContext, initialElements, NULL);
 	else if (base != NULL)
-		v->offsets = offsethash_create(CurrentMemoryContext, ef * m * 2, NULL);
+		v->offsets = offsethash_create(CurrentMemoryContext, initialElements, NULL);
 	else
-		v->pointers = pointerhash_create(CurrentMemoryContext, ef * m * 2, NULL);
+		v->pointers = pointerhash_create(CurrentMemoryContext, initialElements, NULL);
 }
 
 /*
@@ -781,8 +783,8 @@ HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation i
 	}
 
 	/* Copy to minimize lock time */
-	start = mul_size(element->level - lc, m);
-	memcpy(indextids, ntup->indextids + start, mul_size(sizeof(ItemPointerData), lm));
+	start = mul_size((Size) (element->level - lc), (Size) m);
+	memcpy(indextids, ntup->indextids + start, mul_size(sizeof(ItemPointerData), (Size) lm));
 
 	UnlockReleaseBuffer(buf);
 	return true;
