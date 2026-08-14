@@ -96,6 +96,7 @@ CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (m = 101);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (ef_construction = 3);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (ef_construction = 1001);
 CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (m = 16, ef_construction = 31);
+CREATE INDEX ON t USING hnsw (val vector_l2_ops) WITH (m = 16, ef_construction = 32);
 DROP TABLE t;
 
 SHOW hnsw.ef_search;
