@@ -242,7 +242,7 @@ halfvec_in(PG_FUNCTION_ARGS)
 		if ((errno == ERANGE && isinf(val)) || (HalfIsInf(x[dim]) && !isinf(val)))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("\"%s\" is out of range for type halfvec", pnstrdup(pt, stringEnd - pt))));
+					 errmsg("\"%s\" is out of range for type halfvec", pnstrdup(pt, (Size) (stringEnd - pt)))));
 
 		CheckElement(x[dim]);
 		dim++;

@@ -315,7 +315,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			if (errno == ERANGE && (value == 0 || isinf(value)))
 				ereport(ERROR,
 						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-						 errmsg("\"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
+						 errmsg("\"%s\" is out of range for type sparsevec", pnstrdup(pt, (Size) (stringEnd - pt)))));
 
 			CheckElement(value);
 

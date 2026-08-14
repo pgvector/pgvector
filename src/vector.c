@@ -237,7 +237,7 @@ vector_in(PG_FUNCTION_ARGS)
 		if (errno == ERANGE && isinf(val))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("\"%s\" is out of range for type vector", pnstrdup(pt, stringEnd - pt))));
+					 errmsg("\"%s\" is out of range for type vector", pnstrdup(pt, (Size) (stringEnd - pt)))));
 
 		CheckElement(val);
 		x[dim++] = val;
