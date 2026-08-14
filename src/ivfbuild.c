@@ -671,7 +671,7 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 	indexInfo = BuildIndexInfo(ivfspool->index);
 	indexInfo->ii_Concurrent = ivfshared->isconcurrent;
 	InitBuildState(&buildstate, ivfspool->heap, ivfspool->index, indexInfo);
-	memcpy(buildstate.centers->items, ivfcenters, buildstate.centers->itemsize * buildstate.centers->maxlen);
+	memcpy(buildstate.centers->items, ivfcenters, mul_size(buildstate.centers->itemsize, (Size) buildstate.centers->maxlen));
 	buildstate.centers->length = buildstate.centers->maxlen;
 	ivfspool->sortstate = InitBuildSortState(buildstate.sortdesc, sortmem, coordinate);
 	buildstate.sortstate = ivfspool->sortstate;
