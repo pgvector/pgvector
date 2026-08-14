@@ -392,7 +392,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
 
-	qsort(elements, nnz, sizeof(SparseInputElement), CompareIndices);
+	qsort(elements, (Size) nnz, sizeof(SparseInputElement), CompareIndices);
 
 	result = InitSparseVector(dim, nnz);
 	rvalues = SPARSEVEC_VALUES(result);
@@ -449,7 +449,7 @@ sparsevec_out(PG_FUNCTION_ARGS)
 	 *
 	 * 4 bytes for {, }, /, and \0
 	 */
-	buf = (char *) palloc(add_size(mul_size(12 + FLOAT_SHORTEST_DECIMAL_LEN, sparsevec->nnz), 15));
+	buf = (char *) palloc(add_size(mul_size(12 + FLOAT_SHORTEST_DECIMAL_LEN, (Size) sparsevec->nnz), 15));
 	ptr = buf;
 
 	AppendChar(ptr, '{');

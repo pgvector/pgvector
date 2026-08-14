@@ -25,7 +25,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 {
 	FmgrInfo   *procinfo;
 	Oid			collation;
-	float	   *weight = palloc_array_checked(float, samples->length);
+	float	   *weight = palloc_array_checked(float, (Size) samples->length);
 	int			numCenters = centers->maxlen;
 	int			numSamples = samples->length;
 

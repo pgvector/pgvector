@@ -310,7 +310,7 @@ halfvec_out(PG_FUNCTION_ARGS)
 	 *
 	 * 3 bytes for [, ], and \0
 	 */
-	buf = (char *) palloc(add_size(mul_size(FLOAT_SHORTEST_DECIMAL_LEN, dim), 3));
+	buf = (char *) palloc(add_size(mul_size(FLOAT_SHORTEST_DECIMAL_LEN, (Size) dim), 3));
 	ptr = buf;
 
 	AppendChar(ptr, '[');
@@ -519,7 +519,7 @@ halfvec_to_float4(PG_FUNCTION_ARGS)
 	Datum	   *datums;
 	ArrayType  *result;
 
-	datums = palloc_array_checked(Datum, vec->dim);
+	datums = palloc_array_checked(Datum, (Size) vec->dim);
 
 	for (int i = 0; i < vec->dim; i++)
 		datums[i] = Float4GetDatum(HalfToFloat4(vec->x[i]));

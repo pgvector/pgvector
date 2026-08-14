@@ -840,7 +840,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	char	   *ivfcenters;
 	IvfflatLeader *ivfleader = palloc0_object(IvfflatLeader);
 	bool		leaderparticipates = true;
-	long		querylen;
+	Size		querylen;
 
 #ifdef DISABLE_LEADER_PARTICIPATION
 	leaderparticipates = false;

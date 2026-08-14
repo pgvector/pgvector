@@ -326,7 +326,7 @@ VectorArrayGet(VectorArray arr, int offset)
 	if (offset < 0 || offset >= arr->maxlen)
 		elog(ERROR, "index out of bounds");
 
-	return ((char *) arr->items) + (offset * arr->itemsize);
+	return ((char *) arr->items) + ((Size) offset * arr->itemsize);
 }
 
 static inline void

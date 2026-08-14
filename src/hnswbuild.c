@@ -102,7 +102,7 @@ CreateMetaPage(HnswBuildState * buildstate)
 	metap = HnswPageGetMeta(page);
 	metap->magicNumber = HNSW_MAGIC_NUMBER;
 	metap->version = HNSW_VERSION;
-	metap->dimensions = buildstate->dimensions;
+	metap->dimensions = (uint32) buildstate->dimensions;
 	metap->m = (uint16) buildstate->m;
 	metap->efConstruction = (uint16) buildstate->efConstruction;
 	metap->entryBlkno = InvalidBlockNumber;
@@ -934,7 +934,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	char	   *hnswarea;
 	HnswLeader *hnswleader = palloc0_object(HnswLeader);
 	bool		leaderparticipates = true;
-	long		querylen;
+	Size		querylen;
 
 #ifdef DISABLE_LEADER_PARTICIPATION
 	leaderparticipates = false;
@@ -958,7 +958,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Leave space for other objects in shared memory */
 	/* Docker has a default limit of 64 MB for shm_size */
 	/* which happens to be the default value of maintenance_work_mem */
-	esthnswarea = mul_size(maintenance_work_mem, 1024);
+	esthnswarea = mul_size((Size) maintenance_work_mem, 1024);
 	estother = 3 * 1024 * 1024;
 	if (esthnswarea > estother)
 		esthnswarea -= estother;

@@ -35,15 +35,15 @@ SPARSEVEC_SIZE(int nnz)
 {
 	Size		size = offsetof(SparseVector, indices);
 
-	size = add_size(size, mul_size(sizeof(int32), nnz));
-	size = add_size(size, mul_size(sizeof(float), nnz));
+	size = add_size(size, mul_size(sizeof(int32), (Size) nnz));
+	size = add_size(size, mul_size(sizeof(float), (Size) nnz));
 	return size;
 }
 
 static inline float *
 SPARSEVEC_VALUES(SparseVector * x)
 {
-	return (float *) (((char *) x) + offsetof(SparseVector, indices) + (x->nnz * sizeof(int32)));
+	return (float *) (((char *) x) + offsetof(SparseVector, indices) + ((Size) x->nnz * sizeof(int32)));
 }
 
 SparseVector *InitSparseVector(int dim, int nnz);
