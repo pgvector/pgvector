@@ -59,7 +59,7 @@ BitHammingDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 		memcpy(&axs, ax, sizeof(uint64));
 		memcpy(&bxs, bx, sizeof(uint64));
 
-		distance += popcount64(axs ^ bxs);
+		distance += (uint64) popcount64(axs ^ bxs);
 
 		ax += sizeof(uint64);
 		bx += sizeof(uint64);
@@ -108,9 +108,9 @@ BitJaccardDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 		memcpy(&axs, ax, sizeof(uint64));
 		memcpy(&bxs, bx, sizeof(uint64));
 
-		ab += popcount64(axs & bxs);
-		aa += popcount64(axs);
-		bb += popcount64(bxs);
+		ab += (uint64) popcount64(axs & bxs);
+		aa += (uint64) popcount64(axs);
+		bb += (uint64) popcount64(bxs);
 
 		ax += sizeof(uint64);
 		bx += sizeof(uint64);
