@@ -19,7 +19,7 @@ InitBitVector(int dim)
 	VarBit	   *result;
 	Size		size;
 
-	size = VARBITTOTALLEN(dim);
+	size = VARBITTOTALLEN((Size) dim);
 	result = (VarBit *) palloc0(size);
 	SET_VARSIZE(result, size);
 	VARBITLEN(result) = dim;

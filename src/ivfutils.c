@@ -295,7 +295,7 @@ HalfvecItemSize(int dimensions)
 static Size
 BitItemSize(int dimensions)
 {
-	return VARBITTOTALLEN(dimensions);
+	return VARBITTOTALLEN((Size) dimensions);
 }
 
 static void
@@ -328,7 +328,7 @@ BitUpdateCenter(Pointer v, int dimensions, float *x)
 	VarBit	   *vec = (VarBit *) v;
 	unsigned char *nx = VARBITS(vec);
 
-	SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
+	SET_VARSIZE(vec, VARBITTOTALLEN((Size) dimensions));
 	VARBITLEN(vec) = dimensions;
 
 	for (uint32 i = 0; i < VARBITBYTES(vec); i++)
