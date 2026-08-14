@@ -762,7 +762,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 
 #define PROCESS_ARRAY_ELEM(elem) \
 	do { \
-		float v = (float) (elem); \
+		float v = (elem); \
 		if (IS_NOT_ZERO(v)) { \
 			/* Safety check */ \
 			if (j >= result->nnz) \
@@ -776,12 +776,12 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			PROCESS_ARRAY_ELEM(DatumGetInt32(elemsp[i]));
+			PROCESS_ARRAY_ELEM((float) DatumGetInt32(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			PROCESS_ARRAY_ELEM(DatumGetFloat8(elemsp[i]));
+			PROCESS_ARRAY_ELEM((float) DatumGetFloat8(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
