@@ -33,7 +33,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	collation = index->rd_indcollation[0];
 
 	/* Choose an initial center uniformly at random */
-	VectorArraySet(centers, 0, VectorArrayGet(samples, (int) (RandomInt() % samples->length)));
+	VectorArraySet(centers, 0, VectorArrayGet(samples, (int) ((uint32) RandomInt() % (uint32) samples->length)));
 	centers->length++;
 
 	for (int i = 0; i < numSamples; i++)
