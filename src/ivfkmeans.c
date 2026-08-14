@@ -113,7 +113,7 @@ RandomCenters(Relation index, VectorArray centers, const IvfflatTypeInfo * typeI
 	int			dimensions = centers->dim;
 	FmgrInfo   *normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_KMEANS_NORM_PROC);
 	Oid			collation = index->rd_indcollation[0];
-	float	   *x = palloc_array_checked(float, dimensions);
+	float	   *x = palloc_array_checked(float, (Size) dimensions);
 
 	/* Fill with random data */
 	while (centers->length < centers->maxlen)
@@ -264,14 +264,14 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 
 	/* Calculate allocation sizes */
 	Size		newCentersSize = VECTOR_ARRAY_SIZE(numCenters, centers->itemsize);
-	Size		aggSize = mul_size(sizeof(float), mul_size(numCenters, dimensions));
-	Size		centerCountsSize = mul_size(sizeof(int), numCenters);
-	Size		closestCentersSize = mul_size(sizeof(int), numSamples);
-	Size		lowerBoundSize = mul_size(sizeof(float), mul_size(numSamples, numCenters));
-	Size		upperBoundSize = mul_size(sizeof(float), numSamples);
-	Size		sSize = mul_size(sizeof(float), numCenters);
-	Size		halfcdistSize = mul_size(sizeof(float), mul_size(numCenters, numCenters));
-	Size		newcdistSize = mul_size(sizeof(float), numCenters);
+	Size		aggSize = mul_size(sizeof(float), mul_size((Size) numCenters, (Size) dimensions));
+	Size		centerCountsSize = mul_size(sizeof(int), (Size) numCenters);
+	Size		closestCentersSize = mul_size(sizeof(int), (Size) numSamples);
+	Size		lowerBoundSize = mul_size(sizeof(float), mul_size((Size) numSamples, (Size) numCenters));
+	Size		upperBoundSize = mul_size(sizeof(float), (Size) numSamples);
+	Size		sSize = mul_size(sizeof(float), (Size) numCenters);
+	Size		halfcdistSize = mul_size(sizeof(float), mul_size((Size) numCenters, (Size) numCenters));
+	Size		newcdistSize = mul_size(sizeof(float), (Size) numCenters);
 
 	/* Calculate total size */
 	Size		totalSize = memoryUsed;
@@ -490,7 +490,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, const Ivff
 static void
 CheckElements(VectorArray centers, const IvfflatTypeInfo * typeInfo)
 {
-	float	   *scratch = palloc_array_checked(float, centers->dim);
+	float	   *scratch = palloc_array_checked(float, (Size) centers->dim);
 
 	for (int i = 0; i < centers->length; i++)
 	{
