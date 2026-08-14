@@ -10,7 +10,7 @@
 
 #define VECTOR_MAX_DIM 16000
 
-#define VECTOR_SIZE(_dim)		add_size(offsetof(Vector, x), mul_size(sizeof(float), _dim))
+#define VECTOR_SIZE(_dim)		add_size(offsetof(Vector, x), mul_size(sizeof(float), (Size) (_dim)))
 #define DatumGetVector(x)		((Vector *) PG_DETOAST_DATUM(x))
 #define PG_GETARG_VECTOR_P(x)	DatumGetVector(PG_GETARG_DATUM(x))
 #define PG_RETURN_VECTOR_P(x)	PG_RETURN_POINTER(x)
