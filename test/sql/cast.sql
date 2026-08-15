@@ -22,22 +22,6 @@ SELECT '{1,2,3}'::double precision[]::vector(2);
 SELECT '{4e38,-4e38}'::double precision[]::vector;
 SELECT '{1e-46,-1e-46}'::double precision[]::vector;
 
--- vector to array
-
-SELECT '[1,2,3]'::vector::real[];
-
--- vector to halfvec
-
-SELECT '[1,2,3]'::vector::halfvec;
-SELECT '[1,2,3]'::vector::halfvec(3);
-SELECT '[1,2,3]'::vector::halfvec(2);
-SELECT '[65520]'::vector::halfvec;
-SELECT '[1e-8]'::vector::halfvec;
-
-SELECT '[1,2,3]'::halfvec::vector;
-SELECT '[1,2,3]'::halfvec::vector(3);
-SELECT '[1,2,3]'::halfvec::vector(2);
-
 -- array to halfvec
 
 SELECT ARRAY[1,2,3]::halfvec;
@@ -64,38 +48,6 @@ SELECT '{1,2,3}'::double precision[]::halfvec(2);
 SELECT '{4e38,-4e38}'::double precision[]::halfvec;
 SELECT '{1e-46,-1e-46}'::double precision[]::halfvec;
 
--- halfvec to array
-
-SELECT '[1,2,3]'::halfvec::real[];
-
--- vector to sparsevec
-
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
-
--- sparsevec to vector
-
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector;
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(5);
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(4);
-SELECT '{}/16001'::sparsevec::vector;
-
--- halfvec to sparsevec
-
-SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec;
-SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(5);
-SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(4);
-
--- sparsevec to halfvec
-
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec;
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(5);
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(4);
-SELECT '{}/16001'::sparsevec::halfvec;
-SELECT '{1:65520}/1'::sparsevec::halfvec;
-SELECT '{1:1e-8}/1'::sparsevec::halfvec;
-
 -- array to sparsevec
 
 SELECT ARRAY[1,0,2,0,3,0]::sparsevec;
@@ -113,6 +65,56 @@ SELECT '{Infinity}'::real[]::sparsevec;
 SELECT '{-Infinity}'::real[]::sparsevec;
 SELECT '{}'::real[]::sparsevec;
 SELECT '{{1}}'::real[]::sparsevec;
+
+-- vector to array
+
+SELECT '[1,2,3]'::vector::real[];
+
+-- vector to halfvec
+
+SELECT '[1,2,3]'::vector::halfvec;
+SELECT '[1,2,3]'::vector::halfvec(3);
+SELECT '[1,2,3]'::vector::halfvec(2);
+SELECT '[65520]'::vector::halfvec;
+SELECT '[1e-8]'::vector::halfvec;
+
+-- vector to sparsevec
+
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
+
+-- halfvec to array
+
+SELECT '[1,2,3]'::halfvec::real[];
+
+-- halfvec to vector
+
+SELECT '[1,2,3]'::halfvec::vector;
+SELECT '[1,2,3]'::halfvec::vector(3);
+SELECT '[1,2,3]'::halfvec::vector(2);
+
+-- halfvec to sparsevec
+
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec;
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(5);
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(4);
+
+-- sparsevec to vector
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector;
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(5);
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(4);
+SELECT '{}/16001'::sparsevec::vector;
+
+-- sparsevec to halfvec
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec;
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(5);
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(4);
+SELECT '{}/16001'::sparsevec::halfvec;
+SELECT '{1:65520}/1'::sparsevec::halfvec;
+SELECT '{1:1e-8}/1'::sparsevec::halfvec;
 
 -- max dimensions / elements
 

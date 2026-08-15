@@ -77,50 +77,6 @@ SELECT '{1e-46,-1e-46}'::double precision[]::vector;
  [0,-0]
 (1 row)
 
--- vector to array
-SELECT '[1,2,3]'::vector::real[];
- float4  
----------
- {1,2,3}
-(1 row)
-
--- vector to halfvec
-SELECT '[1,2,3]'::vector::halfvec;
- halfvec 
----------
- [1,2,3]
-(1 row)
-
-SELECT '[1,2,3]'::vector::halfvec(3);
- halfvec 
----------
- [1,2,3]
-(1 row)
-
-SELECT '[1,2,3]'::vector::halfvec(2);
-ERROR:  expected 2 dimensions, not 3
-SELECT '[65520]'::vector::halfvec;
-ERROR:  "65520" is out of range for type halfvec
-SELECT '[1e-8]'::vector::halfvec;
- halfvec 
----------
- [0]
-(1 row)
-
-SELECT '[1,2,3]'::halfvec::vector;
- vector  
----------
- [1,2,3]
-(1 row)
-
-SELECT '[1,2,3]'::halfvec::vector(3);
- vector  
----------
- [1,2,3]
-(1 row)
-
-SELECT '[1,2,3]'::halfvec::vector(2);
-ERROR:  expected 2 dimensions, not 3
 -- array to halfvec
 SELECT ARRAY[1,2,3]::halfvec;
   array  
@@ -208,85 +164,6 @@ SELECT '{1e-46,-1e-46}'::double precision[]::halfvec;
  [0,-0]
 (1 row)
 
--- halfvec to array
-SELECT '[1,2,3]'::halfvec::real[];
- float4  
----------
- {1,2,3}
-(1 row)
-
--- vector to sparsevec
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
-    sparsevec    
------------------
- {2:1.5,4:3.5}/5
-(1 row)
-
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
-    sparsevec    
------------------
- {2:1.5,4:3.5}/5
-(1 row)
-
-SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
-ERROR:  expected 4 dimensions, not 5
--- sparsevec to vector
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector;
-     vector      
------------------
- [0,1.5,0,3.5,0]
-(1 row)
-
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(5);
-     vector      
------------------
- [0,1.5,0,3.5,0]
-(1 row)
-
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(4);
-ERROR:  expected 4 dimensions, not 5
-SELECT '{}/16001'::sparsevec::vector;
-ERROR:  vector cannot have more than 16000 dimensions
--- halfvec to sparsevec
-SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec;
-    sparsevec    
------------------
- {2:1.5,4:3.5}/5
-(1 row)
-
-SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(5);
-    sparsevec    
------------------
- {2:1.5,4:3.5}/5
-(1 row)
-
-SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(4);
-ERROR:  expected 4 dimensions, not 5
--- sparsevec to halfvec
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec;
-     halfvec     
------------------
- [0,1.5,0,3.5,0]
-(1 row)
-
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(5);
-     halfvec     
------------------
- [0,1.5,0,3.5,0]
-(1 row)
-
-SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(4);
-ERROR:  expected 4 dimensions, not 5
-SELECT '{}/16001'::sparsevec::halfvec;
-ERROR:  halfvec cannot have more than 16000 dimensions
-SELECT '{1:65520}/1'::sparsevec::halfvec;
-ERROR:  "65520" is out of range for type halfvec
-SELECT '{1:1e-8}/1'::sparsevec::halfvec;
- halfvec 
----------
- [0]
-(1 row)
-
 -- array to sparsevec
 SELECT ARRAY[1,0,2,0,3,0]::sparsevec;
       array      
@@ -344,6 +221,130 @@ SELECT '{}'::real[]::sparsevec;
 ERROR:  sparsevec must have at least 1 dimension
 SELECT '{{1}}'::real[]::sparsevec;
 ERROR:  array must be 1-D
+-- vector to array
+SELECT '[1,2,3]'::vector::real[];
+ float4  
+---------
+ {1,2,3}
+(1 row)
+
+-- vector to halfvec
+SELECT '[1,2,3]'::vector::halfvec;
+ halfvec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::vector::halfvec(3);
+ halfvec 
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::vector::halfvec(2);
+ERROR:  expected 2 dimensions, not 3
+SELECT '[65520]'::vector::halfvec;
+ERROR:  "65520" is out of range for type halfvec
+SELECT '[1e-8]'::vector::halfvec;
+ halfvec 
+---------
+ [0]
+(1 row)
+
+-- vector to sparsevec
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec;
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(5);
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::vector::sparsevec(4);
+ERROR:  expected 4 dimensions, not 5
+-- halfvec to array
+SELECT '[1,2,3]'::halfvec::real[];
+ float4  
+---------
+ {1,2,3}
+(1 row)
+
+-- halfvec to vector
+SELECT '[1,2,3]'::halfvec::vector;
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::halfvec::vector(3);
+ vector  
+---------
+ [1,2,3]
+(1 row)
+
+SELECT '[1,2,3]'::halfvec::vector(2);
+ERROR:  expected 2 dimensions, not 3
+-- halfvec to sparsevec
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec;
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(5);
+    sparsevec    
+-----------------
+ {2:1.5,4:3.5}/5
+(1 row)
+
+SELECT '[0,1.5,0,3.5,0]'::halfvec::sparsevec(4);
+ERROR:  expected 4 dimensions, not 5
+-- sparsevec to vector
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector;
+     vector      
+-----------------
+ [0,1.5,0,3.5,0]
+(1 row)
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(5);
+     vector      
+-----------------
+ [0,1.5,0,3.5,0]
+(1 row)
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::vector(4);
+ERROR:  expected 4 dimensions, not 5
+SELECT '{}/16001'::sparsevec::vector;
+ERROR:  vector cannot have more than 16000 dimensions
+-- sparsevec to halfvec
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec;
+     halfvec     
+-----------------
+ [0,1.5,0,3.5,0]
+(1 row)
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(5);
+     halfvec     
+-----------------
+ [0,1.5,0,3.5,0]
+(1 row)
+
+SELECT '{2:1.5,4:3.5}/5'::sparsevec::halfvec(4);
+ERROR:  expected 4 dimensions, not 5
+SELECT '{}/16001'::sparsevec::halfvec;
+ERROR:  halfvec cannot have more than 16000 dimensions
+SELECT '{1:65520}/1'::sparsevec::halfvec;
+ERROR:  "65520" is out of range for type halfvec
+SELECT '{1:1e-8}/1'::sparsevec::halfvec;
+ halfvec 
+---------
+ [0]
+(1 row)
+
 -- max dimensions / elements
 SELECT array_agg(n)::vector FROM generate_series(1, 16001) n;
 ERROR:  vector cannot have more than 16000 dimensions
