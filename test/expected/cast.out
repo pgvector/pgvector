@@ -221,6 +221,28 @@ SELECT '{}'::real[]::sparsevec;
 ERROR:  sparsevec must have at least 1 dimension
 SELECT '{{1}}'::real[]::sparsevec;
 ERROR:  array must be 1-D
+SELECT '{1,0,2,0,3,0}'::double precision[]::sparsevec;
+    sparsevec    
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT '{1,0,2,0,3,0}'::double precision[]::sparsevec(6);
+    sparsevec    
+-----------------
+ {1:1,3:2,5:3}/6
+(1 row)
+
+SELECT '{1,0,2,0,3,0}'::double precision[]::sparsevec(5);
+ERROR:  expected 5 dimensions, not 6
+SELECT '{4e38,-4e38}'::double precision[]::sparsevec;
+ERROR:  infinite value not allowed in sparsevec
+SELECT '{1e-46,-1e-46}'::double precision[]::sparsevec;
+ sparsevec 
+-----------
+ {}/2
+(1 row)
+
 -- vector to array
 SELECT '[1,2,3]'::vector::real[];
  float4  

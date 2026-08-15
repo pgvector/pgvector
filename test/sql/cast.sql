@@ -66,6 +66,12 @@ SELECT '{-Infinity}'::real[]::sparsevec;
 SELECT '{}'::real[]::sparsevec;
 SELECT '{{1}}'::real[]::sparsevec;
 
+SELECT '{1,0,2,0,3,0}'::double precision[]::sparsevec;
+SELECT '{1,0,2,0,3,0}'::double precision[]::sparsevec(6);
+SELECT '{1,0,2,0,3,0}'::double precision[]::sparsevec(5);
+SELECT '{4e38,-4e38}'::double precision[]::sparsevec;
+SELECT '{1e-46,-1e-46}'::double precision[]::sparsevec;
+
 -- vector to array
 
 SELECT '[1,2,3]'::vector::real[];
