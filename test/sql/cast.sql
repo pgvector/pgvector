@@ -35,6 +35,12 @@ SELECT '[1,2,3]'::halfvec::vector(2);
 SELECT '{1,2,3}'::real[]::halfvec;
 SELECT '{1,2,3}'::real[]::halfvec(3);
 SELECT '{1,2,3}'::real[]::halfvec(2);
+SELECT '{NULL}'::real[]::halfvec;
+SELECT '{NaN}'::real[]::halfvec;
+SELECT '{Infinity}'::real[]::halfvec;
+SELECT '{-Infinity}'::real[]::halfvec;
+SELECT '{}'::real[]::halfvec;
+SELECT '{{1}}'::real[]::halfvec;
 SELECT '{65520,-65520}'::real[]::halfvec;
 SELECT '{1e-8,-1e-8}'::real[]::halfvec;
 
