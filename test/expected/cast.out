@@ -11,13 +11,13 @@ SELECT ARRAY[1.0,2.0,3.0]::vector;
  [1,2,3]
 (1 row)
 
-SELECT ARRAY[1,2,3]::float4[]::vector;
+SELECT ARRAY[1,2,3]::real[]::vector;
   array  
 ---------
  [1,2,3]
 (1 row)
 
-SELECT ARRAY[1,2,3]::float8[]::vector;
+SELECT ARRAY[1,2,3]::double precision[]::vector;
   array  
 ---------
  [1,2,3]
@@ -90,13 +90,13 @@ SELECT ARRAY[1.0,2.0,3.0]::halfvec;
  [1,2,3]
 (1 row)
 
-SELECT ARRAY[1,2,3]::float4[]::halfvec;
+SELECT ARRAY[1,2,3]::real[]::halfvec;
   array  
 ---------
  [1,2,3]
 (1 row)
 
-SELECT ARRAY[1,2,3]::float8[]::halfvec;
+SELECT ARRAY[1,2,3]::double precision[]::halfvec;
   array  
 ---------
  [1,2,3]
@@ -177,13 +177,13 @@ SELECT ARRAY[1.0,0.0,2.0,0.0,3.0,0.0]::sparsevec;
  {1:1,3:2,5:3}/6
 (1 row)
 
-SELECT ARRAY[1,0,2,0,3,0]::float4[]::sparsevec;
+SELECT ARRAY[1,0,2,0,3,0]::real[]::sparsevec;
       array      
 -----------------
  {1:1,3:2,5:3}/6
 (1 row)
 
-SELECT ARRAY[1,0,2,0,3,0]::float8[]::sparsevec;
+SELECT ARRAY[1,0,2,0,3,0]::double precision[]::sparsevec;
       array      
 -----------------
  {1:1,3:2,5:3}/6

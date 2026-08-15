@@ -2,8 +2,8 @@
 
 SELECT ARRAY[1,2,3]::vector;
 SELECT ARRAY[1.0,2.0,3.0]::vector;
-SELECT ARRAY[1,2,3]::float4[]::vector;
-SELECT ARRAY[1,2,3]::float8[]::vector;
+SELECT ARRAY[1,2,3]::real[]::vector;
+SELECT ARRAY[1,2,3]::double precision[]::vector;
 SELECT ARRAY[1,2,3]::numeric[]::vector;
 
 SELECT '{1,2,3}'::real[]::vector;
@@ -26,8 +26,8 @@ SELECT '{1e-46,-1e-46}'::double precision[]::vector;
 
 SELECT ARRAY[1,2,3]::halfvec;
 SELECT ARRAY[1.0,2.0,3.0]::halfvec;
-SELECT ARRAY[1,2,3]::float4[]::halfvec;
-SELECT ARRAY[1,2,3]::float8[]::halfvec;
+SELECT ARRAY[1,2,3]::real[]::halfvec;
+SELECT ARRAY[1,2,3]::double precision[]::halfvec;
 SELECT ARRAY[1,2,3]::numeric[]::halfvec;
 
 SELECT '{1,2,3}'::real[]::halfvec;
@@ -52,8 +52,8 @@ SELECT '{1e-46,-1e-46}'::double precision[]::halfvec;
 
 SELECT ARRAY[1,0,2,0,3,0]::sparsevec;
 SELECT ARRAY[1.0,0.0,2.0,0.0,3.0,0.0]::sparsevec;
-SELECT ARRAY[1,0,2,0,3,0]::float4[]::sparsevec;
-SELECT ARRAY[1,0,2,0,3,0]::float8[]::sparsevec;
+SELECT ARRAY[1,0,2,0,3,0]::real[]::sparsevec;
+SELECT ARRAY[1,0,2,0,3,0]::double precision[]::sparsevec;
 SELECT ARRAY[1,0,2,0,3,0]::numeric[]::sparsevec;
 
 SELECT '{1,0,2,0,3,0}'::real[]::sparsevec;
