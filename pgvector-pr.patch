@@ -1,0 +1,64 @@
+diff --git a/Dockerfile b/Dockerfile
+index 84f0069..9c16374 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,23 +1,40 @@
+ # syntax=docker/dockerfile:1
+ 
+-ARG PG_MAJOR=17
+-ARG DEBIAN_CODENAME=bookworm
+-FROM postgres:$PG_MAJOR-$DEBIAN_CODENAME
+-ARG PG_MAJOR
+-
+-ADD https://github.com/pgvector/pgvector.git#v0.8.6 /tmp/pgvector
++############################
++# Builder
++############################
++FROM postgres:18-bookworm AS builder
+ 
+ RUN apt-get update && \
+-		apt-mark hold locales && \
+-		apt-get install -y --no-install-recommends build-essential postgresql-server-dev-$PG_MAJOR && \
+-		cd /tmp/pgvector && \
+-		make clean && \
+-		make OPTFLAGS="" && \
+-		make install && \
+-		mkdir /usr/share/doc/pgvector && \
+-		cp LICENSE README.md /usr/share/doc/pgvector && \
+-		rm -r /tmp/pgvector && \
+-		apt-get remove -y build-essential postgresql-server-dev-$PG_MAJOR && \
+-		apt-get autoremove -y && \
+-		apt-mark unhold locales && \
+-		rm -rf /var/lib/apt/lists/*
++    apt-get install -y --no-install-recommends \
++        build-essential \
++        git \
++        ca-certificates \
++        postgresql-server-dev-18 && \
++    update-ca-certificates && \
++    rm -rf /var/lib/apt/lists/*
++
++ADD https://github.com/pgvector/pgvector.git#v0.8.5 /tmp/pgvector
++
++WORKDIR /tmp/pgvector
++
++RUN make clean && \
++    make OPTFLAGS="" && \
++    make install DESTDIR=/tmp/install
++
++############################
++# Runtime
++############################
++FROM registry.redhat.io/rhel9/postgresql-18:9.8-1784150165
++
++USER root
++
++COPY --from=builder /tmp/install/ /
++
++# OpenShift compatibility
++RUN mkdir -p /var/lib/pgsql/data /var/run/postgresql && \
++    chmod -R g=u /var/lib/pgsql /var/run/postgresql && \
++    chmod g=u /etc/passwd || true
++
++USER 26
++
