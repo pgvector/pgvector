@@ -723,7 +723,7 @@ To speed up queries without an index, increase `max_parallel_workers_per_gather`
 SET max_parallel_workers_per_gather = 4;
 ```
 
-If vectors are normalized to length 1 (like [OpenAI embeddings](https://platform.openai.com/docs/guides/embeddings/which-distance-function-should-i-use)), use inner product for best performance.
+If vectors are normalized to length 1 (like [OpenAI embeddings](https://platform.openai.com/docs/guides/embeddings#which-distance-function-should-i-use)), use inner product for best performance.
 
 ```tsql
 SELECT * FROM items ORDER BY embedding <#> '[3,1,2]' LIMIT 5;
@@ -1292,7 +1292,7 @@ Thanks to:
 - [Using the Triangle Inequality to Accelerate k-means](https://cdn.aaai.org/ICML/2003/ICML03-022.pdf)
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
-- [Efficient and Robust Approximate Nearest Neighbor Search using Hierarchical Navigable Small World Graphs](https://arxiv.org/ftp/arxiv/papers/1603/1603.09320.pdf)
+- [Efficient and Robust Approximate Nearest Neighbor Search using Hierarchical Navigable Small World Graphs](https://arxiv.org/pdf/1603.09320)
 
 ## History
 
