@@ -246,7 +246,15 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 {
 	HnswElement element = HnswAlloc(allocator, sizeof(HnswElementData));
 
-	int			level = (int) (-log(RandomDouble()) * ml);
+	double		uniform;
+	int			level;
+
+	/* RandomDouble() can return zero on supported PostgreSQL versions. */
+	do
+		uniform = RandomDouble();
+	while (uniform == 0.0);
+
+	level = (int) (-log(uniform) * ml);
 
 	/* Cap level */
 	if (level > maxLevel)
