@@ -1,5 +1,7 @@
 # pgvector
 
+[![Lintspace Score](https://lintspace.com/api/badge/52f7c40c-b6e3-43ad-9c17-d20ba6900f43.svg)](https://lintspace.com/verdict/52f7c40c-b6e3-43ad-9c17-d20ba6900f43)
+
 Open-source vector similarity search for Postgres
 
 Store your vectors with the rest of your data. Supports:
