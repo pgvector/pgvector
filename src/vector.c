@@ -646,6 +646,37 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) -VectorInnerProduct(a->dim, a->x, b->x));
 }
 
+/*
+ * Task 2 O1: C-level kernels exported for the Ivfflat scan fast path.
+ *
+ * These bypass fmgr (FunctionCall2Coll), argument Datum packaging, NULL
+ * checks and per-tuple detoasting for the hot scan loop. They take
+ * (dim, ax, bx) rather than (Vector *, Vector *) because index tuples store
+ * small vectors with a 1-byte short varlena header - the caller resolves
+ * the parts with IvfflatVectorParts() in src/ivfscan.c.
+ *
+ * Result semantics (must match the opclass distance proc exactly):
+ *   - ivfflat l2_ops: FUNCTION 1 is vector_l2_squared_distance, so the
+ *     sort key is the SQUARED L2 distance. sqrt() is monotonic, so
+ *     skipping it preserves the ordering and saves one sqrt per tuple.
+ *   - ivfflat ip_ops: FUNCTION 1 is vector_negative_inner_product.
+ *   - ivfflat cosine_ops: FUNCTION 1 is also vector_negative_inner_product;
+ *     the norm proc normalizes both the indexed entries and the scan value,
+ *     so -dot orders identically to cosine distance 1 - dot. One kernel
+ *     therefore serves both opclasses bit-for-bit identically to fmgr.
+ */
+FUNCTION_PREFIX double
+IvfflatFastL2SquaredDistance(int dim, const float *ax, const float *bx)
+{
+	return (double) VectorL2SquaredDistance(dim, (float *) ax, (float *) bx);
+}
+
+FUNCTION_PREFIX double
+IvfflatFastNegInnerProduct(int dim, const float *ax, const float *bx)
+{
+	return (double) -VectorInnerProduct(dim, (float *) ax, (float *) bx);
+}
+
 VECTOR_TARGET_CLONES static double
 VectorCosineSimilarity(int dim, float *ax, float *bx)
 {

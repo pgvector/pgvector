@@ -10,6 +10,7 @@
 #include "nodes/execnodes.h"
 #include "port.h"				/* for random() */
 #include "storage/condition_variable.h"
+#include "storage/itemptr.h"
 #include "utils/sampling.h"
 #include "utils/tuplesort.h"
 #include "vector.h"
@@ -283,6 +284,19 @@ typedef struct IvfflatScanList
 	double		distance;
 }			IvfflatScanList;
 
+/*
+ * Task 2 O2: scan candidate for the fast path. Lightweight replacement for
+ * the per-tuple TupleTableSlot + tuplesort machinery: one double plus the
+ * heap TID, 16 bytes.
+ */
+typedef struct IvfflatCandData
+{
+	double		distance;
+	ItemPointerData tid;
+}			IvfflatCandData;
+
+typedef IvfflatCandData * IvfflatCand;
+
 typedef struct IvfflatScanOpaqueData
 {
 	const		IvfflatTypeInfo *typeInfo;
@@ -305,6 +319,27 @@ typedef struct IvfflatScanOpaqueData
 	FmgrInfo   *normprocinfo;
 	Oid			collation;
 	Datum		(*distfunc) (FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2);
+
+	/* Task 2 fast path: kernel dispatch + candidate array */
+	bool		fastPath;
+
+	/*
+	 * The kernel takes (dim, ax, bx) rather than (Vector *, Vector *) because
+	 * index tuples store small vectors with a 1-byte short varlena header, so
+	 * the Vector struct layout cannot be assumed for index entries. See
+	 * IvfflatVectorParts() in src/ivfscan.c.
+	 */
+	double		(*kernel) (int dim, const float *ax, const float *bx);
+
+	/* Scan (query) vector parts, resolved once per scan in GetScanValue */
+	int			qdim;
+	const float *qx;
+
+	IvfflatCand cands;
+	int			candCount;
+	int			candCapacity;
+	int			candMax;
+	int			emitIndex;
 
 	/* Lists */
 	pairingheap *listQueue;
