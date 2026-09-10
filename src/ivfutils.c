@@ -135,10 +135,14 @@ IvfflatCheckMemoryUsage(Size totalSize)
 Buffer
 IvfflatNewBuffer(Relation index, ForkNumber forkNum)
 {
+#if PG_VERSION_NUM >= 160000
+	return ExtendBufferedRel(BMR_REL(index), forkNum, NULL, EB_LOCK_FIRST | EB_SKIP_EXTENSION_LOCK);
+#else
 	Buffer		buf = ReadBufferExtended(index, forkNum, P_NEW, RBM_NORMAL, NULL);
 
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 	return buf;
+#endif
 }
 
 /*
