@@ -96,7 +96,14 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			else if (pageFree >= etupSize)
 				npageFree += pageFree - etupSize;
 
-			/* Keep track of first page where element tuple fits */
+			/*
+			 * Keep track of first page where element tuple fits
+			 *
+			 * Latching a page before the size check below points insertPage at
+			 * a freed slot that may be too small to ever hold the element. With
+			 * variable-size types, later inserts then restart their walk there
+			 * and scan to the end of the index.
+			 */
 			if (!BlockNumberIsValid(*newInsertPage) && pageFree >= etupSize)
 				*newInsertPage = elementPage;
 
