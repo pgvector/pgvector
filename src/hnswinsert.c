@@ -65,9 +65,6 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			Size		pageFree;
 			Size		npageFree;
 
-			if (!BlockNumberIsValid(*newInsertPage))
-				*newInsertPage = elementPage;
-
 			if (neighborPage == elementPage)
 			{
 				*nbuf = buf;
@@ -98,6 +95,10 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 				npageFree += PageGetExactFreeSpace(*npage);
 			else if (pageFree >= etupSize)
 				npageFree += pageFree - etupSize;
+
+			/* Keep track of first page where element tuple fits */
+			if (!BlockNumberIsValid(*newInsertPage) && pageFree >= etupSize)
+				*newInsertPage = elementPage;
 
 			/* Check for space */
 			if (pageFree >= etupSize && npageFree >= ntupSize)
