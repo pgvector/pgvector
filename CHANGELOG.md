@@ -1,5 +1,6 @@
 ## 0.8.7 (unreleased)
 
+- Added `vector_dims` for `sparsevec`
 - Fixed error with `avg` aggregate when no matching rows
 
 ## 0.8.6 (2026-07-29)

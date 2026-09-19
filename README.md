@@ -1072,6 +1072,7 @@ l1_distance(sparsevec, sparsevec) → double precision | taxicab distance | 0.7.
 l2_distance(sparsevec, sparsevec) → double precision | Euclidean distance | 0.7.0
 l2_norm(sparsevec) → double precision | Euclidean norm | 0.7.0
 l2_normalize(sparsevec) → sparsevec | normalize with Euclidean norm | 0.7.0
+vector_dims(sparsevec) → integer | number of dimensions | 0.8.7
 
 ## Installation Notes - Linux and Mac
 
