@@ -32,7 +32,7 @@ PKGLIBDIR = $(PGROOT)\lib
 SHAREDIR = $(PGROOT)\share
 
 # For Postgres 19+
-!if exists("$(INCLUDEDIR_SERVER)\catalog\pg_propgraph_property.h")
+!if exists("$(INCLUDEDIR_SERVER)\optimizer\extendplan.h")
 PG_CFLAGS = $(PG_CFLAGS) /std:c11
 !endif
 
