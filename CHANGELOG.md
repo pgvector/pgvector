@@ -1,6 +1,7 @@
 ## 0.8.7 (unreleased)
 
 - Fixed error with `avg` aggregate when no matching rows
+- Fixed HNSW and IVFFlat indexes being used for queries without `LIMIT` - [more info](https://github.com/pgvector/pgvector/issues/846)
 
 ## 0.8.6 (2026-07-29)
 
