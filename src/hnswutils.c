@@ -902,6 +902,23 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		else
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
 
+		/*
+		 * The block number of every unvisited neighbor is known at this point,
+		 * but the loop below reads them one at a time, waiting on each. Issue
+		 * the reads up front so they overlap; each HnswLoadElementImpl below
+		 * then finds its page resident, or already in flight.
+		 *
+		 * This is a hint and not a read: it takes no pin and no lock, so there
+		 * is nothing to release and no way for it to change what the search
+		 * visits. A block already in shared buffers costs a lookup and no more.
+		 */
+		if (!inMemory)
+		{
+			for (int i = 0; i < unvisitedLength; i++)
+				PrefetchBuffer(index, MAIN_FORKNUM,
+							   ItemPointerGetBlockNumber(&unvisited[i].indextid));
+		}
+
 		/* OK to count elements instead of tuples */
 		if (tuples != NULL)
 			(*tuples) += unvisitedLength;
