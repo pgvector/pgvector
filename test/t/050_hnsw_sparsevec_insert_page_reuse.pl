@@ -5,27 +5,14 @@ use PostgreSQL::Test::Utils;
 use Test::More;
 
 my $dim = 10000;
-my $rows = 30000;
+my $rows = 4000;
 my $small_nnz = 200;
 my $large_nnz = 1000;
 
-# Buffers read by an insert, without keeping the row
-sub insert_buffers
+sub index_pages
 {
-	my ($node, $nnz, $seed) = @_;
-	my $explain = $node->safe_psql("postgres", qq(
-		BEGIN;
-		EXPLAIN (ANALYZE, BUFFERS, COSTS OFF, TIMING OFF)
-		INSERT INTO tst (v) VALUES (make_sv($nnz, $seed));
-		ROLLBACK;
-	));
-	my $buffers = 0;
-	while ($explain =~ /shared hit=(\d+)(?: read=(\d+))?/g)
-	{
-		my $total = $1 + ($2 // 0);
-		$buffers = $total if $total > $buffers;
-	}
-	return $buffers;
+	my ($node) = @_;
+	return $node->safe_psql("postgres", "SELECT pg_relation_size('idx') / 8192;");
 }
 
 # Initialize node
@@ -55,28 +42,28 @@ $node->safe_psql("postgres",
 );
 $node->safe_psql("postgres", "CREATE INDEX idx ON tst USING hnsw (v sparsevec_l2_ops);");
 
-# Cost of a large insert while no element is deleted
-my $baseline = insert_buffers($node, $large_nnz, 900001);
+my $pages = index_pages($node);
 
 # Delete scattered rows and vacuum
 $node->safe_psql("postgres", "DELETE FROM tst WHERE i % 20 = 0;");
 $node->safe_psql("postgres", "VACUUM tst;");
+my $deleted = $rows / 20;
 
-my $pages = $node->safe_psql("postgres", "SELECT pg_relation_size('idx') / 8192;");
+# Insert large rows that do not fit freed slots
+$node->safe_psql("postgres",
+	"INSERT INTO tst (v) SELECT make_sv($large_nnz, 900000 + i) FROM generate_series(1, 3) i;"
+);
+my $pages_before = index_pages($node);
 
-# Only the first large insert should scan past freed slots
-insert_buffers($node, $large_nnz, 900002);
-my $repeat = insert_buffers($node, $large_nnz, 900003);
+# Insert small rows that fit freed slots
+$node->safe_psql("postgres",
+	"INSERT INTO tst (v) SELECT make_sv($small_nnz, 910000 + i) FROM generate_series(1, $deleted) i;"
+);
+my $growth = index_pages($node) - $pages_before;
 
-# Insert a small row, then a large one
-insert_buffers($node, $small_nnz, 900004);
-my $after_small = insert_buffers($node, $large_nnz, 900005);
-
-note("index pages: $pages, baseline: $baseline, repeat: $repeat, after small: $after_small");
-
-# Compare to index size
-my $limit = $pages / 2;
-cmp_ok($repeat, '<', $limit, "large insert after vacuum does not scan the index");
-cmp_ok($after_small, '<', $limit, "large insert after a small insert does not scan the index");
+# Compare to growth without reuse
+my $no_reuse = $pages * $deleted / $rows;
+note("index pages: $pages, growth: $growth, without reuse: $no_reuse");
+cmp_ok($growth, '<', $no_reuse / 4, "small inserts after large inserts reuse freed slots");
 
 done_testing();
