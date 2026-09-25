@@ -15,6 +15,8 @@
 #include "varatt.h"
 #endif
 
+#define HNSW_MAX_UNFIT_PAGES 3
+
 /*
  * Get the insert page
  */
@@ -39,13 +41,42 @@ GetInsertPage(Relation index)
 }
 
 /*
+ * Get the last page if it is initialized
+ */
+static BlockNumber
+GetLastPage(Relation index)
+{
+	BlockNumber lastPage;
+	Buffer		buf;
+	bool		isNew;
+
+	/* New pages are locked before the extension lock is released */
+	LockRelationForExtension(index, ExclusiveLock);
+	lastPage = RelationGetNumberOfBlocks(index) - 1;
+	UnlockRelationForExtension(index, ExclusiveLock);
+
+	/* Skip new page since it is not linked yet */
+	buf = ReadBuffer(index, lastPage);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	isNew = PageIsNew(BufferGetPage(buf));
+	UnlockReleaseBuffer(buf);
+
+	if (isNew)
+		return InvalidBlockNumber;
+
+	return lastPage;
+}
+
+/*
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage, uint8 *tupleVersion)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage, int *unfitPages, uint8 *tupleVersion)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
+	bool		fits = false;
+	bool		unfit = false;
 
 	for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 	{
@@ -64,9 +95,6 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			ItemId		nitemid;
 			Size		pageFree;
 			Size		npageFree;
-
-			if (!BlockNumberIsValid(*newInsertPage))
-				*newInsertPage = elementPage;
 
 			if (neighborPage == elementPage)
 			{
@@ -99,6 +127,16 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			else if (pageFree >= etupSize)
 				npageFree += pageFree - etupSize;
 
+			/* Keep track of first page where element can fit */
+			if (pageFree >= etupSize)
+			{
+				if (!BlockNumberIsValid(*newInsertPage))
+					*newInsertPage = elementPage;
+				fits = true;
+			}
+			else
+				unfit = true;
+
 			/* Check for space */
 			if (pageFree >= etupSize && npageFree >= ntupSize)
 			{
@@ -111,6 +149,10 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 				UnlockReleaseBuffer(*nbuf);
 		}
 	}
+
+	/* Count pages with deleted slots too small for element */
+	if (unfit && !fits)
+		(*unfitPages)++;
 
 	return false;
 }
@@ -160,6 +202,8 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	OffsetNumber freeOffno = InvalidOffsetNumber;
 	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
 	BlockNumber newInsertPage = InvalidBlockNumber;
+	int			unfitPages = 0;
+	bool		jumped = false;
 	uint8		tupleVersion;
 	char	   *base = NULL;
 
@@ -210,7 +254,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		/* Next, try space from a deleted element */
-		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage, &tupleVersion))
+		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage, &unfitPages, &tupleVersion))
 		{
 			if (nbuf != buf)
 			{
@@ -243,6 +287,21 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 			if (!building)
 				GenericXLogAbort(state);
 			UnlockReleaseBuffer(buf);
+
+			/* Jump to last page after a few pages with slots too small */
+			if (!jumped && unfitPages >= HNSW_MAX_UNFIT_PAGES)
+			{
+				BlockNumber lastPage = GetLastPage(index);
+
+				if (BlockNumberIsValid(lastPage) && lastPage > currentPage)
+					currentPage = lastPage;
+
+				/* Keep insert page so smaller elements can reuse slots */
+				if (!BlockNumberIsValid(newInsertPage))
+					newInsertPage = insertPage;
+
+				jumped = true;
+			}
 		}
 		else
 		{
