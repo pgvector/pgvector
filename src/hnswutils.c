@@ -862,7 +862,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 	if (!inMemory)
 	{
-		int			flags = READ_STREAM_FULL;
+		int			flags = READ_STREAM_DEFAULT;
 
 		if (maintenance)
 			flags |= READ_STREAM_MAINTENANCE;
