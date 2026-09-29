@@ -318,9 +318,9 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
-	so->listPages = palloc_array_checked(BlockNumber, (Size) maxProbes);
+	so->listPages = palloc_array_checked(BlockNumber, maxProbes);
 	so->listIndex = 0;
-	so->lists = palloc_array_checked(IvfflatScanList, (Size) maxProbes);
+	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 
 	MemoryContextSwitchTo(oldCtx);
 
@@ -348,10 +348,10 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 	}
 
 	if (keys && scan->numberOfKeys > 0)
-		memmove(scan->keyData, keys, (Size) scan->numberOfKeys * sizeof(ScanKeyData));
+		memmove(scan->keyData, keys, scan->numberOfKeys * sizeof(ScanKeyData));
 
 	if (orderbys && scan->numberOfOrderBys > 0)
-		memmove(scan->orderByData, orderbys, (Size) scan->numberOfOrderBys * sizeof(ScanKeyData));
+		memmove(scan->orderByData, orderbys, scan->numberOfOrderBys * sizeof(ScanKeyData));
 }
 
 /*

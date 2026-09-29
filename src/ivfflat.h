@@ -315,7 +315,7 @@ typedef struct IvfflatScanOpaqueData
 
 typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
 
-#define VECTOR_ARRAY_SIZE(_length, _size) add_size(sizeof(VectorArrayData), mul_size((Size) (_length), MAXALIGN(_size)))
+#define VECTOR_ARRAY_SIZE(_length, _size) add_size(sizeof(VectorArrayData), mul_size(_length, MAXALIGN(_size)))
 
 /* Use functions instead of macros to avoid double evaluation */
 
@@ -326,7 +326,7 @@ VectorArrayGet(VectorArray arr, int offset)
 	if (offset < 0 || offset >= arr->maxlen)
 		elog(ERROR, "index out of bounds");
 
-	return ((char *) arr->items) + ((Size) offset * arr->itemsize);
+	return ((char *) arr->items) + (offset * arr->itemsize);
 }
 
 static inline void

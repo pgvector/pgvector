@@ -37,7 +37,7 @@ VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 	res->maxlen = maxlen;
 	res->dim = dimensions;
 	res->itemsize = itemsize;
-	res->items = palloc_extended(mul_size((Size) maxlen, itemsize), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
+	res->items = palloc_extended(mul_size(maxlen, itemsize), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
 	return res;
 }
 
@@ -295,7 +295,7 @@ HalfvecItemSize(int dimensions)
 static Size
 BitItemSize(int dimensions)
 {
-	return VARBITTOTALLEN((Size) dimensions);
+	return VARBITTOTALLEN(dimensions);
 }
 
 static void
@@ -304,7 +304,7 @@ VectorUpdateCenter(Pointer v, int dimensions, float *x)
 	Vector	   *vec = (Vector *) v;
 
 	SET_VARSIZE(vec, VECTOR_SIZE(dimensions));
-	vec->dim = (int16) dimensions;
+	vec->dim = dimensions;
 
 	for (int i = 0; i < dimensions; i++)
 		vec->x[i] = x[i];
@@ -316,7 +316,7 @@ HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 	HalfVector *vec = (HalfVector *) v;
 
 	SET_VARSIZE(vec, HALFVEC_SIZE(dimensions));
-	vec->dim = (int16) dimensions;
+	vec->dim = dimensions;
 
 	for (int i = 0; i < dimensions; i++)
 		vec->x[i] = Float4ToHalfUnchecked(x[i]);
@@ -328,7 +328,7 @@ BitUpdateCenter(Pointer v, int dimensions, float *x)
 	VarBit	   *vec = (VarBit *) v;
 	unsigned char *nx = VARBITS(vec);
 
-	SET_VARSIZE(vec, VARBITTOTALLEN((Size) dimensions));
+	SET_VARSIZE(vec, VARBITTOTALLEN(dimensions));
 	VARBITLEN(vec) = dimensions;
 
 	for (uint32 i = 0; i < VARBITBYTES(vec); i++)

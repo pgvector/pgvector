@@ -102,15 +102,15 @@ CreateMetaPage(HnswBuildState * buildstate)
 	metap = HnswPageGetMeta(page);
 	metap->magicNumber = HNSW_MAGIC_NUMBER;
 	metap->version = HNSW_VERSION;
-	metap->dimensions = (uint32) buildstate->dimensions;
-	metap->m = (uint16) buildstate->m;
-	metap->efConstruction = (uint16) buildstate->efConstruction;
+	metap->dimensions = buildstate->dimensions;
+	metap->m = buildstate->m;
+	metap->efConstruction = buildstate->efConstruction;
 	metap->entryBlkno = InvalidBlockNumber;
 	metap->entryOffno = InvalidOffsetNumber;
 	metap->entryLevel = -1;
 	metap->insertPage = InvalidBlockNumber;
 	((PageHeader) page)->pd_lower =
-		(LocationIndex) (((char *) metap + sizeof(HnswMetaPageData)) - (char *) page);
+		((char *) metap + sizeof(HnswMetaPageData)) - (char *) page;
 
 	MarkBufferDirty(buf);
 	UnlockReleaseBuffer(buf);
@@ -599,7 +599,7 @@ BuildCallback(Relation index, ItemPointer tid, Datum *values,
 	{
 		/* Update progress */
 		SpinLockAcquire(&graph->lock);
-		pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE, (int64) ++graph->indtuples);
+		pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE, ++graph->indtuples);
 		SpinLockRelease(&graph->lock);
 	}
 
@@ -721,7 +721,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	/* Get support functions */
 	HnswInitSupport(&buildstate->support, index);
 
-	InitGraph(&buildstate->graphData, NULL, mul_size((Size) maintenance_work_mem, 1024));
+	InitGraph(&buildstate->graphData, NULL, mul_size(maintenance_work_mem, 1024));
 	buildstate->graph = &buildstate->graphData;
 	buildstate->ml = HnswGetMl(buildstate->m);
 	buildstate->maxLevel = HnswGetMaxLevel(buildstate->m);
@@ -958,7 +958,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Leave space for other objects in shared memory */
 	/* Docker has a default limit of 64 MB for shm_size */
 	/* which happens to be the default value of maintenance_work_mem */
-	esthnswarea = mul_size((Size) maintenance_work_mem, 1024);
+	esthnswarea = mul_size(maintenance_work_mem, 1024);
 	estother = 3 * 1024 * 1024;
 	if (esthnswarea > estother)
 		esthnswarea -= estother;

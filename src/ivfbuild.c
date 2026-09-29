@@ -280,7 +280,7 @@ InsertTuples(Relation index, IvfflatBuildState * buildstate, ForkNumber forkNum)
 
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_SUBPHASE, PROGRESS_IVFFLAT_PHASE_LOAD);
 
-	pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_TOTAL, (int64) buildstate->indtuples);
+	pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_TOTAL, buildstate->indtuples);
 
 	GetNextTuple(buildstate->sortstate, tupdesc, slot, &itup, &list);
 
@@ -396,7 +396,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->itemsize);
 
 	/* TODO Move allocation to page creation */
-	buildstate->listInfo = palloc_array_checked(ListInfo, (Size) buildstate->lists);
+	buildstate->listInfo = palloc_array_checked(ListInfo, buildstate->lists);
 
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Ivfflat build temporary context",
@@ -452,7 +452,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 			numSamples = 10000;
 
 		/* Save memory since will not have more than max tuples */
-		numSamples = Max((int) Min(numSamples, maxTuples), 1);
+		numSamples = Max(Min(numSamples, maxTuples), 1);
 	}
 
 	/* Sample rows */
@@ -497,10 +497,10 @@ CreateMetaPage(Relation index, int dimensions, int lists, ForkNumber forkNum)
 	metap = IvfflatPageGetMeta(page);
 	metap->magicNumber = IVFFLAT_MAGIC_NUMBER;
 	metap->version = IVFFLAT_VERSION;
-	metap->dimensions = (uint16) dimensions;
-	metap->lists = (uint16) lists;
+	metap->dimensions = dimensions;
+	metap->lists = lists;
 	((PageHeader) page)->pd_lower =
-		(LocationIndex) (((char *) metap + sizeof(IvfflatMetaPageData)) - (char *) page);
+		((char *) metap + sizeof(IvfflatMetaPageData)) - (char *) page;
 
 	IvfflatCommitBuffer(buf, state);
 }
@@ -671,7 +671,7 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 	indexInfo = BuildIndexInfo(ivfspool->index);
 	indexInfo->ii_Concurrent = ivfshared->isconcurrent;
 	InitBuildState(&buildstate, ivfspool->heap, ivfspool->index, indexInfo);
-	memcpy(buildstate.centers->items, ivfcenters, mul_size(buildstate.centers->itemsize, (Size) buildstate.centers->maxlen));
+	memcpy(buildstate.centers->items, ivfcenters, mul_size(buildstate.centers->itemsize, buildstate.centers->maxlen));
 	buildstate.centers->length = buildstate.centers->maxlen;
 	ivfspool->sortstate = InitBuildSortState(buildstate.sortdesc, sortmem, coordinate);
 	buildstate.sortstate = ivfspool->sortstate;
@@ -864,7 +864,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	shm_toc_estimate_chunk(&pcxt->estimator, estivfshared);
 	estsort = tuplesort_estimate_shared(scantuplesortstates);
 	shm_toc_estimate_chunk(&pcxt->estimator, estsort);
-	estcenters = mul_size(buildstate->centers->itemsize, (Size) buildstate->centers->maxlen);
+	estcenters = mul_size(buildstate->centers->itemsize, buildstate->centers->maxlen);
 	shm_toc_estimate_chunk(&pcxt->estimator, estcenters);
 	shm_toc_estimate_keys(&pcxt->estimator, 3);
 

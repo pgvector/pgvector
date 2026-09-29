@@ -34,7 +34,7 @@
 #endif
 
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
-#define CreateStateDatums(dim) palloc_array_checked(Datum, (Size) ((dim) + 1))
+#define CreateStateDatums(dim) palloc_array_checked(Datum, (dim) + 1)
 
 /*
  * Get a half from a message buffer
@@ -48,7 +48,7 @@ pq_getmsghalf(StringInfo msg)
 		uint16		i;
 	}			swap;
 
-	swap.i = (uint16) pq_getmsgint(msg, 2);
+	swap.i = pq_getmsgint(msg, 2);
 	return swap.h;
 }
 
@@ -138,7 +138,7 @@ InitHalfVector(int dim)
 	size = HALFVEC_SIZE(dim);
 	result = (HalfVector *) palloc0(size);
 	SET_VARSIZE(result, size);
-	result->dim = (int16) dim;
+	result->dim = dim;
 
 	return result;
 }
@@ -242,7 +242,7 @@ halfvec_in(PG_FUNCTION_ARGS)
 		if ((errno == ERANGE && isinf(val)) || (HalfIsInf(x[dim]) && !isinf(val)))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("\"%s\" is out of range for type halfvec", pnstrdup(pt, (Size) (stringEnd - pt)))));
+					 errmsg("\"%s\" is out of range for type halfvec", pnstrdup(pt, stringEnd - pt))));
 
 		CheckElement(x[dim]);
 		dim++;
@@ -310,7 +310,7 @@ halfvec_out(PG_FUNCTION_ARGS)
 	 *
 	 * 3 bytes for [, ], and \0
 	 */
-	buf = (char *) palloc(add_size(mul_size(FLOAT_SHORTEST_DECIMAL_LEN, (Size) dim), 3));
+	buf = (char *) palloc(add_size(mul_size(FLOAT_SHORTEST_DECIMAL_LEN, dim), 3));
 	ptr = buf;
 
 	AppendChar(ptr, '[');
@@ -375,11 +375,11 @@ halfvec_recv(PG_FUNCTION_ARGS)
 	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
 	int32		typmod = PG_GETARG_INT32(2);
 	HalfVector *result;
-	int			dim;
-	int			unused;
+	int16		dim;
+	int16		unused;
 
-	dim = (int) pq_getmsgint(buf, sizeof(int16));
-	unused = (int) pq_getmsgint(buf, sizeof(int16));
+	dim = pq_getmsgint(buf, sizeof(int16));
+	unused = pq_getmsgint(buf, sizeof(int16));
 
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
@@ -410,8 +410,8 @@ halfvec_send(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint16(&buf, (uint16) vec->dim);
-	pq_sendint16(&buf, (uint16) vec->unused);
+	pq_sendint16(&buf, vec->dim);
+	pq_sendint16(&buf, vec->unused);
 	for (int i = 0; i < vec->dim; i++)
 		pq_sendhalf(&buf, vec->x[i]);
 
@@ -471,12 +471,12 @@ array_to_halfvec(PG_FUNCTION_ARGS)
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = Float4ToHalf((float) DatumGetInt32(elemsp[i]));
+			result->x[i] = Float4ToHalf(DatumGetInt32(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = Float4ToHalf((float) DatumGetFloat8(elemsp[i]));
+			result->x[i] = Float4ToHalf(DatumGetFloat8(elemsp[i]));
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
@@ -519,7 +519,7 @@ halfvec_to_float4(PG_FUNCTION_ARGS)
 	Datum	   *datums;
 	ArrayType  *result;
 
-	datums = palloc_array_checked(Datum, (Size) vec->dim);
+	datums = palloc_array_checked(Datum, vec->dim);
 
 	for (int i = 0; i < vec->dim; i++)
 		datums[i] = Float4GetDatum(HalfToFloat4(vec->x[i]));
@@ -745,7 +745,7 @@ halfvec_l2_normalize(PG_FUNCTION_ARGS)
 	if (norm > 0)
 	{
 		for (int i = 0; i < a->dim; i++)
-			rx[i] = Float4ToHalfUnchecked((float) (HalfToFloat4(ax[i]) / norm));
+			rx[i] = Float4ToHalfUnchecked(HalfToFloat4(ax[i]) / norm);
 
 		/* Check for overflow */
 		for (int i = 0; i < a->dim; i++)
@@ -1186,7 +1186,7 @@ halfvec_avg(PG_FUNCTION_ARGS)
 	result = InitHalfVector(dim);
 	for (int i = 0; i < dim; i++)
 	{
-		result->x[i] = Float4ToHalf((float) (statevalues[i + 1] / n));
+		result->x[i] = Float4ToHalf(statevalues[i + 1] / n);
 		CheckElement(result->x[i]);
 	}
 

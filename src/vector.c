@@ -37,7 +37,7 @@
 #endif
 
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
-#define CreateStateDatums(dim) palloc_array_checked(Datum, (Size) ((dim) + 1))
+#define CreateStateDatums(dim) palloc_array_checked(Datum, (dim) + 1)
 
 #if defined(USE_TARGET_CLONES) && !defined(__FMA__)
 #define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma")))
@@ -134,7 +134,7 @@ InitVector(int dim)
 	size = VECTOR_SIZE(dim);
 	result = (Vector *) palloc0(size);
 	SET_VARSIZE(result, size);
-	result->dim = (int16) dim;
+	result->dim = dim;
 
 	return result;
 }
@@ -237,7 +237,7 @@ vector_in(PG_FUNCTION_ARGS)
 		if (errno == ERANGE && isinf(val))
 			ereport(ERROR,
 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-					 errmsg("\"%s\" is out of range for type vector", pnstrdup(pt, (Size) (stringEnd - pt)))));
+					 errmsg("\"%s\" is out of range for type vector", pnstrdup(pt, stringEnd - pt))));
 
 		CheckElement(val);
 		x[dim++] = val;
@@ -305,7 +305,7 @@ vector_out(PG_FUNCTION_ARGS)
 	 *
 	 * 3 bytes for [, ], and \0
 	 */
-	buf = (char *) palloc(add_size(mul_size(FLOAT_SHORTEST_DECIMAL_LEN, (Size) dim), 3));
+	buf = (char *) palloc(add_size(mul_size(FLOAT_SHORTEST_DECIMAL_LEN, dim), 3));
 	ptr = buf;
 
 	AppendChar(ptr, '[');
@@ -378,11 +378,11 @@ vector_recv(PG_FUNCTION_ARGS)
 	StringInfo	buf = (StringInfo) PG_GETARG_POINTER(0);
 	int32		typmod = PG_GETARG_INT32(2);
 	Vector	   *result;
-	int			dim;
-	int			unused;
+	int16		dim;
+	int16		unused;
 
-	dim = (int) pq_getmsgint(buf, sizeof(int16));
-	unused = (int) pq_getmsgint(buf, sizeof(int16));
+	dim = pq_getmsgint(buf, sizeof(int16));
+	unused = pq_getmsgint(buf, sizeof(int16));
 
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
@@ -413,8 +413,8 @@ vector_send(PG_FUNCTION_ARGS)
 	StringInfoData buf;
 
 	pq_begintypsend(&buf);
-	pq_sendint16(&buf, (uint16) vec->dim);
-	pq_sendint16(&buf, (uint16) vec->unused);
+	pq_sendint16(&buf, vec->dim);
+	pq_sendint16(&buf, vec->unused);
 	for (int i = 0; i < vec->dim; i++)
 		pq_sendfloat4(&buf, vec->x[i]);
 
@@ -474,12 +474,12 @@ array_to_vector(PG_FUNCTION_ARGS)
 	if (ARR_ELEMTYPE(array) == INT4OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = (float) DatumGetInt32(elemsp[i]);
+			result->x[i] = DatumGetInt32(elemsp[i]);
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT8OID)
 	{
 		for (int i = 0; i < nelemsp; i++)
-			result->x[i] = (float) DatumGetFloat8(elemsp[i]);
+			result->x[i] = DatumGetFloat8(elemsp[i]);
 	}
 	else if (ARR_ELEMTYPE(array) == FLOAT4OID)
 	{
@@ -522,7 +522,7 @@ vector_to_float4(PG_FUNCTION_ARGS)
 	Datum	   *datums;
 	ArrayType  *result;
 
-	datums = palloc_array_checked(Datum, (Size) vec->dim);
+	datums = palloc_array_checked(Datum, vec->dim);
 
 	for (int i = 0; i < vec->dim; i++)
 		datums[i] = Float4GetDatum(vec->x[i]);
@@ -805,7 +805,7 @@ l2_normalize(PG_FUNCTION_ARGS)
 	if (norm > 0)
 	{
 		for (int i = 0; i < a->dim; i++)
-			rx[i] = (float) (ax[i] / norm);
+			rx[i] = ax[i] / norm;
 
 		/* Check for overflow */
 		for (int i = 0; i < a->dim; i++)
@@ -1310,7 +1310,7 @@ vector_avg(PG_FUNCTION_ARGS)
 	result = InitVector(dim);
 	for (int i = 0; i < dim; i++)
 	{
-		result->x[i] = (float) (statevalues[i + 1] / n);
+		result->x[i] = statevalues[i + 1] / n;
 		CheckElement(result->x[i]);
 	}
 
