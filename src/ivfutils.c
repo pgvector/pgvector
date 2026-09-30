@@ -278,7 +278,6 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 
 PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
-PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
 
 static Size
 VectorItemSize(int dimensions)
