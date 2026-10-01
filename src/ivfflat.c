@@ -44,16 +44,16 @@ IvfflatInit(void)
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
-							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	DefineCustomEnumVariable("ivfflat.iterative_scan", "Sets the mode for iterative scans",
 							 NULL, &ivfflat_iterative_scan,
-							 IVFFLAT_ITERATIVE_SCAN_OFF, ivfflat_iterative_scan_options, PGC_USERSET, 0, NULL, NULL, NULL);
+							 IVFFLAT_ITERATIVE_SCAN_OFF, ivfflat_iterative_scan_options, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	/* If this is less than probes, probes is used */
 	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative scans",
 							NULL, &ivfflat_max_probes,
-							IVFFLAT_MAX_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+							IVFFLAT_MAX_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("ivfflat");
 }
