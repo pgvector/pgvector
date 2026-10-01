@@ -13,6 +13,7 @@
 #include "hnsw.h"
 #include "miscadmin.h"
 #include "nodes/pg_list.h"
+#include "optimizer/cost.h"
 #include "storage/lwlock.h"
 #include "utils/float.h"
 #include "utils/guc.h"
@@ -144,8 +145,12 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	double		spc_seq_page_cost;
 	Relation	index;
 
-	/* Never use index without order */
-	if (path->indexorderbys == NIL)
+	/*
+	 * Never use index without order, or when all tuples are needed and seq
+	 * scans are enabled, since scans return a limited number of tuples
+	 */
+	if (path->indexorderbys == NIL ||
+		(root->tuple_fraction <= 0 && enable_seqscan))
 	{
 		*indexStartupCost = get_float8_infinity();
 		*indexTotalCost = get_float8_infinity();
