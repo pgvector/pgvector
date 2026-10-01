@@ -1057,6 +1057,20 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Get the dimensions of a sparse vector
+ *
+ * TODO Add to SQL in 0.9.0
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_vector_dims);
+Datum
+sparsevec_vector_dims(PG_FUNCTION_ARGS)
+{
+	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
+
+	PG_RETURN_INT32(a->dim);
+}
+
+/*
  * Get the L2 norm of a sparse vector
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_l2_norm);

@@ -62,6 +62,9 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 	/* Detoast once for all calls */
 	Datum		value = PointerGetDatum(PG_DETOAST_DATUM(values[0]));
 
+	/* Check dimensions match index */
+	IvfflatCheckDim(buildstate->dimensions, buildstate->typeInfo, buildstate->collation, value);
+
 	/*
 	 * Check with KMEANS_NORM_PROC that the value can be normalized since
 	 * spherical distance function expects unit vectors
@@ -178,6 +181,9 @@ AddTupleToSort(ItemPointer tid, Datum *values, IvfflatBuildState * buildstate)
 
 		value = IvfflatNormValue(buildstate->typeInfo, buildstate->collation, value);
 	}
+
+	/* Check dimensions match index */
+	IvfflatCheckDim(buildstate->dimensions, buildstate->typeInfo, buildstate->collation, value);
 
 	/* Find the list that minimizes the distance */
 	for (int i = 0; i < centers->length; i++)

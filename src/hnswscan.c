@@ -31,12 +31,17 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	List	   *ep;
 	List	   *w;
 	int			m;
+	int			dimensions;
 	HnswElement entryPoint;
 	char	   *base = NULL;
 	HnswQuery  *q = &so->q;
 
-	/* Get m and entry point */
-	HnswGetMetaPageInfo(index, &m, &entryPoint);
+	/* Get m, dimensions, and entry point */
+	HnswGetMetaPageInfo(index, &m, &dimensions, &entryPoint);
+
+	/* Check dimensions match index */
+	if (DatumGetPointer(value) != NULL)
+		HnswCheckDim(dimensions, so->typeInfo, support->collation, value);
 
 	q->value = value;
 	so->m = m;

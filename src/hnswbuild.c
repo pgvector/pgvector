@@ -500,6 +500,9 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	if (!HnswFormIndexValue(&value, values, isnull, buildstate->typeInfo, support))
 		return false;
 
+	/* Check dimensions match index */
+	HnswCheckDim(buildstate->dimensions, buildstate->typeInfo, support->collation, value);
+
 	/* Get datum size */
 	valueSize = VARSIZE_ANY(DatumGetPointer(value));
 
@@ -514,7 +517,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 	{
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, buildstate->typeInfo, support, value, heaptid, true);
 	}
 
 	/*
@@ -546,7 +549,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid, Hn
 
 		LWLockRelease(flushLock);
 
-		return HnswInsertTupleOnDisk(index, support, value, heaptid, true);
+		return HnswInsertTupleOnDisk(index, buildstate->typeInfo, support, value, heaptid, true);
 	}
 
 	/* Ok, we can proceed to allocate the element */

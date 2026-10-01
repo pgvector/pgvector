@@ -188,10 +188,11 @@ typedef struct IvfflatLeader
 typedef struct IvfflatTypeInfo
 {
 	int			maxDimensions;
+	Datum		(*dimensions) (PG_FUNCTION_ARGS);
 	Datum		(*normalize) (PG_FUNCTION_ARGS);
 	Size		(*itemSize) (int dimensions);
 	void		(*updateCenter) (Pointer v, int dimensions, float *x);
-	void		(*sumCenter) (Pointer v, float *x);
+	void		(*sumCenter) (Pointer v, int dimensions, float *x);
 }			IvfflatTypeInfo;
 
 typedef struct IvfflatBuildState
@@ -359,6 +360,7 @@ Buffer		IvfflatNewBuffer(Relation index, ForkNumber forkNum);
 void		IvfflatInitPage(Buffer buf, Page page);
 void		IvfflatInitRegisterPage(Relation index, Buffer *buf, Page *page, GenericXLogState **state);
 void		IvfflatInit(void);
+void		IvfflatCheckDim(int expected, const IvfflatTypeInfo * typeInfo, Oid collation, Datum value);
 const		IvfflatTypeInfo *IvfflatGetTypeInfo(Relation index);
 PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 

@@ -13,6 +13,7 @@
 #include "sparsevec.h"
 #include "storage/bufmgr.h"
 #include "utils/datum.h"
+#include "utils/fmgrprotos.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
 #include "vector.h"
@@ -297,7 +298,7 @@ HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno)
  * Get the metapage info
  */
 void
-HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
+HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint)
 {
 	Buffer		buf;
 	Page		page;
@@ -313,6 +314,9 @@ HnswGetMetaPageInfo(Relation index, int *m, HnswElement * entryPoint)
 
 	if (m != NULL)
 		*m = metap->m;
+
+	if (dimensions != NULL)
+		*dimensions = metap->dimensions;
 
 	if (entryPoint != NULL)
 	{
@@ -336,7 +340,7 @@ HnswGetEntryPoint(Relation index)
 {
 	HnswElement entryPoint;
 
-	HnswGetMetaPageInfo(index, NULL, &entryPoint);
+	HnswGetMetaPageInfo(index, NULL, NULL, &entryPoint);
 
 	return entryPoint;
 }
@@ -1355,6 +1359,24 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	}
 }
 
+/*
+ * Check dimensions match index
+ */
+void
+HnswCheckDim(int expected, const HnswTypeInfo * typeInfo, Oid collation, Datum value)
+{
+	int32		dim = DatumGetInt32(DirectFunctionCall1Coll(typeInfo->dimensions, collation, value));
+
+	if (dim != expected)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("expected %d dimensions, not %d", expected, dim)));
+}
+
+PGDLLEXPORT Datum vector_dims(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum halfvec_vector_dims(PG_FUNCTION_ARGS);
+PGDLLEXPORT Datum sparsevec_vector_dims(PG_FUNCTION_ARGS);
+
 PGDLLEXPORT Datum l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum halfvec_l2_normalize(PG_FUNCTION_ARGS);
 PGDLLEXPORT Datum sparsevec_l2_normalize(PG_FUNCTION_ARGS);
@@ -1382,6 +1404,7 @@ HnswGetTypeInfo(Relation index)
 	{
 		static const HnswTypeInfo typeInfo = {
 			.maxDimensions = HNSW_MAX_DIM,
+			.dimensions = vector_dims,
 			.normalize = l2_normalize,
 			.checkValue = NULL
 		};
@@ -1398,6 +1421,7 @@ hnsw_halfvec_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = HNSW_MAX_DIM * 2,
+		.dimensions = halfvec_vector_dims,
 		.normalize = halfvec_l2_normalize,
 		.checkValue = NULL
 	};
@@ -1411,6 +1435,7 @@ hnsw_bit_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = HNSW_MAX_DIM * 32,
+		.dimensions = bitlength,
 		.normalize = NULL,
 		.checkValue = NULL
 	};
@@ -1424,6 +1449,7 @@ hnsw_sparsevec_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
 		.maxDimensions = SPARSEVEC_MAX_DIM,
+		.dimensions = sparsevec_vector_dims,
 		.normalize = sparsevec_l2_normalize,
 		.checkValue = SparsevecCheckValue
 	};

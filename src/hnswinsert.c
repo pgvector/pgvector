@@ -693,12 +693,13 @@ UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, in
  * Insert a tuple into the index
  */
 bool
-HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPointer heaptid, bool building)
+HnswInsertTupleOnDisk(Relation index, const HnswTypeInfo * typeInfo, HnswSupport * support, Datum value, ItemPointer heaptid, bool building)
 {
 	HnswElement entryPoint;
 	HnswElement element;
 	int			m;
 	int			efConstruction = HnswGetEfConstruction(index);
+	int			dimensions;
 	LOCKMODE	lockmode = ShareLock;
 	char	   *base = NULL;
 
@@ -709,8 +710,11 @@ HnswInsertTupleOnDisk(Relation index, HnswSupport * support, Datum value, ItemPo
 	 */
 	LockPage(index, HNSW_UPDATE_LOCK, lockmode);
 
-	/* Get m and entry point */
-	HnswGetMetaPageInfo(index, &m, &entryPoint);
+	/* Get m, dimensions, and entry point */
+	HnswGetMetaPageInfo(index, &m, &dimensions, &entryPoint);
+
+	/* Check dimensions match index */
+	HnswCheckDim(dimensions, typeInfo, support->collation, value);
 
 	/* Create an element */
 	element = HnswInitElement(base, heaptid, m, HnswGetMl(m), HnswGetMaxLevel(m), NULL);
@@ -758,7 +762,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid
 	if (!HnswFormIndexValue(&value, values, isnull, typeInfo, &support))
 		return;
 
-	HnswInsertTupleOnDisk(index, &support, value, heaptid, false);
+	HnswInsertTupleOnDisk(index, typeInfo, &support, value, heaptid, false);
 }
 
 /*

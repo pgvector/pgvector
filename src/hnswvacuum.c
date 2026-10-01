@@ -753,7 +753,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	HnswInitSupport(&vacuumstate->support, index);
 
 	/* Get m from metapage */
-	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL);
+	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL, NULL);
 
 	/* Create hash table */
 	vacuumstate->deleting = tidhash_create(CurrentMemoryContext, 256, NULL);

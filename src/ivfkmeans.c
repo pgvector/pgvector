@@ -155,7 +155,7 @@ SumCenters(VectorArray samples, float *agg, int *closestCenters, const IvfflatTy
 	{
 		float	   *x = agg + ((Size) closestCenters[i] * samples->dim);
 
-		typeInfo->sumCenter(VectorArrayGet(samples, i), x);
+		typeInfo->sumCenter(VectorArrayGet(samples, i), samples->dim, x);
 	}
 }
 
@@ -498,7 +498,7 @@ CheckElements(VectorArray centers, const IvfflatTypeInfo * typeInfo)
 			scratch[j] = 0;
 
 		/* /fp:fast may not propagate NaN with MSVC, but that's alright */
-		typeInfo->sumCenter(VectorArrayGet(centers, i), scratch);
+		typeInfo->sumCenter(VectorArrayGet(centers, i), centers->dim, scratch);
 
 		for (int j = 0; j < centers->dim; j++)
 		{

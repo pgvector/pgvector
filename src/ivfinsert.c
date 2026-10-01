@@ -73,6 +73,8 @@ static void
 InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 {
 	const		IvfflatTypeInfo *typeInfo = IvfflatGetTypeInfo(index);
+	Oid			collation = index->rd_indcollation[0];
+	int			dimensions;
 	IndexTuple	itup;
 	Datum		value;
 	FmgrInfo   *normprocinfo;
@@ -91,8 +93,6 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 	normprocinfo = IvfflatOptionalProcInfo(index, IVFFLAT_NORM_PROC);
 	if (normprocinfo != NULL)
 	{
-		Oid			collation = index->rd_indcollation[0];
-
 		if (!IvfflatCheckNorm(normprocinfo, collation, value))
 			return;
 
@@ -100,7 +100,10 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 	}
 
 	/* Ensure index is valid */
-	IvfflatGetMetaPageInfo(index, NULL, NULL);
+	IvfflatGetMetaPageInfo(index, NULL, &dimensions);
+
+	/* Check dimensions match index */
+	IvfflatCheckDim(dimensions, typeInfo, collation, value);
 
 	/* Find the insert page - sets the page and list info */
 	FindInsertPage(index, &value, &insertPage, &listInfo);

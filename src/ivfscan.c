@@ -227,6 +227,9 @@ GetScanValue(IndexScanDesc scan)
 
 			MemoryContextSwitchTo(oldCtx);
 		}
+
+		/* Check dimensions match index */
+		IvfflatCheckDim(so->dimensions, so->typeInfo, so->collation, value);
 	}
 
 	return value;
