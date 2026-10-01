@@ -46,7 +46,7 @@
 #endif
 
 #if PG_VERSION_NUM >= 180000
-PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.8.6");
+PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.8.7");
 #else
 PG_MODULE_MAGIC;
 #endif

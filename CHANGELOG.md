@@ -1,5 +1,6 @@
-## 0.8.7 (unreleased)
+## 0.8.7 (2026-10-01)
 
+- Fixed buffer overflow with IVFFlat index build - [more info](https://github.com/pgvector/pgvector/issues/1036)
 - Fixed error with `avg` aggregate when no matching rows
 
 ## 0.8.6 (2026-07-29)
