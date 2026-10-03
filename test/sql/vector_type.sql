@@ -140,6 +140,17 @@ SELECT subvector('[1,2,3,4,5]'::vector, 2147483647, 10);
 SELECT subvector('[1,2,3,4,5]'::vector, 3, 2147483647);
 SELECT subvector('[1,2,3,4,5]'::vector, -2147483644, 2147483647);
 
+CREATE TABLE t (id int, val vector);
+INSERT INTO t (id, val) VALUES (1, '[1,2,3,4,5]');
+INSERT INTO t (id, val) SELECT 2, array_agg(n)::vector FROM generate_series(1, 1000) n;
+ALTER TABLE t ALTER COLUMN val SET STORAGE EXTENDED;
+INSERT INTO t (id, val) SELECT 3, array_agg(1)::vector FROM generate_series(1, 1000) n;
+SELECT id, vector_dims(val), subvector(val, 1, 3), subvector(val, 498, 4), subvector(val, 998, 5), subvector(val, -1, 5) FROM t WHERE id >= 2 ORDER BY id;
+SELECT vector_dims(val), subvector(val, 2, 3) FROM t WHERE id = 1;
+SELECT subvector(val, 1, 0) FROM t WHERE id = 2;
+SELECT subvector(val, 1001, 1) FROM t WHERE id = 2;
+DROP TABLE t;
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]']) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::vector, '[3,5,7]', NULL]) v;
 SELECT avg(v) FROM unnest(ARRAY[]::vector[]) v;

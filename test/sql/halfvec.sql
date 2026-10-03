@@ -134,6 +134,17 @@ SELECT subvector('[1,2,3,4,5]'::halfvec, 2147483647, 10);
 SELECT subvector('[1,2,3,4,5]'::halfvec, 3, 2147483647);
 SELECT subvector('[1,2,3,4,5]'::halfvec, -2147483644, 2147483647);
 
+CREATE TABLE t (id int, val halfvec);
+INSERT INTO t (id, val) VALUES (1, '[1,2,3,4,5]');
+INSERT INTO t (id, val) SELECT 2, array_agg(n)::halfvec FROM generate_series(1, 2000) n;
+ALTER TABLE t ALTER COLUMN val SET STORAGE EXTENDED;
+INSERT INTO t (id, val) SELECT 3, array_agg(1)::halfvec FROM generate_series(1, 2000) n;
+SELECT id, vector_dims(val), subvector(val, 1, 3), subvector(val, 995, 4), subvector(val, 1998, 5), subvector(val, -1, 5) FROM t WHERE id >= 2 ORDER BY id;
+SELECT vector_dims(val), subvector(val, 2, 3) FROM t WHERE id = 1;
+SELECT subvector(val, 1, 0) FROM t WHERE id = 2;
+SELECT subvector(val, 2001, 1) FROM t WHERE id = 2;
+DROP TABLE t;
+
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]']) v;
 SELECT avg(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]', NULL]) v;
 SELECT avg(v) FROM unnest(ARRAY[]::halfvec[]) v;

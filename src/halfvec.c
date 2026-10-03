@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "access/detoast.h"
 #include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
@@ -139,6 +140,96 @@ InitHalfVector(int dim)
 	result = (HalfVector *) palloc0(size);
 	SET_VARSIZE(result, size);
 	result->dim = dim;
+
+	return result;
+}
+
+/*
+ * Detoast a half vector prefix (or header-only when len <= 0)
+ */
+HalfVector *
+DatumGetHalfVectorPrefix(Datum x, int32 len)
+{
+	if (len <= 0)
+	{
+		HalfVector *result;
+		Size		raw_size;
+
+		if (!VARATT_IS_EXTENDED(DatumGetPointer(x)))
+			return (HalfVector *) DatumGetPointer(x);
+
+		raw_size = toast_raw_datum_size(x);
+		result = InitHalfVector(0);
+		result->dim = (int32) ((raw_size - offsetof(HalfVector, x)) / sizeof(half));
+		return result;
+	}
+
+	if (len > HALFVEC_MAX_DIM)
+		len = HALFVEC_MAX_DIM;
+
+	return (HalfVector *) PG_DETOAST_DATUM_SLICE(x, 0, (int32) ((offsetof(HalfVector, x) - VARHDRSZ) + mul_size(len, sizeof(half))));
+}
+
+/*
+ * Detoast a subvector slice of a half vector
+ */
+HalfVector *
+DatumGetHalfVectorSlice(Datum x, int32 start, int32 count)
+{
+	Size		raw_size;
+	int32		a_dim;
+	int32		end;
+	HalfVector *result;
+	int32		dim;
+	int32		sliceoffset;
+	int32		slicelength;
+	struct varlena *sliced;
+
+	if (count < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("halfvec must have at least 1 dimension")));
+
+	raw_size = toast_raw_datum_size(x);
+	a_dim = (int32) ((raw_size - offsetof(HalfVector, x)) / sizeof(half));
+
+	/*
+	 * Check if (start + count > a_dim), avoiding integer overflow. a_dim
+	 * and count are both positive, so a_dim - count won't overflow.
+	 */
+	if (start > a_dim - count)
+		end = a_dim + 1;
+	else
+		end = start + count;
+
+	/* Indexing starts at 1, like substring */
+	if (start < 1)
+		start = 1;
+	else if (start > a_dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("halfvec must have at least 1 dimension")));
+
+	dim = end - start;
+	CheckDim(dim);
+
+	if (start == 1)
+	{
+		result = DatumGetHalfVectorPrefix(x, dim);
+		result->dim = dim;
+		return result;
+	}
+
+	result = InitHalfVector(dim);
+
+	sliceoffset = (offsetof(HalfVector, x) - VARHDRSZ) + (start - 1) * sizeof(half);
+	slicelength = dim * sizeof(half);
+	sliced = PG_DETOAST_DATUM_SLICE(x, sliceoffset, slicelength);
+
+	memcpy(result->x, VARDATA_ANY(sliced), slicelength);
+
+	if ((Pointer) sliced != DatumGetPointer(x))
+		pfree(sliced);
 
 	return result;
 }
@@ -692,7 +783,7 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_vector_dims);
 Datum
 halfvec_vector_dims(PG_FUNCTION_ARGS)
 {
-	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	HalfVector *a = PG_GETARG_HALFVEC_P(0, 0);
 
 	PG_RETURN_INT32(a->dim);
 }
@@ -940,44 +1031,11 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_subvector);
 Datum
 halfvec_subvector(PG_FUNCTION_ARGS)
 {
-	HalfVector *a = PG_GETARG_HALFVEC_P(0);
 	int32		start = PG_GETARG_INT32(1);
 	int32		count = PG_GETARG_INT32(2);
-	int32		end;
-	half	   *ax = a->x;
-	HalfVector *result;
-	int32		dim;
+	HalfVector *result = PG_GETARG_HALFVEC_P(0, start, count);
 
-	if (count < 1)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("halfvec must have at least 1 dimension")));
-
-	/*
-	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
-	 * and count are both positive, so a->dim - count won't overflow.
-	 */
-	if (start > a->dim - count)
-		end = a->dim + 1;
-	else
-		end = start + count;
-
-	/* Indexing starts at 1, like substring */
-	if (start < 1)
-		start = 1;
-	else if (start > a->dim)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("halfvec must have at least 1 dimension")));
-
-	dim = end - start;
-	CheckDim(dim);
-	result = InitHalfVector(dim);
-
-	for (int i = 0; i < dim; i++)
-		result->x[i] = ax[start - 1 + i];
-
-	PG_RETURN_POINTER(result);
+	PG_RETURN_HALFVEC_P(result);
 }
 
 /*

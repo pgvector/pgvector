@@ -60,8 +60,18 @@
 #define HALFVEC_MAX_DIM 16000
 
 #define HALFVEC_SIZE(_dim)		add_size(offsetof(HalfVector, x), mul_size(sizeof(half), _dim))
-#define DatumGetHalfVector(x)	((HalfVector *) PG_DETOAST_DATUM(x))
-#define PG_GETARG_HALFVEC_P(x)	DatumGetHalfVector(PG_GETARG_DATUM(x))
+#define HALFVEC_EXPAND(x)		x
+#define _DATUM_GET_HALFVEC_1(x)	((HalfVector *) PG_DETOAST_DATUM(x))
+#define _DATUM_GET_HALFVEC_2(x, len)			DatumGetHalfVectorPrefix(x, len)
+#define _DATUM_GET_HALFVEC_3(x, start, count)	DatumGetHalfVectorSlice(x, start, count)
+#define _DATUM_GET_HALFVEC_SELECT(_1, _2, _3, NAME, ...)	NAME
+#define DatumGetHalfVector(...) \
+	HALFVEC_EXPAND(_DATUM_GET_HALFVEC_SELECT(__VA_ARGS__, _DATUM_GET_HALFVEC_3, _DATUM_GET_HALFVEC_2, _DATUM_GET_HALFVEC_1, 0)(__VA_ARGS__))
+#define _PG_GETARG_HALFVEC_P_1(n)				_DATUM_GET_HALFVEC_1(PG_GETARG_DATUM(n))
+#define _PG_GETARG_HALFVEC_P_2(n, len)			_DATUM_GET_HALFVEC_2(PG_GETARG_DATUM(n), len)
+#define _PG_GETARG_HALFVEC_P_3(n, start, count)	_DATUM_GET_HALFVEC_3(PG_GETARG_DATUM(n), start, count)
+#define PG_GETARG_HALFVEC_P(...) \
+	HALFVEC_EXPAND(_DATUM_GET_HALFVEC_SELECT(__VA_ARGS__, _PG_GETARG_HALFVEC_P_3, _PG_GETARG_HALFVEC_P_2, _PG_GETARG_HALFVEC_P_1, 0)(__VA_ARGS__))
 #define PG_RETURN_HALFVEC_P(x)	PG_RETURN_POINTER(x)
 
 typedef struct HalfVector
@@ -73,5 +83,7 @@ typedef struct HalfVector
 }			HalfVector;
 
 HalfVector *InitHalfVector(int dim);
+HalfVector *DatumGetHalfVectorPrefix(Datum x, int32 len);
+HalfVector *DatumGetHalfVectorSlice(Datum x, int32 start, int32 count);
 
 #endif

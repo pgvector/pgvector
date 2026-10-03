@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "access/detoast.h"
 #include "bitutils.h"
 #include "bitvec.h"
 #include "catalog/pg_type.h"
@@ -135,6 +136,96 @@ InitVector(int dim)
 	result = (Vector *) palloc0(size);
 	SET_VARSIZE(result, size);
 	result->dim = dim;
+
+	return result;
+}
+
+/*
+ * Detoast a vector prefix (or header-only when len <= 0)
+ */
+Vector *
+DatumGetVectorPrefix(Datum x, int32 len)
+{
+	if (len <= 0)
+	{
+		Vector	   *result;
+		Size		raw_size;
+
+		if (!VARATT_IS_EXTENDED(DatumGetPointer(x)))
+			return (Vector *) DatumGetPointer(x);
+
+		raw_size = toast_raw_datum_size(x);
+		result = InitVector(0);
+		result->dim = (int32) ((raw_size - offsetof(Vector, x)) / sizeof(float));
+		return result;
+	}
+
+	if (len > VECTOR_MAX_DIM)
+		len = VECTOR_MAX_DIM;
+
+	return (Vector *) PG_DETOAST_DATUM_SLICE(x, 0, (int32) ((offsetof(Vector, x) - VARHDRSZ) + mul_size(len, sizeof(float))));
+}
+
+/*
+ * Detoast a subvector slice
+ */
+Vector *
+DatumGetVectorSlice(Datum x, int32 start, int32 count)
+{
+	Size		raw_size;
+	int32		a_dim;
+	int32		end;
+	Vector	   *result;
+	int			dim;
+	int32		sliceoffset;
+	int32		slicelength;
+	struct varlena *sliced;
+
+	if (count < 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
+
+	raw_size = toast_raw_datum_size(x);
+	a_dim = (int32) ((raw_size - offsetof(Vector, x)) / sizeof(float));
+
+	/*
+	 * Check if (start + count > a_dim), avoiding integer overflow. a_dim
+	 * and count are both positive, so a_dim - count won't overflow.
+	 */
+	if (start > a_dim - count)
+		end = a_dim + 1;
+	else
+		end = start + count;
+
+	/* Indexing starts at 1, like substring */
+	if (start < 1)
+		start = 1;
+	else if (start > a_dim)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("vector must have at least 1 dimension")));
+
+	dim = end - start;
+	CheckDim(dim);
+
+	if (start == 1)
+	{
+		result = DatumGetVectorPrefix(x, dim);
+		result->dim = dim;
+		return result;
+	}
+
+	result = InitVector(dim);
+
+	sliceoffset = (offsetof(Vector, x) - VARHDRSZ) + (start - 1) * sizeof(float);
+	slicelength = dim * sizeof(float);
+	sliced = PG_DETOAST_DATUM_SLICE(x, sliceoffset, slicelength);
+
+	memcpy(result->x, VARDATA_ANY(sliced), slicelength);
+
+	if ((Pointer) sliced != DatumGetPointer(x))
+		pfree(sliced);
 
 	return result;
 }
@@ -756,7 +847,7 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_dims);
 Datum
 vector_dims(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = PG_GETARG_VECTOR_P(0);
+	Vector	   *a = PG_GETARG_VECTOR_P(0, 0);
 
 	PG_RETURN_INT32(a->dim);
 }
@@ -984,44 +1075,11 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(subvector);
 Datum
 subvector(PG_FUNCTION_ARGS)
 {
-	Vector	   *a = PG_GETARG_VECTOR_P(0);
 	int32		start = PG_GETARG_INT32(1);
 	int32		count = PG_GETARG_INT32(2);
-	int32		end;
-	float	   *ax = a->x;
-	Vector	   *result;
-	int			dim;
+	Vector	   *result = PG_GETARG_VECTOR_P(0, start, count);
 
-	if (count < 1)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("vector must have at least 1 dimension")));
-
-	/*
-	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
-	 * and count are both positive, so a->dim - count won't overflow.
-	 */
-	if (start > a->dim - count)
-		end = a->dim + 1;
-	else
-		end = start + count;
-
-	/* Indexing starts at 1, like substring */
-	if (start < 1)
-		start = 1;
-	else if (start > a->dim)
-		ereport(ERROR,
-				(errcode(ERRCODE_DATA_EXCEPTION),
-				 errmsg("vector must have at least 1 dimension")));
-
-	dim = end - start;
-	CheckDim(dim);
-	result = InitVector(dim);
-
-	for (int i = 0; i < dim; i++)
-		result->x[i] = ax[start - 1 + i];
-
-	PG_RETURN_POINTER(result);
+	PG_RETURN_VECTOR_P(result);
 }
 
 /*
