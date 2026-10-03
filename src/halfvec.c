@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "access/detoast.h"
 #include "bitvec.h"
 #include "catalog/pg_type.h"
 #include "common/shortest_dec.h"
@@ -692,9 +693,11 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_vector_dims);
 Datum
 halfvec_vector_dims(PG_FUNCTION_ARGS)
 {
-	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	Datum		raw_datum = PG_GETARG_DATUM(0);
+	Size		raw_size = toast_raw_datum_size(raw_datum);
+	int32		dim = (int32) ((raw_size - offsetof(HalfVector, x)) / sizeof(half));
 
-	PG_RETURN_INT32(a->dim);
+	PG_RETURN_INT32(dim);
 }
 
 /*
@@ -940,13 +943,17 @@ FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_subvector);
 Datum
 halfvec_subvector(PG_FUNCTION_ARGS)
 {
-	HalfVector *a = PG_GETARG_HALFVEC_P(0);
+	Datum		raw_datum = PG_GETARG_DATUM(0);
 	int32		start = PG_GETARG_INT32(1);
 	int32		count = PG_GETARG_INT32(2);
+	Size		raw_size = toast_raw_datum_size(raw_datum);
+	int32		a_dim = (int32) ((raw_size - offsetof(HalfVector, x)) / sizeof(half));
 	int32		end;
-	half	   *ax = a->x;
 	HalfVector *result;
 	int32		dim;
+	int32		sliceoffset;
+	int32		slicelength;
+	struct varlena *sliced;
 
 	if (count < 1)
 		ereport(ERROR,
@@ -954,18 +961,18 @@ halfvec_subvector(PG_FUNCTION_ARGS)
 				 errmsg("halfvec must have at least 1 dimension")));
 
 	/*
-	 * Check if (start + count > a->dim), avoiding integer overflow. a->dim
-	 * and count are both positive, so a->dim - count won't overflow.
+	 * Check if (start + count > a_dim), avoiding integer overflow. a_dim
+	 * and count are both positive, so a_dim - count won't overflow.
 	 */
-	if (start > a->dim - count)
-		end = a->dim + 1;
+	if (start > a_dim - count)
+		end = a_dim + 1;
 	else
 		end = start + count;
 
 	/* Indexing starts at 1, like substring */
 	if (start < 1)
 		start = 1;
-	else if (start > a->dim)
+	else if (start > a_dim)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("halfvec must have at least 1 dimension")));
@@ -974,8 +981,14 @@ halfvec_subvector(PG_FUNCTION_ARGS)
 	CheckDim(dim);
 	result = InitHalfVector(dim);
 
-	for (int i = 0; i < dim; i++)
-		result->x[i] = ax[start - 1 + i];
+	sliceoffset = (offsetof(HalfVector, x) - VARHDRSZ) + (start - 1) * sizeof(half);
+	slicelength = dim * sizeof(half);
+	sliced = PG_DETOAST_DATUM_SLICE(raw_datum, sliceoffset, slicelength);
+
+	memcpy(result->x, VARDATA_ANY(sliced), slicelength);
+
+	if ((Pointer) sliced != DatumGetPointer(raw_datum))
+		pfree(sliced);
 
 	PG_RETURN_POINTER(result);
 }
