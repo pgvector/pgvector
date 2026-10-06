@@ -410,6 +410,7 @@ typedef union
 typedef struct HnswSearchState
 {
 	HnswQuery	q;
+	HnswSupport *support;
 }			HnswSearchState;
 
 typedef struct HnswScanOpaqueData
@@ -468,14 +469,14 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, HnswSearchState * searchState, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
+List	   *HnswSearchLayer(char *base, HnswSearchState * searchState, List *ep, int ef, int lc, Relation index, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
 HnswElement HnswInitElement(char *base, ItemPointer tid, int m, double ml, int maxLevel, HnswAllocator * alloc);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
 void		HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing);
-HnswSearchCandidate *HnswEntryCandidate(char *base, HnswElement entryPoint, HnswSearchState * searchState, Relation index, HnswSupport * support, bool loadVec);
+HnswSearchCandidate *HnswEntryCandidate(char *base, HnswElement entryPoint, HnswSearchState * searchState, Relation index, bool loadVec);
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum, bool building);
 void		HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m);
 void		HnswAddHeapTid(HnswElement element, ItemPointer heaptid);

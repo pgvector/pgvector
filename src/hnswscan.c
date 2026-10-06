@@ -44,20 +44,21 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		HnswCheckDim(dimensions, so->typeInfo, support->collation, value);
 
 	searchState->q.value = value;
+	searchState->support = support;
 	so->m = m;
 
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, searchState, index, support, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, searchState, index, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, searchState, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, searchState, ep, 1, lc, index, m, false, NULL, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, searchState, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, searchState, ep, hnsw_ef_search, 0, index, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -88,7 +89,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, sc);
 	}
 
-	return HnswSearchLayer(base, &so->searchState, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
+	return HnswSearchLayer(base, &so->searchState, ep, batch_size, 0, index, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
 }
 
 /*
