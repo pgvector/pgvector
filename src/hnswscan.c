@@ -57,11 +57,11 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(searchState, ep, 1, lc, NULL, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(searchState, ep, 1, lc, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
-	return HnswSearchLayer(searchState, ep, hnsw_ef_search, 0, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(searchState, ep, hnsw_ef_search, 0, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
 }
 
 /*
@@ -90,7 +90,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, sc);
 	}
 
-	return HnswSearchLayer(&so->searchState, ep, batch_size, 0, NULL, &so->v, &so->discarded, false, &so->tuples);
+	return HnswSearchLayer(&so->searchState, ep, batch_size, 0, &so->v, &so->discarded, false, &so->tuples);
 }
 
 /*
