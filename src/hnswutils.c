@@ -827,11 +827,12 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(HnswSearchState * searchState, List *ep, int ef, int lc, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples)
+HnswSearchLayer(HnswSearchState * searchState, List *ep, int ef, int lc, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples)
 {
 	char	   *base = searchState->base;
 	Relation	index = searchState->index;
 	int			m = searchState->m;
+	bool		inserting = searchState->inserting;
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
@@ -1301,6 +1302,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	searchState.index = index;
 	searchState.support = support;
 	searchState.m = m;
+	searchState.inserting = true;
 
 	/* Precompute hash */
 	if (inMemory)
@@ -1317,7 +1319,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(&searchState, ep, 1, lc, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(&searchState, ep, 1, lc, skipElement, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
@@ -1336,7 +1338,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *lw = NIL;
 		ListCell   *lc2;
 
-		w = HnswSearchLayer(&searchState, ep, efConstruction, lc, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(&searchState, ep, efConstruction, lc, skipElement, NULL, NULL, true, NULL);
 
 		/* Convert search candidates to candidates */
 		foreach(lc2, w)

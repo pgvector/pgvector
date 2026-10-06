@@ -414,6 +414,7 @@ typedef struct HnswSearchState
 	Relation	index;
 	HnswSupport *support;
 	int			m;
+	bool		inserting;
 }			HnswSearchState;
 
 typedef struct HnswScanOpaqueData
@@ -471,7 +472,7 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(HnswSearchState * searchState, List *ep, int ef, int lc, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
+List	   *HnswSearchLayer(HnswSearchState * searchState, List *ep, int ef, int lc, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
