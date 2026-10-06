@@ -420,11 +420,9 @@ typedef struct HnswReadStreamData
 
 typedef struct HnswReadStream
 {
-#if PG_VERSION_NUM >= 190000
 	HnswReadStreamData streamData;
+#if PG_VERSION_NUM >= 190000
 	ReadStream *stream;
-#else
-	void	   *unused;
 #endif
 }			HnswReadStream;
 
@@ -485,10 +483,6 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-#if PG_VERSION_NUM >= 190000
-void		HnswInitReadStream(HnswReadStream * readStream, Relation index, bool maintenance);
-void		HnswEndReadStream(HnswReadStream * readStream);
-#endif
 List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadStream * readStream);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint);
@@ -514,6 +508,11 @@ void		HnswInitLockTranche(void);
 void		HnswCheckDim(int expected, const HnswTypeInfo * typeInfo, Oid collation, Datum value);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
+
+#if PG_VERSION_NUM >= 190000
+void		HnswInitReadStream(HnswReadStream * readStream, Relation index, bool maintenance);
+void		HnswEndReadStream(HnswReadStream * readStream);
+#endif
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);
