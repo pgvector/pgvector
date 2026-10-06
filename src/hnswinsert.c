@@ -2,6 +2,7 @@
 
 #include "access/genam.h"
 #include "access/generic_xlog.h"
+#include "access/htup_details.h"
 #include "hnsw.h"
 #include "nodes/execnodes.h"
 #include "storage/bufmgr.h"
@@ -164,7 +165,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	uint8		tupleVersion;
 	char	   *base = NULL;
 	bool		useFsm = !building && HnswGetTypeInfo(index)->useFsm;
-	bool		tryFsm = useFsm;
+	bool		tryFsm;
 	int			fsmTries = 0;
 
 	/* Calculate sizes */
@@ -181,6 +182,9 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	/* Prepare neighbor tuple */
 	ntup = palloc0(ntupSize);
 	HnswSetNeighborTuple(base, ntup, e, m);
+
+	/* Ensure less than MaxFSMRequestSize */
+	tryFsm = useFsm && combinedSize <= MaxHeapTupleSize;
 
 	/* Find a page (or two if needed) to insert the tuples */
 	for (;;)
