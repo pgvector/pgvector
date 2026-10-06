@@ -887,11 +887,6 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	int			unvisitedLength;
 	bool		inMemory = index == NULL;
 
-#if PG_VERSION_NUM >= 190000
-	HnswReadStreamData *streamData = &readStream->streamData;
-	ReadStream *stream = readStream->stream;
-#endif
-
 	if (v == NULL)
 	{
 		v = &vh;
@@ -955,6 +950,10 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
 		else
 		{
+#if PG_VERSION_NUM >= 190000
+			HnswReadStreamData *streamData = &readStream->streamData;
+#endif
+
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
 
 #if PG_VERSION_NUM >= 190000
@@ -962,7 +961,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 			streamData->unvisitedLength = unvisitedLength;
 			streamData->visited = 0;
 
-			read_stream_resume(stream);
+			read_stream_resume(readStream->stream);
 #endif
 		}
 
@@ -995,7 +994,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 #if PG_VERSION_NUM >= 190000
 				void	   *offnoPtr;
 
-				buf = read_stream_next_buffer(stream, &offnoPtr);
+				buf = read_stream_next_buffer(readStream->stream, &offnoPtr);
 
 				if (!BufferIsValid(buf))
 					break;
