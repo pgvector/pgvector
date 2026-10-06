@@ -183,7 +183,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	ntup = palloc0(ntupSize);
 	HnswSetNeighborTuple(base, ntup, e, m);
 
-	/* Ensure less than MaxFSMRequestSize */
+	/* Ensure within MaxFSMRequestSize */
 	tryFsm = useFsm && combinedSize <= MaxHeapTupleSize;
 
 	/* Find a page (or two if needed) to insert the tuples */
