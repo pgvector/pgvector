@@ -612,15 +612,15 @@ HnswInitSearchCandidate(char *base, HnswElement element, double distance)
  * Create a candidate for the entry point
  */
 HnswSearchCandidate *
-HnswEntryCandidate(char *base, HnswElement entryPoint, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec)
+HnswEntryCandidate(char *base, HnswElement entryPoint, HnswSearchState * searchState, Relation index, HnswSupport * support, bool loadVec)
 {
 	bool		inMemory = index == NULL;
 	double		distance;
 
 	if (inMemory)
-		distance = GetElementDistance(base, entryPoint, q, support);
+		distance = GetElementDistance(base, entryPoint, &searchState->q, support);
 	else
-		HnswLoadElement(entryPoint, &distance, q, index, support, loadVec, NULL);
+		HnswLoadElement(entryPoint, &distance, &searchState->q, index, support, loadVec, NULL);
 
 	return HnswInitSearchCandidate(base, entryPoint, distance);
 }
@@ -1302,7 +1302,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		return;
 
 	/* Get entry point and level */
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, &searchState.q, index, support, true));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, &searchState, index, support, true));
 	entryLevel = entryPoint->level;
 
 	/* 1st phase: greedy search to insert level */

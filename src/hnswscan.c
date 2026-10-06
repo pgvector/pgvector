@@ -49,7 +49,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	if (entryPoint == NULL)
 		return NIL;
 
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, &searchState->q, index, support, false));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, searchState, index, support, false));
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
