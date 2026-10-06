@@ -18,6 +18,10 @@
 #include "utils/sampling.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM >= 190000
+#include "storage/read_stream.h"
+#endif
+
 #if PG_VERSION_NUM < 190000
 #include "storage/shmem.h"		/* for add_size()/mul_size() in some versions */
 #endif
@@ -407,6 +411,21 @@ typedef union
 	ItemPointerData indextid;
 }			HnswUnvisited;
 
+typedef struct HnswReadStreamData
+{
+	HnswUnvisited *unvisited;
+	int			unvisitedLength;
+	int			visited;
+}			HnswReadStreamData;
+
+typedef struct HnswSearchState
+{
+#if PG_VERSION_NUM >= 190000
+	HnswReadStreamData streamData;
+	ReadStream *stream;
+#endif
+}			HnswSearchState;
+
 typedef struct HnswScanOpaqueData
 {
 	const		HnswTypeInfo *typeInfo;
@@ -417,6 +436,7 @@ typedef struct HnswScanOpaqueData
 	HnswQuery	q;
 	int			m;
 	int64		tuples;
+	HnswSearchState searchState;
 	double		previousDistance;
 	Size		maxMemory;
 	MemoryContext tmpCtx;
@@ -463,13 +483,15 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples);
+void		HnswInitSearchState(HnswSearchState * searchState, Relation index, bool inMemory, bool maintenance);
+void		HnswFreeSearchState(HnswSearchState * searchState);
+List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswSearchState * searchState);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
 HnswElement HnswInitElement(char *base, ItemPointer tid, int m, double ml, int maxLevel, HnswAllocator * alloc);
 HnswElement HnswInitElementFromBlock(BlockNumber blkno, OffsetNumber offno);
-void		HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing);
+void		HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing, bool maintenance);
 HnswSearchCandidate *HnswEntryCandidate(char *base, HnswElement entryPoint, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec);
 void		HnswUpdateMetaPage(Relation index, int updateEntry, HnswElement entryPoint, BlockNumber insertPage, ForkNumber forkNum, bool building);
 void		HnswSetNeighborTuple(char *base, HnswNeighborTuple ntup, HnswElement e, int m);

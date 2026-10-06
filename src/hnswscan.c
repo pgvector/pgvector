@@ -53,11 +53,11 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL, &so->searchState);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples, &so->searchState);
 }
 
 /*
@@ -88,7 +88,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, sc);
 	}
 
-	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples);
+	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples, &so->searchState);
 }
 
 /*
@@ -146,6 +146,8 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 
 	/* Set support functions */
 	HnswInitSupport(&so->support, index);
+
+	HnswInitSearchState(&so->searchState, index, false, false);
 
 	/*
 	 * Use a lower max allocation size than default to allow scanning more
@@ -343,6 +345,7 @@ hnswendscan(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
+	HnswFreeSearchState(&so->searchState);
 	MemoryContextDelete(so->tmpCtx);
 
 	pfree(so);
