@@ -12,6 +12,7 @@
 #include "port/atomics.h"
 #include "sparsevec.h"
 #include "storage/bufmgr.h"
+#include "storage/freespace.h"
 #include "utils/datum.h"
 #include "utils/fmgrprotos.h"
 #include "utils/memdebug.h"
@@ -1357,6 +1358,39 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 
 		ep = w;
 	}
+}
+
+/*
+ * Record free space
+ */
+void
+HnswRecordPageWithFreeSpace(Relation index, BlockNumber blkno, Page page)
+{
+	Size		freeSpace = 0;
+	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
+
+	for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+	{
+		ItemId		itemid = PageGetItemId(page, offno);
+		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, itemid);
+		Size		itemsize;
+
+		/* Skip neighbor tuples */
+		if (!HnswIsElementTuple(etup))
+			continue;
+
+		/* Skip live tuples */
+		if (!etup->deleted)
+			continue;
+
+		/* Keep track of largest element tuple that will fit */
+		itemsize = ItemIdGetLength(itemid);
+		freeSpace = Max(freeSpace, itemsize);
+	}
+
+	freeSpace += PageGetExactFreeSpace(page);
+
+	RecordPageWithFreeSpace(index, blkno, freeSpace);
 }
 
 /*

@@ -6,6 +6,7 @@
 #include "hnsw.h"
 #include "nodes/pg_list.h"
 #include "storage/bufmgr.h"
+#include "storage/freespace.h"
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
@@ -709,20 +710,23 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			if (nbuf != buf)
 				UnlockReleaseBuffer(nbuf);
 
-			/* Set to first free page */
-			if (!BlockNumberIsValid(insertPage))
-				insertPage = blkno;
-
 			/* Prepare new xlog */
 			state = GenericXLogStart(index);
 			page = GenericXLogRegisterBuffer(state, buf, 0);
 		}
+
+		HnswRecordPageWithFreeSpace(index, blkno, page);
+
+		/* Set to last page */
+		insertPage = blkno;
 
 		blkno = HnswPageGetOpaque(page)->nextblkno;
 
 		GenericXLogAbort(state);
 		UnlockReleaseBuffer(buf);
 	}
+
+	FreeSpaceMapVacuum(index);
 
 	/* Update insert page last, after everything has been marked as deleted */
 	HnswUpdateMetaPage(index, 0, NULL, insertPage, MAIN_FORKNUM, false);

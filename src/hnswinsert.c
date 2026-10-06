@@ -5,6 +5,7 @@
 #include "hnsw.h"
 #include "nodes/execnodes.h"
 #include "storage/bufmgr.h"
+#include "storage/freespace.h"
 #include "storage/lmgr.h"
 #include "storage/lwlock.h"
 #include "utils/datum.h"
@@ -153,7 +154,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	Size		maxSize;
 	Size		minCombinedSize;
 	HnswElementTuple etup;
-	BlockNumber currentPage = insertPage;
+	BlockNumber currentPage = InvalidBlockNumber;
 	HnswNeighborTuple ntup;
 	Buffer		nbuf;
 	Page		npage;
@@ -162,6 +163,8 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	BlockNumber newInsertPage = InvalidBlockNumber;
 	uint8		tupleVersion;
 	char	   *base = NULL;
+	bool		tryFsm = !building;
+	int			fsmTries = 0;
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
@@ -181,6 +184,20 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	/* Find a page (or two if needed) to insert the tuples */
 	for (;;)
 	{
+		bool		fsmPage = false;
+
+		/* Try free space map */
+		if (tryFsm)
+		{
+			/* TODO do not retry same page */
+			currentPage = GetPageWithFreeSpace(index, etupSize);
+			fsmPage = BlockNumberIsValid(currentPage);
+			tryFsm = ++fsmTries < 3 && BlockNumberIsValid(currentPage);
+		}
+
+		if (!BlockNumberIsValid(currentPage))
+			currentPage = insertPage;
+
 		buf = ReadBuffer(index, currentPage);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
@@ -196,7 +213,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		/* Keep track of first page where element at level 0 can fit */
-		if (!BlockNumberIsValid(newInsertPage) && PageGetFreeSpace(page) >= minCombinedSize)
+		if (!BlockNumberIsValid(newInsertPage) && PageGetFreeSpace(page) >= minCombinedSize && !fsmPage)
 			newInsertPage = currentPage;
 
 		/* First, try the fastest path */
@@ -327,6 +344,10 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		if (PageAddItem(npage, (Item) ntup, ntupSize, InvalidOffsetNumber, false, false) != e->neighborOffno)
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 	}
+
+	/* Update free space map */
+	if (!building)
+		HnswRecordPageWithFreeSpace(index, e->blkno, page);
 
 	/* Commit */
 	if (building)

@@ -485,6 +485,7 @@ void		HnswSetElementTuple(char *base, HnswElementTuple etup, HnswElement element
 void		HnswUpdateConnection(char *base, HnswNeighborArray * neighbors, HnswElement newElement, float distance, int lm, int *updateIdx, Relation index, HnswSupport * support);
 bool		HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation index, int m, int lm, int lc);
 void		HnswInitLockTranche(void);
+void		HnswRecordPageWithFreeSpace(Relation index, BlockNumber blkno, Page page);
 void		HnswCheckDim(int expected, const HnswTypeInfo * typeInfo, Oid collation, Datum value);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
