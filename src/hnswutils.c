@@ -1371,9 +1371,11 @@ HnswRecordPageWithFreeSpace(Relation index, BlockNumber blkno, Page page)
 
 	for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 	{
-		ItemId		itemid = PageGetItemId(page, offno);
-		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, itemid);
+		ItemId		eitemid = PageGetItemId(page, offno);
+		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, eitemid);
 		Size		itemsize;
+		BlockNumber neighborPage;
+		OffsetNumber neighborOffno;
 
 		/* Skip neighbor tuples */
 		if (!HnswIsElementTuple(etup))
@@ -1383,8 +1385,15 @@ HnswRecordPageWithFreeSpace(Relation index, BlockNumber blkno, Page page)
 		if (!etup->deleted)
 			continue;
 
-		/* Keep track of largest element tuple that will fit */
-		itemsize = ItemIdGetLength(itemid);
+		/* Get neighbor page */
+		neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+		neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
+
+		/* Keep track of largest tuple pair that will fit */
+		itemsize = ItemIdGetLength(eitemid);
+		if (neighborPage == blkno)
+			itemsize += ItemIdGetLength(PageGetItemId(page, neighborOffno));
+
 		freeSpace = Max(freeSpace, itemsize);
 	}
 

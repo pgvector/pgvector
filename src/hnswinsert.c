@@ -191,7 +191,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		if (tryFsm)
 		{
 			/* TODO do not retry same page */
-			currentPage = GetPageWithFreeSpace(index, etupSize);
+			currentPage = GetPageWithFreeSpace(index, combinedSize);
 			fsmPage = BlockNumberIsValid(currentPage);
 			tryFsm = ++fsmTries < 3 && BlockNumberIsValid(currentPage);
 		}
