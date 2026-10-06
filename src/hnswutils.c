@@ -612,8 +612,9 @@ HnswInitSearchCandidate(char *base, HnswElement element, double distance)
  * Create a candidate for the entry point
  */
 HnswSearchCandidate *
-HnswEntryCandidate(char *base, HnswElement entryPoint, HnswSearchState * searchState, Relation index, bool loadVec)
+HnswEntryCandidate(char *base, HnswElement entryPoint, HnswSearchState * searchState, bool loadVec)
 {
+	Relation	index = searchState->index;
 	bool		inMemory = index == NULL;
 	double		distance;
 
@@ -825,8 +826,9 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, HnswSearchState * searchState, List *ep, int ef, int lc, Relation index, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples)
+HnswSearchLayer(char *base, HnswSearchState * searchState, List *ep, int ef, int lc, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples)
 {
+	Relation	index = searchState->index;
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
 	pairingheap *W = pairingheap_allocate(CompareFurthestCandidates, NULL);
@@ -1292,6 +1294,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	bool		inMemory = index == NULL;
 
 	searchState.q.value = HnswGetValue(base, element);
+	searchState.index = index;
 	searchState.support = support;
 
 	/* Precompute hash */
@@ -1303,13 +1306,13 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		return;
 
 	/* Get entry point and level */
-	ep = list_make1(HnswEntryCandidate(base, entryPoint, &searchState, index, true));
+	ep = list_make1(HnswEntryCandidate(base, entryPoint, &searchState, true));
 	entryLevel = entryPoint->level;
 
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, &searchState, ep, 1, lc, index, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &searchState, ep, 1, lc, m, true, skipElement, NULL, NULL, true, NULL);
 		ep = w;
 	}
 
@@ -1328,7 +1331,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *lw = NIL;
 		ListCell   *lc2;
 
-		w = HnswSearchLayer(base, &searchState, ep, efConstruction, lc, index, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &searchState, ep, efConstruction, lc, m, true, skipElement, NULL, NULL, true, NULL);
 
 		/* Convert search candidates to candidates */
 		foreach(lc2, w)
