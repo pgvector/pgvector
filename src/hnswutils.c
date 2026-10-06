@@ -843,46 +843,36 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
 	return ItemPointerGetBlockNumber(&uv->indextid);
 }
-#endif
 
 /*
- * Initialize the search state
+ * Initialize the read stream
  */
 void
-HnswInitSearchState(HnswSearchState * searchState, Relation index, bool inMemory, bool maintenance)
+HnswInitReadStream(HnswReadStream * readStream, Relation index, bool maintenance)
 {
-#if PG_VERSION_NUM >= 190000
-	if (!inMemory)
-	{
-		int			flags = READ_STREAM_DEFAULT;
+	int			flags = READ_STREAM_DEFAULT;
 
-		if (maintenance)
-			flags |= READ_STREAM_MAINTENANCE;
+	if (maintenance)
+		flags |= READ_STREAM_MAINTENANCE;
 
-		searchState->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &searchState->streamData, sizeof(OffsetNumber));
-	}
-	else
-		searchState->stream = NULL;
-#endif
+	readStream->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &readStream->streamData, sizeof(OffsetNumber));
 }
 
 /*
- * Free the search state
+ * End the read stream
  */
 void
-HnswFreeSearchState(HnswSearchState * searchState)
+HnswEndReadStream(HnswReadStream * readStream)
 {
-#if PG_VERSION_NUM >= 190000
-	if (searchState->stream != NULL)
-		read_stream_end(searchState->stream);
-#endif
+	read_stream_end(readStream->stream);
 }
+#endif
 
 /*
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswSearchState * searchState)
+HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadStream * readStream)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -898,8 +888,8 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	bool		inMemory = index == NULL;
 
 #if PG_VERSION_NUM >= 190000
-	HnswReadStreamData *streamData = &searchState->streamData;
-	ReadStream *stream = searchState->stream;
+	HnswReadStreamData *streamData = &readStream->streamData;
+	ReadStream *stream = readStream->stream;
 #endif
 
 	if (v == NULL)
@@ -1384,9 +1374,12 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	HnswQuery	q;
 	HnswElement skipElement = existing ? element : NULL;
 	bool		inMemory = index == NULL;
-	HnswSearchState searchState;
+	HnswReadStream readStream;
 
-	HnswInitSearchState(&searchState, index, inMemory, maintenance);
+#if PG_VERSION_NUM >= 190000
+	if (!inMemory)
+		HnswInitReadStream(&readStream, index, maintenance);
+#endif
 
 	q.value = HnswGetValue(base, element);
 
@@ -1405,7 +1398,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &searchState);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &readStream);
 		ep = w;
 	}
 
@@ -1424,7 +1417,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *lw = NIL;
 		ListCell   *lc2;
 
-		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &searchState);
+		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &readStream);
 
 		/* Convert search candidates to candidates */
 		foreach(lc2, w)
@@ -1455,7 +1448,10 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		ep = w;
 	}
 
-	HnswFreeSearchState(&searchState);
+#if PG_VERSION_NUM >= 190000
+	if (!inMemory)
+		HnswEndReadStream(&readStream);
+#endif
 }
 
 /*

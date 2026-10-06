@@ -418,13 +418,15 @@ typedef struct HnswReadStreamData
 	int			visited;
 }			HnswReadStreamData;
 
-typedef struct HnswSearchState
+typedef struct HnswReadStream
 {
 #if PG_VERSION_NUM >= 190000
 	HnswReadStreamData streamData;
 	ReadStream *stream;
+#else
+	void	   *unused;
 #endif
-}			HnswSearchState;
+}			HnswReadStream;
 
 typedef struct HnswScanOpaqueData
 {
@@ -436,7 +438,7 @@ typedef struct HnswScanOpaqueData
 	HnswQuery	q;
 	int			m;
 	int64		tuples;
-	HnswSearchState searchState;
+	HnswReadStream readStream;
 	double		previousDistance;
 	Size		maxMemory;
 	MemoryContext tmpCtx;
@@ -483,9 +485,11 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-void		HnswInitSearchState(HnswSearchState * searchState, Relation index, bool inMemory, bool maintenance);
-void		HnswFreeSearchState(HnswSearchState * searchState);
-List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswSearchState * searchState);
+#if PG_VERSION_NUM >= 190000
+void		HnswInitReadStream(HnswReadStream * readStream, Relation index, bool maintenance);
+void		HnswEndReadStream(HnswReadStream * readStream);
+#endif
+List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadStream * readStream);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
