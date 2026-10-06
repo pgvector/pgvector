@@ -411,18 +411,22 @@ typedef union
 	ItemPointerData indextid;
 }			HnswUnvisited;
 
+#if PG_VERSION_NUM >= 190000
 typedef struct HnswReadStreamData
 {
 	HnswUnvisited *unvisited;
 	int			unvisitedLength;
 	int			visited;
 }			HnswReadStreamData;
+#endif
 
 typedef struct HnswReadStream
 {
-	HnswReadStreamData streamData;
 #if PG_VERSION_NUM >= 190000
+	HnswReadStreamData streamData;
 	ReadStream *stream;
+#else
+	void	   *unused;
 #endif
 }			HnswReadStream;
 
