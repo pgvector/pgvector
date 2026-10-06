@@ -352,7 +352,12 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 
 	/* Update free space map */
 	if (useFsm)
+	{
 		HnswRecordPageWithFreeSpace(index, e->blkno, page);
+
+		if (npage != page)
+			HnswRecordPageWithFreeSpace(index, e->neighborPage, npage);
+	}
 
 	/* Commit */
 	if (building)
