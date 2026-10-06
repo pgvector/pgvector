@@ -49,6 +49,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	searchState->support = support;
 	searchState->m = m;
 	searchState->inserting = false;
+	searchState->skipElement = NULL;
 
 	if (entryPoint == NULL)
 		return NIL;
