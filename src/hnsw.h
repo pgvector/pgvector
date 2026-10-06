@@ -294,6 +294,7 @@ typedef struct HnswTypeInfo
 	Datum		(*dimensions) (PG_FUNCTION_ARGS);
 	Datum		(*normalize) (PG_FUNCTION_ARGS);
 	void		(*checkValue) (Pointer v);
+	bool		useFsm;
 }			HnswTypeInfo;
 
 typedef struct HnswSupport

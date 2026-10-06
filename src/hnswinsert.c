@@ -163,7 +163,8 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	BlockNumber newInsertPage = InvalidBlockNumber;
 	uint8		tupleVersion;
 	char	   *base = NULL;
-	bool		tryFsm = !building;
+	bool		useFsm = !building && HnswGetTypeInfo(index)->useFsm;
+	bool		tryFsm = useFsm;
 	int			fsmTries = 0;
 
 	/* Calculate sizes */
@@ -346,7 +347,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	}
 
 	/* Update free space map */
-	if (!building)
+	if (useFsm)
 		HnswRecordPageWithFreeSpace(index, e->blkno, page);
 
 	/* Commit */

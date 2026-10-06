@@ -599,6 +599,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BlockNumber insertPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
+	bool		useFsm = HnswGetTypeInfo(index)->useFsm;
 
 	/*
 	 * Wait for inserts and index scans to complete. Inserts and scans before
@@ -710,15 +711,23 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			if (nbuf != buf)
 				UnlockReleaseBuffer(nbuf);
 
+			/* Set to first free page */
+			if (!useFsm && !BlockNumberIsValid(insertPage))
+				insertPage = blkno;
+
 			/* Prepare new xlog */
 			state = GenericXLogStart(index);
 			page = GenericXLogRegisterBuffer(state, buf, 0);
 		}
 
-		HnswRecordPageWithFreeSpace(index, blkno, page);
+		if (useFsm)
+		{
+			/* Update free space map */
+			HnswRecordPageWithFreeSpace(index, blkno, page);
 
-		/* Set to last page */
-		insertPage = blkno;
+			/* Set to last page */
+			insertPage = blkno;
+		}
 
 		blkno = HnswPageGetOpaque(page)->nextblkno;
 
@@ -726,7 +735,8 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 		UnlockReleaseBuffer(buf);
 	}
 
-	FreeSpaceMapVacuum(index);
+	if (useFsm)
+		FreeSpaceMapVacuum(index);
 
 	/* Update insert page last, after everything has been marked as deleted */
 	HnswUpdateMetaPage(index, 0, NULL, insertPage, MAIN_FORKNUM, false);
