@@ -1392,12 +1392,12 @@ HnswRecordPageWithFreeSpace(Relation index, BlockNumber blkno, Page page)
 		/* Keep track of largest tuple pair that will fit */
 		itemsize = ItemIdGetLength(eitemid);
 		if (neighborPage == blkno)
-			itemsize += ItemIdGetLength(PageGetItemId(page, neighborOffno));
+			itemsize += ItemIdGetLength(PageGetItemId(page, neighborOffno)) + sizeof(ItemIdData);
 
 		freeSpace = Max(freeSpace, itemsize);
 	}
 
-	freeSpace += PageGetExactFreeSpace(page);
+	freeSpace += PageGetFreeSpace(page);
 
 	RecordPageWithFreeSpace(index, blkno, freeSpace);
 }
