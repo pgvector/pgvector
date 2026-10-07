@@ -194,8 +194,6 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 	/* Find a page (or two if needed) to insert the tuples */
 	for (;;)
 	{
-		fsmPage = false;
-
 		/* Try free space map */
 		if (tryFsm && fsmTries < HNSW_MAX_FSM_TRIES)
 		{
@@ -222,6 +220,8 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 			fsmPage = BlockNumberIsValid(currentPage);
 			tryFsm = BlockNumberIsValid(currentPage);
 		}
+		else
+			fsmPage = false;
 
 		/* Start at insert page if free space map yields nothing */
 		if (!BlockNumberIsValid(currentPage))
