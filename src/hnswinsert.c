@@ -200,7 +200,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 		if (tryFsm)
 		{
 			currentPage = GetPageWithFreeSpace(index, combinedSize);
-			fsmHistory[fsmTries] = currentPage;
+			fsmHistory[fsmTries++] = currentPage;
 
 			/*
 			 * Even if a page is returned, it may not be possible to add the
@@ -209,7 +209,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 			 */
 			if (BlockNumberIsValid(currentPage))
 			{
-				for (int i = 0; i < fsmTries; i++)
+				for (int i = 0; i < fsmTries - 1; i++)
 				{
 					if (fsmHistory[i] == currentPage)
 					{
@@ -220,7 +220,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 			}
 
 			fsmPage = BlockNumberIsValid(currentPage);
-			tryFsm = ++fsmTries < HNSW_MAX_FSM_TRIES && BlockNumberIsValid(currentPage);
+			tryFsm = fsmTries < HNSW_MAX_FSM_TRIES && BlockNumberIsValid(currentPage);
 		}
 
 		/* Start at insert page if free space map yields nothing */
