@@ -20,7 +20,7 @@ for (1 .. 3)
 	{
 		my @elements;
 		my %indices;
-		for (1 .. int(rand() * 100))
+		for (1 .. int(rand() * 1000))
 		{
 			my $index = int(rand() * (100000 - 1)) + 1;
 			if (!exists($indices{$index}))
