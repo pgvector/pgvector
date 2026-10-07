@@ -20,9 +20,9 @@ for (1 .. 3)
 	{
 		my @elements;
 		my %indices;
-		for (1 .. int(rand() * 1000))
+		for (1 .. int(rand(1001)))
 		{
-			my $index = int(rand() * (100000 - 1)) + 1;
+			my $index = int(rand(100000)) + 1;
 			if (!exists($indices{$index}))
 			{
 				my $value = rand();
