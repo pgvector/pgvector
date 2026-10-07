@@ -44,7 +44,7 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage, uint8 *tupleVersion)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage, uint8 *tupleVersion, bool fsmPage)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
@@ -67,7 +67,7 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			Size		pageFree;
 			Size		npageFree;
 
-			if (!BlockNumberIsValid(*newInsertPage))
+			if (!BlockNumberIsValid(*newInsertPage) && !fsmPage)
 				*newInsertPage = elementPage;
 
 			if (neighborPage == elementPage)
@@ -167,6 +167,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	bool		useFsm = !building && HnswGetTypeInfo(index)->useFsm;
 	bool		tryFsm;
 	int			fsmTries = 0;
+	bool		fsmPage;
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
@@ -189,7 +190,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	/* Find a page (or two if needed) to insert the tuples */
 	for (;;)
 	{
-		bool		fsmPage = false;
+		fsmPage = false;
 
 		/* Try free space map */
 		if (tryFsm)
@@ -232,7 +233,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		/* Next, try space from a deleted element */
-		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage, &tupleVersion))
+		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage, &tupleVersion, fsmPage))
 		{
 			if (nbuf != buf)
 			{
@@ -247,6 +248,13 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 			ntup->version = tupleVersion;
 
 			break;
+		}
+
+		/* Try another page */
+		if (fsmPage)
+		{
+			UnlockReleaseBuffer(buf);
+			continue;
 		}
 
 		/* Finally, try space for element only if last page */
@@ -313,7 +321,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 
 	/* Added tuple to new page if newInsertPage is not set */
 	/* So can set to neighbor page instead of element page */
-	if (!BlockNumberIsValid(newInsertPage))
+	if (!BlockNumberIsValid(newInsertPage) && !fsmPage)
 		newInsertPage = e->neighborPage;
 
 	if (OffsetNumberIsValid(freeOffno))
