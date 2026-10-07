@@ -171,7 +171,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 	bool		tryFsm;
 	int			fsmTries = 0;
 	bool		fsmPage;
-	BlockNumber fsmPages[HNSW_MAX_FSM_TRIES];
+	BlockNumber fsmHistory[HNSW_MAX_FSM_TRIES];
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
@@ -200,18 +200,18 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 		if (tryFsm)
 		{
 			currentPage = GetPageWithFreeSpace(index, combinedSize);
-			fsmPages[fsmTries] = currentPage;
+			fsmHistory[fsmTries] = currentPage;
 
 			/*
 			 * Even if a page is returned, it may not be possible to add the
-			 * tuples (see HnswFreeOffset for details), so avoid checking the
+			 * tuples (see HnswFreeOffset for details), so avoid trying the
 			 * same page again
 			 */
 			if (BlockNumberIsValid(currentPage))
 			{
 				for (int i = 0; i < fsmTries; i++)
 				{
-					if (fsmPages[i] == currentPage)
+					if (fsmHistory[i] == currentPage)
 					{
 						currentPage = InvalidBlockNumber;
 						break;
