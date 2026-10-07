@@ -202,7 +202,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 			tryFsm = ++fsmTries < 3 && BlockNumberIsValid(currentPage);
 		}
 
-		/* Start at insert page if no page from free space map */
+		/* Start at insert page if free space map yields nothing */
 		if (!BlockNumberIsValid(currentPage))
 		{
 			insertPage = GetInsertPage(index);
