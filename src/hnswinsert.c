@@ -155,13 +155,13 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 	Size		maxSize;
 	Size		minCombinedSize;
 	HnswElementTuple etup;
+	BlockNumber insertPage = InvalidBlockNumber;
 	BlockNumber currentPage = InvalidBlockNumber;
 	HnswNeighborTuple ntup;
 	Buffer		nbuf;
 	Page		npage;
 	OffsetNumber freeOffno = InvalidOffsetNumber;
 	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
-	BlockNumber insertPage = InvalidBlockNumber;
 	BlockNumber newInsertPage = InvalidBlockNumber;
 	uint8		tupleVersion;
 	char	   *base = NULL;
