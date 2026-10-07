@@ -3,19 +3,32 @@
 #include <float.h>
 
 #include "access/amapi.h"
+#include "access/amvalidate.h"
 #include "access/genam.h"
+#include "access/htup_details.h"
 #include "access/reloptions.h"
+#include "catalog/pg_amop.h"
+#include "catalog/pg_amproc.h"
+#include "catalog/pg_opclass.h"
 #include "commands/progress.h"
 #include "commands/vacuum.h"
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "nodes/pg_list.h"
+#include "utils/catcache.h"
 #include "utils/float.h"
 #include "utils/guc.h"
+#include "utils/lsyscache.h"
+#include "utils/regproc.h"
 #include "utils/relcache.h"
 #include "utils/selfuncs.h"
 #include "utils/spccache.h"
+#include "utils/syscache.h"
 #include "vector.h"
+
+#if PG_VERSION_NUM < 180000
+#include "catalog/pg_opfamily.h"
+#endif
 
 #if PG_VERSION_NUM < 150000
 #define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
@@ -172,7 +185,141 @@ ivfflatoptions(Datum reloptions, bool validate)
 static bool
 ivfflatvalidate(Oid opclassoid)
 {
-	return true;
+	bool		result = true;
+	HeapTuple	classtup;
+	Form_pg_opclass classform;
+	Oid			opcintype;
+	Oid			opfamilyoid;
+#if PG_VERSION_NUM < 180000
+	HeapTuple	familytup;
+	Form_pg_opfamily familyform;
+#endif
+	char	   *opfamilyname;
+	CatCList   *proclist;
+	CatCList   *oprlist;
+
+	/* Fetch opclass information */
+	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
+	if (!HeapTupleIsValid(classtup))
+		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
+	classform = (Form_pg_opclass) GETSTRUCT(classtup);
+	opcintype = classform->opcintype;
+
+	/* Fetch opfamily information */
+	opfamilyoid = classform->opcfamily;
+#if PG_VERSION_NUM >= 180000
+	opfamilyname = get_opfamily_name(opfamilyoid, false);
+#else
+	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
+	if (!HeapTupleIsValid(familytup))
+		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
+	familyform = (Form_pg_opfamily) GETSTRUCT(familytup);
+	opfamilyname = NameStr(familyform->opfname);
+#endif
+
+	/* Fetch all operators and support functions of the opfamily */
+	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
+	proclist = SearchSysCacheList1(AMPROCNUM, ObjectIdGetDatum(opfamilyoid));
+
+	/* Check individual support functions */
+	for (int i = 0; i < proclist->n_members; i++)
+	{
+		HeapTuple	proctup = &proclist->members[i]->tuple;
+		Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
+		bool		ok;
+
+		/* Check procedure numbers and function signatures */
+		switch (procform->amprocnum)
+		{
+			case IVFFLAT_DISTANCE_PROC:
+				ok = check_amproc_signature(procform->amproc, FLOAT8OID, true, 2, 2, opcintype, opcintype);
+				break;
+			case IVFFLAT_NORM_PROC:
+				ok = check_amproc_signature(procform->amproc, FLOAT8OID, true, 1, 1, opcintype);
+				break;
+			case IVFFLAT_KMEANS_DISTANCE_PROC:
+				ok = check_amproc_signature(procform->amproc, FLOAT8OID, true, 2, 2, opcintype, opcintype);
+				break;
+			case IVFFLAT_KMEANS_NORM_PROC:
+				ok = check_amproc_signature(procform->amproc, FLOAT8OID, true, 1, 1, opcintype);
+				break;
+			case IVFFLAT_TYPE_INFO_PROC:
+				ok = check_amproc_signature(procform->amproc, INTERNALOID, true, 1, 1, INTERNALOID);
+				break;
+			default:
+				ereport(INFO,
+						(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+						 errmsg("operator family \"%s\" of access method %s contains function %s with invalid support number %d",
+								opfamilyname, "ivfflat",
+								format_procedure(procform->amproc),
+								procform->amprocnum)));
+				result = false;
+				continue;
+		}
+
+		if (!ok)
+		{
+			ereport(INFO,
+					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+					 errmsg("operator family \"%s\" of access method %s contains function %s with wrong signature for support number %d",
+							opfamilyname, "ivfflat",
+							format_procedure(procform->amproc),
+							procform->amprocnum)));
+			result = false;
+		}
+	}
+
+	/* Check individual operators */
+	for (int i = 0; i < oprlist->n_members; i++)
+	{
+		HeapTuple	oprtup = &oprlist->members[i]->tuple;
+		Form_pg_amop oprform = (Form_pg_amop) GETSTRUCT(oprtup);
+
+		/* Check strategy number */
+		if (oprform->amopstrategy != 1)
+		{
+			ereport(INFO,
+					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+					 errmsg("operator family \"%s\" of access method %s contains operator %s with invalid strategy number %d",
+							opfamilyname, "ivfflat",
+							format_operator(oprform->amopopr),
+							oprform->amopstrategy)));
+			result = false;
+		}
+
+		/* Check sort family */
+		if (oprform->amoppurpose != AMOP_ORDER || !opfamily_can_sort_type(oprform->amopsortfamily, FLOAT8OID))
+		{
+			ereport(INFO,
+					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+					 errmsg("operator family \"%s\" of access method %s contains invalid ORDER BY specification for operator %s",
+							opfamilyname, "ivfflat",
+							format_operator(oprform->amopopr))));
+			result = false;
+		}
+
+		/* Check operator signature */
+		if (!check_amop_signature(oprform->amopopr, FLOAT8OID, opcintype, opcintype))
+		{
+			ereport(INFO,
+					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+					 errmsg("operator family \"%s\" of access method %s contains operator %s with wrong signature",
+							opfamilyname, "ivfflat",
+							format_operator(oprform->amopopr))));
+			result = false;
+		}
+	}
+
+	ReleaseCatCacheList(proclist);
+	ReleaseCatCacheList(oprlist);
+#if PG_VERSION_NUM >= 180000
+	pfree(opfamilyname);
+#else
+	ReleaseSysCache(familytup);
+#endif
+	ReleaseSysCache(classtup);
+
+	return result;
 }
 
 /*
