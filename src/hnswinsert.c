@@ -144,7 +144,7 @@ HnswInsertAppendPage(Relation index, Buffer *nbuf, Page *npage, GenericXLogState
  * Add to element and neighbor pages
  */
 static void
-AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, BlockNumber *updatedInsertPage, bool building)
+AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInsertPage, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -161,6 +161,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	Page		npage;
 	OffsetNumber freeOffno = InvalidOffsetNumber;
 	OffsetNumber freeNeighborOffno = InvalidOffsetNumber;
+	BlockNumber insertPage = InvalidBlockNumber;
 	BlockNumber newInsertPage = InvalidBlockNumber;
 	uint8		tupleVersion;
 	char	   *base = NULL;
@@ -202,7 +203,10 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		if (!BlockNumberIsValid(currentPage))
+		{
+			insertPage = GetInsertPage(index);
 			currentPage = insertPage;
+		}
 
 		buf = ReadBuffer(index, currentPage);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
@@ -381,7 +385,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		UnlockReleaseBuffer(nbuf);
 
 	/* Update the insert page */
-	if (BlockNumberIsValid(newInsertPage) && newInsertPage != insertPage)
+	if (BlockNumberIsValid(newInsertPage) && BlockNumberIsValid(insertPage) && newInsertPage != insertPage)
 		*updatedInsertPage = newInsertPage;
 }
 
@@ -714,7 +718,7 @@ UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, in
 		return;
 
 	/* Add element */
-	AddElementOnDisk(index, element, m, GetInsertPage(index), &newInsertPage, building);
+	AddElementOnDisk(index, element, m, &newInsertPage, building);
 
 	/* Update insert page if needed */
 	if (BlockNumberIsValid(newInsertPage))
