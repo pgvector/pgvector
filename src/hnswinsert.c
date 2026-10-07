@@ -17,6 +17,8 @@
 #include "varatt.h"
 #endif
 
+#define HNSW_MAX_FSM_TRIES 3
+
 /*
  * Get the insert page
  */
@@ -169,6 +171,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 	bool		tryFsm;
 	int			fsmTries = 0;
 	bool		fsmPage;
+	BlockNumber fsmPages[HNSW_MAX_FSM_TRIES];
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
@@ -196,10 +199,28 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 		/* Try free space map */
 		if (tryFsm)
 		{
-			/* TODO do not retry same page */
 			currentPage = GetPageWithFreeSpace(index, combinedSize);
+			fsmPages[fsmTries] = currentPage;
+
+			/*
+			 * Even if a page is returned, it may not be possible to add the
+			 * tuples (see HnswFreeOffset for details), so avoid checking the
+			 * same page again
+			 */
+			if (BlockNumberIsValid(currentPage))
+			{
+				for (int i = 0; i < fsmTries; i++)
+				{
+					if (fsmPages[i] == currentPage)
+					{
+						currentPage = InvalidBlockNumber;
+						break;
+					}
+				}
+			}
+
 			fsmPage = BlockNumberIsValid(currentPage);
-			tryFsm = ++fsmTries < 3 && BlockNumberIsValid(currentPage);
+			tryFsm = ++fsmTries < HNSW_MAX_FSM_TRIES && BlockNumberIsValid(currentPage);
 		}
 
 		/* Start at insert page if free space map yields nothing */
