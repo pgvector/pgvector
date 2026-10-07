@@ -1,3 +1,7 @@
+## 0.8.8 (unreleased)
+
+- Improved performance of HNSW inserts with `sparsevec`
+
 ## 0.8.7 (2026-10-01)
 
 - Fixed buffer overflow with IVFFlat index build - [more info](https://github.com/pgvector/pgvector/issues/1036)
