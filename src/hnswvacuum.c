@@ -735,6 +735,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 		UnlockReleaseBuffer(buf);
 	}
 
+	/* Ensure increases in free space become visible */
 	if (useFsm)
 		FreeSpaceMapVacuum(index);
 
