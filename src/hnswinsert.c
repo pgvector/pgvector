@@ -197,7 +197,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 		fsmPage = false;
 
 		/* Try free space map */
-		if (tryFsm)
+		if (tryFsm && fsmTries < HNSW_MAX_FSM_TRIES)
 		{
 			currentPage = GetPageWithFreeSpace(index, combinedSize);
 			fsmHistory[fsmTries++] = currentPage;
@@ -220,7 +220,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 			}
 
 			fsmPage = BlockNumberIsValid(currentPage);
-			tryFsm = fsmTries < HNSW_MAX_FSM_TRIES && BlockNumberIsValid(currentPage);
+			tryFsm = BlockNumberIsValid(currentPage);
 		}
 
 		/* Start at insert page if free space map yields nothing */
