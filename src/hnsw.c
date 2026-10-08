@@ -389,9 +389,7 @@ hnswvalidate(Oid opclassoid)
 
 	ReleaseCatCacheList(proclist);
 	ReleaseCatCacheList(oprlist);
-#if PG_VERSION_NUM >= 180000
-	pfree(opfamilyname);
-#else
+#if PG_VERSION_NUM < 180000
 	ReleaseSysCache(familytup);
 #endif
 	ReleaseSysCache(classtup);
