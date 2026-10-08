@@ -276,11 +276,17 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 			break;
 		}
 
-		/* Try another page */
 		if (fsmPage)
 		{
-			UnlockReleaseBuffer(buf);
-			continue;
+			/* Try another page if not last page */
+			if (BlockNumberIsValid(HnswPageGetOpaque(page)->nextblkno))
+			{
+				UnlockReleaseBuffer(buf);
+				continue;
+			}
+
+			/* Otherwise, fallthrough to reduce contention */
+			fsmPage = false;
 		}
 
 		/* Finally, try space for element only if last page */
