@@ -1149,7 +1149,7 @@ RecordFreeSpace(Relation index)
 		UnlockReleaseBuffer(buf);
 	}
 
-	/* Ensure free space become visible */
+	/* Ensure free space becomes visible */
 	FreeSpaceMapVacuum(index);
 }
 
