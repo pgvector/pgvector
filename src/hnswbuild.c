@@ -55,6 +55,7 @@
 #include "optimizer/optimizer.h"
 #include "storage/bufmgr.h"
 #include "storage/condition_variable.h"
+#include "storage/freespace.h"
 #include "tcop/tcopprot.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
@@ -1125,6 +1126,31 @@ BuildGraph(HnswBuildState * buildstate)
 }
 
 /*
+ * Record free space
+ */
+static void
+RecordFreeSpace(Relation index)
+{
+	BlockNumber blkno = HNSW_HEAD_BLKNO;
+
+	while (BlockNumberIsValid(blkno))
+	{
+		Buffer		buf;
+		Page		page;
+
+		buf = ReadBuffer(index, blkno);
+		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
+		page = BufferGetPage(buf);
+
+		/* Update free space map */
+		HnswRecordPageWithFreeSpace(index, blkno, page);
+
+		blkno = HnswPageGetOpaque(page)->nextblkno;
+		UnlockReleaseBuffer(buf);
+	}
+}
+
+/*
  * Build the index
  */
 static void
@@ -1141,6 +1167,9 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 
 	if (RelationNeedsWAL(index) || forkNum == INIT_FORKNUM)
 		log_newpage_range(index, forkNum, 0, RelationGetNumberOfBlocksInFork(index, forkNum), true);
+
+	if (buildstate->typeInfo->useFsm && forkNum == MAIN_FORKNUM)
+		RecordFreeSpace(index);
 
 	FreeBuildState(buildstate);
 }
