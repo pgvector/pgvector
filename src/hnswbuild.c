@@ -1148,6 +1148,8 @@ RecordFreeSpace(Relation index)
 		blkno = HnswPageGetOpaque(page)->nextblkno;
 		UnlockReleaseBuffer(buf);
 	}
+
+	FreeSpaceMapVacuum(index);
 }
 
 /*
