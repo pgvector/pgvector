@@ -280,6 +280,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 		if (fsmPage)
 		{
 			UnlockReleaseBuffer(buf);
+			currentPage = InvalidBlockNumber;
 			continue;
 		}
 
