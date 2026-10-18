@@ -863,7 +863,7 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 #endif
 
 /*
- * Initialize the read state
+ * Initialize the search state
  */
 void
 HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintenance)
@@ -884,7 +884,7 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 }
 
 /*
- * End the read state
+ * End the search state
  */
 void
 HnswEndSearchState(HnswSearchState * searchState)
