@@ -53,11 +53,11 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 	for (int lc = entryPoint->level; lc >= 1; lc--)
 	{
-		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL, &so->readStream);
+		w = HnswSearchLayer(base, q, ep, 1, lc, index, support, m, false, NULL, NULL, NULL, true, NULL, &so->readState);
 		ep = w;
 	}
 
-	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples, &so->readStream);
+	return HnswSearchLayer(base, q, ep, hnsw_ef_search, 0, index, support, m, false, NULL, &so->v, hnsw_iterative_scan != HNSW_ITERATIVE_SCAN_OFF ? &so->discarded : NULL, true, &so->tuples, &so->readState);
 }
 
 /*
@@ -88,7 +88,7 @@ ResumeScanItems(IndexScanDesc scan)
 		ep = lappend(ep, sc);
 	}
 
-	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples, &so->readStream);
+	return HnswSearchLayer(base, &so->q, ep, batch_size, 0, index, &so->support, so->m, false, NULL, &so->v, &so->discarded, false, &so->tuples, &so->readState);
 }
 
 /*
@@ -148,7 +148,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	HnswInitSupport(&so->support, index);
 
 #ifdef HNSW_USE_READ_STREAM
-	HnswInitReadStream(&so->readStream, index, false);
+	HnswInitReadState(&so->readState, index, false);
 #endif
 
 	/*
@@ -348,7 +348,7 @@ hnswendscan(IndexScanDesc scan)
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
 #ifdef HNSW_USE_READ_STREAM
-	HnswEndReadStream(&so->readStream);
+	HnswEndReadState(&so->readState);
 #endif
 	MemoryContextDelete(so->tmpCtx);
 

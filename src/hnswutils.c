@@ -848,23 +848,23 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
  * Initialize the read stream
  */
 void
-HnswInitReadStream(HnswReadStream * readStream, Relation index, bool maintenance)
+HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance)
 {
 	int			flags = READ_STREAM_DEFAULT;
 
 	if (maintenance)
 		flags |= READ_STREAM_MAINTENANCE;
 
-	readStream->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &readStream->streamData, sizeof(OffsetNumber));
+	readState->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &readState->streamData, sizeof(OffsetNumber));
 }
 
 /*
  * End the read stream
  */
 void
-HnswEndReadStream(HnswReadStream * readStream)
+HnswEndReadState(HnswReadState * readState)
 {
-	read_stream_end(readStream->stream);
+	read_stream_end(readState->stream);
 }
 #endif
 
@@ -872,7 +872,7 @@ HnswEndReadStream(HnswReadStream * readStream)
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadStream * readStream)
+HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadState * readState)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -951,7 +951,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		else
 		{
 #ifdef HNSW_USE_READ_STREAM
-			HnswReadStreamData *streamData = &readStream->streamData;
+			HnswReadStreamData *streamData = &readState->streamData;
 #endif
 
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
@@ -961,7 +961,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 			streamData->unvisitedLength = unvisitedLength;
 			streamData->visited = 0;
 
-			read_stream_resume(readStream->stream);
+			read_stream_resume(readState->stream);
 #endif
 		}
 
@@ -994,7 +994,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 #ifdef HNSW_USE_READ_STREAM
 				void	   *offnoPtr;
 
-				buf = read_stream_next_buffer(readStream->stream, &offnoPtr);
+				buf = read_stream_next_buffer(readState->stream, &offnoPtr);
 
 				if (!BufferIsValid(buf))
 					break;
@@ -1373,11 +1373,11 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	HnswQuery	q;
 	HnswElement skipElement = existing ? element : NULL;
 	bool		inMemory = index == NULL;
-	HnswReadStream readStream;
+	HnswReadState readState;
 
 #ifdef HNSW_USE_READ_STREAM
 	if (!inMemory)
-		HnswInitReadStream(&readStream, index, maintenance);
+		HnswInitReadState(&readState, index, maintenance);
 #endif
 
 	q.value = HnswGetValue(base, element);
@@ -1397,7 +1397,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &readStream);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &readState);
 		ep = w;
 	}
 
@@ -1416,7 +1416,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *lw = NIL;
 		ListCell   *lc2;
 
-		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &readStream);
+		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &readState);
 
 		/* Convert search candidates to candidates */
 		foreach(lc2, w)
@@ -1449,7 +1449,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 
 #ifdef HNSW_USE_READ_STREAM
 	if (!inMemory)
-		HnswEndReadStream(&readStream);
+		HnswEndReadState(&readState);
 #endif
 }
 

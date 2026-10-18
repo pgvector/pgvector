@@ -424,7 +424,7 @@ typedef struct HnswReadStreamData
 }			HnswReadStreamData;
 #endif
 
-typedef struct HnswReadStream
+typedef struct HnswReadState
 {
 #ifdef HNSW_USE_READ_STREAM
 	HnswReadStreamData streamData;
@@ -432,7 +432,7 @@ typedef struct HnswReadStream
 #else
 	void	   *unused;
 #endif
-}			HnswReadStream;
+}			HnswReadState;
 
 typedef struct HnswScanOpaqueData
 {
@@ -444,7 +444,7 @@ typedef struct HnswScanOpaqueData
 	HnswQuery	q;
 	int			m;
 	int64		tuples;
-	HnswReadStream readStream;
+	HnswReadState readState;
 	double		previousDistance;
 	Size		maxMemory;
 	MemoryContext tmpCtx;
@@ -491,7 +491,7 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
-List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadStream * readStream);
+List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadState * readState);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint);
 void	   *HnswAlloc(HnswAllocator * allocator, Size size);
@@ -518,8 +518,8 @@ const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
 #ifdef HNSW_USE_READ_STREAM
-void		HnswInitReadStream(HnswReadStream * readStream, Relation index, bool maintenance);
-void		HnswEndReadStream(HnswReadStream * readStream);
+void		HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance);
+void		HnswEndReadState(HnswReadState * readState);
 #endif
 
 /* Index access methods */
