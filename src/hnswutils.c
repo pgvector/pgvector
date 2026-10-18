@@ -864,7 +864,9 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 void
 HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintenance)
 {
+#if defined(HNSW_USE_READ_STREAM) || defined(HNSW_USE_PREFETCH)
 	bool		inMemory = index == NULL;
+#endif
 
 	searchState->index = index;
 
@@ -921,8 +923,8 @@ HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 
 	return buf;
 #else
+	/* TODO DRY with HnswReadStreamNextBlock */
 	HnswReadStreamData *streamData = &searchState->streamData;
-	int			i = streamData->visited;
 	HnswUnvisited *uv;
 
 	if (streamData->visited == streamData->unvisitedLength)
@@ -934,8 +936,8 @@ HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 
 #ifdef HNSW_USE_PREFETCH
 	/* Prefetch another buffer if possible */
-	if (i + searchState->maxPrefetch < streamData->unvisitedLength)
-		PrefetchBuffer(searchState->index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&streamData->unvisited[i + searchState->maxPrefetch].indextid));
+	if (streamData->visited - 1 + searchState->maxPrefetch < streamData->unvisitedLength)
+		PrefetchBuffer(searchState->index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&streamData->unvisited[streamData->visited - 1 + searchState->maxPrefetch].indextid));
 #endif
 
 	return buf;
