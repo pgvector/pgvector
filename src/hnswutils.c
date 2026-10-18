@@ -845,7 +845,7 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 }
 
 /*
- * Initialize the read stream
+ * Initialize the read state
  */
 void
 HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance)
@@ -859,7 +859,7 @@ HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance)
 }
 
 /*
- * End the read stream
+ * End the read state
  */
 void
 HnswEndReadState(HnswReadState * readState)
