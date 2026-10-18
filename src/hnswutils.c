@@ -863,8 +863,10 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 void
 HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintenance)
 {
+	bool		inMemory = index == NULL;
+
 #ifdef HNSW_USE_READ_STREAM
-	if (index != NULL)
+	if (!inMemory)
 	{
 		int			flags = READ_STREAM_DEFAULT;
 
@@ -876,7 +878,7 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 	else
 		searchState->stream = NULL;
 #elif defined(HNSW_USE_PREFETCH)
-	if (index != NULL)
+	if (!inMemory)
 	{
 		if (maintenance)
 			searchState->maxPrefetch = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
