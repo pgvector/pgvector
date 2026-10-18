@@ -20,9 +20,7 @@
 
 #if PG_VERSION_NUM >= 190000
 #define HNSW_USE_READ_STREAM
-#endif
-
-#if !defined(HNSW_USE_READ_STREAM) && defined(USE_PREFETCH)
+#elif defined(USE_PREFETCH)
 #define HNSW_USE_PREFETCH
 #endif
 
