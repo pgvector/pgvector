@@ -923,9 +923,8 @@ HnswEndSearchState(HnswSearchState * searchState)
 static inline Buffer
 HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 {
-	Buffer		buf;
-
 #ifdef HNSW_USE_READ_STREAM
+	Buffer		buf;
 	void	   *offnoPtr;
 
 	buf = read_stream_next_buffer(searchState->stream, &offnoPtr);
@@ -935,7 +934,10 @@ HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 
 	return buf;
 #else
-	BlockNumber blkno = HnswNextBlock(searchState, offno);
+	Buffer		buf;
+	BlockNumber blkno;
+
+	blkno = HnswNextBlock(searchState, offno);
 
 	if (!BlockNumberIsValid(blkno))
 		return InvalidBuffer;
