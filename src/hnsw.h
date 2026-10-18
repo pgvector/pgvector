@@ -417,17 +417,13 @@ typedef union
 	ItemPointerData indextid;
 }			HnswUnvisited;
 
-typedef struct HnswReadStreamData
-{
-	HnswUnvisited *unvisited;
-	int			unvisitedLength;
-	int			visited;
-}			HnswReadStreamData;
-
 typedef struct HnswSearchState
 {
 	Relation	index;
-	HnswReadStreamData streamData;
+	HnswUnvisited *unvisited;
+	int			unvisitedLength;
+	int			visited;
+
 #ifdef HNSW_USE_READ_STREAM
 	ReadStream *stream;
 #elif defined(HNSW_USE_PREFETCH)
