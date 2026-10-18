@@ -828,7 +828,7 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 
 #ifdef HNSW_USE_READ_STREAM
 	readState->streamData.unvisited = unvisited;
-	readState->streamData.unvisitedLength = unvisitedLength;
+	readState->streamData.unvisitedLength = *unvisitedLength;
 	readState->streamData.visited = 0;
 	read_stream_resume(readState->stream);
 #elif defined(HNSW_USE_PREFETCH)
