@@ -899,10 +899,15 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 #elif defined(HNSW_USE_PREFETCH)
 	if (!inMemory)
 	{
+		int			maxM = HnswGetLayerM(HNSW_MAX_M, 0);
+		int			ioConcurrency;
+
 		if (maintenance)
-			searchState->maxPrefetch = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
+			ioConcurrency = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
 		else
-			searchState->maxPrefetch = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
+			ioConcurrency = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
+
+		searchState->maxPrefetch = Min(maxM, ioConcurrency);
 	}
 #endif
 }
