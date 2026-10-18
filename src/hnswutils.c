@@ -906,8 +906,7 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 		else
 			ioConcurrency = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
 
-		/* TODO Use m from index */
-		searchState->maxPrefetch = Min(ioConcurrency, HnswGetLayerM(HNSW_MAX_M, 0));
+		searchState->maxPrefetch = Min(ioConcurrency, HNSW_MAX_M * 2);
 	}
 #endif
 }
