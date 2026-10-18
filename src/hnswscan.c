@@ -147,9 +147,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	HnswInitSupport(&so->support, index);
 
-#ifdef HNSW_USE_READ_STREAM
 	HnswInitReadState(&so->readState, index, false);
-#endif
 
 	/*
 	 * Use a lower max allocation size than default to allow scanning more
@@ -347,9 +345,7 @@ hnswendscan(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
-#ifdef HNSW_USE_READ_STREAM
 	HnswEndReadState(&so->readState);
-#endif
 	MemoryContextDelete(so->tmpCtx);
 
 	pfree(so);

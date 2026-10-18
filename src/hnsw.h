@@ -22,6 +22,10 @@
 #define HNSW_USE_READ_STREAM
 #endif
 
+#if !defined(HNSW_USE_READ_STREAM) && defined(USE_PREFETCH)
+#define HNSW_USE_PREFETCH
+#endif
+
 #ifdef HNSW_USE_READ_STREAM
 #include "storage/read_stream.h"
 #endif
@@ -430,7 +434,7 @@ typedef struct HnswReadState
 	HnswReadStreamData streamData;
 	ReadStream *stream;
 #else
-	void	   *unused;
+	int			maxPrefetch;
 #endif
 }			HnswReadState;
 
@@ -491,6 +495,8 @@ bool		HnswCheckNorm(HnswSupport * support, Datum value);
 Buffer		HnswNewBuffer(Relation index, ForkNumber forkNum);
 void		HnswInitPage(Buffer buf, Page page);
 void		HnswInit(void);
+void		HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance);
+void		HnswEndReadState(HnswReadState * readState);
 List	   *HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswReadState * readState);
 HnswElement HnswGetEntryPoint(Relation index);
 void		HnswGetMetaPageInfo(Relation index, int *m, int *dimensions, HnswElement * entryPoint);
@@ -516,11 +522,6 @@ void		HnswInitLockTranche(void);
 void		HnswCheckDim(int expected, const HnswTypeInfo * typeInfo, Oid collation, Datum value);
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
-
-#ifdef HNSW_USE_READ_STREAM
-void		HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance);
-void		HnswEndReadState(HnswReadState * readState);
-#endif
 
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);

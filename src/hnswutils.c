@@ -24,6 +24,8 @@
 
 #ifdef HNSW_USE_READ_STREAM
 #include "storage/read_stream.h"
+#elif defined(HNSW_USE_PREFETCH)
+#include "utils/spccache.h"
 #endif
 
 #if PG_VERSION_NUM < 170000
@@ -801,7 +803,7 @@ HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation i
  * Load unvisited neighbors from disk
  */
 static void
-HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, Relation index, int m, int lm, int lc)
+HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, Relation index, int m, int lm, int lc, HnswReadState * readState)
 {
 	ItemPointerData indextids[HNSW_MAX_M * 2];
 
@@ -823,6 +825,21 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 		if (!found)
 			unvisited[(*unvisitedLength)++].indextid = *indextid;
 	}
+
+#ifdef HNSW_USE_READ_STREAM
+	readState->streamData.unvisited = unvisited;
+	readState->streamData.unvisitedLength = unvisitedLength;
+	readState->streamData.visited = 0;
+	read_stream_resume(readState->stream);
+#elif defined(HNSW_USE_PREFETCH)
+	for (int i = 0; i < readState->maxPrefetch; i++)
+	{
+		if (i == *unvisitedLength)
+			break;
+
+		PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i].indextid));
+	}
+#endif
 }
 
 #ifdef HNSW_USE_READ_STREAM
@@ -843,6 +860,7 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
 	return ItemPointerGetBlockNumber(&uv->indextid);
 }
+#endif
 
 /*
  * Initialize the read state
@@ -850,12 +868,19 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 void
 HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance)
 {
+#ifdef HNSW_USE_READ_STREAM
 	int			flags = READ_STREAM_DEFAULT;
 
 	if (maintenance)
 		flags |= READ_STREAM_MAINTENANCE;
 
 	readState->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &readState->streamData, sizeof(OffsetNumber));
+#elif defined(HNSW_USE_PREFETCH)
+	if (maintenance)
+		readState->maxPrefetch = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
+	else
+		readState->maxPrefetch = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
+#endif
 }
 
 /*
@@ -864,9 +889,10 @@ HnswInitReadState(HnswReadState * readState, Relation index, bool maintenance)
 void
 HnswEndReadState(HnswReadState * readState)
 {
+#ifdef HNSW_USE_READ_STREAM
 	read_stream_end(readState->stream);
-}
 #endif
+}
 
 /*
  * Algorithm 2 from paper
@@ -949,21 +975,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		if (inMemory)
 			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
 		else
-		{
-#ifdef HNSW_USE_READ_STREAM
-			HnswReadStreamData *streamData = &readState->streamData;
-#endif
-
-			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
-
-#ifdef HNSW_USE_READ_STREAM
-			streamData->unvisited = unvisited;
-			streamData->unvisitedLength = unvisitedLength;
-			streamData->visited = 0;
-
-			read_stream_resume(readState->stream);
-#endif
-		}
+			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc, readState);
 
 		/* OK to count elements instead of tuples */
 		if (tuples != NULL)
@@ -1014,6 +1026,13 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
 				HnswLoadElementImpl(buf, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
+
+#ifdef HNSW_USE_PREFETCH
+				/* Prefetch another buffer if needed */
+				if (i + readState->maxPrefetch < unvisitedLength)
+					PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i + readState->maxPrefetch].indextid));
+#endif
+
 
 				if (eElement == NULL)
 					continue;
@@ -1375,10 +1394,8 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	bool		inMemory = index == NULL;
 	HnswReadState readState;
 
-#ifdef HNSW_USE_READ_STREAM
 	if (!inMemory)
 		HnswInitReadState(&readState, index, maintenance);
-#endif
 
 	q.value = HnswGetValue(base, element);
 
@@ -1447,10 +1464,8 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		ep = w;
 	}
 
-#ifdef HNSW_USE_READ_STREAM
 	if (!inMemory)
 		HnswEndReadState(&readState);
-#endif
 }
 
 /*
