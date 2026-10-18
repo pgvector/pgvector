@@ -838,6 +838,22 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 #endif
 }
 
+/*
+ * Get next block number for search
+ */
+static BlockNumber
+HnswNextBlock(HnswSearchState * searchState, OffsetNumber *offno)
+{
+	HnswUnvisited *uv;
+
+	if (searchState->visited == searchState->unvisitedLength)
+		return InvalidBlockNumber;
+
+	uv = &searchState->unvisited[searchState->visited++];
+	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
+	return ItemPointerGetBlockNumber(&uv->indextid);
+}
+
 #ifdef HNSW_USE_READ_STREAM
 /*
  * Get next block number for read stream
@@ -847,14 +863,12 @@ HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *p
 {
 	HnswSearchState *searchState = callback_private_data;
 	OffsetNumber *offno = per_buffer_data;
-	HnswUnvisited *uv;
+	BlockNumber blkno = HnswNextBlock(searchState, offno);
 
-	if (searchState->visited == searchState->unvisitedLength)
+	if (!BlockNumberIsValid(blkno))
 		return read_stream_pause(stream);
 
-	uv = &searchState->unvisited[searchState->visited++];
-	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
-	return ItemPointerGetBlockNumber(&uv->indextid);
+	return blkno;
 }
 #endif
 
@@ -923,15 +937,12 @@ HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 
 	return buf;
 #else
-	/* TODO DRY with HnswReadStreamNextBlock */
-	HnswUnvisited *uv;
+	BlockNumber blkno = HnswNextBlock(searchState, offno);
 
-	if (searchState->visited == searchState->unvisitedLength)
+	if (!BlockNumberIsValid(blkno))
 		return InvalidBuffer;
 
-	uv = &searchState->unvisited[searchState->visited++];
-	buf = ReadBuffer(searchState->index, ItemPointerGetBlockNumber(&uv->indextid));
-	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
+	buf = ReadBuffer(searchState->index, blkno);
 
 #ifdef HNSW_USE_PREFETCH
 	/* Prefetch another buffer if possible */

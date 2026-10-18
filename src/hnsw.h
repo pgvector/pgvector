@@ -419,16 +419,20 @@ typedef union
 
 typedef struct HnswSearchState
 {
+	/* Info */
 	Relation	index;
-	HnswUnvisited *unvisited;
-	int			unvisitedLength;
-	int			visited;
 
+	/* Prefetching */
 #ifdef HNSW_USE_READ_STREAM
 	ReadStream *stream;
 #elif defined(HNSW_USE_PREFETCH)
 	int			maxPrefetch;
 #endif
+
+	/* Batch state */
+	HnswUnvisited *unvisited;
+	int			unvisitedLength;
+	int			visited;
 }			HnswSearchState;
 
 typedef struct HnswScanOpaqueData
