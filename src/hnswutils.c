@@ -869,17 +869,25 @@ void
 HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintenance)
 {
 #ifdef HNSW_USE_READ_STREAM
-	int			flags = READ_STREAM_DEFAULT;
+	if (index != NULL)
+	{
+		int			flags = READ_STREAM_DEFAULT;
 
-	if (maintenance)
-		flags |= READ_STREAM_MAINTENANCE;
+		if (maintenance)
+			flags |= READ_STREAM_MAINTENANCE;
 
-	searchState->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &searchState->streamData, sizeof(OffsetNumber));
-#elif defined(HNSW_USE_PREFETCH)
-	if (maintenance)
-		searchState->maxPrefetch = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
+		searchState->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, &searchState->streamData, sizeof(OffsetNumber));
+	}
 	else
-		searchState->maxPrefetch = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
+		searchState->stream = NULL;
+#elif defined(HNSW_USE_PREFETCH)
+	if (index != NULL)
+	{
+		if (maintenance)
+			searchState->maxPrefetch = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
+		else
+			searchState->maxPrefetch = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
+	}
 #endif
 }
 
@@ -890,7 +898,8 @@ void
 HnswEndSearchState(HnswSearchState * searchState)
 {
 #ifdef HNSW_USE_READ_STREAM
-	read_stream_end(searchState->stream);
+	if (searchState->stream != NULL)
+		read_stream_end(searchState->stream);
 #endif
 }
 
@@ -1393,8 +1402,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	bool		inMemory = index == NULL;
 	HnswSearchState searchState;
 
-	if (!inMemory)
-		HnswInitSearchState(&searchState, index, maintenance);
+	HnswInitSearchState(&searchState, index, maintenance);
 
 	q.value = HnswGetValue(base, element);
 
@@ -1463,8 +1471,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		ep = w;
 	}
 
-	if (!inMemory)
-		HnswEndSearchState(&searchState);
+	HnswEndSearchState(&searchState);
 }
 
 /*
