@@ -22,7 +22,7 @@
 #include "varatt.h"
 #endif
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 #include "storage/read_stream.h"
 #endif
 
@@ -825,7 +825,7 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	}
 }
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 /*
  * Get next block number for read stream
  */
@@ -950,13 +950,13 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
 		else
 		{
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 			HnswReadStreamData *streamData = &readStream->streamData;
 #endif
 
 			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 			streamData->unvisited = unvisited;
 			streamData->unvisitedLength = unvisitedLength;
 			streamData->visited = 0;
@@ -991,7 +991,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 				Buffer		buf;
 				OffsetNumber offno;
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 				void	   *offnoPtr;
 
 				buf = read_stream_next_buffer(readStream->stream, &offnoPtr);
@@ -1375,7 +1375,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	bool		inMemory = index == NULL;
 	HnswReadStream readStream;
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 	if (!inMemory)
 		HnswInitReadStream(&readStream, index, maintenance);
 #endif
@@ -1447,7 +1447,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		ep = w;
 	}
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 	if (!inMemory)
 		HnswEndReadStream(&readStream);
 #endif

@@ -19,6 +19,10 @@
 #include "vector.h"
 
 #if PG_VERSION_NUM >= 190000
+#define HNSW_USE_READ_STREAM
+#endif
+
+#ifdef HNSW_USE_READ_STREAM
 #include "storage/read_stream.h"
 #endif
 
@@ -411,7 +415,7 @@ typedef union
 	ItemPointerData indextid;
 }			HnswUnvisited;
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 typedef struct HnswReadStreamData
 {
 	HnswUnvisited *unvisited;
@@ -422,7 +426,7 @@ typedef struct HnswReadStreamData
 
 typedef struct HnswReadStream
 {
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 	HnswReadStreamData streamData;
 	ReadStream *stream;
 #else
@@ -513,7 +517,7 @@ void		HnswCheckDim(int expected, const HnswTypeInfo * typeInfo, Oid collation, D
 const		HnswTypeInfo *HnswGetTypeInfo(Relation index);
 PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 void		HnswInitReadStream(HnswReadStream * readStream, Relation index, bool maintenance);
 void		HnswEndReadStream(HnswReadStream * readStream);
 #endif

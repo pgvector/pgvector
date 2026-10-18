@@ -147,7 +147,7 @@ hnswbeginscan(Relation index, int nkeys, int norderbys)
 	/* Set support functions */
 	HnswInitSupport(&so->support, index);
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 	HnswInitReadStream(&so->readStream, index, false);
 #endif
 
@@ -347,7 +347,7 @@ hnswendscan(IndexScanDesc scan)
 {
 	HnswScanOpaque so = (HnswScanOpaque) scan->opaque;
 
-#if PG_VERSION_NUM >= 190000
+#ifdef HNSW_USE_READ_STREAM
 	HnswEndReadStream(&so->readStream);
 #endif
 	MemoryContextDelete(so->tmpCtx);
