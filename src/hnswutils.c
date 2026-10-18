@@ -1028,11 +1028,10 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 				HnswLoadElementImpl(buf, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
 
 #ifdef HNSW_USE_PREFETCH
-				/* Prefetch another buffer if needed */
+				/* Prefetch another buffer if possible */
 				if (i + readState->maxPrefetch < unvisitedLength)
 					PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i + readState->maxPrefetch].indextid));
 #endif
-
 
 				if (eElement == NULL)
 					continue;
