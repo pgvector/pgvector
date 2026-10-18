@@ -841,7 +841,7 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 /*
  * Get next block number for search
  */
-static BlockNumber
+static inline BlockNumber
 HnswNextBlock(HnswSearchState * searchState, OffsetNumber *offno)
 {
 	HnswUnvisited *uv;
@@ -861,9 +861,7 @@ HnswNextBlock(HnswSearchState * searchState, OffsetNumber *offno)
 static BlockNumber
 HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *per_buffer_data)
 {
-	HnswSearchState *searchState = callback_private_data;
-	OffsetNumber *offno = per_buffer_data;
-	BlockNumber blkno = HnswNextBlock(searchState, offno);
+	BlockNumber blkno = HnswNextBlock((HnswSearchState *) callback_private_data, (OffsetNumber *) per_buffer_data);
 
 	if (!BlockNumberIsValid(blkno))
 		return read_stream_pause(stream);
