@@ -831,8 +831,10 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 	searchState->visited = 0;
 
 #ifdef HNSW_USE_READ_STREAM
+	/* Restore read-ahead distance */
 	read_stream_resume(searchState->stream);
 #elif defined(HNSW_USE_PREFETCH)
+	/* TODO Move to HnswNextBuffer */
 	for (int i = 0, imax = Min(searchState->maxPrefetch, *unvisitedLength); i < imax; i++)
 		PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i].indextid));
 #endif
