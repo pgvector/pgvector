@@ -826,10 +826,13 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 			unvisited[(*unvisitedLength)++].indextid = *indextid;
 	}
 
-#ifdef HNSW_USE_READ_STREAM
+#if defined(HNSW_USE_READ_STREAM) || defined(HNSW_USE_PREFETCH)
 	searchState->streamData.unvisited = unvisited;
 	searchState->streamData.unvisitedLength = *unvisitedLength;
 	searchState->streamData.visited = 0;
+#endif
+
+#ifdef HNSW_USE_READ_STREAM
 	read_stream_resume(searchState->stream);
 #elif defined(HNSW_USE_PREFETCH)
 	for (int i = 0, imax = Min(searchState->maxPrefetch, *unvisitedLength); i < imax; i++)
@@ -884,6 +887,8 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 			searchState->maxPrefetch = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
 		else
 			searchState->maxPrefetch = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
+
+		searchState->index = index;
 	}
 #endif
 }
@@ -897,6 +902,45 @@ HnswEndSearchState(HnswSearchState * searchState)
 #ifdef HNSW_USE_READ_STREAM
 	if (searchState->stream != NULL)
 		read_stream_end(searchState->stream);
+#endif
+}
+
+/*
+ * Read next buffer
+ */
+static inline Buffer
+HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
+{
+	Buffer		buf;
+
+#ifdef HNSW_USE_READ_STREAM
+	void	   *offnoPtr;
+
+	buf = read_stream_next_buffer(searchState->stream, &offnoPtr);
+
+	if (BufferIsValid(buf))
+		*offno = *((OffsetNumber *) offnoPtr);
+
+	return buf;
+#else
+	HnswReadStreamData *streamData = &searchState->streamData;
+	int			i = streamData->visited;
+	HnswUnvisited *uv;
+
+	if (streamData->visited == streamData->unvisitedLength)
+		return InvalidBuffer;
+
+	uv = &streamData->unvisited[streamData->visited++];
+	buf = ReadBuffer(searchState->index, ItemPointerGetBlockNumber(&uv->indextid));
+	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
+
+#ifdef HNSW_USE_PREFETCH
+	/* Prefetch another buffer if possible */
+	if (i + searchState->maxPrefetch < streamData->unvisitedLength)
+		PrefetchBuffer(searchState->index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&streamData->unvisited[i + searchState->maxPrefetch].indextid));
+#endif
+
+	return buf;
 #endif
 }
 
@@ -1009,35 +1053,13 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 				Buffer		buf;
 				OffsetNumber offno;
 
-#ifdef HNSW_USE_READ_STREAM
-				void	   *offnoPtr;
-
-				buf = read_stream_next_buffer(searchState->stream, &offnoPtr);
-
+				buf = HnswNextBuffer(searchState, &offno);
 				if (!BufferIsValid(buf))
 					break;
-
-				offno = *((OffsetNumber *) offnoPtr);
-#else
-				ItemPointer indextid;
-
-				if (i == unvisitedLength)
-					break;
-
-				indextid = &unvisited[i].indextid;
-				buf = ReadBuffer(index, ItemPointerGetBlockNumber(indextid));
-				offno = ItemPointerGetOffsetNumber(indextid);
-#endif
 
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
 				HnswLoadElementImpl(buf, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
-
-#ifdef HNSW_USE_PREFETCH
-				/* Prefetch another buffer if possible */
-				if (i + searchState->maxPrefetch < unvisitedLength)
-					PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i + searchState->maxPrefetch].indextid));
-#endif
 
 				if (eElement == NULL)
 					continue;

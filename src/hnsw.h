@@ -417,24 +417,21 @@ typedef union
 	ItemPointerData indextid;
 }			HnswUnvisited;
 
-#ifdef HNSW_USE_READ_STREAM
 typedef struct HnswReadStreamData
 {
 	HnswUnvisited *unvisited;
 	int			unvisitedLength;
 	int			visited;
 }			HnswReadStreamData;
-#endif
 
 typedef struct HnswSearchState
 {
-#ifdef HNSW_USE_READ_STREAM
 	HnswReadStreamData streamData;
+#ifdef HNSW_USE_READ_STREAM
 	ReadStream *stream;
 #elif defined(HNSW_USE_PREFETCH)
 	int			maxPrefetch;
-#else
-	void	   *unused;
+	Relation	index;
 #endif
 }			HnswSearchState;
 
