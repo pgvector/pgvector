@@ -826,11 +826,9 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 			unvisited[(*unvisitedLength)++].indextid = *indextid;
 	}
 
-#if defined(HNSW_USE_READ_STREAM) || defined(HNSW_USE_PREFETCH)
 	searchState->streamData.unvisited = unvisited;
 	searchState->streamData.unvisitedLength = *unvisitedLength;
 	searchState->streamData.visited = 0;
-#endif
 
 #ifdef HNSW_USE_READ_STREAM
 	read_stream_resume(searchState->stream);
@@ -868,6 +866,8 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 {
 	bool		inMemory = index == NULL;
 
+	searchState->index = index;
+
 #ifdef HNSW_USE_READ_STREAM
 	if (!inMemory)
 	{
@@ -887,8 +887,6 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 			searchState->maxPrefetch = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
 		else
 			searchState->maxPrefetch = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
-
-		searchState->index = index;
 	}
 #endif
 }

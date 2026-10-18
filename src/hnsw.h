@@ -426,12 +426,12 @@ typedef struct HnswReadStreamData
 
 typedef struct HnswSearchState
 {
+	Relation	index;
 	HnswReadStreamData streamData;
 #ifdef HNSW_USE_READ_STREAM
 	ReadStream *stream;
 #elif defined(HNSW_USE_PREFETCH)
 	int			maxPrefetch;
-	Relation	index;
 #endif
 }			HnswSearchState;
 
