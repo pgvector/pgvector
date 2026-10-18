@@ -431,8 +431,10 @@ typedef struct HnswReadState
 #ifdef HNSW_USE_READ_STREAM
 	HnswReadStreamData streamData;
 	ReadStream *stream;
-#else
+#elif defined(HNSW_USE_PREFETCH)
 	int			maxPrefetch;
+#else
+	void	   *unused;
 #endif
 }			HnswReadState;
 
