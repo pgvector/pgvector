@@ -972,6 +972,11 @@ CREATE FUNCTION l1_distance(sparsevec, sparsevec) RETURNS float8
 
 COMMENT ON FUNCTION l1_distance(sparsevec, sparsevec) IS 'taxicab distance';
 
+CREATE FUNCTION vector_dims(sparsevec) RETURNS integer
+	AS 'MODULE_PATHNAME', 'sparsevec_vector_dims' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION vector_dims(sparsevec) IS 'number of dimensions';
+
 CREATE FUNCTION l2_norm(sparsevec) RETURNS float8
 	AS 'MODULE_PATHNAME', 'sparsevec_l2_norm' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 

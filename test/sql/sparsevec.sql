@@ -79,6 +79,9 @@ SELECT sparsevec_cmp('{1:1,2:2,3:3}/3', '{1:1,2:2}/2');
 SELECT sparsevec_cmp('{1:1,2:2}/2', '{1:2,2:3,3:4}/3');
 SELECT sparsevec_cmp('{1:2,2:3}/2', '{1:1,2:2,3:3}/3');
 
+SELECT vector_dims('{1:3,2:4}/5'::sparsevec);
+SELECT vector_dims('{}/1000000000'::sparsevec);
+
 SELECT round(l2_norm('{1:1,2:1}/2'::sparsevec)::numeric, 5);
 SELECT l2_norm('{1:3,2:4}/2'::sparsevec);
 SELECT l2_norm('{2:1}/2'::sparsevec);
