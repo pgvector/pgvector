@@ -188,12 +188,7 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
  */
 bool
 ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
-			  Relation heap, IndexUniqueCheck checkUnique
-#if PG_VERSION_NUM >= 140000
-			  ,bool indexUnchanged
-#endif
-			  ,IndexInfo *indexInfo
-)
+			  Relation heap, IndexUniqueCheck checkUnique, bool indexUnchanged, IndexInfo *indexInfo)
 {
 	MemoryContext oldCtx;
 	MemoryContext insertCtx;

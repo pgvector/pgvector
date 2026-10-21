@@ -1,3 +1,7 @@
+## 0.9.0 (unreleased)
+
+- Dropped support for Postgres 13 and 14
+
 ## 0.8.7 (2026-10-01)
 
 - Fixed buffer overflow with IVFFlat index build - [more info](https://github.com/pgvector/pgvector/issues/1036)

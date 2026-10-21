@@ -407,17 +407,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 #define AppendChar(ptr, c) (*(ptr)++ = (c))
 #define AppendFloat(ptr, f) ((ptr) += float_to_shortest_decimal_bufn((f), (ptr)))
-
-#if PG_VERSION_NUM >= 140000
 #define AppendInt(ptr, i) ((ptr) += pg_ltoa((i), (ptr)))
-#else
-#define AppendInt(ptr, i) \
-	do { \
-		pg_ltoa(i, ptr); \
-		while (*ptr != '\0') \
-			ptr++; \
-	} while (0)
-#endif
 
 /*
  * Convert internal representation to textual representation

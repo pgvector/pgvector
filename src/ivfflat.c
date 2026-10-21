@@ -17,10 +17,6 @@
 #include "utils/spccache.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM < 150000
-#define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
-#endif
-
 int			ivfflat_probes;
 int			ivfflat_iterative_scan;
 int			ivfflat_max_probes;
@@ -293,9 +289,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
 	amroutine->ambuildphasename = ivfflatbuildphasename;
 	amroutine->amvalidate = ivfflatvalidate;
-#if PG_VERSION_NUM >= 140000
 	amroutine->amadjustmembers = NULL;
-#endif
 	amroutine->ambeginscan = ivfflatbeginscan;
 	amroutine->amrescan = ivfflatrescan;
 	amroutine->amgettuple = ivfflatgettuple;

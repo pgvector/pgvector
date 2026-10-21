@@ -101,18 +101,8 @@ typedef Pointer Item;
 #define HnswBench(name, code) (code)
 #endif
 
-#if PG_VERSION_NUM >= 150000
 #define RandomDouble() pg_prng_double(&pg_global_prng_state)
 #define SeedRandom(seed) pg_prng_seed(&pg_global_prng_state, seed)
-#else
-#define RandomDouble() (((double) random()) / MAX_RANDOM_VALUE)
-#define SeedRandom(seed) srandom(seed)
-#endif
-
-#if PG_VERSION_NUM < 140006
-#define palloc_object(type) ((type *) palloc(sizeof(type)))
-#define palloc0_object(type) ((type *) palloc0(sizeof(type)))
-#endif
 
 #if PG_VERSION_NUM >= 190000
 #define palloc_array_checked(type, count) ((type *) palloc_array(type, count))
@@ -136,10 +126,6 @@ typedef Pointer Item;
 #define HnswGetSearchCandidateConst(membername, ptr) pairingheap_const_container(HnswSearchCandidate, membername, ptr)
 
 #define HnswGetValue(base, element) PointerGetDatum(HnswPtrAccess(base, (element)->value))
-
-#if PG_VERSION_NUM < 140005
-#define relptr_offset(rp) ((rp).relptr_off - 1)
-#endif
 
 /* Pointer macros */
 #define HnswPtrAccess(base, hp) ((base) == NULL ? (hp).ptr : relptr_access(base, (hp).relptr))
@@ -492,12 +478,7 @@ PGDLLEXPORT void HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 /* Index access methods */
 IndexBuildResult *hnswbuild(Relation heap, Relation index, IndexInfo *indexInfo);
 void		hnswbuildempty(Relation index);
-bool		hnswinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique
-#if PG_VERSION_NUM >= 140000
-					   ,bool indexUnchanged
-#endif
-					   ,IndexInfo *indexInfo
-);
+bool		hnswinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique, bool indexUnchanged, IndexInfo *indexInfo);
 IndexBulkDeleteResult *hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state);
 IndexBulkDeleteResult *hnswvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
 IndexScanDesc hnswbeginscan(Relation index, int nkeys, int norderbys);

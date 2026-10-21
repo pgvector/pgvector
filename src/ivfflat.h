@@ -6,6 +6,7 @@
 #include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "access/parallel.h"
+#include "common/pg_prng.h"
 #include "lib/pairingheap.h"
 #include "nodes/execnodes.h"
 #include "port.h"				/* for random() */
@@ -16,10 +17,6 @@
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
-#endif
-
-#if PG_VERSION_NUM >= 150000
-#include "common/pg_prng.h"
 #endif
 
 #if PG_VERSION_NUM < 190000
@@ -83,20 +80,9 @@ typedef Pointer Item;
 #define IvfflatBench(name, code) (code)
 #endif
 
-#if PG_VERSION_NUM >= 150000
 #define RandomDouble() pg_prng_double(&pg_global_prng_state)
 #define RandomInt() pg_prng_uint32(&pg_global_prng_state)
 #define SeedRandom(seed) pg_prng_seed(&pg_global_prng_state, seed)
-#else
-#define RandomDouble() (((double) random()) / MAX_RANDOM_VALUE)
-#define RandomInt() random()
-#define SeedRandom(seed) srandom(seed)
-#endif
-
-#if PG_VERSION_NUM < 140006
-#define palloc_object(type) ((type *) palloc(sizeof(type)))
-#define palloc0_object(type) ((type *) palloc0(sizeof(type)))
-#endif
 
 #if PG_VERSION_NUM >= 190000
 #define palloc_array_checked(type, count) ((type *) palloc_array(type, count))
@@ -367,12 +353,7 @@ PGDLLEXPORT void IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc);
 /* Index access methods */
 IndexBuildResult *ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo);
 void		ivfflatbuildempty(Relation index);
-bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique
-#if PG_VERSION_NUM >= 140000
-						  ,bool indexUnchanged
-#endif
-						  ,IndexInfo *indexInfo
-);
+bool		ivfflatinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid, Relation heap, IndexUniqueCheck checkUnique, bool indexUnchanged, IndexInfo *indexInfo);
 IndexBulkDeleteResult *ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state);
 IndexBulkDeleteResult *ivfflatvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats);
 IndexScanDesc ivfflatbeginscan(Relation index, int nkeys, int norderbys);

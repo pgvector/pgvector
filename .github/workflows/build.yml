@@ -11,19 +11,15 @@ jobs:
           - postgres: 20
             os: ubuntu-26.04
           - postgres: 19
-            os: ubuntu-26.04
-          - postgres: 18
             os: ubuntu-26.04-arm
-          - postgres: 17
+          - postgres: 18
             os: ubuntu-24.04
-          - postgres: 16
+          - postgres: 17
             os: ubuntu-24.04-arm
+          - postgres: 16
+            os: ubuntu-22.04
           - postgres: 15
-            os: ubuntu-22.04
-          - postgres: 14
             os: ubuntu-22.04-arm
-          - postgres: 13
-            os: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
       - uses: ankane/setup-postgres@v1
@@ -52,7 +48,7 @@ jobs:
         include:
           - postgres: 18
             os: macos-26
-          - postgres: 14
+          - postgres: 15
             os: macos-15-intel
     steps:
       - uses: actions/checkout@v7
@@ -74,7 +70,7 @@ jobs:
           tar xf $TAG.tar.gz
           mv postgres-$TAG postgres
         env:
-          TAG: ${{ matrix.postgres == 18 && 'REL_18_2' || 'REL_14_21' }}
+          TAG: ${{ matrix.postgres == 18 && 'REL_18_6' || 'REL_15_19' }}
       - run: make prove_installcheck PROVE_FLAGS="-I ./postgres/src/test/perl -I ./test/perl"
         env:
           PERL5LIB: /Users/runner/perl5/lib/perl5
@@ -91,8 +87,8 @@ jobs:
         include:
           - postgres: 17
             os: windows-2025
-          - postgres: 14
-            os: windows-2022
+          # - postgres: 14
+          #   os: windows-2022
     steps:
       - uses: actions/checkout@v7
       - uses: ankane/setup-postgres@v1

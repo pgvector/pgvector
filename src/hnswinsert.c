@@ -550,9 +550,7 @@ HnswUpdateNeighborsOnDisk(Relation index, HnswSupport * support, HnswElement e, 
 	/* Use separate memory context to improve performance for larger vectors */
 	MemoryContext updateCtx = GenerationContextCreate(CurrentMemoryContext,
 													  "Hnsw insert update context",
-#if PG_VERSION_NUM >= 150000
 													  128 * 1024, 128 * 1024,
-#endif
 													  128 * 1024);
 
 	for (int lc = e->level; lc >= 0; lc--)
@@ -770,12 +768,7 @@ HnswInsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heaptid
  */
 bool
 hnswinsert(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid,
-		   Relation heap, IndexUniqueCheck checkUnique
-#if PG_VERSION_NUM >= 140000
-		   ,bool indexUnchanged
-#endif
-		   ,IndexInfo *indexInfo
-)
+		   Relation heap, IndexUniqueCheck checkUnique, bool indexUnchanged, IndexInfo *indexInfo)
 {
 	MemoryContext oldCtx;
 	MemoryContext insertCtx;

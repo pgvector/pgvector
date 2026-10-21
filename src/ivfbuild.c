@@ -24,25 +24,17 @@
 #include "storage/bufmgr.h"
 #include "storage/condition_variable.h"
 #include "tcop/tcopprot.h"
+#include "utils/backend_progress.h"
+#include "utils/backend_status.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/sampling.h"
 #include "utils/snapmgr.h"
 #include "utils/tuplesort.h"
+#include "utils/wait_event.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
-#endif
-
-#if PG_VERSION_NUM >= 140000
-#include "utils/backend_progress.h"
-#else
-#include "pgstat.h"
-#endif
-
-#if PG_VERSION_NUM >= 140000
-#include "utils/backend_status.h"
-#include "utils/wait_event.h"
 #endif
 
 #define PARALLEL_KEY_IVFFLAT_SHARED		UINT64CONST(0xA000000000000001)
@@ -87,11 +79,7 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 
 		if (buildstate->rowstoskip <= 0)
 		{
-#if PG_VERSION_NUM >= 150000
 			int			k = (int) (targsamples * sampler_random_fract(&buildstate->rstate.randstate));
-#else
-			int			k = (int) (targsamples * sampler_random_fract(buildstate->rstate.randstate));
-#endif
 
 			Assert(k >= 0 && k < targsamples);
 			VectorArraySet(samples, k, DatumGetPointer(value));

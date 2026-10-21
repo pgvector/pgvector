@@ -21,10 +21,6 @@
 #include "utils/spccache.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM < 150000
-#define MarkGUCPrefixReserved(x) EmitWarningsOnPlaceholders(x)
-#endif
-
 static const struct config_enum_entry hnsw_iterative_scan_options[] = {
 	{"off", HNSW_ITERATIVE_SCAN_OFF, false},
 	{"relaxed_order", HNSW_ITERATIVE_SCAN_RELAXED, false},
@@ -376,9 +372,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
 	amroutine->ambuildphasename = hnswbuildphasename;
 	amroutine->amvalidate = hnswvalidate;
-#if PG_VERSION_NUM >= 140000
 	amroutine->amadjustmembers = NULL;
-#endif
 	amroutine->ambeginscan = hnswbeginscan;
 	amroutine->amrescan = hnswrescan;
 	amroutine->amgettuple = hnswgettuple;

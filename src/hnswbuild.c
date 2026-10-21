@@ -56,24 +56,16 @@
 #include "storage/bufmgr.h"
 #include "storage/condition_variable.h"
 #include "tcop/tcopprot.h"
+#include "utils/backend_progress.h"
+#include "utils/backend_status.h"
 #include "utils/datum.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/snapmgr.h"
+#include "utils/wait_event.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
-#endif
-
-#if PG_VERSION_NUM >= 140000
-#include "utils/backend_progress.h"
-#else
-#include "pgstat.h"
-#endif
-
-#if PG_VERSION_NUM >= 140000
-#include "utils/backend_status.h"
-#include "utils/wait_event.h"
 #endif
 
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)
@@ -731,9 +723,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 
 	buildstate->graphCtx = GenerationContextCreate(CurrentMemoryContext,
 												   "Hnsw build graph context",
-#if PG_VERSION_NUM >= 150000
 												   1024 * 1024, 1024 * 1024,
-#endif
 												   1024 * 1024);
 	buildstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Hnsw build temporary context",
@@ -1011,14 +1001,6 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 
 	hnswarea = (char *) shm_toc_allocate(pcxt->toc, esthnswarea);
 	InitGraph(&hnswshared->graphData, hnswarea, esthnswarea);
-
-	/*
-	 * Avoid base address for relptr for Postgres < 14.5
-	 * https://github.com/postgres/postgres/commit/7201cd18627afc64850537806da7f22150d1a83b
-	 */
-#if PG_VERSION_NUM < 140005
-	hnswshared->graphData.memoryUsed = add_size(hnswshared->graphData.memoryUsed, MAXALIGN(1));
-#endif
 
 	shm_toc_insert(pcxt->toc, PARALLEL_KEY_HNSW_SHARED, hnswshared);
 	shm_toc_insert(pcxt->toc, PARALLEL_KEY_HNSW_AREA, hnswarea);
