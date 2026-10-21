@@ -216,3 +216,9 @@ CREATE TABLE t (val vector(2001));
 CREATE INDEX ON t USING hnsw (val vector_l2_ops);
 ERROR:  column cannot have more than 2000 dimensions for hnsw index
 DROP TABLE t;
+-- opclass validation
+SELECT opcname FROM pg_opclass WHERE NOT amvalidate(oid);
+ opcname 
+---------
+(0 rows)
+

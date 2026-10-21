@@ -1,5 +1,6 @@
 ## 0.9.0 (unreleased)
 
+- Improved `amvalidate` for indexes
 - Dropped support for Postgres 13 and 14
 
 ## 0.8.7 (2026-10-01)

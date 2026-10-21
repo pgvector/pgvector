@@ -122,3 +122,7 @@ DROP TABLE t;
 CREATE TABLE t (val vector(2001));
 CREATE INDEX ON t USING hnsw (val vector_l2_ops);
 DROP TABLE t;
+
+-- opclass validation
+
+SELECT opcname FROM pg_opclass WHERE NOT amvalidate(oid);
