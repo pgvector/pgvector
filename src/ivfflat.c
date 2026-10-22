@@ -183,6 +183,7 @@ ivfflatvalidate(Oid opclassoid)
 	HeapTuple	classtup;
 	Form_pg_opclass classform;
 	Oid			opcintype;
+	char	   *opclassname;
 	Oid			opfamilyoid;
 #if PG_VERSION_NUM < 180000
 	HeapTuple	familytup;
@@ -191,6 +192,9 @@ ivfflatvalidate(Oid opclassoid)
 	char	   *opfamilyname;
 	CatCList   *proclist;
 	CatCList   *oprlist;
+	List	   *grouplist;
+	OpFamilyOpFuncGroup *opclassgroup;
+	ListCell   *lc;
 
 	/* Fetch opclass information */
 	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
@@ -198,6 +202,7 @@ ivfflatvalidate(Oid opclassoid)
 		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
 	classform = (Form_pg_opclass) GETSTRUCT(classtup);
 	opcintype = classform->opcintype;
+	opclassname = NameStr(classform->opcname);
 
 	/* Fetch opfamily information */
 	opfamilyoid = classform->opcfamily;
@@ -315,6 +320,31 @@ ivfflatvalidate(Oid opclassoid)
 		}
 	}
 
+	grouplist = identify_opfamily_groups(oprlist, proclist);
+	opclassgroup = NULL;
+	foreach(lc, grouplist)
+	{
+		OpFamilyOpFuncGroup *thisgroup = (OpFamilyOpFuncGroup *) lfirst(lc);
+
+		if (thisgroup->lefttype == opcintype &&
+			thisgroup->righttype == opcintype)
+			opclassgroup = thisgroup;
+	}
+
+	/* Check required support functions */
+	for (int i = 1; i <= IVFFLAT_NPROCS; i++)
+	{
+		if (opclassgroup && (opclassgroup->functionset & (((int64) 1) << i)) != 0)
+			continue;
+		if (i == IVFFLAT_NORM_PROC || i == IVFFLAT_KMEANS_NORM_PROC || i == IVFFLAT_TYPE_INFO_PROC)
+			continue;
+		ereport(INFO,
+				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+				 errmsg("operator class \"%s\" of access method %s is missing support function %d",
+						opclassname, "hnsw", i)));
+		result = false;
+	}
+
 	ReleaseCatCacheList(proclist);
 	ReleaseCatCacheList(oprlist);
 #if PG_VERSION_NUM < 180000
@@ -338,7 +368,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	static const IndexAmRoutine amroutine = {
 		.type = T_IndexAmRoutine,
 		.amstrategies = 0,
-		.amsupport = 5,
+		.amsupport = IVFFLAT_NPROCS,
 		.amoptsprocnum = 0,
 		.amcanorder = false,
 		.amcanorderbyop = true,
@@ -395,7 +425,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	IndexAmRoutine *amroutine = makeNode(IndexAmRoutine);
 
 	amroutine->amstrategies = 0;
-	amroutine->amsupport = 5;
+	amroutine->amsupport = IVFFLAT_NPROCS;
 	amroutine->amoptsprocnum = 0;
 	amroutine->amcanorder = false;
 	amroutine->amcanorderbyop = true;
