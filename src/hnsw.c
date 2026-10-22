@@ -146,7 +146,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 				 Selectivity *indexSelectivity, double *indexCorrelation,
 				 double *indexPages)
 {
-	GenericCosts costs;
+	GenericCosts costs = {0};
 	int			m;
 	double		ratio;
 	double		startupPages;
@@ -167,8 +167,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 #endif
 		return;
 	}
-
-	MemSet(&costs, 0, sizeof(costs));
 
 	genericcostestimate(root, path, loop_count, &costs);
 
