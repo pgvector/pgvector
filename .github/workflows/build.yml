@@ -28,7 +28,7 @@ jobs:
           dev-files: true
       - run: make
         env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare ${{ matrix.postgres >= 18 && '-Wno-missing-field-initializers' || '' }}
+          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-sign-compare ${{ matrix.postgres == 18 && '-Wno-missing-field-initializers' || '' }}
       - run: |
           export PG_CONFIG=`which pg_config`
           sudo --preserve-env=PG_CONFIG make install
@@ -57,7 +57,7 @@ jobs:
           postgres-version: ${{ matrix.postgres }}
       - run: make
         env:
-          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unknown-warning-option ${{ matrix.postgres >= 18 && '-Wno-missing-field-initializers' || '' }}
+          PG_CFLAGS: -DUSE_ASSERT_CHECKING -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unknown-warning-option ${{ matrix.postgres == 18 && '-Wno-missing-field-initializers' || '' }}
       - run: make install
       - run: make installcheck
       - if: ${{ failure() }}
