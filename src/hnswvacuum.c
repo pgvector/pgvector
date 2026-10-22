@@ -249,7 +249,7 @@ RepairGraphElement(HnswVacuumState * vacuumstate, HnswElement element, HnswEleme
 	HnswFindElementNeighbors(base, element, entryPoint, index, support, m, efConstruction, true);
 
 	/* Zero memory for each element */
-	MemSet(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
+	memset(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
 
 	/* Update neighbor tuple */
 	/* Do this before getting page to minimize locking */

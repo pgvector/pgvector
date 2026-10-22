@@ -523,7 +523,7 @@ CreateListPages(Relation index, VectorArray centers, int lists,
 		OffsetNumber offno;
 
 		/* Zero memory for each list */
-		MemSet(list, 0, listSize);
+		memset(list, 0, listSize);
 
 		/* Load list */
 		list->startPage = InvalidBlockNumber;

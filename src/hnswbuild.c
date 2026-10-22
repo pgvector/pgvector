@@ -178,7 +178,7 @@ CreateGraphPages(HnswBuildState * buildstate)
 		iter = element->next;
 
 		/* Zero memory for each element */
-		MemSet(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
+		memset(etup, 0, HNSW_TUPLE_ALLOC_SIZE);
 
 		/* Calculate sizes */
 		etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(valuePtr));
@@ -266,7 +266,7 @@ WriteNeighborTuples(HnswBuildState * buildstate)
 		iter = element->next;
 
 		/* Zero memory for each element */
-		MemSet(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
+		memset(ntup, 0, HNSW_TUPLE_ALLOC_SIZE);
 
 		/* Can take a while, so ensure we can interrupt */
 		/* Needs to be called when no buffer locks are held */
