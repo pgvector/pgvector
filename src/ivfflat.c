@@ -222,6 +222,17 @@ ivfflatvalidate(Oid opclassoid)
 		Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
 		bool		ok;
 
+		/* Check matching left/right types */
+		if (procform->amproclefttype != procform->amprocrighttype)
+		{
+			ereport(INFO,
+					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
+					 errmsg("operator family \"%s\" of access method %s contains support function %s with different left and right input types",
+							opfamilyname, "ivfflat",
+							format_procedure(procform->amproc))));
+			result = false;
+		}
+
 		/* Check procedure numbers and function signatures */
 		switch (procform->amprocnum)
 		{
