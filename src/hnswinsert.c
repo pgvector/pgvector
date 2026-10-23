@@ -390,7 +390,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInser
 	{
 		HnswRecordPageWithFreeSpace(index, e->blkno, page);
 
-		if (npage != page)
+		if (e->neighborPage != e->blkno)
 			HnswRecordPageWithFreeSpace(index, e->neighborPage, npage);
 	}
 
