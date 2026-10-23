@@ -2,9 +2,11 @@
 
 #include "access/genam.h"
 #include "access/generic_xlog.h"
+#include "access/htup_details.h"
 #include "hnsw.h"
 #include "nodes/execnodes.h"
 #include "storage/bufmgr.h"
+#include "storage/freespace.h"
 #include "storage/lmgr.h"
 #include "storage/lwlock.h"
 #include "utils/datum.h"
@@ -14,6 +16,8 @@
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
 #endif
+
+#define HNSW_MAX_FSM_TRIES 3
 
 /*
  * Get the insert page
@@ -42,7 +46,7 @@ GetInsertPage(Relation index)
  * Check for a free offset
  */
 static bool
-HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage, uint8 *tupleVersion)
+HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size etupSize, Size ntupSize, Buffer *nbuf, Page *npage, OffsetNumber *freeOffno, OffsetNumber *freeNeighborOffno, BlockNumber *newInsertPage, uint8 *tupleVersion, bool useFsm)
 {
 	OffsetNumber offno;
 	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
@@ -65,7 +69,7 @@ HnswFreeOffset(Relation index, Buffer buf, Page page, HnswElement element, Size 
 			Size		pageFree;
 			Size		npageFree;
 
-			if (!BlockNumberIsValid(*newInsertPage))
+			if (!BlockNumberIsValid(*newInsertPage) && !useFsm)
 				*newInsertPage = elementPage;
 
 			if (neighborPage == elementPage)
@@ -142,7 +146,7 @@ HnswInsertAppendPage(Relation index, Buffer *nbuf, Page *npage, GenericXLogState
  * Add to element and neighbor pages
  */
 static void
-AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, BlockNumber *updatedInsertPage, bool building)
+AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber *updatedInsertPage, bool building)
 {
 	Buffer		buf;
 	Page		page;
@@ -153,7 +157,8 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	Size		maxSize;
 	Size		minCombinedSize;
 	HnswElementTuple etup;
-	BlockNumber currentPage = insertPage;
+	BlockNumber insertPage = InvalidBlockNumber;
+	BlockNumber currentPage = InvalidBlockNumber;
 	HnswNeighborTuple ntup;
 	Buffer		nbuf;
 	Page		npage;
@@ -162,6 +167,11 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	BlockNumber newInsertPage = InvalidBlockNumber;
 	uint8		tupleVersion;
 	char	   *base = NULL;
+	bool		useFsm = !building && HnswGetTypeInfo(index)->useFsm;
+	bool		tryFsm;
+	int			fsmTries = 0;
+	bool		fsmPage;
+	BlockNumber fsmHistory[HNSW_MAX_FSM_TRIES];
 
 	/* Calculate sizes */
 	etupSize = HNSW_ELEMENT_TUPLE_SIZE(VARSIZE_ANY(HnswPtrAccess(base, e->value)));
@@ -178,9 +188,48 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 	ntup = palloc0(ntupSize);
 	HnswSetNeighborTuple(base, ntup, e, m);
 
+	/* Ensure within MaxFSMRequestSize */
+	tryFsm = useFsm && combinedSize <= MaxHeapTupleSize;
+
 	/* Find a page (or two if needed) to insert the tuples */
 	for (;;)
 	{
+		/* Try free space map */
+		if (tryFsm && fsmTries < HNSW_MAX_FSM_TRIES)
+		{
+			currentPage = GetPageWithFreeSpace(index, combinedSize);
+			fsmHistory[fsmTries++] = currentPage;
+
+			/*
+			 * Even if a page is returned, it may not be possible to add the
+			 * tuples (see HnswFreeOffset for details), so avoid trying the
+			 * same page again
+			 */
+			if (BlockNumberIsValid(currentPage))
+			{
+				for (int i = 0; i < fsmTries - 1; i++)
+				{
+					if (fsmHistory[i] == currentPage)
+					{
+						currentPage = InvalidBlockNumber;
+						break;
+					}
+				}
+			}
+
+			fsmPage = BlockNumberIsValid(currentPage);
+			tryFsm = BlockNumberIsValid(currentPage);
+		}
+		else
+			fsmPage = false;
+
+		/* Start at insert page if free space map yields nothing */
+		if (!BlockNumberIsValid(currentPage))
+		{
+			insertPage = GetInsertPage(index);
+			currentPage = insertPage;
+		}
+
 		buf = ReadBuffer(index, currentPage);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
@@ -196,7 +245,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		/* Keep track of first page where element at level 0 can fit */
-		if (!BlockNumberIsValid(newInsertPage) && PageGetFreeSpace(page) >= minCombinedSize)
+		if (!BlockNumberIsValid(newInsertPage) && PageGetFreeSpace(page) >= minCombinedSize && !useFsm)
 			newInsertPage = currentPage;
 
 		/* First, try the fastest path */
@@ -210,7 +259,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		}
 
 		/* Next, try space from a deleted element */
-		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage, &tupleVersion))
+		if (HnswFreeOffset(index, buf, page, e, etupSize, ntupSize, &nbuf, &npage, &freeOffno, &freeNeighborOffno, &newInsertPage, &tupleVersion, useFsm))
 		{
 			if (nbuf != buf)
 			{
@@ -225,6 +274,14 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 			ntup->version = tupleVersion;
 
 			break;
+		}
+
+		/* Try another page */
+		if (fsmPage)
+		{
+			UnlockReleaseBuffer(buf);
+			currentPage = InvalidBlockNumber;
+			continue;
 		}
 
 		/* Finally, try space for element only if last page */
@@ -291,7 +348,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 
 	/* Added tuple to new page if newInsertPage is not set */
 	/* So can set to neighbor page instead of element page */
-	if (!BlockNumberIsValid(newInsertPage))
+	if (!BlockNumberIsValid(newInsertPage) && !fsmPage)
 		newInsertPage = e->neighborPage;
 
 	if (OffsetNumberIsValid(freeOffno))
@@ -328,6 +385,15 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 			elog(ERROR, "failed to add index item to \"%s\"", RelationGetRelationName(index));
 	}
 
+	/* Update free space map */
+	if (useFsm)
+	{
+		HnswRecordPageWithFreeSpace(index, e->blkno, page);
+
+		if (npage != page)
+			HnswRecordPageWithFreeSpace(index, e->neighborPage, npage);
+	}
+
 	/* Commit */
 	if (building)
 	{
@@ -342,7 +408,7 @@ AddElementOnDisk(Relation index, HnswElement e, int m, BlockNumber insertPage, B
 		UnlockReleaseBuffer(nbuf);
 
 	/* Update the insert page */
-	if (BlockNumberIsValid(newInsertPage) && newInsertPage != insertPage)
+	if (BlockNumberIsValid(newInsertPage) && BlockNumberIsValid(insertPage) && newInsertPage != insertPage)
 		*updatedInsertPage = newInsertPage;
 }
 
@@ -673,7 +739,7 @@ UpdateGraphOnDisk(Relation index, HnswSupport * support, HnswElement element, in
 		return;
 
 	/* Add element */
-	AddElementOnDisk(index, element, m, GetInsertPage(index), &newInsertPage, building);
+	AddElementOnDisk(index, element, m, &newInsertPage, building);
 
 	/* Update insert page if needed */
 	if (BlockNumberIsValid(newInsertPage))

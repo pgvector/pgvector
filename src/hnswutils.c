@@ -12,6 +12,7 @@
 #include "port/atomics.h"
 #include "sparsevec.h"
 #include "storage/bufmgr.h"
+#include "storage/freespace.h"
 #include "utils/datum.h"
 #include "utils/fmgrprotos.h"
 #include "utils/memdebug.h"
@@ -1364,6 +1365,48 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 }
 
 /*
+ * Record free space
+ */
+void
+HnswRecordPageWithFreeSpace(Relation index, BlockNumber blkno, Page page)
+{
+	Size		freeSpace = 0;
+	OffsetNumber maxoffno = PageGetMaxOffsetNumber(page);
+
+	for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+	{
+		ItemId		eitemid = PageGetItemId(page, offno);
+		HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, eitemid);
+		Size		itemsize;
+		BlockNumber neighborPage;
+		OffsetNumber neighborOffno;
+
+		/* Skip neighbor tuples */
+		if (!HnswIsElementTuple(etup))
+			continue;
+
+		/* Skip live tuples */
+		if (!etup->deleted)
+			continue;
+
+		/* Get neighbor page */
+		neighborPage = ItemPointerGetBlockNumber(&etup->neighbortid);
+		neighborOffno = ItemPointerGetOffsetNumber(&etup->neighbortid);
+
+		/* Keep track of largest tuple pair that will fit */
+		itemsize = ItemIdGetLength(eitemid);
+		if (neighborPage == blkno)
+			itemsize += ItemIdGetLength(PageGetItemId(page, neighborOffno)) + sizeof(ItemIdData);
+
+		freeSpace = Max(freeSpace, itemsize);
+	}
+
+	freeSpace += PageGetFreeSpace(page);
+
+	RecordPageWithFreeSpace(index, blkno, freeSpace);
+}
+
+/*
  * Check dimensions match index
  */
 void
@@ -1410,7 +1453,8 @@ HnswGetTypeInfo(Relation index)
 			.maxDimensions = HNSW_MAX_DIM,
 			.dimensions = vector_dims,
 			.normalize = l2_normalize,
-			.checkValue = NULL
+			.checkValue = NULL,
+			.useFsm = false
 		};
 
 		return (&typeInfo);
@@ -1427,7 +1471,8 @@ hnsw_halfvec_support(PG_FUNCTION_ARGS)
 		.maxDimensions = HNSW_MAX_DIM * 2,
 		.dimensions = halfvec_vector_dims,
 		.normalize = halfvec_l2_normalize,
-		.checkValue = NULL
+		.checkValue = NULL,
+		.useFsm = false
 	};
 
 	PG_RETURN_POINTER(&typeInfo);
@@ -1441,7 +1486,8 @@ hnsw_bit_support(PG_FUNCTION_ARGS)
 		.maxDimensions = HNSW_MAX_DIM * 32,
 		.dimensions = bitlength,
 		.normalize = NULL,
-		.checkValue = NULL
+		.checkValue = NULL,
+		.useFsm = false
 	};
 
 	PG_RETURN_POINTER(&typeInfo);
@@ -1455,7 +1501,8 @@ hnsw_sparsevec_support(PG_FUNCTION_ARGS)
 		.maxDimensions = SPARSEVEC_MAX_DIM,
 		.dimensions = sparsevec_vector_dims,
 		.normalize = sparsevec_l2_normalize,
-		.checkValue = SparsevecCheckValue
+		.checkValue = SparsevecCheckValue,
+		.useFsm = true
 	};
 
 	PG_RETURN_POINTER(&typeInfo);

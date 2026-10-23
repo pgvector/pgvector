@@ -1,6 +1,7 @@
 ## 0.9.0 (unreleased)
 
 - Added `vector_dims` function for `sparsevec`
+- Improved performance of HNSW inserts with `sparsevec`
 - Improved `amvalidate` for indexes
 - Dropped support for Postgres 13 and 14
 
