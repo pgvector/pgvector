@@ -23,6 +23,12 @@
 #include "varatt.h"
 #endif
 
+#ifdef HNSW_USE_READ_STREAM
+#include "storage/read_stream.h"
+#elif defined(HNSW_USE_PREFETCH)
+#include "utils/spccache.h"
+#endif
+
 #if PG_VERSION_NUM < 170000
 static inline uint64
 murmurhash64(uint64 data)
@@ -541,14 +547,12 @@ HnswGetDistance(Datum a, Datum b, HnswSupport * support)
  * Load an element and optionally get its distance from q
  */
 static void
-HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance, HnswElement * element)
+HnswLoadElementImpl(Buffer buf, OffsetNumber offno, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance, HnswElement * element)
 {
-	Buffer		buf;
 	Page		page;
 	HnswElementTuple etup;
 
 	/* Read vector */
-	buf = ReadBuffer(index, blkno);
 	LockBuffer(buf, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buf);
 
@@ -572,7 +576,7 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Hns
 	if (distance == NULL || maxDistance == NULL || *distance < *maxDistance)
 	{
 		if (*element == NULL)
-			*element = HnswInitElementFromBlock(blkno, offno);
+			*element = HnswInitElementFromBlock(BufferGetBlockNumber(buf), offno);
 
 		HnswLoadElementFromTuple(*element, etup, true, loadVec);
 	}
@@ -586,7 +590,9 @@ HnswLoadElementImpl(BlockNumber blkno, OffsetNumber offno, double *distance, Hns
 void
 HnswLoadElement(HnswElement element, double *distance, HnswQuery * q, Relation index, HnswSupport * support, bool loadVec, double *maxDistance)
 {
-	HnswLoadElementImpl(element->blkno, element->offno, distance, q, index, support, loadVec, maxDistance, &element);
+	Buffer		buf = ReadBuffer(index, element->blkno);
+
+	HnswLoadElementImpl(buf, element->offno, distance, q, index, support, loadVec, maxDistance, &element);
 }
 
 /*
@@ -802,7 +808,7 @@ HnswLoadNeighborTids(HnswElement element, ItemPointerData *indextids, Relation i
  * Load unvisited neighbors from disk
  */
 static void
-HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, Relation index, int m, int lm, int lc)
+HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *unvisitedLength, visited_hash * v, Relation index, int m, int lm, int lc, HnswSearchState * searchState)
 {
 	ItemPointerData indextids[HNSW_MAX_M * 2];
 
@@ -824,13 +830,179 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 		if (!found)
 			unvisited[(*unvisitedLength)++].indextid = *indextid;
 	}
+
+	searchState->unvisited = unvisited;
+	searchState->unvisitedLength = *unvisitedLength;
+	searchState->visited = 0;
+
+#ifdef HNSW_USE_READ_STREAM
+	/* Restore read-ahead distance */
+	read_stream_resume(searchState->stream);
+#endif
+}
+
+/*
+ * Get next block number for search
+ */
+static inline BlockNumber
+HnswSearchNextBlock(HnswSearchState * searchState, OffsetNumber *offno)
+{
+	HnswUnvisited *uv;
+
+	if (searchState->visited >= searchState->unvisitedLength)
+		return InvalidBlockNumber;
+
+	uv = &searchState->unvisited[searchState->visited++];
+	*offno = ItemPointerGetOffsetNumber(&uv->indextid);
+	return ItemPointerGetBlockNumber(&uv->indextid);
+}
+
+#ifdef HNSW_USE_READ_STREAM
+/*
+ * Get next block number for read stream
+ */
+static BlockNumber
+HnswReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *per_buffer_data)
+{
+	BlockNumber blkno = HnswSearchNextBlock((HnswSearchState *) callback_private_data, (OffsetNumber *) per_buffer_data);
+
+	if (!BlockNumberIsValid(blkno))
+		return read_stream_pause(stream);
+
+	return blkno;
+}
+#endif
+
+/*
+ * Initialize the search state
+ */
+void
+HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintenance)
+{
+#if defined(HNSW_USE_READ_STREAM) || defined(HNSW_USE_PREFETCH)
+	bool		inMemory = index == NULL;
+#endif
+
+	searchState->index = index;
+
+#ifdef HNSW_USE_READ_STREAM
+	if (!inMemory)
+	{
+		int			flags = READ_STREAM_DEFAULT;
+
+		if (maintenance)
+			flags |= READ_STREAM_MAINTENANCE;
+
+		searchState->stream = read_stream_begin_relation(flags, NULL, index, MAIN_FORKNUM, HnswReadStreamNextBlock, searchState, sizeof(OffsetNumber));
+	}
+	else
+		searchState->stream = NULL;
+#elif defined(HNSW_USE_PREFETCH)
+	if (!inMemory)
+	{
+		int			ioConcurrency;
+
+		if (maintenance)
+			ioConcurrency = get_tablespace_maintenance_io_concurrency(index->rd_rel->reltablespace);
+		else
+			ioConcurrency = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
+
+		searchState->maxPrefetch = Min(ioConcurrency, HNSW_MAX_M * 2);
+		searchState->prefetched = palloc_array_checked(ItemPointerData, HNSW_MAX_M * 2);
+		searchState->prefetchedLength = 0;
+		searchState->prefetchedVisited = 0;
+	}
+	else
+		searchState->prefetched = NULL;
+#endif
+}
+
+/*
+ * End the search state
+ */
+void
+HnswEndSearchState(HnswSearchState * searchState)
+{
+#ifdef HNSW_USE_READ_STREAM
+	if (searchState->stream != NULL)
+		read_stream_end(searchState->stream);
+#elif defined(HNSW_USE_PREFETCH)
+	if (searchState->prefetched != NULL)
+		pfree(searchState->prefetched);
+#endif
+}
+
+/*
+ * Read next buffer for search
+ */
+static inline Buffer
+HnswSearchNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
+{
+#ifdef HNSW_USE_READ_STREAM
+	Buffer		buf;
+	void	   *offnoPtr;
+
+	buf = read_stream_next_buffer(searchState->stream, &offnoPtr);
+
+	if (BufferIsValid(buf))
+		*offno = *((OffsetNumber *) offnoPtr);
+
+	return buf;
+#elif defined(HNSW_USE_PREFETCH)
+	for (;;)
+	{
+		BlockNumber blkno = HnswSearchNextBlock(searchState, offno);
+
+		if (BlockNumberIsValid(blkno))
+		{
+			PrefetchBufferResult prefetchResult = PrefetchBuffer(searchState->index, MAIN_FORKNUM, blkno);
+			Buffer		buf = prefetchResult.recent_buffer;
+			ItemPointer indextid;
+
+			/* Return buffer if immediately available */
+			if (BufferIsValid(buf) && ReadRecentBuffer(searchState->index->rd_locator, MAIN_FORKNUM, blkno, buf))
+				return buf;
+
+			/* Otherwise, add to prefetched list */
+			indextid = &searchState->prefetched[searchState->prefetchedLength++];
+			ItemPointerSet(indextid, blkno, *offno);
+
+			/* Try another block if not at prefetch limit */
+			if (searchState->prefetchedLength - searchState->prefetchedVisited < searchState->maxPrefetch)
+				continue;
+		}
+
+		/* Get next prefetched buffer */
+		if (searchState->prefetchedVisited < searchState->prefetchedLength)
+		{
+			ItemPointer indextid = &searchState->prefetched[searchState->prefetchedVisited++];
+
+			*offno = ItemPointerGetOffsetNumber(indextid);
+
+			return ReadBuffer(searchState->index, ItemPointerGetBlockNumber(indextid));
+		}
+
+		/* Reset prefetch state */
+		searchState->prefetchedLength = 0;
+		searchState->prefetchedVisited = 0;
+
+		return InvalidBuffer;
+	}
+#else
+	BlockNumber blkno = HnswSearchNextBlock(searchState, offno);
+
+	if (!BlockNumberIsValid(blkno))
+		return InvalidBuffer;
+
+	return ReadBuffer(searchState->index, blkno);
+#endif
 }
 
 /*
  * Algorithm 2 from paper
  */
 List *
-HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples)
+HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation index, HnswSupport * support, int m, bool inserting, HnswElement skipElement, visited_hash * v, pairingheap **discarded, bool initVisited, int64 *tuples, HnswSearchState * searchState)
 {
 	List	   *w = NIL;
 	pairingheap *C = pairingheap_allocate(CompareNearestCandidates, NULL);
@@ -907,13 +1079,13 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		if (inMemory)
 			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
 		else
-			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc);
+			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc, searchState);
 
 		/* OK to count elements instead of tuples */
 		if (tuples != NULL)
 			(*tuples) += unvisitedLength;
 
-		for (int i = 0; i < unvisitedLength; i++)
+		for (int i = 0;; i++)
 		{
 			HnswElement eElement;
 			HnswSearchCandidate *e;
@@ -924,18 +1096,24 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 			if (inMemory)
 			{
+				if (i == unvisitedLength)
+					break;
+
 				eElement = unvisited[i].element;
 				eDistance = GetElementDistance(base, eElement, q, support);
 			}
 			else
 			{
-				ItemPointer indextid = &unvisited[i].indextid;
-				BlockNumber blkno = ItemPointerGetBlockNumber(indextid);
-				OffsetNumber offno = ItemPointerGetOffsetNumber(indextid);
+				Buffer		buf;
+				OffsetNumber offno;
+
+				buf = HnswSearchNextBuffer(searchState, &offno);
+				if (!BufferIsValid(buf))
+					break;
 
 				/* Avoid any allocations if not adding */
 				eElement = NULL;
-				HnswLoadElementImpl(blkno, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
+				HnswLoadElementImpl(buf, offno, &eDistance, q, index, support, inserting, alwaysAdd || discarded != NULL ? NULL : &f->distance, &eElement);
 
 				if (eElement == NULL)
 					continue;
@@ -1286,7 +1464,7 @@ PrecomputeHash(char *base, HnswElement element)
  * Algorithm 1 from paper
  */
 void
-HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing)
+HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint, Relation index, HnswSupport * support, int m, int efConstruction, bool existing, bool maintenance)
 {
 	List	   *ep;
 	List	   *w;
@@ -1295,6 +1473,9 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	HnswQuery	q;
 	HnswElement skipElement = existing ? element : NULL;
 	bool		inMemory = index == NULL;
+	HnswSearchState searchState;
+
+	HnswInitSearchState(&searchState, index, maintenance);
 
 	q.value = HnswGetValue(base, element);
 
@@ -1313,7 +1494,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 	/* 1st phase: greedy search to insert level */
 	for (int lc = entryLevel; lc >= level + 1; lc--)
 	{
-		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &q, ep, 1, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &searchState);
 		ep = w;
 	}
 
@@ -1332,7 +1513,7 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 		List	   *lw = NIL;
 		ListCell   *lc2;
 
-		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL);
+		w = HnswSearchLayer(base, &q, ep, efConstruction, lc, index, support, m, true, skipElement, NULL, NULL, true, NULL, &searchState);
 
 		/* Convert search candidates to candidates */
 		foreach(lc2, w)
@@ -1362,6 +1543,8 @@ HnswFindElementNeighbors(char *base, HnswElement element, HnswElement entryPoint
 
 		ep = w;
 	}
+
+	HnswEndSearchState(&searchState);
 }
 
 /*

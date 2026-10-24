@@ -1,5 +1,6 @@
 ## 0.9.0 (unreleased)
 
+- Added asynchronous I/O for HNSW indexes
 - Added `vector_dims` function for `sparsevec`
 - Improved performance of HNSW inserts with `sparsevec`
 - Improved `amvalidate` for indexes
