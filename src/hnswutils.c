@@ -911,6 +911,7 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 		searchState->prefetched = palloc_array_checked(ItemPointerData, HNSW_MAX_M * 2);
 		searchState->prefetchedLength = 0;
 		searchState->prefetchedVisited = 0;
+		searchState->prefetchDone = false;
 	}
 	else
 		searchState->prefetched = NULL;
@@ -951,30 +952,35 @@ HnswSearchNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 #elif defined(HNSW_USE_PREFETCH)
 	for (;;)
 	{
-		BlockNumber blkno = HnswSearchNextBlock(searchState, offno);
-
-		if (BlockNumberIsValid(blkno))
+		if (!searchState->prefetchDone)
 		{
-			PrefetchBufferResult prefetchResult = PrefetchBuffer(searchState->index, MAIN_FORKNUM, blkno);
-			Buffer		buf = prefetchResult.recent_buffer;
-			ItemPointer indextid;
+			BlockNumber blkno = HnswSearchNextBlock(searchState, offno);
+
+			if (BlockNumberIsValid(blkno))
+			{
+				PrefetchBufferResult prefetchResult = PrefetchBuffer(searchState->index, MAIN_FORKNUM, blkno);
+				Buffer		buf = prefetchResult.recent_buffer;
+				ItemPointer indextid;
 #if PG_VERSION_NUM >= 160000
-			RelFileLocator rlocator = searchState->index->rd_locator;
+				RelFileLocator rlocator = searchState->index->rd_locator;
 #else
-			RelFileNode rlocator = searchState->index->rd_node;
+				RelFileNode rlocator = searchState->index->rd_node;
 #endif
 
-			/* Return buffer if immediately available */
-			if (BufferIsValid(buf) && ReadRecentBuffer(rlocator, MAIN_FORKNUM, blkno, buf))
-				return buf;
+				/* Return buffer if immediately available */
+				if (BufferIsValid(buf) && ReadRecentBuffer(rlocator, MAIN_FORKNUM, blkno, buf))
+					return buf;
 
-			/* Otherwise, add to prefetched list */
-			indextid = &searchState->prefetched[searchState->prefetchedLength++];
-			ItemPointerSet(indextid, blkno, *offno);
+				/* Otherwise, add to prefetched list */
+				indextid = &searchState->prefetched[searchState->prefetchedLength++];
+				ItemPointerSet(indextid, blkno, *offno);
 
-			/* Try another block if not at prefetch limit */
-			if (searchState->prefetchedLength - searchState->prefetchedVisited < searchState->maxPrefetch)
-				continue;
+				/* Try another block if not at prefetch limit */
+				if (searchState->prefetchedLength - searchState->prefetchedVisited < searchState->maxPrefetch)
+					continue;
+			}
+			else
+				searchState->prefetchDone = true;
 		}
 
 		/* Get next prefetched buffer */
@@ -990,6 +996,7 @@ HnswSearchNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 		/* Reset prefetch state */
 		searchState->prefetchedLength = 0;
 		searchState->prefetchedVisited = 0;
+		searchState->prefetchDone = false;
 
 		return InvalidBuffer;
 	}

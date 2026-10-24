@@ -418,6 +418,7 @@ typedef struct HnswSearchState
 	ItemPointerData *prefetched;
 	int			prefetchedLength;
 	int			prefetchedVisited;
+	bool		prefetchDone;
 #endif
 
 	/* Stream data */
