@@ -958,9 +958,14 @@ HnswSearchNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 			PrefetchBufferResult prefetchResult = PrefetchBuffer(searchState->index, MAIN_FORKNUM, blkno);
 			Buffer		buf = prefetchResult.recent_buffer;
 			ItemPointer indextid;
+#if PG_VERSION_NUM >= 160000
+			RelFileLocator rlocator = searchState->index->rd_locator;
+#else
+			RelFileNode rlocator = searchState->index->rd_node;
+#endif
 
 			/* Return buffer if immediately available */
-			if (BufferIsValid(buf) && ReadRecentBuffer(searchState->index->rd_locator, MAIN_FORKNUM, blkno, buf))
+			if (BufferIsValid(buf) && ReadRecentBuffer(rlocator, MAIN_FORKNUM, blkno, buf))
 				return buf;
 
 			/* Otherwise, add to prefetched list */
