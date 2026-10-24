@@ -954,16 +954,20 @@ HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 			Buffer		buf = prefetchResult.recent_buffer;
 			ItemPointer ip;
 
+			/* Return buffer if available immediately */
 			if (BufferIsValid(buf) && ReadRecentBuffer(searchState->index->rd_locator, MAIN_FORKNUM, blkno, buf))
 				return buf;
 
+			/* Otherwise, add to prefetched list */
 			ip = &searchState->prefetched[searchState->prefetchedLength++];
 			ItemPointerSet(ip, blkno, *offno);
 
+			/* Try another block if not at prefetch limit */
 			if (searchState->prefetchedLength - searchState->prefetchedVisited < searchState->maxPrefetch)
 				continue;
 		}
 
+		/* Get next prefetched buffer */
 		if (searchState->prefetchedVisited < searchState->prefetchedLength)
 		{
 			ItemPointer ip = &searchState->prefetched[searchState->prefetchedVisited++];
@@ -973,8 +977,10 @@ HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 			return ReadBuffer(searchState->index, ItemPointerGetBlockNumber(ip));
 		}
 
+		/* Reset prefetch state */
 		searchState->prefetchedLength = 0;
 		searchState->prefetchedVisited = 0;
+
 		return InvalidBuffer;
 	}
 #else
