@@ -833,10 +833,6 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 #ifdef HNSW_USE_READ_STREAM
 	/* Restore read-ahead distance */
 	read_stream_resume(searchState->stream);
-#elif defined(HNSW_USE_PREFETCH)
-	/* TODO Move to HnswNextBuffer */
-	for (int i = 0, imax = Min(searchState->maxPrefetch, *unvisitedLength); i < imax; i++)
-		PrefetchBuffer(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&unvisited[i].indextid));
 #endif
 }
 
@@ -907,7 +903,12 @@ HnswInitSearchState(HnswSearchState * searchState, Relation index, bool maintena
 			ioConcurrency = get_tablespace_io_concurrency(index->rd_rel->reltablespace);
 
 		searchState->maxPrefetch = Min(ioConcurrency, HNSW_MAX_M * 2);
+		searchState->prefetched = palloc_array_checked(ItemPointerData, HNSW_MAX_M * 2);
+		searchState->prefetchedLength = 0;
+		searchState->prefetchedVisited = 0;
 	}
+	else
+		searchState->prefetched = NULL;
 #endif
 }
 
@@ -920,6 +921,9 @@ HnswEndSearchState(HnswSearchState * searchState)
 #ifdef HNSW_USE_READ_STREAM
 	if (searchState->stream != NULL)
 		read_stream_end(searchState->stream);
+#elif defined(HNSW_USE_PREFETCH)
+	if (searchState->prefetched != NULL)
+		pfree(searchState->prefetched);
 #endif
 }
 
@@ -939,24 +943,47 @@ HnswNextBuffer(HnswSearchState * searchState, OffsetNumber *offno)
 		*offno = *((OffsetNumber *) offnoPtr);
 
 	return buf;
-#else
-	Buffer		buf;
-	BlockNumber blkno;
+#elif defined(HNSW_USE_PREFETCH)
+	for (;;)
+	{
+		BlockNumber blkno = HnswNextBlock(searchState, offno);
 
-	blkno = HnswNextBlock(searchState, offno);
+		if (BlockNumberIsValid(blkno))
+		{
+			PrefetchBufferResult prefetchResult = PrefetchBuffer(searchState->index, MAIN_FORKNUM, blkno);
+			Buffer		buf = prefetchResult.recent_buffer;
+			ItemPointer ip;
+
+			if (BufferIsValid(buf) && ReadRecentBuffer(searchState->index->rd_locator, MAIN_FORKNUM, blkno, buf))
+				return buf;
+
+			ip = &searchState->prefetched[searchState->prefetchedLength++];
+			ItemPointerSet(ip, blkno, *offno);
+
+			if (searchState->prefetchedLength - searchState->prefetchedVisited < searchState->maxPrefetch)
+				continue;
+		}
+
+		if (searchState->prefetchedVisited < searchState->prefetchedLength)
+		{
+			ItemPointer ip = &searchState->prefetched[searchState->prefetchedVisited++];
+
+			*offno = ItemPointerGetOffsetNumber(ip);
+
+			return ReadBuffer(searchState->index, ItemPointerGetBlockNumber(ip));
+		}
+
+		searchState->prefetchedLength = 0;
+		searchState->prefetchedVisited = 0;
+		return InvalidBuffer;
+	}
+#else
+	BlockNumber blkno = HnswNextBlock(searchState, offno);
 
 	if (!BlockNumberIsValid(blkno))
 		return InvalidBuffer;
 
-	buf = ReadBuffer(searchState->index, blkno);
-
-#ifdef HNSW_USE_PREFETCH
-	/* Prefetch another buffer if possible */
-	if (searchState->visited - 1 + searchState->maxPrefetch < searchState->unvisitedLength)
-		PrefetchBuffer(searchState->index, MAIN_FORKNUM, ItemPointerGetBlockNumber(&searchState->unvisited[searchState->visited - 1 + searchState->maxPrefetch].indextid));
-#endif
-
-	return buf;
+	return ReadBuffer(searchState->index, blkno);
 #endif
 }
 

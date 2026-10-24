@@ -427,6 +427,9 @@ typedef struct HnswSearchState
 	ReadStream *stream;
 #elif defined(HNSW_USE_PREFETCH)
 	int			maxPrefetch;
+	ItemPointerData *prefetched;
+	int			prefetchedLength;
+	int			prefetchedVisited;
 #endif
 
 	/* Batch state */
