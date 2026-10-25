@@ -103,7 +103,6 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	double		sequentialRatio = 0.5;
 	double		startupPages;
 	double		spc_seq_page_cost;
-	Relation	index;
 
 	/* Never use index without order */
 	if (path->indexorderbys == NIL)
@@ -122,9 +121,17 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	genericcostestimate(root, path, loop_count, &costs);
 
-	index = index_open(path->indexinfo->indexoid, NoLock);
-	IvfflatGetMetaPageInfo(index, &lists, NULL);
-	index_close(index, NoLock);
+	/* Get lists */
+	if (!path->indexinfo->hypothetical)
+	{
+		Relation	index;
+
+		index = index_open(path->indexinfo->indexoid, NoLock);
+		IvfflatGetMetaPageInfo(index, &lists, NULL);
+		index_close(index, NoLock);
+	}
+	else
+		lists = IVFFLAT_DEFAULT_LISTS;
 
 	/* Get the ratio of lists that we need to visit */
 	ratio = ((double) ivfflat_probes) / lists;

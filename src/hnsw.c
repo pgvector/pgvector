@@ -151,7 +151,6 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	double		ratio;
 	double		startupPages;
 	double		spc_seq_page_cost;
-	Relation	index;
 
 	/* Never use index without order */
 	if (path->indexorderbys == NIL)
@@ -170,9 +169,17 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 
 	genericcostestimate(root, path, loop_count, &costs);
 
-	index = index_open(path->indexinfo->indexoid, NoLock);
-	HnswGetMetaPageInfo(index, &m, NULL, NULL);
-	index_close(index, NoLock);
+	/* Get m */
+	if (!path->indexinfo->hypothetical)
+	{
+		Relation	index;
+
+		index = index_open(path->indexinfo->indexoid, NoLock);
+		HnswGetMetaPageInfo(index, &m, NULL, NULL);
+		index_close(index, NoLock);
+	}
+	else
+		m = HNSW_DEFAULT_M;
 
 	/*
 	 * HNSW cost estimation follows a formula that accounts for the total
