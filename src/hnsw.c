@@ -146,10 +146,11 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 				 Selectivity *indexSelectivity, double *indexCorrelation,
 				 double *indexPages)
 {
+	IndexOptInfo *indexInfo = path->indexinfo;
 	GenericCosts costs = {0};
 	int			m;
 	double		ratio;
-	double		tuples = path->indexinfo->tuples;
+	double		tuples = indexInfo->tuples;
 	double		startupPages;
 	double		spc_seq_page_cost;
 
@@ -171,11 +172,11 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	genericcostestimate(root, path, loop_count, &costs);
 
 	/* Get m */
-	if (!path->indexinfo->hypothetical)
+	if (!indexInfo->hypothetical)
 	{
 		Relation	index;
 
-		index = index_open(path->indexinfo->indexoid, NoLock);
+		index = index_open(indexInfo->indexoid, NoLock);
 		HnswGetMetaPageInfo(index, &m, NULL, NULL);
 		index_close(index, NoLock);
 	}
@@ -224,20 +225,20 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	else
 		ratio = 1;
 
-	get_tablespace_page_costs(path->indexinfo->reltablespace, NULL, &spc_seq_page_cost);
+	get_tablespace_page_costs(indexInfo->reltablespace, NULL, &spc_seq_page_cost);
 
 	/* Startup cost is cost before returning the first row */
 	costs.indexStartupCost = costs.indexTotalCost * ratio;
 
 	/* Adjust cost if needed since TOAST not included in seq scan cost */
 	startupPages = costs.numIndexPages * ratio;
-	if (startupPages > path->indexinfo->rel->pages && ratio < 0.5)
+	if (startupPages > indexInfo->rel->pages && ratio < 0.5)
 	{
 		/* Change all page cost from random to sequential */
 		costs.indexStartupCost -= startupPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 		/* Remove cost of extra pages */
-		costs.indexStartupCost -= (startupPages - path->indexinfo->rel->pages) * spc_seq_page_cost;
+		costs.indexStartupCost -= (startupPages - indexInfo->rel->pages) * spc_seq_page_cost;
 	}
 
 	*indexStartupCost = costs.indexStartupCost;
