@@ -377,7 +377,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 	qsort(elements, elementsLength, sizeof(SparseInputElement), CompareIndices);
 
-	/* Check indices */
 	for (Size i = 0; i < elementsLength; i++)
 	{
 		int32		index = elements[i].index;
@@ -393,11 +392,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("sparsevec indices must not contain duplicates")));
-	}
 
-	/* Get nnz */
-	for (Size i = 0; i < elementsLength; i++)
-	{
 		if (elements[i].value != 0)
 			nnz++;
 	}
