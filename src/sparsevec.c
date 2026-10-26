@@ -221,8 +221,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 	elements = palloc_array_checked(SparseInputElement, elementsCapacity);
 
-	pt = lit;
-
 	while (sparsevec_isspace(*pt))
 		pt++;
 
