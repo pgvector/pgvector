@@ -173,6 +173,14 @@ SELECT '{1:1,1:1}/2'::sparsevec;
 ERROR:  sparsevec indices must not contain duplicates
 LINE 1: SELECT '{1:1,1:1}/2'::sparsevec;
                ^
+SELECT '{1:0,1:1}/2'::sparsevec;
+ERROR:  sparsevec indices must not contain duplicates
+LINE 1: SELECT '{1:0,1:1}/2'::sparsevec;
+               ^
+SELECT '{1:1,1:0}/2'::sparsevec;
+ERROR:  sparsevec indices must not contain duplicates
+LINE 1: SELECT '{1:1,1:0}/2'::sparsevec;
+               ^
 SELECT '{1:1,2:1,1:1}/2'::sparsevec;
 ERROR:  sparsevec indices must not contain duplicates
 LINE 1: SELECT '{1:1,2:1,1:1}/2'::sparsevec;

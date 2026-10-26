@@ -27,9 +27,11 @@
 #endif
 
 #if PG_VERSION_NUM >= 190000
-#define palloc_array_checked(type, count) palloc_array(type, count)
+#define palloc_array_checked(type, count) ((type *) palloc_array(type, count))
+#define repalloc_array_checked(pointer, type, count) repalloc_array(pointer, type, count)
 #else
 #define palloc_array_checked(type, count) ((type *) palloc(mul_size(sizeof(type), count)))
+#define repalloc_array_checked(pointer, type, count) ((type *) repalloc(pointer, mul_size(sizeof(type), count)))
 #endif
 
 typedef struct SparseInputElement
@@ -212,24 +214,12 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	SparseVector *result;
 	float	   *rvalues;
 	SparseInputElement *elements;
-	int			maxNnz;
+	Size		elementsLength = 0;
+	Size		elementsCapacity = 1;
 	int			nnz = 0;
+	int			j;
 
-	maxNnz = 1;
-	while (*pt != '\0')
-	{
-		if (*pt == ',')
-			maxNnz++;
-
-		pt++;
-	}
-
-	if (maxNnz > SPARSEVEC_MAX_NNZ)
-		ereport(ERROR,
-				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("sparsevec cannot have more than %d non-zero elements", SPARSEVEC_MAX_NNZ)));
-
-	elements = palloc_array_checked(SparseInputElement, maxNnz);
+	elements = palloc_array_checked(SparseInputElement, elementsCapacity);
 
 	pt = lit;
 
@@ -256,11 +246,12 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			long		index;
 			float		value;
 
-			/* Safety check */
-			if (nnz >= maxNnz)
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
-						 errmsg("ran out of buffer: \"%s\"", lit)));
+			/* Resize if needed */
+			if (elementsLength == elementsCapacity)
+			{
+				elementsCapacity = mul_size(elementsCapacity, 2);
+				elements = repalloc_array_checked(elements, SparseInputElement, elementsCapacity);
+			}
 
 			while (sparsevec_isspace(*pt))
 				pt++;
@@ -319,14 +310,10 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 			CheckElement(value);
 
-			/* Do not store zero values */
-			if (value != 0)
-			{
-				/* Convert 1-based numbering (SQL) to 0-based (C) */
-				elements[nnz].index = index - 1;
-				elements[nnz].value = value;
-				nnz++;
-			}
+			/* Convert 1-based numbering (SQL) to 0-based (C) */
+			elements[elementsLength].index = index - 1;
+			elements[elementsLength].value = value;
+			elementsLength++;
 
 			pt = stringEnd;
 
@@ -390,16 +377,49 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	CheckDim(dim);
 	CheckExpectedDim(typmod, dim);
 
-	qsort(elements, nnz, sizeof(SparseInputElement), CompareIndices);
+	qsort(elements, elementsLength, sizeof(SparseInputElement), CompareIndices);
 
+	/* Check indices */
+	for (Size i = 0; i < elementsLength; i++)
+	{
+		int32		index = elements[i].index;
+
+		if (index >= dim)
+		{
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("sparsevec index out of bounds")));
+		}
+
+		if (i > 0 && index == elements[i - 1].index)
+			ereport(ERROR,
+					(errcode(ERRCODE_DATA_EXCEPTION),
+					 errmsg("sparsevec indices must not contain duplicates")));
+	}
+
+	/* Get nnz */
+	for (Size i = 0; i < elementsLength; i++)
+	{
+		if (elements[i].value != 0)
+			nnz++;
+	}
+
+	CheckNnz(nnz, dim);
 	result = InitSparseVector(dim, nnz);
 	rvalues = SPARSEVEC_VALUES(result);
-	for (int i = 0; i < nnz; i++)
+	j = 0;
+	for (Size i = 0; i < elementsLength; i++)
 	{
-		result->indices[i] = elements[i].index;
-		rvalues[i] = elements[i].value;
+		if (elements[i].value != 0)
+		{
+			result->indices[j] = elements[i].index;
+			rvalues[j] = elements[i].value;
 
-		CheckIndex(result->indices, i, dim);
+			/* Safety check */
+			CheckIndex(result->indices, j, dim);
+
+			j++;
+		}
 	}
 
 	PG_RETURN_POINTER(result);
