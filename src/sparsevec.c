@@ -27,7 +27,7 @@
 #endif
 
 #if PG_VERSION_NUM >= 190000
-#define palloc_array_checked(type, count) ((type *) palloc_array(type, count))
+#define palloc_array_checked(type, count) palloc_array(type, count)
 #else
 #define palloc_array_checked(type, count) ((type *) palloc(mul_size(sizeof(type), count)))
 #endif
