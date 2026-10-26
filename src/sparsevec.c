@@ -112,11 +112,9 @@ CheckIndex(int32 *indices, int i, int dim)
 	int32		index = indices[i];
 
 	if (index < 0 || index >= dim)
-	{
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("sparsevec index out of bounds")));
-	}
 
 	if (i > 0)
 	{
@@ -383,11 +381,9 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		int32		index = elements[i].index;
 
 		if (index >= dim)
-		{
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("sparsevec index out of bounds")));
-		}
 
 		if (i > 0 && index == elements[i - 1].index)
 			ereport(ERROR,
