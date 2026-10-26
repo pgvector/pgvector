@@ -377,6 +377,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 	qsort(elements, elementsLength, sizeof(SparseInputElement), CompareIndices);
 
+	/* Check indices and calculate nnz */
 	for (Size i = 0; i < elementsLength; i++)
 	{
 		int32		index = elements[i].index;
