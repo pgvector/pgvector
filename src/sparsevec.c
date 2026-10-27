@@ -165,6 +165,32 @@ InitSparseVector(int dim, int nnz)
 	return result;
 }
 
+/*
+ * Append an element to a sparse vector
+ */
+static inline void
+AppendElement(SparseVector * vec, int i, int32 index, float value)
+{
+	float	   *values = SPARSEVEC_VALUES(vec);
+
+	/* Safety check */
+	if (i < 0 || i >= vec->nnz)
+		elog(ERROR, "index out of bounds");
+
+	vec->indices[i] = index;
+	values[i] = value;
+}
+
+/*
+ * Finish appending to a sparse vector
+ */
+static inline void
+FinishAppend(SparseVector * vec, int i)
+{
+	if (i != vec->nnz)
+		elog(ERROR, "correctness check failed");
+}
+
 #if PG_VERSION_NUM >= 170000
 #define sparsevec_isspace(ch) scanner_isspace(ch)
 #else
@@ -210,7 +236,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	char	   *pt = lit;
 	char	   *stringEnd;
 	SparseVector *result;
-	float	   *rvalues;
 	SparseInputElement *elements;
 	Size		elementsLength = 0;
 	Size		elementsCapacity = 1;
@@ -396,28 +421,20 @@ sparsevec_in(PG_FUNCTION_ARGS)
 
 	CheckNnz(nnz, dim);
 	result = InitSparseVector(dim, nnz);
-	rvalues = SPARSEVEC_VALUES(result);
 	j = 0;
 	for (Size i = 0; i < elementsLength; i++)
 	{
 		if (elements[i].value != 0)
 		{
-			/* Safety check */
-			if (j >= result->nnz)
-				elog(ERROR, "index out of bounds");
-
-			result->indices[j] = elements[i].index;
-			rvalues[j] = elements[i].value;
+			AppendElement(result, j, elements[i].index, elements[i].value);
 
 			/* Safety check */
 			CheckIndex(result->indices, j, dim);
-
 			j++;
 		}
 	}
 
-	if (j != result->nnz)
-		elog(ERROR, "correctness check failed");
+	FinishAppend(result, j);
 
 	PG_RETURN_POINTER(result);
 }
@@ -616,7 +633,6 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 	SparseVector *result;
 	int			dim = vec->dim;
 	int			nnz = 0;
-	float	   *values;
 	int			j = 0;
 
 	CheckDim(dim);
@@ -630,20 +646,16 @@ vector_to_sparsevec(PG_FUNCTION_ARGS)
 
 	CheckNnz(nnz, dim);
 	result = InitSparseVector(dim, nnz);
-	values = SPARSEVEC_VALUES(result);
 	for (int i = 0; i < dim; i++)
 	{
 		if (vec->x[i] != 0)
 		{
-			/* Safety check */
-			if (j >= result->nnz)
-				elog(ERROR, "index out of bounds");
-
-			result->indices[j] = i;
-			values[j] = vec->x[i];
+			AppendElement(result, j, i, vec->x[i]);
 			j++;
 		}
 	}
+
+	FinishAppend(result, j);
 
 	PG_RETURN_POINTER(result);
 }
@@ -660,7 +672,6 @@ halfvec_to_sparsevec(PG_FUNCTION_ARGS)
 	SparseVector *result;
 	int			dim = vec->dim;
 	int			nnz = 0;
-	float	   *values;
 	int			j = 0;
 
 	CheckDim(dim);
@@ -674,20 +685,16 @@ halfvec_to_sparsevec(PG_FUNCTION_ARGS)
 
 	CheckNnz(nnz, dim);
 	result = InitSparseVector(dim, nnz);
-	values = SPARSEVEC_VALUES(result);
 	for (int i = 0; i < dim; i++)
 	{
 		if (!HalfIsZero(vec->x[i]))
 		{
-			/* Safety check */
-			if (j >= result->nnz)
-				elog(ERROR, "index out of bounds");
-
-			result->indices[j] = i;
-			values[j] = HalfToFloat4(vec->x[i]);
+			AppendElement(result, j, i, HalfToFloat4(vec->x[i]));
 			j++;
 		}
 	}
+
+	FinishAppend(result, j);
 
 	PG_RETURN_POINTER(result);
 }
@@ -769,11 +776,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	do { \
 		float v = (float) (elem); \
 		if (IS_NOT_ZERO(v)) { \
-			/* Safety check */ \
-			if (j >= result->nnz) \
-				elog(ERROR, "index out of bounds"); \
-			result->indices[j] = i; \
-			values[j] = v; \
+			AppendElement(result, j, i, v); \
 			j++; \
 		} \
 	} while (0)
@@ -814,8 +817,7 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	 */
 	pfree(elemsp);
 
-	if (j != result->nnz)
-		elog(ERROR, "correctness check failed");
+	FinishAppend(result, j);
 
 	/* Check elements */
 	for (int i = 0; i < result->nnz; i++)
@@ -1138,7 +1140,6 @@ sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 		if (zeros > 0)
 		{
 			SparseVector *newResult = InitSparseVector(result->dim, result->nnz - zeros);
-			float	   *nx = SPARSEVEC_VALUES(newResult);
 			int			j = 0;
 
 			for (int i = 0; i < result->nnz; i++)
@@ -1146,14 +1147,11 @@ sparsevec_l2_normalize(PG_FUNCTION_ARGS)
 				if (rx[i] == 0)
 					continue;
 
-				/* Safety check */
-				if (j >= newResult->nnz)
-					elog(ERROR, "index out of bounds");
-
-				newResult->indices[j] = result->indices[i];
-				nx[j] = rx[i];
+				AppendElement(newResult, j, result->indices[i], rx[i]);
 				j++;
 			}
+
+			FinishAppend(newResult, j);
 
 			pfree(result);
 
