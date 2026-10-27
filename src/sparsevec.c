@@ -145,6 +145,11 @@ CheckElement(float value)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("infinite value not allowed in sparsevec")));
+
+	if (value == 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_DATA_EXCEPTION),
+				 errmsg("binary representation of sparsevec cannot contain zero values")));
 }
 
 /*
@@ -176,6 +181,8 @@ AppendElement(SparseVector * vec, int i, int32 index, float value)
 	/* Safety check */
 	if (i < 0 || i >= vec->nnz)
 		elog(ERROR, "index out of bounds");
+
+	CheckElement(value);
 
 	vec->indices[i] = index;
 	values[i] = value;
@@ -328,8 +335,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				ereport(ERROR,
 						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 						 errmsg("\"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
-
-			CheckElement(value);
 
 			/* Convert 1-based numbering (SQL) to 0-based (C) */
 			elements[elementsLength].index = index - 1;
@@ -569,11 +574,6 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	{
 		values[i] = pq_getmsgfloat4(buf);
 		CheckElement(values[i]);
-
-		if (values[i] == 0)
-			ereport(ERROR,
-					(errcode(ERRCODE_DATA_EXCEPTION),
-					 errmsg("binary representation of sparsevec cannot contain zero values")));
 	}
 
 	PG_RETURN_POINTER(result);
@@ -715,7 +715,6 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	Datum	   *elemsp;
 	int			nelemsp;
 	int			nnz = 0;
-	float	   *values;
 	int			j = 0;
 
 	if (ARR_NDIM(array) > 1)
@@ -770,7 +769,6 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 
 	CheckNnz(nnz, nelemsp);
 	result = InitSparseVector(nelemsp, nnz);
-	values = SPARSEVEC_VALUES(result);
 
 #define PROCESS_ARRAY_ELEM(elem) \
 	do { \
@@ -818,10 +816,6 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 	pfree(elemsp);
 
 	FinishAppend(result, j);
-
-	/* Check elements */
-	for (int i = 0; i < result->nnz; i++)
-		CheckElement(values[i]);
 
 	PG_RETURN_POINTER(result);
 }
