@@ -402,6 +402,10 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	{
 		if (elements[i].value != 0)
 		{
+			/* Safety check */
+			if (j >= result->nnz)
+				elog(ERROR, "index out of bounds");
+
 			result->indices[j] = elements[i].index;
 			rvalues[j] = elements[i].value;
 
@@ -411,6 +415,9 @@ sparsevec_in(PG_FUNCTION_ARGS)
 			j++;
 		}
 	}
+
+	if (j != result->nnz)
+		elog(ERROR, "correctness check failed");
 
 	PG_RETURN_POINTER(result);
 }
