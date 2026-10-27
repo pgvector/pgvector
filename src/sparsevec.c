@@ -412,7 +412,7 @@ sparsevec_in(PG_FUNCTION_ARGS)
 	{
 		int32		index = elements[i].index;
 
-		if (index >= dim)
+		if (index < 0 || index >= dim)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_EXCEPTION),
 					 errmsg("sparsevec index out of bounds")));
@@ -434,9 +434,6 @@ sparsevec_in(PG_FUNCTION_ARGS)
 		if (elements[i].value != 0)
 		{
 			AppendElement(result, j, elements[i].index, elements[i].value);
-
-			/* Safety check */
-			CheckIndex(result->indices, j, dim);
 			j++;
 		}
 	}
