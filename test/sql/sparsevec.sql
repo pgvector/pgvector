@@ -52,6 +52,8 @@ SELECT '{-2147483648:1}/1'::sparsevec;
 SELECT '{-2147483649:1}/1'::sparsevec;
 SELECT '{0:1}/1'::sparsevec;
 SELECT '{2:1}/1'::sparsevec;
+SELECT ('{' || string_agg(n || ':0', ',') || '}/16001')::sparsevec FROM generate_series(1, 16001) n;
+SELECT ('{' || string_agg(n || ':1', ',') || '}/16001')::sparsevec FROM generate_series(1, 16001) n;
 
 SELECT '{}/3'::sparsevec(3);
 SELECT '{}/3'::sparsevec(2);

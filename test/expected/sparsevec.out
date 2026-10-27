@@ -245,6 +245,14 @@ SELECT '{2:1}/1'::sparsevec;
 ERROR:  sparsevec index out of bounds
 LINE 1: SELECT '{2:1}/1'::sparsevec;
                ^
+SELECT ('{' || string_agg(n || ':0', ',') || '}/16001')::sparsevec FROM generate_series(1, 16001) n;
+ sparsevec 
+-----------
+ {}/16001
+(1 row)
+
+SELECT ('{' || string_agg(n || ':1', ',') || '}/16001')::sparsevec FROM generate_series(1, 16001) n;
+ERROR:  sparsevec cannot have more than 16000 non-zero elements
 SELECT '{}/3'::sparsevec(3);
  sparsevec 
 -----------
