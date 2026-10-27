@@ -134,7 +134,7 @@ CheckIndex(int32 *indices, int i, int dim)
  * Ensure finite element
  */
 static inline void
-CheckElement(float value)
+CheckElement(float value, bool checkZero)
 {
 	if (isnan(value))
 		ereport(ERROR,
@@ -146,7 +146,7 @@ CheckElement(float value)
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("infinite value not allowed in sparsevec")));
 
-	if (value == 0)
+	if (checkZero && value == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_DATA_EXCEPTION),
 				 errmsg("binary representation of sparsevec cannot contain zero values")));
@@ -182,7 +182,7 @@ AppendElement(SparseVector * vec, int i, int32 index, float value)
 	if (i < 0 || i >= vec->nnz)
 		elog(ERROR, "index out of bounds");
 
-	CheckElement(value);
+	CheckElement(value, true);
 
 	vec->indices[i] = index;
 	values[i] = value;
@@ -335,6 +335,8 @@ sparsevec_in(PG_FUNCTION_ARGS)
 				ereport(ERROR,
 						(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 						 errmsg("\"%s\" is out of range for type sparsevec", pnstrdup(pt, stringEnd - pt))));
+
+			CheckElement(value, false);
 
 			/* Convert 1-based numbering (SQL) to 0-based (C) */
 			elements[elementsLength].index = index - 1;
@@ -573,7 +575,7 @@ sparsevec_recv(PG_FUNCTION_ARGS)
 	for (int i = 0; i < nnz; i++)
 	{
 		values[i] = pq_getmsgfloat4(buf);
-		CheckElement(values[i]);
+		CheckElement(values[i], true);
 	}
 
 	PG_RETURN_POINTER(result);
