@@ -1063,8 +1063,6 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 
 /*
  * Get the dimensions of a sparse vector
- *
- * TODO Add to SQL in 0.9.0
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_vector_dims);
 Datum
