@@ -119,3 +119,17 @@ INSERT INTO t (val) VALUES (array_fill(0, ARRAY[2000]));
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
 DROP TABLE t;
 RESET maintenance_work_mem;
+
+-- properties
+
+SELECT pg_indexam_has_property(oid, 'distance_orderable') FROM pg_am WHERE amname = 'ivfflat';
+
+CREATE TABLE t (val vector(3));
+CREATE INDEX idx ON t USING ivfflat (val vector_l2_ops);
+
+SELECT pg_index_has_property('idx'::regclass, 'distance_orderable');
+SELECT pg_index_column_has_property('idx'::regclass, 1, 'distance_orderable');
+SELECT pg_index_column_has_property('idx'::regclass, 2, 'distance_orderable');
+SELECT pg_index_column_has_property('idx'::regclass, 1, 'search_nulls');
+
+DROP TABLE t;

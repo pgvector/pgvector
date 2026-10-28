@@ -210,3 +210,40 @@ DETAIL:  This will cause low recall.
 HINT:  Drop the index until the table has more data.
 DROP TABLE t;
 RESET maintenance_work_mem;
+-- properties
+SELECT pg_indexam_has_property(oid, 'distance_orderable') FROM pg_am WHERE amname = 'ivfflat';
+ pg_indexam_has_property 
+-------------------------
+ 
+(1 row)
+
+CREATE TABLE t (val vector(3));
+CREATE INDEX idx ON t USING ivfflat (val vector_l2_ops);
+NOTICE:  ivfflat index created with little data
+DETAIL:  This will cause low recall.
+HINT:  Drop the index until the table has more data.
+SELECT pg_index_has_property('idx'::regclass, 'distance_orderable');
+ pg_index_has_property 
+-----------------------
+ 
+(1 row)
+
+SELECT pg_index_column_has_property('idx'::regclass, 1, 'distance_orderable');
+ pg_index_column_has_property 
+------------------------------
+ t
+(1 row)
+
+SELECT pg_index_column_has_property('idx'::regclass, 2, 'distance_orderable');
+ pg_index_column_has_property 
+------------------------------
+ 
+(1 row)
+
+SELECT pg_index_column_has_property('idx'::regclass, 1, 'search_nulls');
+ pg_index_column_has_property 
+------------------------------
+ f
+(1 row)
+
+DROP TABLE t;

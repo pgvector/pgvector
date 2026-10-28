@@ -266,6 +266,20 @@ hnswoptions(Datum reloptions, bool validate)
 }
 
 /*
+ * Check whether access method, index, or column has property
+ */
+static bool
+hnswproperty(Oid index_oid, int attno, IndexAMProperty prop, const char *propname, bool *res, bool *isnull)
+{
+	if (attno == 0 || prop != AMPROP_DISTANCE_ORDERABLE)
+		return false;
+
+	*res = true;
+	*isnull = false;
+	return true;
+}
+
+/*
  * Validate catalog entries for the specified operator class
  */
 static bool
@@ -491,7 +505,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 		.amcostestimate = hnswcostestimate,
 		.amgettreeheight = NULL,
 		.amoptions = hnswoptions,
-		.amproperty = NULL,
+		.amproperty = hnswproperty,
 		.ambuildphasename = hnswbuildphasename,
 		.amvalidate = hnswvalidate,
 		.amadjustmembers = NULL,
@@ -559,7 +573,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amgettreeheight = NULL;
 #endif
 	amroutine->amoptions = hnswoptions;
-	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
+	amroutine->amproperty = hnswproperty;
 	amroutine->ambuildphasename = hnswbuildphasename;
 	amroutine->amvalidate = hnswvalidate;
 	amroutine->amadjustmembers = NULL;

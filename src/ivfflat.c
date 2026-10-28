@@ -166,6 +166,20 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 }
 
 /*
+ * Check whether access method, index, or column has property
+ */
+static bool
+ivfflatproperty(Oid index_oid, int attno, IndexAMProperty prop, const char *propname, bool *res, bool *isnull)
+{
+	if (attno == 0 || prop != AMPROP_DISTANCE_ORDERABLE)
+		return false;
+
+	*res = true;
+	*isnull = false;
+	return true;
+}
+
+/*
  * Parse and validate the reloptions
  */
 static bytea *
@@ -413,7 +427,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 		.amcostestimate = ivfflatcostestimate,
 		.amgettreeheight = NULL,
 		.amoptions = ivfflatoptions,
-		.amproperty = NULL,
+		.amproperty = ivfflatproperty,
 		.ambuildphasename = ivfflatbuildphasename,
 		.amvalidate = ivfflatvalidate,
 		.amadjustmembers = NULL,
@@ -481,7 +495,7 @@ ivfflathandler(PG_FUNCTION_ARGS)
 	amroutine->amgettreeheight = NULL;
 #endif
 	amroutine->amoptions = ivfflatoptions;
-	amroutine->amproperty = NULL;	/* TODO AMPROP_DISTANCE_ORDERABLE */
+	amroutine->amproperty = ivfflatproperty;
 	amroutine->ambuildphasename = ivfflatbuildphasename;
 	amroutine->amvalidate = ivfflatvalidate;
 	amroutine->amadjustmembers = NULL;

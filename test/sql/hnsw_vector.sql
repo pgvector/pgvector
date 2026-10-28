@@ -123,6 +123,20 @@ CREATE TABLE t (val vector(2001));
 CREATE INDEX ON t USING hnsw (val vector_l2_ops);
 DROP TABLE t;
 
+-- properties
+
+SELECT pg_indexam_has_property(oid, 'distance_orderable') FROM pg_am WHERE amname = 'hnsw';
+
+CREATE TABLE t (val vector(3));
+CREATE INDEX idx ON t USING hnsw (val vector_l2_ops);
+
+SELECT pg_index_has_property('idx'::regclass, 'distance_orderable');
+SELECT pg_index_column_has_property('idx'::regclass, 1, 'distance_orderable');
+SELECT pg_index_column_has_property('idx'::regclass, 2, 'distance_orderable');
+SELECT pg_index_column_has_property('idx'::regclass, 1, 'search_nulls');
+
+DROP TABLE t;
+
 -- opclass validation
 
 SELECT opcname FROM pg_opclass WHERE NOT amvalidate(oid);
