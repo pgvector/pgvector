@@ -166,20 +166,6 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 }
 
 /*
- * Check whether access method, index, or column has property
- */
-static bool
-ivfflatproperty(Oid index_oid, int attno, IndexAMProperty prop, const char *propname, bool *res, bool *isnull)
-{
-	if (attno == 0 || prop != AMPROP_DISTANCE_ORDERABLE)
-		return false;
-
-	*res = true;
-	*isnull = false;
-	return true;
-}
-
-/*
  * Parse and validate the reloptions
  */
 static bytea *
@@ -193,6 +179,20 @@ ivfflatoptions(Datum reloptions, bool validate)
 									  ivfflat_relopt_kind,
 									  sizeof(IvfflatOptions),
 									  tab, lengthof(tab));
+}
+
+/*
+ * Check whether access method, index, or column has property
+ */
+static bool
+ivfflatproperty(Oid index_oid, int attno, IndexAMProperty prop, const char *propname, bool *res, bool *isnull)
+{
+	if (attno == 0 || prop != AMPROP_DISTANCE_ORDERABLE)
+		return false;
+
+	*res = true;
+	*isnull = false;
+	return true;
 }
 
 /*
