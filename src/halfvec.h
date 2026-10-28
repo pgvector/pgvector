@@ -38,6 +38,42 @@
 #define USE__GET_CPUID
 #endif
 
+#ifndef DISABLE_DISPATCH
+#if defined(__aarch64__) && defined(__linux__) && defined(__has_include)
+#if __has_include(<arm_sve.h>) && __has_include(<sys/auxv.h>)
+#if (defined(__clang__) && __clang_major__ >= 16) || \
+	(!defined(__clang__) && defined(__GNUC__) && __GNUC__ >= 12)
+#define USE_SVE
+#endif
+#endif
+#endif
+#endif
+
+#ifdef USE_SVE
+#include <sys/auxv.h>
+
+#ifndef AT_HWCAP2
+#define AT_HWCAP2 26
+#endif
+#ifndef HWCAP_SVE
+#define HWCAP_SVE (1 << 22)
+#endif
+#ifndef HWCAP2_SVE2
+#define HWCAP2_SVE2 (1 << 1)
+#endif
+
+#if defined(__clang__)
+#define TARGET_SVE __attribute__((target("sve")))
+#define TARGET_SVE2 __attribute__((target("sve2")))
+#else
+#define TARGET_SVE __attribute__((target("+sve")))
+#define TARGET_SVE2 __attribute__((target("+sve2")))
+#endif
+
+#define SVE_RUNTIME_SUPPORTED()  ((getauxval(AT_HWCAP) & HWCAP_SVE) != 0)
+#define SVE2_RUNTIME_SUPPORTED() ((getauxval(AT_HWCAP2) & HWCAP2_SVE2) != 0)
+#endif
+
 #if defined(USE_DISPATCH)
 #define HALFVEC_DISPATCH
 #endif
