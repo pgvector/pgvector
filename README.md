@@ -13,6 +13,8 @@ Plus [ACID](https://en.wikipedia.org/wiki/ACID) compliance, point-in-time recove
 
 Have a lot of vectors? Use [quantization](#scaling) to scale
 
+This fork also includes [experimental accelerator search](#experimental-accelerator-search), with a CPU reference worker, a frozen-table Postgres prototype, and optional cuVS adapter source.
+
 [![Build Status](https://github.com/pgvector/pgvector/actions/workflows/build.yml/badge.svg)](https://github.com/pgvector/pgvector/actions)
 
 ## Installation
@@ -546,6 +548,72 @@ SET ivfflat.max_probes = 100;
 ```
 
 Note: If this is lower than `ivfflat.probes`, `ivfflat.probes` will be used
+
+## Experimental Accelerator Search
+
+This fork is developing filtered vector search across accelerator backends. The current implementation combines native Postgres full-text and metadata predicates with a standalone worker. It includes exact CPU search and optional cuVS CAGRA source; native index access methods and planner integration are still planned.
+
+| Component | Status |
+| --- | --- |
+| CPU reference worker | Implemented and tested: L2, negative inner product, cosine, shared/per-query filters, canonical snapshots, and request timeouts. |
+| Frozen-table Postgres prototype | Implemented and live-tested: SQL eligibility, integer-key mapping, shared-filter query batches, and failure cleanup. |
+| NVIDIA cuVS | Optional FP32 L2 CAGRA adapter source for cuVS 26.10. SDK compilation and GPU execution remain unverified. |
+| AMD hipVS | Planned; vendor capabilities require independent validation. |
+| Fused NVFP4 | Planned; a concrete kernel API and precision/filtering contract are still needed. |
+
+### Try the CPU worker
+
+From the root of a checkout of this fork, with a C compiler, Make, and Python 3.9+:
+
+```sh
+make -C ann
+make -C ann check
+python3 benchmarks/ann/search.py --mode shared --batch 16
+python3 benchmarks/ann/search.py --mode unique --batch 16
+```
+
+This build is independent of PGXS and does not require Postgres or a GPU SDK. The benchmark uses precomputed synthetic eligibility and reports worker batch requests/sec and vector searches/sec separately. Its results are not SQL or GPU throughput. Tests requiring a database or GPU skip unless explicitly enabled.
+
+### Search a frozen Postgres table
+
+Install the optional Python dependency:
+
+```sh
+python3 -m pip install -r ann/requirements-postgres.txt
+```
+
+For an existing `documents` heap table with unique integer `id` values, non-null `embedding vector(3)` values, a `tenant` column, and a `search_text tsvector` column, run from the repository root:
+
+```python
+from psycopg import sql
+from ann.postgres import FrozenIndex
+
+with FrozenIndex('dbname=your_database', 'documents') as index:
+    results = index.search(
+        [[1, 2, 3], [3, 2, 1]], k=10,
+        predicate=sql.SQL("tenant = %s AND search_text @@ to_tsquery('simple', %s)"),
+        params=('acme', 'database & query'))
+    print(results)
+    print(index.last_search)
+```
+
+Postgres evaluates the predicate and the CPU worker searches only qualifying vector ordinals. Each returned query result contains `(id, distance)` pairs. Predicate values are bound separately; the SQL expression itself must be trusted application code.
+
+The context holds a `SHARE` table lock and blocks source writes for its entire lifetime. It uses a private read-only transaction and materializes a bounded corpus; this is a client-side prototype rather than a persistent index. Worker/SQL timeouts and failed searches release the freeze. See the [worker guide](ann/README.md) for limits, timeout configuration, snapshots, and the optional cuVS build.
+
+### Validation and next steps
+
+The current implementation has passed 12 worker tests, 6 live Postgres integration tests, sanitizer checks, and all 14 existing pgvector SQL regression tests on a temporary Postgres 17.6 installation. GPU tests have not run on this development host.
+
+To run live integration tests against a test database with pgvector installed:
+
+```sh
+ANN_PG_DSN='dbname=your_test_database' make -C ann check-postgres
+```
+
+These tests create/remove uniquely named schemas and need the corresponding database permissions. GPU validation uses the separate `check-cuvs` target described in the worker guide; explicit GPU tests fail when required dependencies or hardware are missing.
+
+Next milestones are cuVS SDK/GPU validation, bounded batching and admission, a native AM/CustomScan, mutable indexing with WAL/MVCC/vacuum, and multi-GPU tuning. The [implementation plan](docs/cuvs-filtered-ann-plan.md) tracks the phased todos and vendor boundary; the [performance analysis](docs/cuvs-search-performance.md) covers eligibility reuse, exact-versus-ANN routing, and throughput experiments.
 
 ## Half-Precision Vectors
 
