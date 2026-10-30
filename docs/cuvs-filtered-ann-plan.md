@@ -4,6 +4,8 @@ Status: proposed; no implementation accompanies this document.
 
 Prepared: 2026-10-30. cuVS capability checks below refer to released **v26.10.00**. Compile and runtime smoke tests remain implementation work.
 
+Companion analysis: [high-throughput filtered-search performance](cuvs-search-performance.md). Section 12 integrates its two optimization tracks into this plan.
+
 ## 1. Objective and scope
 
 Build a PostgreSQL integration that uses cuVS for bulk vector index construction and query execution while supporting both:
@@ -147,6 +149,8 @@ Keep graph navigation intact when applying output eligibility. Removing rejected
 | Joins, volatile predicates, complex subqueries | Retain the ordinary plan until a dedicated supported execution contract exists. |
 
 GIN and bitmap results can require heap and expression rechecks. A raw index bitmap must not be treated as an exact list of visible matches. PostgreSQL's [text-index documentation](https://www.postgresql.org/docs/current/textsearch-indexes.html) explains relevant recheck requirements.
+
+Require `gin_fuzzy_search_limit = 0` when GIN supplies complete eligibility. Nonzero values can omit matches; reject that configuration for this path or select a complete alternative. Track pending-list behavior under writes as part of throughput testing. [PostgreSQL GIN documentation](https://www.postgresql.org/docs/current/gin.html)
 
 For the first implementation, materialize the exact qualifying set before vector search. This makes correctness and routing clear but can be expensive for broad predicates. Measure that cost. A later optimization may use a conservative superset with residual rechecks and refill; it requires a separate correctness gate and may never exclude valid candidates because of an approximation in filter construction.
 
@@ -487,6 +491,7 @@ flowchart LR
 - [ ] Compile and run capability smoke tests for bulk build, reload, bitsets, per-query Roaring, exact search, and result edge cases.
 - [ ] Generate representative predicates for both full-text and metadata, including their conjunctions.
 - [ ] Compute exact filtered ground truth and benchmark current pgvector iterative HNSW and PostgreSQL filter-then-exact plans.
+- [ ] Measure the CPU eligibility/mapping ceiling with a diagnostic no-compute worker and record raw candidates, visited heap pages, and final eligible counts.
 
 Deliverable: reproducible harness, capability report, and workload manifest. Gate: the selected API combination runs on the target machine and ground truth is independently validated.
 
@@ -499,6 +504,7 @@ Deliverable: reproducible harness, capability report, and workload manifest. Gat
 - [ ] Add per-shard routing, result merge, memory accounting, timings, deadlines, and cancellation behavior.
 - [ ] Define request cleanup after PostgreSQL errors and GPU stream completion; verify that submission never requires retaining a backend buffer content lock.
 - [ ] Fit preliminary route crossovers from complete search costs, including filter setup and transfers.
+- [ ] Add compatible direct-search microbatches, reusable buffers, and admission by estimated work and bytes; sweep batch delay and submission lanes at fixed recall and latency.
 
 Deliverable: worker executable and benchmark reports. Gate: all returned IDs satisfy the supplied allowlist, exact results match the reference, and ANN recall is measured after reload as well as immediately after build.
 
@@ -510,6 +516,8 @@ Deliverable: worker executable and benchmark reports. Gate: all returned IDs sat
 - [ ] Translate eligible identities to shard IDs; route and merge results; rerank and return rows.
 - [ ] Instrument filter evaluation, identity mapping, gathering, queue time, upload, search, download, and reranking.
 - [ ] Compare end-to-end performance with existing PostgreSQL plans and current pgvector.
+- [ ] Evaluate an explicit same-statement batch entry point that reuses one predicate/snapshot across multiple query vectors; compare its CPU savings with cross-backend GPU batching.
+- [ ] Bound host eligibility materialization before worker admission; benchmark compact ID arrays, page-local mapping, spill, and concurrent prepared queries.
 
 Deliverable: a working combined-query prototype on immutable data. Gate: qualifying-row correctness, exact-route correctness, adequate filtered recall, and a measured benefit on the target workload. If exact search wins for the target's selective queries, retain it as the chosen route.
 
@@ -525,6 +533,7 @@ Implement and review the ordinary AM lifecycle before layering in the custom exe
 - [ ] Add portable objects to both Makefiles, canonical install SQL, and matching upgrade SQL; test fresh-install/upgrade parity and unavailable-worker behavior without CUDA.
 - [ ] Introduce opt-in CustomPath/CustomScan support in separate planner/custom-executor modules, with hook chaining and a documented whitelist of query shapes.
 - [ ] Cost predicate materialization, mapping, transfer, and vector search rather than only the GPU kernel.
+- [ ] Calibrate exact-versus-ANN routes and planner startup/spill costs from the performance experiments; expose actual route, batch, queue, and recheck costs.
 - [ ] Add ordered-output validation, `EXPLAIN` instrumentation, prepared-parameter handling, and fallback selection.
 - [ ] Test cancellation, worker restart, invalid artifacts, transaction abort during build, backup/restore, and GPU-less behavior.
 - [ ] Keep table-level freeze enforcement in this stage until Phase 4 passes; an access-method insert callback alone cannot reject every mutation. Test DELETE, TRUNCATE, HOT updates, rewrites, and freeze loss.
@@ -540,6 +549,7 @@ Deliverable: native integration with an explicit supported contract. Gate: corre
 - [ ] Implement `cuvsbulkdelete`/`cuvsvacuumcleanup` using PostgreSQL's deletion callback and statistics conventions; preserve old snapshots and active generation readers.
 - [ ] Test cache identity invalidation through DROP, TRUNCATE, REINDEX, and table rewrite alongside insertion/vacuum lock ordering.
 - [ ] Test aborts, deletes, HOT and non-HOT updates, repeated primary keys, long-running transactions, and crash/replay at publication boundaries.
+- [ ] Measure sustained offered-load behavior while GIN pending entries, delta segments, compaction, and retained snapshots compete with search.
 
 Deliverable: mutable production-capable indexing. Gate: the MVCC and recovery test matrix passes before enabling mutable workloads by default.
 
@@ -550,6 +560,7 @@ Deliverable: mutable production-capable indexing. Gate: the MVCC and recovery te
 - [ ] Add concurrent initial builds/rebuilds only after delta capture, validation, and publication rules are integrated with PostgreSQL's required index lifecycle.
 - [ ] Evaluate compression or IVF alternatives only when memory/throughput measurements justify them; rerank compressed candidates with full vectors where required.
 - [ ] Stress test queue fairness, shard skew, simultaneous builds and searches, memory pressure, and partial device failures.
+- [ ] Compare GPU replicas with filtered shard fanout where capacity permits, and test persistent search separately on stable versus heterogeneous filter traffic.
 
 Deliverable: a documented capacity envelope and operational tuning defaults. Gate: target latency, throughput, and recall under sustained concurrency and failure injection.
 
@@ -598,7 +609,45 @@ Compare CPU exact, GPU gathered exact, GPU filtered brute force, filtered CAGRA,
 
 Choose route thresholds and default search budgets only after the target workload meets its agreed objectives. Do not publish speedup or latency claims based solely on a warm GPU kernel benchmark.
 
-## 12. Open decisions before implementation
+## 12. Performance optimization options
+
+Both options below are part of the implementation plan. They address different bottlenecks and should be evaluated independently before combining them. The detailed capacity model, diagrams, and experiment sequence are in [the throughput analysis](cuvs-search-performance.md).
+
+### Option A: reduce and reuse text eligibility work
+
+Optimize PostgreSQL predicate execution, heap rechecks, HOT resolution, and ordinal conversion before increasing GPU capacity. Materialize narrow contiguous ID arrays, group mapping accesses by page where safe, and give the producer an explicit host-memory budget.
+
+Evaluate a supported batch-search entry point that accepts multiple query vectors sharing one predicate and statement snapshot. It can evaluate eligibility once and reuse the ordinal mapping, device allowlist, and potentially a compacted exact-search dataset. Independent SQL statements still require their own correct snapshot handling; cross-backend GPU batching alone does not amortize this CPU work.
+
+Decision criteria: prefer this work when predicate/mapping CPU or heap I/O limits QPS, or when repeated same-predicate query vectors are common. Validate it first with the diagnostic no-compute worker and then with full SQL requests. A generation-only filter cache is insufficient because text metadata can change without a vector change.
+
+### Option B: batch and route vector search efficiently
+
+Make exact subset search and filtered CAGRA explicit alternatives:
+
+| Search option | Expected opportunity | Costs to measure |
+| --- | --- | --- |
+| CPU/GPU exact over eligible vectors | Tiny or selective matching sets; reusable same-filter subsets. | CPU work, gather/read bytes, transfer/queue overhead, and exact top-k. |
+| Filtered CAGRA | Larger eligible sets where graph search reduces distance work at the recall target. | Allowlist setup, filter-adjusted search capacity, workspace, retries, and reranking. |
+
+The router chooses per shard using actual eligible count, dimension, residency, candidate budget, batch type, and load. Do not use one selectivity percentage as a universal threshold.
+
+Use direct C++ search with compatible microbatches, separate selectivity/work classes, resident vectors/graphs, and reusable buffers. Bound batch delay, workspace, and queued bytes. Reuse resources per submission lane and keep each query's identity/filter mapping intact. Test persistent kernels and cuVS's own batching wrapper as targeted later experiments, not default solutions for arbitrary text filters.
+
+Decision criteria: prioritize this work when the producer can supply sufficient work and measurements show GPU idle gaps, allocation/transfer overhead, inefficient batches, or costly ANN traversal. Compare whole-query throughput at equal filtered recall; a faster search with lower recall is a different operating point.
+
+### Shared performance gates
+
+- Define target successful QPS, p95/p99 latency, filtered recall, and host/device memory limits before choosing defaults.
+- Report SQL statements/second and vector searches/second separately, with vectors per statement, full statement latency, and per-vector recall; shared-filter batches change the relationship between those rates.
+- Include eligibility, mapping, queueing, transfer, search, delta, heap checks, and result production in measurements.
+- Use both concurrency sweeps and open-loop offered-load tests. Report rejected, failed, timed-out, and late requests alongside completed QPS.
+- Keep per-tenant fairness and snapshot/generation retention bounded under overload.
+- Recheck correctness and performance during writes, compaction, cold loads, and worker failures.
+
+The priority order is producer-ceiling measurement, compact mapping and safe shared-filter reuse, exact/ANN crossover measurement, then microbatch and concurrency tuning. GPU scaling follows only after these experiments identify a remaining GPU capacity limit.
+
+## 13. Open decisions before implementation
 
 1. Target row count, dimension, metrics, filter distributions, and write rate.
 2. GPU model/count, VRAM, host memory, local storage, and deployment topology.
