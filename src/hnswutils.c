@@ -814,21 +814,21 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 
 	*unvisitedLength = 0;
 
-	if (!HnswLoadNeighborTids(element, indextids, index, m, lm, lc))
-		return;
-
-	for (int i = 0; i < lm; i++)
+	if (HnswLoadNeighborTids(element, indextids, index, m, lm, lc))
 	{
-		ItemPointer indextid = &indextids[i];
-		bool		found;
+		for (int i = 0; i < lm; i++)
+		{
+			ItemPointer indextid = &indextids[i];
+			bool		found;
 
-		if (!ItemPointerIsValid(indextid))
-			break;
+			if (!ItemPointerIsValid(indextid))
+				break;
 
-		tidhash_insert(v->tids, *indextid, &found);
+			tidhash_insert(v->tids, *indextid, &found);
 
-		if (!found)
-			unvisited[(*unvisitedLength)++].indextid = *indextid;
+			if (!found)
+				unvisited[(*unvisitedLength)++].indextid = *indextid;
+		}
 	}
 
 	searchState->unvisited = unvisited;
