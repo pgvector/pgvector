@@ -831,10 +831,6 @@ HnswLoadUnvisitedFromDisk(HnswElement element, HnswUnvisited * unvisited, int *u
 		}
 	}
 
-	searchState->unvisited = unvisited;
-	searchState->unvisitedLength = *unvisitedLength;
-	searchState->visited = 0;
-
 #ifdef HNSW_USE_READ_STREAM
 	/* Restore read-ahead distance */
 	read_stream_resume(searchState->stream);
@@ -1025,9 +1021,9 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 	HnswNeighborArray *localNeighborhood = NULL;
 	Size		neighborhoodSize = 0;
 	int			lm = HnswGetLayerM(m, lc);
-	HnswUnvisited *unvisited = palloc_array_checked(HnswUnvisited, lm);
-	int			unvisitedLength;
 	bool		inMemory = index == NULL;
+
+	searchState->unvisited = palloc_array_checked(HnswUnvisited, lm);
 
 	if (v == NULL)
 	{
@@ -1089,15 +1085,17 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		cElement = HnswPtrAccess(base, c->element);
 
 		if (inMemory)
-			HnswLoadUnvisitedFromMemory(base, cElement, unvisited, &unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
+			HnswLoadUnvisitedFromMemory(base, cElement, searchState->unvisited, &searchState->unvisitedLength, v, lc, localNeighborhood, neighborhoodSize);
 		else
-			HnswLoadUnvisitedFromDisk(cElement, unvisited, &unvisitedLength, v, index, m, lm, lc, searchState);
+			HnswLoadUnvisitedFromDisk(cElement, searchState->unvisited, &searchState->unvisitedLength, v, index, m, lm, lc, searchState);
 
 		/* OK to count elements instead of tuples */
 		if (tuples != NULL)
-			(*tuples) += unvisitedLength;
+			(*tuples) += searchState->unvisitedLength;
 
-		for (int i = 0;; i++)
+		searchState->visited = 0;
+
+		for (;;)
 		{
 			HnswElement eElement;
 			HnswSearchCandidate *e;
@@ -1108,10 +1106,10 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 
 			if (inMemory)
 			{
-				if (i == unvisitedLength)
+				if (searchState->visited >= searchState->unvisitedLength)
 					break;
 
-				eElement = unvisited[i].element;
+				eElement = searchState->unvisited[searchState->visited++].element;
 				eDistance = GetElementDistance(base, eElement, q, support);
 			}
 			else
