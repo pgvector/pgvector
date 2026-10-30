@@ -1,6 +1,6 @@
 # cuVS bulk build and filtered ANN implementation plan
 
-Status: proposed; no implementation accompanies this document.
+Status: standalone CPU worker and a live-tested frozen-table PostgreSQL prototype are implemented in [ann/](../ann/README.md). Optional cuVS CAGRA source is implemented but SDK/GPU validation is pending. Native AM/CustomScan and mutable indexing remain proposed.
 
 Prepared: 2026-10-30. cuVS capability checks below refer to released **v26.10.00**. Compile and runtime smoke tests remain implementation work.
 
@@ -355,7 +355,19 @@ Compaction must preserve versions required by supported snapshots. Retain old ba
 
 ## 9. Repository architecture and code-style alignment
 
-The PostgreSQL adapter should look like another pgvector access method. Keep the genuinely new pieces, filtered CustomScan execution and the GPU worker, behind narrow interfaces. Do not add a generic vector-backend registry, storage engine, scheduler framework, or alternate text-query language.
+The PostgreSQL adapter should look like another pgvector access method. Keep the genuinely new pieces, filtered CustomScan execution and the accelerator worker, behind narrow interfaces. Vendor selection belongs in the worker's small build/search/destroy interface, not a general PostgreSQL backend registry, new storage engine, or alternate text-query language.
+
+### Multiple vendors and precision paths
+
+The worker must support independently versioned implementations such as NVIDIA cuVS, AMD hipVS, and a fused NVFP4 scoring path. The initial [AnnBackend interface](../ann/backend.h) provides a statically selected worker-local boundary, with a tested CPU reference implementation. Separate worker processes own each vendor/device context. PostgreSQL continues to own predicate semantics, tuple identity, durability, and final results.
+
+Each adapter must advertise and validate its algorithm, metrics, input/storage precision, filter formats, batch/dimension limits, exactness, and serialization compatibility. cuVS capability findings in this document do not establish hipVS capability parity. AMD describes hipVS as aligned with cuVS 25.10, rather than the 26.10 release used here. [AMD hipVS documentation](https://rocm.docs.amd.com/projects/hipVS/en/latest/)
+
+NVFP4 denotes a precision/kernel path, not a complete ANN access method. Establish its kernel API, scaling/packing format, filtering support, top-k contract, and device requirements before implementing an adapter. Preserve canonical vectors for reranking; compressed scoring is not automatically exact. An adapter offering scoring only must not advertise graph build or native filtered ANN.
+
+Bind native artifacts to backend, library/format version, algorithm, precision/scales, metric, and generation. Include these fields in batching/cache compatibility. Never reinterpret one vendor's graph or compressed vectors as another's. Unsupported backend selections fail explicitly; CPU fallback must be a declared route, not silently presented as GPU execution.
+
+The `cuvs` AM/GUC/module names below remain provisional design names. Choose one common PostgreSQL-facing name before adding shipped SQL; do not duplicate the AM lifecycle, text executor, or durable identity model for each vendor. The implemented portable worker lives in `ann/`, superseding the earlier proposed `cuvs/` directory.
 
 ### Existing conventions to follow
 
@@ -412,7 +424,7 @@ These names describe planned responsibilities; none of these new files or APIs e
 | `src/cuvscustom.c` | CustomScan callbacks, predicate child plan, routing, merge, reranking, and row production. |
 | `src/cuvsfilter.c` | Eligible-ID conversion, shard grouping, and portable filter encoding. |
 | `src/cuvsworker.c` | Portable C client protocol, request ownership, availability checks, and error translation. |
-| `cuvs/` | Separately built C++/CUDA executable, cuVS adapter, and worker-owned GPU resource management. |
+| `ann/` | Standalone worker protocol, CPU reference, client, and future isolated cuVS/hipVS/precision adapters. |
 | `test/sql/`, `test/expected/`, `test/t/` | Regression pairs and TAP tests following the existing harness. |
 | `benchmarks/cuvs/` | Reproducible bulk-build and filtered-query benchmarks, separate from regression expectations. |
 
@@ -489,7 +501,7 @@ flowchart LR
 - [ ] Pin cuVS, CUDA, compiler, and worker build configuration; confirm that the portable C adapter fits both PGXS and Windows builds without a CUDA dependency.
 - [ ] Review the AM callback boundaries, naming, state ownership, page layout, and proposed SQL objects against the repository conventions in section 9.
 - [ ] Compile and run capability smoke tests for bulk build, reload, bitsets, per-query Roaring, exact search, and result edge cases.
-- [ ] Generate representative predicates for both full-text and metadata, including their conjunctions.
+- [x] Generate representative predicates for both full-text and metadata, including their conjunctions (`benchmarks/ann/postgres.py`; PostgreSQL execution remains unverified on this host).
 - [ ] Compute exact filtered ground truth and benchmark current pgvector iterative HNSW and PostgreSQL filter-then-exact plans.
 - [ ] Measure the CPU eligibility/mapping ceiling with a diagnostic no-compute worker and record raw candidates, visited heap pages, and final eligible counts.
 
@@ -497,7 +509,7 @@ Deliverable: reproducible harness, capability report, and workload manifest. Gat
 
 ### Phase 1: Standalone build/search worker
 
-- [ ] Define fixed-width request/response encoding and generation-scoped ID types without leaking PostgreSQL structs or C++ objects across the process boundary.
+- [x] Define fixed-width request/response encoding and generation-scoped ID types without leaking PostgreSQL structs or C++ objects across the process boundary (`ann/worker.c`, `ann/client.py`; serialized reference transport).
 - [ ] Implement bounded vector ingestion, CAGRA shard build, serialization, load, and unload.
 - [ ] Implement CPU exact reference, GPU gathered exact, GPU filtered brute force, and filtered CAGRA search.
 - [ ] Implement same-filter shared-bitset batches and per-query Roaring batches with explicit ownership and range validation.
@@ -510,13 +522,13 @@ Deliverable: worker executable and benchmark reports. Gate: all returned IDs sat
 
 ### Phase 2: Immutable PostgreSQL prototype
 
-- [ ] Enforce the table freeze for the full build/query test window and build stable primary-key-to-ordinal mappings; test writes, rewrites, and freeze loss.
-- [ ] Add an experimental search entry point that obtains eligible rows from native PostgreSQL predicate execution.
-- [ ] Support both full-text and metadata filters together, including necessary rechecks.
-- [ ] Translate eligible identities to shard IDs; route and merge results; rerank and return rows.
+- [x] Enforce the table freeze for the full build/query window and build stable integer-key-to-ordinal mappings; live tests cover external mutations, context expiry, and failed-build cleanup (`ann/postgres.py`).
+- [x] Add an experimental client-side search entry point obtaining eligible rows from native PostgreSQL predicate execution (`FrozenIndex`; not a SQL function or planner hook).
+- [x] Support combined full-text and metadata filters through PostgreSQL predicate execution; the CPU path matches SQL exact results in live tests.
+- [ ] Translate eligible identities to shard IDs; route and merge results; rerank and return rows. Single-generation CPU prototype is implemented; shard/adaptive routing and GPU validation remain pending.
 - [ ] Instrument filter evaluation, identity mapping, gathering, queue time, upload, search, download, and reranking.
 - [ ] Compare end-to-end performance with existing PostgreSQL plans and current pgvector.
-- [ ] Evaluate an explicit same-statement batch entry point that reuses one predicate/snapshot across multiple query vectors; compare its CPU savings with cross-backend GPU batching.
+- [ ] Evaluate an explicit batch entry point reusing one predicate result across multiple query vectors; compare CPU savings with cross-backend GPU batching. The frozen-table client now implements shared eligibility batches; throughput comparison remains pending.
 - [ ] Bound host eligibility materialization before worker admission; benchmark compact ID arrays, page-local mapping, spill, and concurrent prepared queries.
 
 Deliverable: a working combined-query prototype on immutable data. Gate: qualifying-row correctness, exact-route correctness, adequate filtered recall, and a measured benefit on the target workload. If exact search wins for the target's selective queries, retain it as the chosen route.
@@ -656,6 +668,21 @@ The priority order is producer-ceiling measurement, compact mapping and safe sha
 5. Native index page/metapage layouts, generic-WAL update boundaries, and generation/delta coverage protocol.
 6. Shard sizing and whether tenant partitioning can soundly reduce query fanout.
 7. Experimental SQL entry point and the opt-in mechanism for planner-selected ANN behavior.
+8. Common native AM name, vendor adapter SDK versions/test hosts, and the fused NVFP4 kernel repository/API.
+
+## 14. Current implementation and next executable gates
+
+Implemented: standalone C worker, CPU exact top-k with shared/per-query sparse filters, explicit unsupported-vendor selection, bounded versioned frames, generation checks, canonical checksummed snapshot reload, Python client, independent-oracle tests, and a synthetic throughput harness. See [worker documentation](../ann/README.md) for commands and protocol details.
+
+Also implemented: `FrozenIndex`, a client-side frozen heap-table prototype using native SQL predicates and a private read-only transaction; and `ann/cuvs.c`, an optional FP32 L2 CAGRA adapter for the cuVS 26.10 C API. The current worker invokes the GPU adapter serially per query; asynchronous microbatching and persistent GPU graph artifacts are not implemented.
+
+Validated locally: compiler warnings as errors, CPU correctness/protocol tests, AddressSanitizer/UndefinedBehaviorSanitizer, and live frozen-table integration tests. A checksum-verified PostgreSQL 17.6 source build was installed in a temporary development directory. This checkout's pgvector compiled, all 14 existing SQL regression tests passed, and generated text/metadata/exact/HNSW baselines executed successfully. The test cluster is temporary, not a system installation.
+
+This macOS ARM64 host still lacks CUDA and ROCm SDKs/devices. The optional cuVS adapter has not been compiled against its SDK or executed on GPU here; its explicit hardware test target must pass before claiming GPU support. hipVS and fused NVFP4 adapters, GPU performance, native AM/CustomScan integration, and mutable index semantics remain incomplete. Canonical snapshots are not native graph serialization or PostgreSQL WAL.
+
+Next gates: compile/run the cuVS adapter on a supported GPU host, collect target workload requirements, validate backend capabilities and filtered recall, and implement bounded asynchronous admission and the native AM/CustomScan. Preserve the tested frozen-table path as a correctness reference. The protocol client remains synchronous and does not provide production scheduling/cancellation.
+
+Transport hardening is implemented: configurable finite request timeouts cover blocked pipe writes/reads; transport corruption and cancellation invalidate the dedicated process/session. The frozen-table prototype applies per-statement SQL timeouts, releases its freeze on failed searches, and records per-search stage timings. Dedicated tests cover stalled workers, malformed responses, SQL timeout cleanup, and session loss. Whole-request admission/deadlines and GPU kernel cancellation remain separate work.
 
 The first implementation slice is Phase 0 through Phase 2: bulk build, native PostgreSQL eligibility, and adaptive exact/CAGRA search on an immutable dataset. The transaction and storage work becomes a production release gate rather than an assumption hidden inside the prototype.
 

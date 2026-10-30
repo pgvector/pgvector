@@ -4,3 +4,5 @@
 - [High-throughput filtered-search analysis](cuvs-search-performance.md): CPU eligibility and GPU execution optimization tracks, capacity estimates, batching/admission design, and end-to-end benchmark gates.
 
 These documents describe proposed work. They do not imply that the APIs or features are implemented.
+
+The [standalone worker, benchmarks, and frozen-table PostgreSQL prototype](../ann/README.md) are implemented and CPU/live-PostgreSQL tested. Optional cuVS adapter source awaits SDK/GPU validation; native AM/CustomScan and mutable integration remain pending.

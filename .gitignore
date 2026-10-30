@@ -12,3 +12,8 @@ regression.*
 *.obj
 *.lib
 *.exp
+/ann/ann-worker
+/ann/ann-worker.dSYM/
+/ann/ann-worker-cuvs
+/ann/ann-worker-cuvs.dSYM/
+__pycache__/
