@@ -1,6 +1,7 @@
 #include "backend.h"
 #include "batching.h"
 #include "server.h"
+#include "indexfile.h"
 
 #include <float.h>
 #include <stdio.h>
@@ -284,6 +285,25 @@ main(int argc, char **argv)
 			serveOptions.delay_us = strtoull(value, NULL, 10);
 		else if (strcmp(argv[i], "--max-pending-mb") == 0)
 			serveOptions.max_pending_bytes = strtoull(value, NULL, 10) * 1024 * 1024;
+		else if (strcmp(argv[i], "--itopk") == 0)
+		{
+			AnnIndexConfig.itopk = (uint32_t) strtoul(value, NULL, 10);
+			if (AnnIndexConfig.itopk > 512)
+				AnnIndexConfig.itopk = 512;
+		}
+		else if (strcmp(argv[i], "--filtered-itopk") == 0)
+		{
+			/* Single-CTA CAGRA search, the cuVS default, supports up to 512. */
+			AnnIndexConfig.filtered_itopk = (uint32_t) strtoul(value, NULL, 10);
+			if (AnnIndexConfig.filtered_itopk > 512)
+				AnnIndexConfig.filtered_itopk = 512;
+		}
+		else if (strcmp(argv[i], "--exact-limit") == 0)
+			AnnIndexConfig.exact_limit = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--cagra-persistent") == 0)
+			AnnIndexConfig.persistent = strcmp(value, "on") == 0;
+		else if (strcmp(argv[i], "--replicate") == 0)
+			AnnIndexConfig.replicate = strcmp(value, "on") == 0;
 		else
 			goto usage;
 	}
@@ -450,11 +470,13 @@ main(int argc, char **argv)
 usage:
 #ifdef ANN_USE_CUVS
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH "
-			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]]\n"
+			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH "
-			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]]\n"
+			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off]]\n"
 			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");
 #endif
 	return 2;

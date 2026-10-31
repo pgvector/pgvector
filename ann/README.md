@@ -1,6 +1,6 @@
 # Native C search worker and scheduler
 
-Runtime code in this directory is C. Python is used only by test helpers and benchmark launchers under `test/ann/` and `benchmarks/ann/`. The [native C PostgreSQL AM](../docs/ann-native-index.md) provides an exact L2 baseline; an [opt-in exact CustomScan](../docs/ann-filtered-search.md) scores eligible vectors, while worker integration remains pending; the Python frozen-table implementation is retained solely as a test reference, not an application API.
+Runtime code in this directory is C. Python is used only by test helpers and benchmark launchers under `test/ann/` and `benchmarks/ann/`. The [native C PostgreSQL AM](../docs/ann-native-index.md) provides an exact L2 baseline; an [opt-in exact CustomScan](../docs/ann-filtered-search.md) scores eligible vectors, optionally [pipelined to this worker](../docs/ann-worker-pipeline.md), and [loaded cuVS indexes](../docs/ann-cuvs-index.md) serve sharded multi-GPU ANN and hybrid search from SQL; the Python frozen-table implementation is retained solely as a test reference, not an application API.
 
 ## Build and test
 
@@ -9,7 +9,12 @@ A C11 compiler, POSIX threads, and Make are required for the standalone worker o
 ```sh
 make -C ann
 make -C ann check
+# GPU hosts only: also build ann-worker-cuvs (pip SDK paths: see docs/ann-cuvs-index.md)
+make -C ann USE_CUVS=1 CUVS_PREFIX=/path/to/libcuvs CUDA_HOME=/path/to/cuda
+make -C ann check-cuvs CUVS_PREFIX=/path/to/libcuvs
 ```
+
+`USE_CUVS` defaults to 0, so hosts without a GPU SDK build and test every CPU path. Loaded indexes are served by both builds. The CPU worker scans them exactly, which makes it the test reference; the cuVS worker searches CAGRA shards on all GPUs ([guide](../docs/ann-cuvs-index.md)).
 
 `make` builds the C executable and `libannbatch.a`, without Python or a GPU SDK. `make check` uses Python to drive C protocol and scheduler tests. Live PostgreSQL and GPU tests are explicitly gated.
 
@@ -74,6 +79,9 @@ The C worker uses version 1, 32-byte little-endian headers: magic `PVAN`, u16 ve
 | 4 export | Empty | Canonical build payload, not a graph artifact |
 | 5 diagnostic probe | Bounded bytes | Empty; never a search result |
 | 6 index info | Empty | u32 rows and dimensions |
+| 7–10 | Gathered and shared-memory search for the [pipelined CustomScan](../docs/ann-worker-pipeline.md) (`--listen` mode) | |
+| 11 load index | u32 name length, name, directory path | Text `rows N dimensions D shards S dtype T source NAME` |
+| 12 index search | u32 name length, name, u32 dimensions, k, filter count (UINT32_MAX = none); FP32 query; i64 keys | u32 count, u32 route (0 graph, 1 filtered graph, 2 exact), then `(i64 key, f32 distance)` per hit |
 
 Metric values: 0 L2, 1 negative inner product, 2 cosine. Filter values: 0 none, 1 shared IDs, 2 IDs per query. Allowlists are u32 count followed by strictly increasing unique u32 ordinals; an empty list differs from no filter. Capability masks use `1 << enum_value`. The CPU backend uses FP32 input and double accumulation.
 
@@ -102,17 +110,13 @@ make -C ann clean
 make -C ann CFLAGS='-O1 -g -std=c11 -Wall -Wextra -Werror -pedantic -fsanitize=address,undefined -fno-omit-frame-pointer' check
 ```
 
-## Deferred CAGRA and vendor integration
+## cuVS integration
 
-`cuvs.c` remains an unvalidated C draft. CAGRA integration, compilation against cuVS 26.10, and hardware validation are deferred todos. hipVS and fused NVFP4 adapters are also pending. They will use the worker-local C backend boundary; PostgreSQL lifecycle and predicate handling will remain common C code.
+`cuvs.c` is compiled and validated against cuVS 26.10 on NVIDIA B200 GPUs (`make -C ann check-cuvs`):
 
-Future validation commands on an appropriate NVIDIA SDK/device host:
+- **Gathered search** serves the [pipelined CustomScan](../docs/ann-worker-pipeline.md) with exact GPU brute force.
+- **Loaded indexes** serve sharded CAGRA search across all GPUs, with bitset filters and an exact route for selective filters ([guide](../docs/ann-cuvs-index.md)).
 
-```sh
-make -C ann ann-worker-cuvs CUVS_PREFIX=/path/to/cuvs CUDA_HOME=/usr/local/cuda
-LD_LIBRARY_PATH=/path/to/cuvs/lib:/usr/local/cuda/lib64 make -C ann check-cuvs CUVS_PREFIX=/path/to/cuvs
-```
-
-The draft is FP32 L2 only, with 128 minimum rows and k capped at 1,024. GPU search remains serialized and outside the native CPU scheduler. No GPU compilation, performance, or recall result is claimed.
+The stdin-mode resident CAGRA build (operations 1–4 with `--backend cuvs`) is still the older unvalidated draft. Use loaded indexes instead. hipVS and NVFP4 adapters are not implemented: cuVS 26.10 CAGRA supports FP32, FP16, int8 and uint8 datasets, and no FP4 or FP8 path.
 
 C PostgreSQL worker integration is implemented: `--listen PATH` serves pipelined gathered searches (operations 7–10) to `AnnFilteredSearch`, with a `mock-gpu` backend standing in for accelerators ([guide](../docs/ann-worker-pipeline.md)). Sustained-load validation remains. Python remains test/benchmark tooling only.

@@ -52,6 +52,13 @@ AnnWorkerReady(void)
 	return false;
 }
 
+bool
+AnnWorkerCall(uint16 operation, const char *payload, size_t length, int timeoutMs,
+			  uint32 *status, char **reply, uint32 *replyLength)
+{
+	return false;
+}
+
 #else
 
 #include <errno.h>
@@ -89,6 +96,7 @@ static char *shared = NULL;
 static size_t sharedSize = 0;
 static bool sharedDetached = false;
 static bool scanActive = false;
+static int	waitTimeoutMs = 30000;
 
 static void
 Disconnect(void)
@@ -166,22 +174,20 @@ AttachShared(void)
 	Unmap();
 }
 
-bool
-AnnWorkerBegin(void)
+static bool
+Connect(void)
 {
 	struct sockaddr_un address = {0};
 
-	if (ann_worker_socket == NULL || ann_worker_socket[0] == '\0' || scanActive)
+	waitTimeoutMs = ann_worker_timeout_ms;
+	if (ann_worker_socket == NULL || ann_worker_socket[0] == '\0')
 		return false;
 	if (outstanding > 0)
 		Disconnect();
 	if (sharedDetached)
 		Unmap();
 	if (workerFd >= 0)
-	{
-		scanActive = true;
 		return true;
-	}
 	if (strlen(ann_worker_socket) >= sizeof(address.sun_path))
 		return false;
 	address.sun_family = AF_UNIX;
@@ -197,7 +203,10 @@ AnnWorkerBegin(void)
 		return false;
 	}
 	{
-		/* Chunks are megabytes; small default Unix socket buffers cost syscalls. */
+		/*
+		 * Chunks are megabytes; small default Unix socket buffers cost
+		 * syscalls.
+		 */
 		int			buffer = 4 * 1024 * 1024;
 
 		(void) setsockopt(workerFd, SOL_SOCKET, SO_SNDBUF, &buffer, sizeof(buffer));
@@ -216,7 +225,13 @@ AnnWorkerBegin(void)
 		recvBuffer = MemoryContextAlloc(TopMemoryContext, recvCapacity);
 	}
 	AttachShared();
-	if (workerFd < 0)
+	return workerFd >= 0;
+}
+
+bool
+AnnWorkerBegin(void)
+{
+	if (scanActive || !Connect())
 		return false;
 	scanActive = true;
 	return true;
@@ -275,7 +290,7 @@ Wait(short events, instr_time start)
 	CHECK_FOR_INTERRUPTS();
 	INSTR_TIME_SET_CURRENT(now);
 	INSTR_TIME_SUBTRACT(now, start);
-	if (INSTR_TIME_GET_MILLISEC(now) > ann_worker_timeout_ms)
+	if (INSTR_TIME_GET_MILLISEC(now) > waitTimeoutMs)
 	{
 		elog(DEBUG1, "ann worker timed out");
 		return false;
@@ -482,6 +497,46 @@ AnnWorkerReceive(uint64 *request, uint32 *status, uint32 **ids, uint32 *count)
 			(*ids)[i] = Get32(payload + 4 + (size_t) i * 12);
 	}
 	ConsumeFrame(length);
+	return true;
+}
+
+/*
+ * One synchronous request outside a scan. On success the reply payload is
+ * palloc'd and NUL-terminated. Returns false when the worker is unavailable
+ * or the connection failed; *status carries the worker's status otherwise.
+ */
+bool
+AnnWorkerCall(uint16 operation, const char *payload, size_t length, int timeoutMs,
+			  uint32 *status, char **reply, uint32 *replyLength)
+{
+	char		header[ANN_HEADER_SIZE];
+	uint64		request;
+	uint64		replyRequest;
+	const char *data;
+	uint32		dataLength;
+
+	if (scanActive || length > 64 * 1024 * 1024 || !Connect())
+		return false;
+	waitTimeoutMs = timeoutMs > 0 ? timeoutMs : ann_worker_timeout_ms;
+	request = nextRequest++;
+	PutHeader(header, operation, request, (uint32) length);
+	if (!Send(header, sizeof(header)) || (length && !Send(payload, length)))
+	{
+		Disconnect();
+		return false;
+	}
+	outstanding++;
+	if (!ReceiveFrame(&replyRequest, status, &data, &dataLength) || replyRequest != request)
+	{
+		Disconnect();
+		return false;
+	}
+	*reply = palloc(dataLength + 1);
+	memcpy(*reply, data, dataLength);
+	(*reply)[dataLength] = '\0';
+	*replyLength = dataLength;
+	ConsumeFrame(dataLength);
+	waitTimeoutMs = ann_worker_timeout_ms;
 	return true;
 }
 

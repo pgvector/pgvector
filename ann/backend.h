@@ -56,6 +56,37 @@ typedef struct AnnGatheredJob
 	AnnStatus	status;
 } AnnGatheredJob;
 
+/* A loaded on-disk index result: table key and L2 distance. */
+typedef struct AnnIndexHit
+{
+	int64_t		key;
+	float		distance;
+} AnnIndexHit;
+
+#define ANN_ROUTE_ANN 0			/* unfiltered graph search */
+#define ANN_ROUTE_FILTERED 1	/* graph search with an eligibility bitset */
+#define ANN_ROUTE_EXACT 2		/* exact scan of eligible rows */
+
+/*
+ * One query against a named loaded index. The filter, when present, is a
+ * sorted unique key list; keys missing from the index are ignored. Results
+ * hold up to k hits sorted by distance.
+ */
+typedef struct AnnIndexJob
+{
+	char		name[64];
+	uint32_t	dimensions;
+	uint32_t	k;
+	const float *query;
+	const int64_t *filter;
+	uint32_t	nfilter;
+	int			filtered;
+	AnnIndexHit *results;
+	uint32_t	nresults;
+	uint32_t	route;
+	AnnStatus	status;
+} AnnIndexJob;
+
 /* Vendor-specific objects and precision/layout conversion stay behind this API. */
 typedef struct AnnBackend
 {
@@ -74,6 +105,11 @@ typedef struct AnnBackend
 	void		(*destroy) (AnnIndex *);
 	/* One device submission for a batch of gathered jobs; sets each status. */
 	void		(*search_gathered) (AnnGatheredJob *, uint32_t);
+	/* Gathered jobs settled on a device, or NULL for host-only backends. */
+	uint64_t	(*device_jobs) (void);
+	/* Load an immutable index directory under a name; search loaded ones. */
+	AnnStatus	(*load_index) (const char *, const char *);
+	void		(*search_index) (AnnIndexJob *, uint32_t);
 } AnnBackend;
 
 #define ANN_GATHERED_TOLERANCE 1e-3

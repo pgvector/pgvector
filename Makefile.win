@@ -2,7 +2,7 @@ EXTENSION = vector
 EXTVERSION = 0.9.0
 
 DATA_built = sql\$(EXTENSION)--$(EXTVERSION).sql
-OBJS = src\ann.obj src\anncustom.obj src\annplan.obj src\annbuild.obj src\anninsert.obj src\annscan.obj src\annutils.obj src\annvacuum.obj src\annworker.obj src\bitutils.obj src\bitvec.obj src\halfutils.obj src\halfvec.obj src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\sparsevec.obj src\vector.obj
+OBJS = src\ann.obj src\anncustom.obj src\annindex.obj src\annplan.obj src\annbuild.obj src\anninsert.obj src\annscan.obj src\annutils.obj src\annvacuum.obj src\annworker.obj src\bitutils.obj src\bitvec.obj src\halfutils.obj src\halfvec.obj src\hnsw.obj src\hnswbuild.obj src\hnswinsert.obj src\hnswscan.obj src\hnswutils.obj src\hnswvacuum.obj src\ivfbuild.obj src\ivfflat.obj src\ivfinsert.obj src\ivfkmeans.obj src\ivfscan.obj src\ivfutils.obj src\ivfvacuum.obj src\sparsevec.obj src\vector.obj
 HEADERS = src\halfvec.h src\sparsevec.h src\vector.h
 
 REGRESS = ann_filtered ann_vector bit btree cast copy halfvec hnsw_bit hnsw_halfvec hnsw_sparsevec hnsw_vector ivfflat_bit ivfflat_halfvec ivfflat_vector sparsevec vector_type

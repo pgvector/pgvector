@@ -1231,3 +1231,18 @@ CREATE OPERATOR CLASS vector_l2_ops
 	FOR TYPE vector USING ann AS
 	OPERATOR 1 <-> (vector, vector) FOR ORDER BY float_ops,
 	FUNCTION 1 l2_distance(vector, vector);
+
+-- loaded cuVS index functions
+
+CREATE FUNCTION ann_index_load(name text, path text) RETURNS bigint
+	AS 'MODULE_PATHNAME' LANGUAGE C STRICT VOLATILE;
+
+COMMENT ON FUNCTION ann_index_load(text, text) IS 'load an immutable ann index directory into the worker';
+
+REVOKE ALL ON FUNCTION ann_index_load(text, text) FROM PUBLIC;
+
+CREATE FUNCTION ann_index_search(name text, query vector, k integer, filter bigint[] DEFAULT NULL,
+	OUT id bigint, OUT distance real) RETURNS SETOF record
+	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE ROWS 10;
+
+COMMENT ON FUNCTION ann_index_search(text, vector, integer, bigint[]) IS 'top-k search of a loaded ann index, optionally restricted to filter keys';

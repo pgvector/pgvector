@@ -510,12 +510,12 @@ Deliverable: reproducible harness, capability report, and workload manifest. Gat
 ### Phase 1: Standalone build/search worker
 
 - [ ] Complete CAGRA integration (deferred; existing adapter source is a draft).
-- [ ] Compile/link against cuVS 26.10 and validate on a supported GPU host (deferred).
+- [x] Compile/link against cuVS 26.10 and validate on a supported GPU host (8× B200, `make -C ann check-cuvs`).
 - [x] Define fixed-width request/response encoding and generation-scoped ID types without leaking PostgreSQL structs or C++ objects across the process boundary (`ann/worker.c`, `test/ann/support/client.py`; serialized reference transport).
-- [ ] Implement bounded vector ingestion, CAGRA shard build, serialization, load, and unload.
+- [x] Implement bounded vector ingestion, CAGRA shard build, serialization, load, and unload: offline `scripts/ann/build_cuvs_index.py`, immutable directories, multi-GPU loading ([guide](ann-cuvs-index.md)). Unloading requires a worker restart.
 - [ ] Implement CPU exact reference, GPU gathered exact, GPU filtered brute force, and filtered CAGRA search.
 - [ ] Implement same-filter shared-bitset batches and per-query Roaring batches with explicit ownership and range validation.
-- [ ] Add per-shard routing, result merge, memory accounting, timings, deadlines, and cancellation behavior.
+- [x] Add per-shard routing, result merge, memory accounting, timings, deadlines, and cancellation behavior: shard-per-GPU search, pairwise tree merge, shared admission budget, client timeouts.
 - [ ] Define request cleanup after PostgreSQL errors and GPU stream completion; verify that submission never requires retaining a backend buffer content lock.
 - [ ] Fit preliminary route crossovers from complete search costs, including filter setup and transfers.
 - [ ] Add compatible direct-search microbatches, reusable buffers, and admission by estimated work and bytes; sweep batch delay and submission lanes at fixed recall and latency. CPU ready-query microbatching, request/byte/work admission, deadline/cancel handling, and a burst benchmark are implemented in `ann/batching.c`; Server mode adds cross-connection lanes, fair batch splitting and shared-memory request buffers with a mocked device; real GPU buffers and full sweeps remain pending.

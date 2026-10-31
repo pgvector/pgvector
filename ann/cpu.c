@@ -1,4 +1,5 @@
 #include "backend.h"
+#include "indexfile.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -279,12 +280,125 @@ SearchGathered(AnnGatheredJob *jobs, uint32_t count)
 		AnnGatheredExact(&jobs[i]);
 }
 
+static AnnStatus
+LoadIndex(const char *name, const char *directory)
+{
+	AnnIndexFile *file;
+	AnnStatus	status = AnnIndexFileOpen(name, directory, &file);
+
+	if (status == ANN_OK && (status = AnnIndexRegister(file)) != ANN_OK)
+		AnnIndexFileClose(file);
+	return status;
+}
+
+/*
+ * Exact reference for loaded indexes: each shard's key range is scanned
+ * separately and the per-shard top-k lists are tree-merged, mirroring the
+ * device route without approximation.
+ */
+static void
+SearchIndexJob(AnnIndexJob *job)
+{
+	AnnIndexFile *file = AnnIndexGet(job->name);
+	uint64_t   *ordinals = NULL;
+	uint64_t	nordinals = 0;
+	uint32_t	nshards;
+	AnnIndexHit *lists = NULL;
+	AnnIndexHit **heads = NULL;
+	uint32_t   *counts = NULL;
+
+	job->nresults = 0;
+	if (file == NULL)
+	{
+		job->status = ANN_STALE;
+		return;
+	}
+	if (job->dimensions != file->dimensions)
+	{
+		job->status = ANN_INVALID;
+		goto done;
+	}
+	if (job->filtered)
+	{
+		ordinals = malloc(sizeof(*ordinals) * (job->nfilter ? job->nfilter : 1));
+		if (ordinals == NULL)
+		{
+			job->status = ANN_NOMEM;
+			goto done;
+		}
+		nordinals = AnnIndexOrdinals(file, job->filter, job->nfilter, ordinals);
+	}
+	nshards = file->nshards ? file->nshards : 1;
+	lists = malloc(sizeof(*lists) * ((size_t) job->k + 1) * nshards);
+	heads = malloc(sizeof(*heads) * nshards);
+	counts = malloc(sizeof(*counts) * nshards);
+	if (lists == NULL || heads == NULL || counts == NULL)
+	{
+		job->status = ANN_NOMEM;
+		goto done;
+	}
+	for (uint32_t s = 0; s < nshards; s++)
+	{
+		AnnIndexJob part = *job;
+		uint64_t	first = file->nshards ? file->shards[s].first : 0;
+		uint64_t	end = file->nshards ? first + file->shards[s].rows : file->rows;
+		uint64_t   *range = NULL;
+		uint64_t	nrange = 0;
+		uint64_t   *all = NULL;
+
+		part.results = heads[s] = lists + (size_t) s * (job->k + 1);
+		if (ordinals)
+		{
+			/* Ordinals are sorted; take this shard's slice. */
+			uint64_t	lo = 0;
+
+			while (lo < nordinals && ordinals[lo] < first)
+				lo++;
+			range = ordinals + lo;
+			while (lo + nrange < nordinals && ordinals[lo + nrange] < end)
+				nrange++;
+		}
+		else
+		{
+			all = malloc(sizeof(*all) * (end - first ? end - first : 1));
+			if (all == NULL)
+			{
+				job->status = ANN_NOMEM;
+				goto done;
+			}
+			for (uint64_t i = first; i < end; i++)
+				all[i - first] = i;
+			range = all;
+			nrange = end - first;
+		}
+		AnnIndexExact(file, &part, range, nrange);
+		counts[s] = part.nresults;
+		free(all);
+	}
+	job->nresults = AnnIndexTreeMerge(heads, counts, nshards, job->k, job->results);
+	job->route = job->filtered ? ANN_ROUTE_EXACT : ANN_ROUTE_ANN;
+	job->status = ANN_OK;
+done:
+	free(lists);
+	free(heads);
+	free(counts);
+	free(ordinals);
+	AnnIndexPut(file);
+}
+
+static void
+SearchIndex(AnnIndexJob *jobs, uint32_t count)
+{
+	for (uint32_t i = 0; i < count; i++)
+		SearchIndexJob(&jobs[i]);
+}
+
 const AnnBackend *
 AnnCpuBackend(void)
 {
 	static const AnnBackend backend = {
 		"cpu-exact", 7, 7, "flat", "fp32", 1, 0, UINT32_MAX, Build, Search, Destroy,
-		SearchGathered
+		SearchGathered, NULL, LoadIndex, SearchIndex
 	};
 
 	return &backend;

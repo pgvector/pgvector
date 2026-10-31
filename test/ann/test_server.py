@@ -18,10 +18,10 @@ STATS = 8
 
 
 class Server:
-    def __init__(self, *args, env=None):
+    def __init__(self, *args, env=None, executable=WORKER):
         self.directory = tempfile.TemporaryDirectory()
         self.path = os.path.join(self.directory.name, 'ann.sock')
-        self.process = subprocess.Popen([WORKER, '--listen', self.path, *args],
+        self.process = subprocess.Popen([executable, '--listen', self.path, *args],
                                         stderr=subprocess.PIPE, env={**os.environ, **(env or {})})
         deadline = time.monotonic() + 5
         while not os.path.exists(self.path):

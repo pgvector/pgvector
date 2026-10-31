@@ -7,6 +7,8 @@
 #define ANN_OP_STATS 8
 #define ANN_OP_ATTACH_SHARED 9
 #define ANN_OP_SHARED_SEARCH 10
+#define ANN_OP_LOAD_INDEX 11
+#define ANN_OP_INDEX_SEARCH 12
 
 typedef struct AnnServeOptions
 {
