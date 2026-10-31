@@ -53,6 +53,17 @@ float	   *AnnWorkerSharedBuffer(size_t *size);
 uint64		AnnWorkerSubmit(uint32 rows, uint32 dimensions, uint32 k,
 							const float *query, const float *vectors);
 bool		AnnWorkerReady(void);
+extern char *ann_worker_address;
+extern char *ann_worker_auth_token;
+extern int	ann_gpu_min_eligible;
+extern int	ann_worker_heartbeat_ms;
+extern int	ann_worker_retry_ms;
+void		AnnRemoteInit(void);
+bool		AnnRemoteConfigured(void);
+bool		AnnRemoteCall(uint16 operation, const char *payload, size_t length, int timeoutMs,
+						  uint32 *status, char **reply, uint32 *replyLength);
+int			AnnRemoteBroadcast(uint16 operation, const char *payload, size_t length, int timeoutMs,
+							   uint32 *status, char **reply, uint32 *replyLength);
 bool		AnnWorkerCall(uint16 operation, const char *payload, size_t length, int timeoutMs,
 						  uint32 *status, char **reply, uint32 *replyLength);
 bool		AnnWorkerReceive(uint64 *request, uint32 *status, uint32 **ids, uint32 *count);

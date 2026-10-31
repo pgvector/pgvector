@@ -36,3 +36,32 @@ CREATE FUNCTION ann_index_search(name text, query vector, k integer, filter bigi
 	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE ROWS 10;
 
 COMMENT ON FUNCTION ann_index_search(text, vector, integer, bigint[]) IS 'top-k search of a loaded ann index, optionally restricted to filter keys';
+
+-- where loaded indexes come from on this host (for local exact routing)
+
+CREATE TABLE ann_index_catalog (
+	name text PRIMARY KEY,
+	source regclass NOT NULL,
+	key_column name NOT NULL,
+	vector_column name NOT NULL,
+	rows bigint NOT NULL,
+	loaded_at timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE ann_index_catalog IS 'source tables of loaded ann indexes, recorded by ann_index_load and ann_index_attach';
+
+REVOKE ALL ON ann_index_catalog FROM PUBLIC;
+GRANT SELECT ON ann_index_catalog TO PUBLIC;
+
+CREATE FUNCTION ann_index_attach(name text) RETURNS bigint
+	AS 'MODULE_PATHNAME' LANGUAGE C STRICT VOLATILE;
+
+COMMENT ON FUNCTION ann_index_attach(text) IS 'verify and record an ann index already loaded on the GPU nodes';
+
+REVOKE ALL ON FUNCTION ann_index_attach(text) FROM PUBLIC;
+
+CREATE FUNCTION ann_hybrid_search(name text, query vector, k integer, filter text,
+	OUT id bigint, OUT distance real) RETURNS SETOF record
+	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE ROWS 10;
+
+COMMENT ON FUNCTION ann_hybrid_search(text, vector, integer, text) IS 'hybrid search: selective SQL filters run exactly here, broad ones on GPU nodes';

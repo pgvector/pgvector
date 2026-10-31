@@ -31,6 +31,8 @@ typedef struct AnnIndexFile
 	char		name[ANN_INDEX_NAME_MAX + 1];
 	char		directory[1024];
 	char		source[256];	/* table the index was built from, or empty */
+	char		key[64];		/* key column name in source, or empty */
+	char		vector[64];		/* vector column name in source, or empty */
 	char		dtype[16];		/* CAGRA dataset type: float32 or float16 */
 	uint32_t	dimensions;
 	uint64_t	rows;
@@ -51,6 +53,8 @@ typedef struct AnnIndexOptions
 	uint32_t	exact_limit;	/* filtered queries this selective run exact */
 	int			persistent;		/* CAGRA persistent kernels */
 	int			replicate;		/* full shard set on every GPU */
+	int			filtered_bruteforce;	/* exact GPU brute force for selective
+										 * filters */
 } AnnIndexOptions;
 
 extern AnnIndexOptions AnnIndexConfig;

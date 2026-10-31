@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-AnnIndexOptions AnnIndexConfig = {128, 512, 20000, 0, 0};
+AnnIndexOptions AnnIndexConfig = {128, 512, 20000, 0, 0, 0};
 
 typedef struct Entry
 {
@@ -93,6 +93,10 @@ ParseManifest(AnnIndexFile *file)
 				 (strcmp(file->dtype, "float32") == 0 || strcmp(file->dtype, "float16") == 0))
 			continue;
 		else if (strcmp(key, "source") == 0 && sscanf(line, "%*s %255s", file->source) == 1)
+			continue;
+		else if (strcmp(key, "key") == 0 && sscanf(line, "%*s %63s", file->key) == 1)
+			continue;
+		else if (strcmp(key, "vector") == 0 && sscanf(line, "%*s %63s", file->vector) == 1)
 			continue;
 		else if (strcmp(key, "shards") == 0 && sscanf(line, "%*s %llu", &a) == 1 && a <= ANN_INDEX_MAX_SHARDS)
 			continue;

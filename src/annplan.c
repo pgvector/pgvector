@@ -161,6 +161,7 @@ AnnInit(void)
 							 NULL, &ann_enable_filtered_search, false, PGC_USERSET, 0,
 							 NULL, NULL, NULL);
 	AnnWorkerInit();
+	AnnRemoteInit();
 	RegisterCustomScanMethods(&AnnCustomScanMethods);
 	previous_upper_paths_hook = create_upper_paths_hook;
 	create_upper_paths_hook = AnnCreateUpperPaths;

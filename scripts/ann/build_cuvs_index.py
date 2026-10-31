@@ -140,7 +140,8 @@ def main():
 
     # The manifest is written last, so a partial build is never loadable.
     lines = ['pgvector-ann-index 1', f'dimensions {dimensions}', f'rows {rows}', 'metric l2',
-             f'dtype {args.dtype}', f'source {args.table}', f'shards {len(shards)}']
+             f'dtype {args.dtype}', f'source {args.table}', f'key {args.key}', f'vector {args.vector}',
+             f'shards {len(shards)}']
     lines += [f'shard {i} {first} {n} shard-{i}.cagra' for i, first, n in shards]
     with open(os.path.join(args.out, 'manifest.tmp'), 'w') as manifest:
         manifest.write('\n'.join(lines) + '\n')

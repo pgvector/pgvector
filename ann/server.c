@@ -1,3 +1,8 @@
+/* getaddrinfo and TCP keepalive options are POSIX/GNU, not strict C11. */
+#ifdef __linux__
+#define _GNU_SOURCE
+#endif
+
 #include "server.h"
 #include "indexfile.h"
 
@@ -10,6 +15,9 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -22,6 +30,8 @@ typedef struct Connection
 	int			fd;
 	int			references;
 	int			broken;
+	int			remote;			/* accepted on the TCP listener */
+	int			authenticated;
 	const unsigned char *shared;	/* client-written read-only vectors */
 	size_t		shared_size;
 	pthread_mutex_t mutex;		/* serializes replies and guards references */
@@ -76,6 +86,8 @@ AnnServeDefaultOptions(AnnServeOptions *options)
 	options->max_batch_bytes = 32U * 1024U * 1024U;
 	options->max_pending_bytes = 512U * 1024U * 1024U;
 	options->delay_us = 0;
+	options->tcp = NULL;
+	options->token = NULL;
 }
 
 static void
@@ -532,16 +544,18 @@ KeyCompare(const void *a, const void *b)
  * count (UINT32_MAX for none); FP32 query; i64 filter keys in any order.
  */
 static AnnStatus
-SubmitIndex(Service *service, Connection *connection, uint64_t request,
+SubmitIndex(Service *service, Connection *connection, uint16_t operation, uint64_t request,
 			unsigned char *payload, uint32_t size)
 {
 	Job		   *job;
 	uint32_t	nameLength,
 				dimensions,
 				k,
-				nfilter;
+				nfilter,
+				packedBytes = 0;
 	size_t		offset;
 	uint64_t	keys;
+	int			packed = operation == ANN_OP_INDEX_SEARCH_PACKED;
 
 	if (service->backend->search_index == NULL)
 		return ANN_UNSUPPORTED;
@@ -553,10 +567,17 @@ SubmitIndex(Service *service, Connection *connection, uint64_t request,
 	k = (uint32_t) Read(payload + offset + 4, 4);
 	nfilter = (uint32_t) Read(payload + offset + 8, 4);
 	offset += 12;
+	if (packed)
+	{
+		if ((uint64_t) size < offset + 4)
+			return ANN_INVALID;
+		packedBytes = (uint32_t) Read(payload + offset, 4);
+		offset += 4;
+	}
 	keys = nfilter == UINT32_MAX ? 0 : nfilter;
 	if (dimensions == 0 || dimensions > ANN_MAX_DIM || k == 0 || k > 10000 ||
 		memchr(payload + 4, '\0', nameLength) ||
-		(uint64_t) size != offset + (uint64_t) dimensions * 4 + keys * 8)
+		(uint64_t) size != offset + (uint64_t) dimensions * 4 + (packed ? packedBytes : keys * 8))
 		return ANN_INVALID;
 	job = calloc(1, sizeof(*job));
 	if (job == NULL)
@@ -590,7 +611,55 @@ SubmitIndex(Service *service, Connection *connection, uint64_t request,
 		job->index.query = query;
 	}
 	offset += (size_t) dimensions * 4;
-	if (LittleEndian())
+	if (packed)
+	{
+		/*
+		 * Strictly increasing keys: a zigzag varint for the first, then
+		 * varint gaps. Dense filters cost one or two bytes per key.
+		 */
+		const unsigned char *data = payload + offset;
+		const unsigned char *end = data + packedBytes;
+		uint64_t	previous = 0;
+
+		for (uint64_t i = 0; i < keys; i++)
+		{
+			uint64_t	value = 0;
+			int			shift = 0;
+
+			do
+			{
+				if (data == end || shift > 63)
+				{
+					free(job->index.results);
+					free(job->keys);
+					free(job);
+					return ANN_INVALID;
+				}
+				value |= (uint64_t) (*data & 0x7f) << shift;
+				shift += 7;
+			} while (*data++ & 0x80);
+			if (i == 0)
+				previous = (value >> 1) ^ (~(value & 1) + 1);
+			else if (value == 0)
+			{
+				free(job->index.results);
+				free(job->keys);
+				free(job);
+				return ANN_INVALID;
+			}
+			else
+				previous += value;
+			job->keys[i] = (int64_t) previous;
+		}
+		if (data != end)
+		{
+			free(job->index.results);
+			free(job->keys);
+			free(job);
+			return ANN_INVALID;
+		}
+	}
+	else if (LittleEndian())
 		memcpy(job->keys, payload + offset, keys * 8);
 	else
 		for (uint64_t i = 0; i < keys; i++)
@@ -609,7 +678,7 @@ SubmitIndex(Service *service, Connection *connection, uint64_t request,
 			job->keys[job->index.nfilter++] = job->keys[i];
 	job->index.filter = job->keys;
 	job->connection = connection;
-	job->operation = ANN_OP_INDEX_SEARCH;
+	job->operation = operation;
 	job->request = request;
 	job->payload = payload;
 	job->charge = (uint64_t) size + keys * 8 + sizeof(AnnIndexHit) * k;
@@ -656,12 +725,50 @@ LoadIndex(Service *service, const unsigned char *payload, uint32_t size,
 	file = AnnIndexGet(name);
 	if (file == NULL)
 		return ANN_BACKEND_ERROR;
-	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s",
+	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s",
 					   (unsigned long long) file->rows, file->dimensions, file->nshards,
-					   file->dtype, file->source[0] ? file->source : "-");
+					   file->dtype, file->source[0] ? file->source : "-",
+					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-");
 	AnnIndexPut(file);
 	*replyLength = written > 0 && (size_t) written < replySize ? (size_t) written : 0;
 	return ANN_OK;
+}
+
+/* Index info payload: the index name. Replies like LoadIndex. */
+static AnnStatus
+IndexInfo	(const unsigned char *payload, uint32_t size, char *reply, size_t replySize, size_t *replyLength)
+{
+	char		name[ANN_INDEX_NAME_MAX + 1];
+	AnnIndexFile *file;
+	int			written;
+
+	if (size == 0 || size > ANN_INDEX_NAME_MAX || memchr(payload, '\0', size))
+		return ANN_INVALID;
+	memcpy(name, payload, size);
+	name[size] = '\0';
+	if ((file = AnnIndexGet(name)) == NULL)
+		return ANN_STALE;
+	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s",
+					   (unsigned long long) file->rows, file->dimensions, file->nshards,
+					   file->dtype, file->source[0] ? file->source : "-",
+					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-");
+	AnnIndexPut(file);
+	*replyLength = written > 0 && (size_t) written < replySize ? (size_t) written : 0;
+	return ANN_OK;
+}
+
+/* Constant-time token comparison; lengths are not secret. */
+static int
+TokenMatches(const char *token, const unsigned char *given, uint32_t size)
+{
+	size_t		length = strlen(token);
+	unsigned char difference = 0;
+
+	if (size != length)
+		return 0;
+	for (size_t i = 0; i < length; i++)
+		difference |= (unsigned char) token[i] ^ given[i];
+	return difference == 0;
 }
 
 typedef struct ReaderArgs
@@ -699,6 +806,36 @@ Reader(void *argument)
 			free(payload);
 			break;
 		}
+		if (connection->remote && !connection->authenticated)
+		{
+			/*
+			 * The first network frame must carry the token; anything else
+			 * closes.
+			 */
+			int			ok = operation == ANN_OP_AUTH && service->options.token &&
+				TokenMatches(service->options.token, payload, length);
+
+			free(payload);
+			if (!ok)
+				break;
+			connection->authenticated = 1;
+			{
+				struct timeval none = {0, 0};
+
+				/* Authenticated clients may idle between queries. */
+				(void) setsockopt(connection->fd, SOL_SOCKET, SO_RCVTIMEO, &none, sizeof(none));
+			}
+			Reply(connection, operation, request, ANN_OK, NULL, 0);
+			continue;
+		}
+		if (connection->remote &&
+			(operation == ANN_OP_ATTACH_SHARED || operation == ANN_OP_SHARED_SEARCH))
+		{
+			/* Shared memory only works on the same host. */
+			free(payload);
+			Reply(connection, operation, request, ANN_UNSUPPORTED, NULL, 0);
+			continue;
+		}
 		if (operation == ANN_OP_GATHERED_SEARCH || operation == ANN_OP_SHARED_SEARCH)
 		{
 			status = Submit(service, connection, operation, request, payload, length);
@@ -714,7 +851,7 @@ Reader(void *argument)
 			(void) pthread_mutex_lock(&service->mutex);
 			if (operation == 0)
 				size = snprintf(text, sizeof(text),
-								"{\"backend\":\"%s\",\"mode\":\"server\",\"operations\":[0,5,7,8,9,10,11,12],"
+								"{\"backend\":\"%s\",\"mode\":\"server\",\"operations\":[0,5,7,8,9,10,11,12,13,14,15],"
 								"\"metrics_mask\":%u,\"exact\":%s,\"lanes\":%u,\"max_batch_jobs\":%u,"
 								"\"max_frame_bytes\":%u}",
 								service->backend->name, service->backend->metrics,
@@ -734,9 +871,9 @@ Reader(void *argument)
 			Reply(connection, operation, request, ANN_OK, (unsigned char *) text,
 				  size > 0 && (size_t) size < sizeof(text) ? (size_t) size : 0);
 		}
-		else if (operation == ANN_OP_INDEX_SEARCH)
+		else if (operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED)
 		{
-			status = SubmitIndex(service, connection, request, payload, length);
+			status = SubmitIndex(service, connection, operation, request, payload, length);
 			if (status == ANN_PENDING)
 				continue;
 			Reply(connection, operation, request, status, NULL, 0);
@@ -751,6 +888,18 @@ Reader(void *argument)
 			Reply(connection, operation, request, status, (unsigned char *) text,
 				  status == ANN_OK ? textLength : 0);
 		}
+		else if (operation == ANN_OP_INDEX_INFO)
+		{
+			char text[	512];
+			size_t		textLength = 0;
+
+			status = IndexInfo (payload, length, text, sizeof(text), &textLength);
+
+			Reply(connection, operation, request, status, (unsigned char *) text,
+				  status == ANN_OK ? textLength : 0);
+		}
+		else if (operation == ANN_OP_AUTH)
+			Reply(connection, operation, request, ANN_OK, NULL, 0);
 		else if (operation == ANN_OP_ATTACH_SHARED)
 			Reply(connection, operation, request, Attach(connection, payload, length), NULL, 0);
 		else if (operation == 5)
@@ -775,6 +924,7 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 	struct sigaction action = {0};
 	pthread_t  *lanes;
 	int			listener;
+	int			network = -1;
 
 	if (options->lanes == 0 || options->max_batch_jobs == 0 ||
 		strlen(path) >= sizeof(address.sun_path))
@@ -801,16 +951,46 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 		perror("ann-worker listen");
 		return 1;
 	}
+	if (options->tcp)
+	{
+		char		host[256];
+		const char *colon = strrchr(options->tcp, ':');
+		struct addrinfo hints = {0};
+		struct addrinfo *result;
+		int			on = 1;
+
+		if (colon == NULL || colon == options->tcp || (size_t) (colon - options->tcp) >= sizeof(host) ||
+			options->token == NULL || strlen(options->token) < 16)
+		{
+			fprintf(stderr, "--listen-tcp needs HOST:PORT and an --auth-token-file of 16+ bytes\n");
+			return 2;
+		}
+		memcpy(host, options->tcp, (size_t) (colon - options->tcp));
+		host[colon - options->tcp] = '\0';
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = AI_PASSIVE;
+		if (getaddrinfo(host, colon + 1, &hints, &result) != 0 ||
+			(network = socket(result->ai_family, SOCK_STREAM, 0)) < 0 ||
+			setsockopt(network, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) != 0 ||
+			bind(network, result->ai_addr, result->ai_addrlen) != 0 || listen(network, 1024) != 0)
+		{
+			perror("ann-worker tcp listen");
+			return 1;
+		}
+		freeaddrinfo(result);
+	}
 	lanes = calloc(options->lanes, sizeof(*lanes));
 	if (lanes == NULL)
 		return 1;
 	for (uint32_t i = 0; i < options->lanes; i++)
 		if (pthread_create(&lanes[i], NULL, Lane, &service) != 0)
 			return 1;
-	fprintf(stderr, "ann-worker: backend %s listening on %s\n", backend->name, path);
+	fprintf(stderr, "ann-worker: backend %s listening on %s%s%s\n", backend->name, path,
+			options->tcp ? " and " : "", options->tcp ? options->tcp : "");
 	while (!stopRequested)
 	{
-		struct pollfd poller = {listener, POLLIN, 0};
+		struct pollfd pollers[2] = {{listener, POLLIN, 0}, {network, POLLIN, 0}};
 		struct timeval timeout = {10, 0};
 		int			buffer = 4 * 1024 * 1024;
 		Connection *connection;
@@ -818,11 +998,47 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 		pthread_t	thread;
 		int			fd;
 
-		if (poll(&poller, 1, 200) <= 0)
+		int			remote;
+
+		if (poll(pollers, network >= 0 ? 2 : 1, 200) <= 0)
 			continue;
-		fd = accept(listener, NULL, NULL);
+		remote = !(pollers[0].revents & POLLIN);
+		fd = accept(remote ? network : listener, NULL, NULL);
 		if (fd < 0)
 			continue;
+		if (remote)
+		{
+			int			on = 1;
+			int			idle = 10,
+						interval = 5,
+						count = 3;
+			struct timeval authDeadline = {10, 0};
+
+			/* Small request/reply frames: disable Nagle batching. */
+			(void) setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
+
+			/*
+			 * Keepalives drop connections from PostgreSQL hosts that crashed
+			 * or vanished, releasing their reader and queued replies.
+			 */
+			(void) setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &on, sizeof(on));
+#ifdef TCP_KEEPIDLE
+			(void) setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(idle));
+#elif defined(TCP_KEEPALIVE)
+			(void) setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, &idle, sizeof(idle));
+#endif
+#ifdef TCP_KEEPINTVL
+			(void) setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(interval));
+#endif
+#ifdef TCP_KEEPCNT
+			(void) setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &count, sizeof(count));
+#endif
+			/* Unauthenticated peers get a short deadline to send the token. */
+			(void) setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &authDeadline, sizeof(authDeadline));
+			(void) idle;
+			(void) interval;
+			(void) count;
+		}
 		/* A stalled client cannot block a lane indefinitely. */
 		(void) setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 		(void) setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buffer, sizeof(buffer));
@@ -837,6 +1053,7 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 			continue;
 		}
 		connection->fd = fd;
+		connection->remote = remote;
 		connection->references = 1;
 		(void) pthread_mutex_init(&connection->mutex, NULL);
 		args->service = &service;
@@ -850,6 +1067,8 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 		(void) pthread_detach(thread);
 	}
 	(void) close(listener);
+	if (network >= 0)
+		(void) close(network);
 	(void) unlink(path);
 	(void) pthread_mutex_lock(&service.mutex);
 	service.stopping = 1;

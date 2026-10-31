@@ -277,6 +277,24 @@ main(int argc, char **argv)
 		}
 		else if (strcmp(argv[i], "--listen") == 0)
 			listen = value;
+		else if (strcmp(argv[i], "--listen-tcp") == 0)
+			serveOptions.tcp = value;
+		else if (strcmp(argv[i], "--auth-token-file") == 0)
+		{
+			static char token[256];
+			FILE	   *stream = fopen(value, "r");
+			size_t		length;
+
+			if (stream == NULL || fgets(token, sizeof(token), stream) == NULL)
+			{
+				fprintf(stderr, "cannot read %s\n", value);
+				return 2;
+			}
+			(void) fclose(stream);
+			length = strcspn(token, "\r\n");
+			token[length] = '\0';
+			serveOptions.token = token;
+		}
 		else if (strcmp(argv[i], "--lanes") == 0)
 			serveOptions.lanes = (uint32_t) strtoul(value, NULL, 10);
 		else if (strcmp(argv[i], "--max-batch") == 0)
@@ -304,6 +322,8 @@ main(int argc, char **argv)
 			AnnIndexConfig.persistent = strcmp(value, "on") == 0;
 		else if (strcmp(argv[i], "--replicate") == 0)
 			AnnIndexConfig.replicate = strcmp(value, "on") == 0;
+		else if (strcmp(argv[i], "--filtered-bruteforce") == 0)
+			AnnIndexConfig.filtered_bruteforce = strcmp(value, "on") == 0;
 		else
 			goto usage;
 	}
@@ -469,14 +489,14 @@ main(int argc, char **argv)
 
 usage:
 #ifdef ANN_USE_CUVS
-	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH "
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
-			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off]]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--filtered-bruteforce on|off]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
-	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH "
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
-			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off]]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--filtered-bruteforce on|off]]\n"
 			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");
 #endif
 	return 2;

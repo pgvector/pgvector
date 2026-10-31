@@ -32,6 +32,10 @@ WORKLOADS = {
     # 0.1% tenant filter: about 10k eligible keys (exact route).
     'hybrid-0.1pct': ("SELECT id FROM ann_index_search(:idx, :v::vector, 10, "
                       "ARRAY(SELECT id FROM {table} WHERE tenant = :t));"),
+    # ann_hybrid_search evaluates the SQL filter itself and routes by its size:
+    # the 1% filter goes to a GPU node, the 0.1% filter stays exact on this host.
+    'sql-1pct': "SELECT id FROM ann_hybrid_search(:idx, :v::vector, 10, 'category = ' || :c);",
+    'sql-0.1pct': "SELECT id FROM ann_hybrid_search(:idx, :v::vector, 10, 'tenant = ' || :t);",
 }
 
 
@@ -112,7 +116,7 @@ def generate(args):
 
 def psql(args, sql):
     result = subprocess.run(['psql', args.dsn, '-X', '-qAt', '-v', 'ON_ERROR_STOP=1'],
-                            input=f"SET ann.worker_socket = '{args.socket}';\n{sql}",
+                            input=(f"SET ann.worker_socket = '{args.socket}';\n" if args.socket else '') + sql,
                             capture_output=True, text=True)
     if result.returncode:
         raise SystemExit(result.stderr)
@@ -121,9 +125,19 @@ def psql(args, sql):
 
 def recall(args, workload):
     """Mean recall@10 over sample queries against exact SQL."""
-    where = {'ann': 'true', 'hybrid-1pct': 't.category = q.c', 'hybrid-0.1pct': 't.tenant = q.t'}[workload]
+    where = {'ann': 'true', 'hybrid-1pct': 't.category = q.c', 'hybrid-0.1pct': 't.tenant = q.t',
+             'sql-1pct': 't.category = q.c', 'sql-0.1pct': 't.tenant = q.t'}[workload]
     fltr = {'ann': '', 'hybrid-1pct': f', ARRAY(SELECT id FROM {args.table} t WHERE {where})',
-            'hybrid-0.1pct': f', ARRAY(SELECT id FROM {args.table} t WHERE {where})'}[workload]
+            'hybrid-0.1pct': f', ARRAY(SELECT id FROM {args.table} t WHERE {where})'}.get(workload)
+    if workload.startswith('sql-'):
+        column = 'category' if workload == 'sql-1pct' else 'tenant'
+        value = 'c' if column == 'category' else 't'
+        return float(psql(args, f"""
+        SELECT round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3) FROM (
+          SELECT ARRAY(SELECT s.id FROM ann_hybrid_search('{args.index}', q.v, 10, '{column} = ' || q.{value}) s) a,
+                 ARRAY(SELECT t.id FROM {args.table} t WHERE {where} ORDER BY t.emb <-> q.v LIMIT 10) b
+          FROM (SELECT v::vector AS v, q % 100 AS c, q % 1000 AS t FROM {args.table}_queries
+                WHERE q <= {args.recall_queries} OFFSET 0) q) x"""))
     return float(psql(args, f"""
         SET max_parallel_workers_per_gather = 16;
         SELECT round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3) FROM (
@@ -148,7 +162,9 @@ def bench(args):
                 out.write(f'SELECT v FROM {args.table}_queries WHERE q = :q \\gset\n')
                 out.write(WORKLOADS[workload].format(table=args.table) + '\n')
             for clients in [int(c) for c in args.clients.split(',')]:
-                env = dict(os.environ, PGOPTIONS=f'-c ann.worker_socket={args.socket}')
+                # Networked GPU nodes are configured on the server (ALTER SYSTEM).
+                env = dict(os.environ, PGOPTIONS=(f'-c ann.worker_socket={args.socket} ' if args.socket else '')
+                           + args.options)
                 command = ['pgbench', args.dsn, '-n', '-M', 'prepared', '-c', str(clients),
                            '-j', str(min(clients, args.threads)), '-T', str(args.seconds), '-D', f'idx={args.index}',
                            '-f', script, '--log', '--log-prefix', os.path.join(directory, f'{workload}-{clients}')]
@@ -184,13 +200,14 @@ def main():
     b.add_argument('--table', required=True)
     b.add_argument('--index', required=True)
     b.add_argument('--path', help='load this index directory first')
-    b.add_argument('--socket', required=True)
+    b.add_argument('--socket', default='', help='local worker socket; omit for ann.worker_address')
     b.add_argument('--clients', default='64,128,256,512')
     b.add_argument('--threads', type=int, default=64)
     b.add_argument('--seconds', type=int, default=20)
     b.add_argument('--workloads', default='ann,hybrid-1pct,hybrid-0.1pct')
     b.add_argument('--no-recall', action='store_true')
     b.add_argument('--recall-queries', type=int, default=20)
+    b.add_argument('--options', default='', help='extra PGOPTIONS, e.g. "-c ann.gpu_min_eligible=0"')
     args = parser.parse_args()
     generate(args) if args.command == 'generate' else bench(args)
 

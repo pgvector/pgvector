@@ -30,7 +30,7 @@ def f32(value):
     return struct.unpack('<f', struct.pack('<f', value))[0]
 
 
-def write_index(directory, keys, vectors, shards=1, source='-', dtype='float32'):
+def write_index(directory, keys, vectors, shards=1, source='-', dtype='float32', key='id', vector='emb'):
     """Test fixture writer for the documented on-disk format (CPU route only)."""
     order = sorted(range(len(keys)), key=lambda i: keys[i])
     keys = [keys[i] for i in order]
@@ -43,7 +43,8 @@ def write_index(directory, keys, vectors, shards=1, source='-', dtype='float32')
             out.write(struct.pack('<%df' % len(row), *row))
     bounds = [len(keys) * i // shards for i in range(shards + 1)]
     lines = ['pgvector-ann-index 1', f'dimensions {len(vectors[0])}', f'rows {len(keys)}',
-             'metric l2', f'dtype {dtype}', f'source {source}', f'shards {shards}']
+             'metric l2', f'dtype {dtype}', f'source {source}', f'key {key}', f'vector {vector}',
+             f'shards {shards}']
     lines += [f'shard {i} {bounds[i]} {bounds[i + 1] - bounds[i]} shard-{i}.cagra' for i in range(shards)]
     with open(os.path.join(directory, 'manifest'), 'w') as out:
         out.write('\n'.join(lines) + '\n')

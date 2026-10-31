@@ -556,6 +556,8 @@ typedef struct AnnCuvsShard
 	cuvsResources_t resources;	/* load-time owner of the index memory */
 	cuvsCagraIndex_t index;
 	cuvsDataset_t dataset;
+	float	   *vectors;		/* FP32 device copy for filtered brute force */
+	cuvsBruteForceIndex_t bruteForce;
 } AnnCuvsShard;
 
 /*
@@ -584,8 +586,11 @@ typedef struct AnnCuvsDevice
 	uint32_t   *bitset;
 	uint32_t   *hostNeighbors;	/* pinned */
 	float	   *hostDistances;	/* pinned */
+	int64_t    *neighbors64;	/* brute-force results, device then pinned */
+	int64_t    *hostNeighbors64;
 	size_t		queryBytes;
 	size_t		resultCount;
+	size_t		result64Count;
 	size_t		bitsetWords;
 } AnnCuvsDevice;
 
@@ -740,6 +745,29 @@ LoadShard(void *argument)
 		args->status = ANN_INVALID;
 		return NULL;
 	}
+
+	/*
+	 * Selective filters run exact brute force over an FP32 device copy of the
+	 * shard, masked by the eligibility bitset; build its norms once here.
+	 */
+	if (AnnIndexConfig.filtered_bruteforce)
+	{
+		size_t		count = (size_t) args->file->shards[args->shard].rows * args->file->dimensions;
+		int64_t		shape[2] = {args->file->shards[args->shard].rows, args->file->dimensions};
+		DLManagedTensor data;
+
+		if (cudaMalloc((void **) &shard->vectors, count * sizeof(float)) != cudaSuccess ||
+			cudaMemcpy(shard->vectors, args->file->vectors + args->file->shards[args->shard].first * args->file->dimensions,
+					   count * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess ||
+			cuvsBruteForceIndexCreate(&shard->bruteForce) != CUVS_SUCCESS ||
+			(data = Tensor(shard->vectors, kDLCUDA, shard->device, kDLFloat, 2, shape),
+			 cuvsBruteForceBuild(shard->resources, &data, L2Expanded, 0, shard->bruteForce)) != CUVS_SUCCESS ||
+			cuvsStreamSync(shard->resources) != CUVS_SUCCESS)
+		{
+			fprintf(stderr, "cuVS: cannot build brute-force copy of %s\n", path);
+			return NULL;
+		}
+	}
 	args->status = ANN_OK;
 	return NULL;
 }
@@ -754,6 +782,10 @@ DestroyIndexState(AnnCuvsIndex *state)
 		AnnCuvsShard *shard = &state->shards[s];
 
 		(void) cudaSetDevice(shard->device);
+		if (shard->bruteForce)
+			(void) cuvsBruteForceIndexDestroy(shard->bruteForce);
+		if (shard->vectors)
+			(void) cudaFree(shard->vectors);
 		if (shard->index)
 			(void) cuvsCagraIndexDestroy(shard->index);
 		if (shard->dataset)
@@ -1076,6 +1108,132 @@ MergeJob(AnnIndexJob *job, AnnIndexHit *lists, uint32_t *counts, uint32_t nshard
 }
 
 /*
+ * Exact filtered search of one query on the GPU: brute force over each
+ * shard's FP32 copy, masked by its eligibility bitset. Each shard returns up
+ * to n candidates, re-scored and sorted like graph results.
+ */
+static int
+SearchShardsBruteForce(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnIndexJob *job,
+					   uint32_t k, uint32_t **bitsets, const int *useShard, const uint64_t *eligible,
+					   AnnIndexHit *lists, uint32_t *counts)
+{
+	uint32_t	dims = file->dimensions;
+	size_t		slot[ANN_INDEX_MAX_SHARDS];
+	size_t		bitsetSlot[ANN_INDEX_MAX_SHARDS];
+	uint32_t	wanted[ANN_INDEX_MAX_SHARDS];
+	size_t		perDevice[ANN_CUVS_MAX_DEVICES] = {0};
+	size_t		bitsetWords[ANN_CUVS_MAX_DEVICES] = {0};
+	int			uploaded[ANN_CUVS_MAX_DEVICES] = {0};
+	AnnCuvsShard *shards;
+	int			ok = 1;
+
+	if (laneHome < 0)
+		laneHome = (int) (atomic_fetch_add(&nextHome, 1) % ANN_CUVS_MAX_DEVICES);
+	shards = state->shards + (size_t) (laneHome % state->copies) * state->nshards;
+	for (uint32_t s = 0; s < state->nshards; s++)
+	{
+		int			device = shards[s].device;
+
+		wanted[s] = (uint32_t) ((uint64_t) k + 32 < eligible[s] ? (uint64_t) k + 32 : eligible[s]);
+		slot[s] = perDevice[device];
+		bitsetSlot[s] = bitsetWords[device];
+		if (!useShard[s])
+			continue;
+		perDevice[device] += wanted[s];
+		bitsetWords[device] += ((size_t) file->shards[s].rows + 31) / 32;
+	}
+	for (uint32_t s = 0; ok && s < state->nshards; s++)
+	{
+		AnnCuvsShard *shard = &shards[s];
+		size_t		words = ((size_t) file->shards[s].rows + 31) / 32;
+		int64_t		queryShape[2] = {1, dims};
+		int64_t		resultShape[2] = {1, wanted[s]};
+		int64_t		bitmapShape[1] = {(int64_t) words};
+		DLManagedTensor query,
+					neighbors,
+					distances,
+					bitmap;
+		cuvsFilter	filter;
+		AnnCuvsDevice *lane;
+		cudaStream_t stream;
+
+		if (!useShard[s])
+			continue;
+		lane = LaneDevice(shard->device, dims * sizeof(float), perDevice[shard->device],
+						  bitsetWords[shard->device]);
+		if (lane == NULL || cuvsStreamGet(lane->resources, &stream) != CUVS_SUCCESS ||
+			!GrowDevice((void **) &lane->neighbors64, &lane->result64Count, perDevice[shard->device], sizeof(int64_t)))
+		{
+			ok = 0;
+			break;
+		}
+		if (lane->hostNeighbors64 == NULL || lane->result64Count > lane->resultCount)
+		{
+			(void) cudaFreeHost(lane->hostNeighbors64);
+			lane->hostNeighbors64 = NULL;
+			if (cudaMallocHost((void **) &lane->hostNeighbors64, lane->result64Count * sizeof(int64_t)) != cudaSuccess)
+			{
+				ok = 0;
+				break;
+			}
+		}
+		if (!uploaded[shard->device] &&
+			!(uploaded[shard->device] = cudaMemcpyAsync(lane->queries, job->query, dims * sizeof(float),
+														cudaMemcpyHostToDevice, stream) == cudaSuccess))
+		{
+			ok = 0;
+			break;
+		}
+		query = Tensor(lane->queries, kDLCUDA, shard->device, kDLFloat, 2, queryShape);
+		neighbors = Tensor(lane->neighbors64 + slot[s], kDLCUDA, shard->device, kDLInt, 2, resultShape);
+		neighbors.dl_tensor.dtype.bits = 64;
+		distances = Tensor(lane->distances + slot[s], kDLCUDA, shard->device, kDLFloat, 2, resultShape);
+		bitmap = Tensor(lane->bitset + bitsetSlot[s], kDLCUDA, shard->device, kDLUInt, 1, bitmapShape);
+		filter.addr = (uintptr_t) &bitmap;
+		filter.type = BITMAP;
+		if (cudaMemcpyAsync(lane->bitset + bitsetSlot[s], bitsets[s], words * sizeof(uint32_t),
+							cudaMemcpyHostToDevice, stream) != cudaSuccess ||
+			cuvsBruteForceSearch(lane->resources, shard->bruteForce, &query, &neighbors, &distances,
+								 filter) != CUVS_SUCCESS ||
+			cudaMemcpyAsync(lane->hostNeighbors64 + slot[s], lane->neighbors64 + slot[s],
+							wanted[s] * sizeof(int64_t), cudaMemcpyDeviceToHost, stream) != cudaSuccess)
+		{
+			const char *message = cuvsGetLastErrorText();
+
+			fprintf(stderr, "cuVS filtered brute force: %s\n", message ? message : "failed");
+			ok = 0;
+		}
+	}
+	for (int d = 0; d < ANN_CUVS_MAX_DEVICES; d++)
+		if (laneDevices[d].resources && perDevice[d] &&
+			(cudaSetDevice(d) != cudaSuccess || cuvsStreamSync(laneDevices[d].resources) != CUVS_SUCCESS))
+			ok = 0;
+	for (uint32_t s = 0; ok && s < state->nshards; s++)
+	{
+		const int64_t *found;
+		uint32_t   *local;
+
+		if (!useShard[s])
+			continue;
+		found = laneDevices[shards[s].device].hostNeighbors64 + slot[s];
+		local = malloc(sizeof(uint32_t) * (wanted[s] ? wanted[s] : 1));
+		if (local == NULL)
+		{
+			ok = 0;
+			break;
+		}
+		for (uint32_t i = 0; i < wanted[s]; i++)
+			local[i] = found[i] < 0 || found[i] >= file->shards[s].rows ? UINT32_MAX : (uint32_t) found[i];
+		/* Lists are k + 32 apart: a shard may return that many candidates. */
+		counts[s] = ShardHits(file, s, local, wanted[s], job->query, bitsets[s], lists + (size_t) s * (k + 32));
+		if (counts[s] > k)
+			counts[s] = k;
+		free(local);
+	}
+	return ok;
+}
+
+/*
  * Filtered query: shards whose eligible slice is small are scanned exactly;
  * the rest run CAGRA with a bitset, with a larger internal top-k when the
  * filter is selective. All per-shard lists are tree-merged.
@@ -1092,6 +1250,7 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 	AnnIndexHit *lists = malloc(sizeof(AnnIndexHit) * (size_t) k * state->nshards);
 	const AnnIndexJob *jobs[1] = {job};
 	uint64_t	lo = 0;
+	uint64_t	eligible[ANN_INDEX_MAX_SHARDS] = {0};
 	uint32_t	graphShards = 0;
 	double		selectivity;
 	uint32_t	itopk;
@@ -1113,6 +1272,7 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 
 		while (lo < n && ordinals[lo] < end)
 			lo++;
+		eligible[s] = lo - start;
 		if (lo - start <= AnnIndexConfig.exact_limit / state->nshards)
 		{
 			AnnIndexJob part = *job;
@@ -1136,6 +1296,34 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		AnnIndexHit *graphLists = malloc(sizeof(AnnIndexHit) * (size_t) k * state->nshards);
 
 		selectivity = (double) n / (double) file->rows;
+
+		/*
+		 * Selective filters: exact GPU brute force beats a mostly-masked
+		 * graph walk.
+		 */
+		if (AnnIndexConfig.filtered_bruteforce && state->shards[0].bruteForce && selectivity < 0.25)
+		{
+			AnnIndexHit *bfLists = malloc(sizeof(AnnIndexHit) * (size_t) (k + 32) * state->nshards);
+			uint32_t	bfCounts[ANN_INDEX_MAX_SHARDS] = {0};
+
+			if (bfLists == NULL ||
+				!SearchShardsBruteForce(file, state, job, k, bitsets, useShard, eligible, bfLists, bfCounts))
+			{
+				free(bfLists);
+				job->status = ANN_BACKEND_ERROR;
+				goto done;
+			}
+			for (uint32_t s = 0; s < state->nshards; s++)
+				if (useShard[s])
+				{
+					memcpy(lists + (size_t) s * k, bfLists + (size_t) s * (k + 32), sizeof(AnnIndexHit) * bfCounts[s]);
+					counts[s] = bfCounts[s];
+				}
+			free(bfLists);
+			MergeJob(job, lists, counts, state->nshards, k);
+			job->route = ANN_ROUTE_EXACT;
+			goto done;
+		}
 		itopk = RoundTopK(k);
 		if (itopk < AnnIndexConfig.itopk)
 			itopk = AnnIndexConfig.itopk;
