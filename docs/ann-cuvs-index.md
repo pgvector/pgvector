@@ -34,6 +34,7 @@ JOIN docs d USING (id) ORDER BY s.distance;
 | File | Content |
 | --- | --- |
 | `manifest` | Text `key value` lines: `pgvector-ann-index 1`, `dimensions`, `rows`, `metric l2`, `dtype float32\|float16`, `source schema.table`, `shards N`, then `shard i first rows file` per shard. Written last, so partial builds are never loadable. |
+| `attr-COLUMN.i32` | Optional (`--attribute COLUMN`): one little-endian int32 per row in key order, listed in the manifest as `attribute COLUMN file`. See [filters resolved on the GPU node](ann-gpu-filters.md). |
 | `keys.i64` | `rows` strictly increasing little-endian int64 table keys. Global ordinal *i* is the *i*-th smallest key. |
 | `vectors.f32` | `rows × dimensions` little-endian FP32 vectors in key order. They're memory-mapped for the exact route and for re-scoring. |
 | `shard-i.cagra` | CAGRA graph and dataset (`cagra.save(..., include_dataset=True)`) for ordinals `[first, first + rows)`. |
@@ -73,7 +74,7 @@ flowchart LR
   3. A gather kernel computes each eligible row's distance from the CAGRA dataset already on the device, one warp per row.
   4. `cuvsSelectK` picks the top k, and the worker re-scores those rows in FP32.
 
-  Cost follows the number of eligible rows, not the shard size, and results are exact. The kernels are compiled at first use with NVRTC, which the worker opens at run time. If NVRTC is missing, or the gather limit is exceeded, the worker falls back to the earlier route: it maps the keys to ordinals, scans filters of up to 20,000 rows exactly, and otherwise runs CAGRA with a bitset of each shard's eligible rows. Each shard whose slice is at most the exact limit divided by the shard count is scanned exactly. Selective filters (under 25% of rows) raise the CAGRA internal top-k to `--filtered-itopk` (default 512).
+  Cost follows the number of eligible rows, not the shard size, and results are exact. The kernels are compiled at first use with NVRTC, which the worker opens at run time. If NVRTC is missing, or the gather limit is exceeded, the worker falls back to the earlier route: it maps the keys to ordinals, scans filters of up to 20,000 rows exactly, and otherwise runs CAGRA with a bitset of each shard's eligible rows. Each shard whose slice is at most the exact limit divided by the shard count is scanned exactly. Selective filters (under 25% of rows) raise the CAGRA internal top-k to `--filtered-itopk` (default 512). Bitset-filtered CAGRA runs multi-CTA with search width 4 by default, which raised recall at 1% from 0.67 to 1.0 ([details](ann-gpu-filters.md#filtered-cagra-settings)).
 - **Host memory.** On Linux the worker reads `keys.i64` and `vectors.f32` into memory backed by transparent huge pages, instead of mapping them, and drops their page cache. Filtered lookups touch rows a page or more apart, so 4 KB pages cost a TLB miss per row. With huge pages, mapping 100k sorted keys to rows took 0.74 ms instead of 2.4 ms on the B200 host. Ordinal mapping also starts each key's search at the position its key gap predicts.
 - **Merge.** The worker re-scores each shard's candidates with FP32 vectors, sorts them, and merges the shard lists pairwise, halving their number each round, down to the global top-k.
 
@@ -83,7 +84,9 @@ flowchart LR
 | --- | --- |
 | `--dtype float16` (builder) | Stores the CAGRA dataset in FP16: half the HBM traffic and footprint (8.5 GB vs 11 GB on disk for 10M×128). The worker converts queries to FP16, and FP32 re-scoring keeps returned distances exact. |
 | `--itopk N` (worker) | CAGRA internal top-k for unfiltered queries, at most 512. This is the main recall/throughput dial. The default is 128; 64 kept recall@10 at 1.0 on the 10M benchmark below. |
-| `--filtered-itopk N` | Internal top-k for selective filters, at most 512 (single-CTA CAGRA search). |
+| `--filtered-itopk N` | Internal top-k for selective filters: at most 512 with single-CTA search, 4096 with multi-CTA. |
+| `--filtered-algo`, `--filtered-width`, `--filtered-iterations` | CAGRA algorithm (default `multi`), search width (default 4) and iteration limit for bitset-filtered searches. |
+| `--bitset-min ROWS` | Attribute values with more rows get prebuilt per-shard bitsets (default 4,000,000). |
 | `--max-batch N`, `--delay-us N` | Queries per CAGRA submission, and an optional wait to fill a batch. |
 | `--lanes N` | Concurrent submissions across all GPUs. |
 | `--cagra-persistent on` | cuVS persistent search kernels, for many small batches. |

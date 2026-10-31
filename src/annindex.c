@@ -17,6 +17,10 @@
 #define ANN_OP_LOAD_INDEX 11
 #define ANN_OP_INDEX_SEARCH_PACKED 14
 #define ANN_OP_INDEX_INFO 15
+#define ANN_OP_INDEX_SEARCH_MATCH 17
+#define ANN_ATTRIBUTE_MAX_VALUES 64
+#define ANN_OP_INDEX_BITMAP 18
+#define ANN_OP_INDEX_SEARCH_BITMAP 19
 #define ANN_INDEX_NAME_MAX 63
 #define ANN_INDEX_MAX_K 10000
 #define ANN_LOAD_TIMEOUT_MS (30 * 60 * 1000)
@@ -121,6 +125,15 @@ CatalogName(FunctionCallInfo fcinfo)
 	char	   *schema = get_namespace_name(get_func_namespace(fcinfo->flinfo->fn_oid));
 
 	return psprintf("%s.ann_index_catalog", quote_identifier(schema));
+}
+
+/* Schema-qualified bitmap table name, in the extension's schema. */
+static char *
+BitmapTableName(FunctionCallInfo fcinfo)
+{
+	char	   *schema = get_namespace_name(get_func_namespace(fcinfo->flinfo->fn_oid));
+
+	return psprintf("%s.ann_filter_bitmap", quote_identifier(schema));
 }
 
 static char *
@@ -353,6 +366,32 @@ InitResult(FunctionCallInfo fcinfo, TupleDesc *tupdesc, Tuplestorestate **store)
 	rsinfo->setDesc = *tupdesc;
 }
 
+/* Check a worker search reply and append its (key, distance) hits. */
+static void
+StoreHits(bool ok, uint32 status, const char *name, const char *reply, uint32 replyLength,
+		  TupleDesc tupdesc, Tuplestorestate *store)
+{
+	uint32		count;
+
+	CheckWorker(ok, status, name);
+	if (replyLength < 8 || (count = *(uint32 *) reply) != (replyLength - 8) / 12 ||
+		(Size) count * 12 + 8 != replyLength)
+		elog(ERROR, "malformed ann worker search reply");
+	for (uint32 i = 0; i < count; i++)
+	{
+		Datum		values[2];
+		bool		nulls[2] = {false, false};
+		int64		key;
+		float		distance;
+
+		memcpy(&key, reply + 8 + (Size) i * 12, sizeof(key));
+		memcpy(&distance, reply + 16 + (Size) i * 12, sizeof(distance));
+		values[0] = Int64GetDatum(key);
+		values[1] = Float4GetDatum(distance);
+		tuplestore_putvalues(store, tupdesc, values, nulls);
+	}
+}
+
 /*
  * Ask a GPU node for the top k, restricted to sorted unique keys when
  * filtered. Keys travel as a zigzag varint first key and varint gaps.
@@ -366,7 +405,6 @@ SearchGpu(const char *name, Vector *query, int32 k, bool filtered, const int64 *
 	uint32		status = 0;
 	char	   *reply = NULL;
 	uint32		replyLength;
-	uint32		count;
 	bool		ok;
 
 	initStringInfo(&packed);
@@ -387,23 +425,7 @@ SearchGpu(const char *name, Vector *query, int32 k, bool filtered, const int64 *
 	appendBinaryStringInfo(&payload, (char *) query->x, sizeof(float) * query->dim);
 	appendBinaryStringInfo(&payload, packed.data, packed.len);
 	ok = IndexCall(ANN_OP_INDEX_SEARCH_PACKED, payload.data, payload.len, 0, &status, &reply, &replyLength);
-	CheckWorker(ok, status, name);
-	if (replyLength < 8 || (count = *(uint32 *) reply) != (replyLength - 8) / 12 ||
-		(Size) count * 12 + 8 != replyLength)
-		elog(ERROR, "malformed ann worker search reply");
-	for (uint32 i = 0; i < count; i++)
-	{
-		Datum		values[2];
-		bool		nulls[2] = {false, false};
-		int64		key;
-		float		distance;
-
-		memcpy(&key, reply + 8 + (Size) i * 12, sizeof(key));
-		memcpy(&distance, reply + 16 + (Size) i * 12, sizeof(distance));
-		values[0] = Int64GetDatum(key);
-		values[1] = Float4GetDatum(distance);
-		tuplestore_putvalues(store, tupdesc, values, nulls);
-	}
+	StoreHits(ok, status, name, reply, replyLength, tupdesc, store);
 }
 
 /*
@@ -692,5 +714,220 @@ ann_hybrid_search(PG_FUNCTION_ARGS)
 	}
 	nkeys = SortKeys(keys, nkeys);
 	SearchGpu(name, PG_GETARG_VECTOR_P(1), k, true, keys, nkeys, tupdesc, store);
+	return (Datum) 0;
+}
+
+/*
+ * ann_attribute_search(name, query, k, attribute, values): top-k rows whose
+ * index attribute (an int32 column stored with the index, see
+ * build_cuvs_index.py --attribute) is one of values. The GPU node resolves
+ * the filter from its own inverted column, so this host sends only the
+ * predicate: no SQL scan, no key list.
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ann_attribute_search);
+Datum
+ann_attribute_search(PG_FUNCTION_ARGS)
+{
+	TupleDesc	tupdesc;
+	Tuplestorestate *store;
+	const char *name;
+	char	   *attribute;
+	Vector	   *query;
+	int32		k;
+	ArrayType  *array;
+	Datum	   *elements;
+	bool	   *nulls;
+	int			n;
+	int			nvalues = 0;
+	StringInfoData payload;
+	StringInfoData values;
+	uint32		status = 0;
+	char	   *reply = NULL;
+	uint32		replyLength;
+	bool		ok;
+
+	InitResult(fcinfo, &tupdesc, &store);
+	if (PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(2) || PG_ARGISNULL(3) || PG_ARGISNULL(4))
+		return (Datum) 0;
+	name = CheckName(PG_GETARG_TEXT_PP(0));
+	query = PG_GETARG_VECTOR_P(1);
+	k = CheckK(PG_GETARG_INT32(2));
+	attribute = text_to_cstring(PG_GETARG_TEXT_PP(3));
+	if (strlen(attribute) == 0 || strlen(attribute) > 63)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("ann attribute name must be 1 to 63 bytes")));
+	array = PG_GETARG_ARRAYTYPE_P(4);
+	deconstruct_array(array, INT4OID, 4, true, TYPALIGN_INT, &elements, &nulls, &n);
+	initStringInfo(&values);
+	for (int i = 0; i < n; i++)
+		if (!nulls[i])
+		{
+			Put32(&values, (uint32) DatumGetInt32(elements[i]));
+			nvalues++;
+		}
+	if (nvalues == 0)
+		return (Datum) 0;
+	if (nvalues > ANN_ATTRIBUTE_MAX_VALUES)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("ann attribute search takes at most %d values", ANN_ATTRIBUTE_MAX_VALUES)));
+	initStringInfo(&payload);
+	Put32(&payload, strlen(name));
+	appendBinaryStringInfo(&payload, name, strlen(name));
+	Put32(&payload, query->dim);
+	Put32(&payload, k);
+	Put32(&payload, strlen(attribute));
+	appendBinaryStringInfo(&payload, attribute, strlen(attribute));
+	Put32(&payload, nvalues);
+	appendBinaryStringInfo(&payload, values.data, values.len);
+	appendBinaryStringInfo(&payload, (char *) query->x, sizeof(float) * query->dim);
+	ok = IndexCall(ANN_OP_INDEX_SEARCH_MATCH, payload.data, payload.len, 0, &status, &reply, &replyLength);
+	StoreHits(ok, status, name, reply, replyLength, tupdesc, store);
+	return (Datum) 0;
+}
+
+/*
+ * ann_filter_bitmap_build(name, filter): evaluate a SQL filter on the
+ * index's source table once, have the GPU node turn the matching keys into
+ * a bitmap over the index's rows, and store it in ann_filter_bitmap under
+ * the filter's text. Indexes are immutable, so a bitmap stays valid for the
+ * index it was built for; rebuild it after loading a new index.
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ann_filter_bitmap_build);
+Datum
+ann_filter_bitmap_build(PG_FUNCTION_ARGS)
+{
+	const char *name = CheckName(PG_GETARG_TEXT_PP(0));
+	char	   *filter = text_to_cstring(PG_GETARG_TEXT_PP(1));
+	AnnCatalogEntry entry;
+	int64	   *keys;
+	int			nkeys;
+	StringInfoData packed;
+	StringInfoData payload;
+	uint32		status = 0;
+	char	   *reply = NULL;
+	uint32		replyLength;
+	uint64		eligible;
+	bytea	   *bitmap;
+	Oid			types[4] = {TEXTOID, TEXTOID, INT8OID, BYTEAOID};
+	Datum		values[4];
+	bool		ok;
+
+	if (!superuser())
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("must be superuser to build ann filter bitmaps")));
+	if (!LookupCatalog(fcinfo, name, &entry))
+		ereport(ERROR,
+				(errcode(ERRCODE_UNDEFINED_OBJECT),
+				 errmsg("ann index \"%s\" is not in this database's catalog", name),
+				 errhint("Run ann_index_load or ann_index_attach on this host.")));
+	keys = CollectKeys(&entry, filter, &nkeys);
+	nkeys = SortKeys(keys, nkeys);
+	initStringInfo(&packed);
+	for (int i = 0; i < nkeys; i++)
+	{
+		if (i == 0)
+			PutVarint(&packed, ((uint64) keys[0] << 1) ^ (uint64) (keys[0] >> 63));
+		else
+			PutVarint(&packed, (uint64) keys[i] - (uint64) keys[i - 1]);
+	}
+	initStringInfo(&payload);
+	Put32(&payload, strlen(name));
+	appendBinaryStringInfo(&payload, name, strlen(name));
+	Put32(&payload, nkeys);
+	Put32(&payload, packed.len);
+	appendBinaryStringInfo(&payload, packed.data, packed.len);
+	ok = IndexCall(ANN_OP_INDEX_BITMAP, payload.data, payload.len, 0, &status, &reply, &replyLength);
+	CheckWorker(ok, status, name);
+	if (replyLength < 8 || (replyLength - 8) % 4 != 0)
+		elog(ERROR, "malformed ann worker bitmap reply");
+	memcpy(&eligible, reply, sizeof(eligible));
+	bitmap = palloc(VARHDRSZ + replyLength - 8);
+	SET_VARSIZE(bitmap, VARHDRSZ + replyLength - 8);
+	memcpy(VARDATA(bitmap), reply + 8, replyLength - 8);
+
+	values[0] = CStringGetTextDatum(name);
+	values[1] = CStringGetTextDatum(filter);
+	values[2] = Int64GetDatum((int64) eligible);
+	values[3] = PointerGetDatum(bitmap);
+	if (SPI_connect() != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed");
+	if (SPI_execute_with_args(psprintf("INSERT INTO %s (index_name, filter, eligible, bitmap) VALUES ($1, $2, $3, $4) "
+									   "ON CONFLICT (index_name, filter) DO UPDATE SET eligible = excluded.eligible, "
+									   "bitmap = excluded.bitmap, built_at = now()", BitmapTableName(fcinfo)),
+							  4, types, values, NULL, false, 0) != SPI_OK_INSERT)
+		elog(ERROR, "could not store the ann filter bitmap");
+	SPI_finish();
+	PG_RETURN_INT64((int64) eligible);
+}
+
+/*
+ * ann_bitmap_search(name, query, k, filter): top k among the rows of a
+ * filter built with ann_filter_bitmap_build, matched by its exact text. The
+ * bitmap travels with the query and the GPU node searches CAGRA with it as
+ * a cuVS bitset (selective filters run its exact routes instead), so this
+ * host does one primary-key lookup and no filter evaluation.
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ann_bitmap_search);
+Datum
+ann_bitmap_search(PG_FUNCTION_ARGS)
+{
+	TupleDesc	tupdesc;
+	Tuplestorestate *store;
+	const char *name;
+	char	   *filter;
+	Vector	   *query;
+	int32		k;
+	StringInfoData payload;
+	Oid			types[2] = {TEXTOID, TEXTOID};
+	Datum		values[2];
+	uint32		status = 0;
+	char	   *reply = NULL;
+	uint32		replyLength;
+	bool		ok;
+	bool		found;
+
+	InitResult(fcinfo, &tupdesc, &store);
+	if (PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(2) || PG_ARGISNULL(3))
+		return (Datum) 0;
+	name = CheckName(PG_GETARG_TEXT_PP(0));
+	query = PG_GETARG_VECTOR_P(1);
+	k = CheckK(PG_GETARG_INT32(2));
+	filter = text_to_cstring(PG_GETARG_TEXT_PP(3));
+
+	/* The payload lives outside SPI; the bitmap is appended from inside. */
+	initStringInfo(&payload);
+	Put32(&payload, strlen(name));
+	appendBinaryStringInfo(&payload, name, strlen(name));
+	Put32(&payload, query->dim);
+	Put32(&payload, k);
+	values[0] = CStringGetTextDatum(name);
+	values[1] = CStringGetTextDatum(filter);
+	if (SPI_connect() != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed");
+	if (SPI_execute_with_args(psprintf("SELECT bitmap FROM %s WHERE index_name = $1 AND filter = $2",
+									   BitmapTableName(fcinfo)),
+							  2, types, values, NULL, true, 1) != SPI_OK_SELECT)
+		elog(ERROR, "could not read ann filter bitmaps");
+	found = SPI_processed == 1;
+	if (found)
+	{
+		bool		isnull;
+		bytea	   *bitmap = DatumGetByteaPP(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
+
+		Put32(&payload, VARSIZE_ANY_EXHDR(bitmap) / 4);
+		appendBinaryStringInfo(&payload, (char *) query->x, sizeof(float) * query->dim);
+		appendBinaryStringInfo(&payload, VARDATA_ANY(bitmap), VARSIZE_ANY_EXHDR(bitmap));
+	}
+	SPI_finish();
+	if (!found)
+		ereport(ERROR,
+				(errcode(ERRCODE_UNDEFINED_OBJECT),
+				 errmsg("no ann filter bitmap for index \"%s\" and filter \"%s\"", name, filter),
+				 errhint("Run ann_filter_bitmap_build first.")));
+	ok = IndexCall(ANN_OP_INDEX_SEARCH_BITMAP, payload.data, payload.len, 0, &status, &reply, &replyLength);
+	StoreHits(ok, status, name, reply, replyLength, tupdesc, store);
 	return (Datum) 0;
 }

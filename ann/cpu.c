@@ -301,6 +301,7 @@ SearchIndexJob(AnnIndexJob *job)
 {
 	AnnIndexFile *file = AnnIndexGet(job->name);
 	uint64_t   *ordinals = NULL;
+	const uint64_t *known = NULL;
 	uint64_t	nordinals = 0;
 	uint32_t	nshards;
 	AnnIndexHit *lists = NULL;
@@ -318,7 +319,12 @@ SearchIndexJob(AnnIndexJob *job)
 		job->status = ANN_INVALID;
 		goto done;
 	}
-	if (job->filtered)
+	if (job->filtered && job->ordinals)
+	{
+		known = job->ordinals;
+		nordinals = job->nfilter;
+	}
+	else if (job->filtered)
 	{
 		ordinals = malloc(sizeof(*ordinals) * (job->nfilter ? job->nfilter : 1));
 		if (ordinals == NULL)
@@ -327,6 +333,7 @@ SearchIndexJob(AnnIndexJob *job)
 			goto done;
 		}
 		nordinals = AnnIndexOrdinals(file, job->filter, job->nfilter, ordinals);
+		known = ordinals;
 	}
 	nshards = file->nshards ? file->nshards : 1;
 	lists = malloc(sizeof(*lists) * ((size_t) job->k + 1) * nshards);
@@ -342,20 +349,20 @@ SearchIndexJob(AnnIndexJob *job)
 		AnnIndexJob part = *job;
 		uint64_t	first = file->nshards ? file->shards[s].first : 0;
 		uint64_t	end = file->nshards ? first + file->shards[s].rows : file->rows;
-		uint64_t   *range = NULL;
+		const uint64_t *range = NULL;
 		uint64_t	nrange = 0;
 		uint64_t   *all = NULL;
 
 		part.results = heads[s] = lists + (size_t) s * (job->k + 1);
-		if (ordinals)
+		if (known)
 		{
 			/* Ordinals are sorted; take this shard's slice. */
 			uint64_t	lo = 0;
 
-			while (lo < nordinals && ordinals[lo] < first)
+			while (lo < nordinals && known[lo] < first)
 				lo++;
-			range = ordinals + lo;
-			while (lo + nrange < nordinals && ordinals[lo + nrange] < end)
+			range = known + lo;
+			while (lo + nrange < nordinals && known[lo + nrange] < end)
 				nrange++;
 		}
 		else

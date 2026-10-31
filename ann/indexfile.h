@@ -18,6 +18,8 @@
  */
 #define ANN_INDEX_MAX_SHARDS 64
 #define ANN_INDEX_NAME_MAX 63
+#define ANN_INDEX_MAX_ATTRIBUTES 8
+#define ANN_INDEX_MAX_VALUES 64
 
 typedef struct AnnIndexShard
 {
@@ -25,6 +27,31 @@ typedef struct AnnIndexShard
 	uint32_t	rows;
 	char		file[256];		/* CAGRA file name inside the directory */
 } AnnIndexShard;
+
+/*
+ * Rows of one attribute value: a slice of the attribute's key and ordinal
+ * arrays, both sorted, and, for values matching many rows, one eligibility
+ * bitset per shard, built once at load so graph searches need no per-query
+ * bitset work.
+ */
+typedef struct AnnIndexPosting
+{
+	int32_t		value;
+	uint64_t	offset;
+	uint64_t	count;
+	uint32_t  **bitsets;		/* nshards bitsets, or NULL */
+} AnnIndexPosting;
+
+/* An int32 column stored per row in key order, inverted at load. */
+typedef struct AnnIndexAttribute
+{
+	char		name[64];
+	char		file[256];
+	uint32_t	nvalues;
+	AnnIndexPosting *postings;	/* sorted by value */
+	int64_t    *keys;			/* rows grouped by value, key order within */
+	uint64_t   *ordinals;
+} AnnIndexAttribute;
 
 typedef struct AnnIndexFile
 {
@@ -38,6 +65,8 @@ typedef struct AnnIndexFile
 	uint64_t	rows;
 	uint32_t	nshards;
 	AnnIndexShard shards[ANN_INDEX_MAX_SHARDS];
+	uint32_t	nattributes;
+	AnnIndexAttribute attributes[ANN_INDEX_MAX_ATTRIBUTES];
 	const int64_t *keys;		/* mapped */
 	const float *vectors;		/* mapped */
 	size_t		keysBytes;		/* mapped or reserved bytes, for munmap */
@@ -55,6 +84,11 @@ typedef struct AnnIndexOptions
 	int			replicate;		/* full shard set on every GPU */
 	uint32_t	gather_limit;	/* filtered queries this selective run a GPU
 								 * gather scan */
+	uint64_t	bitset_min;		/* attribute values with more rows get
+								 * prebuilt bitsets */
+	uint32_t	filtered_algo;	/* bitset CAGRA: 0 auto, 1 single, 2 multi CTA */
+	uint32_t	filtered_width; /* bitset CAGRA search width, 0 default */
+	uint32_t	filtered_iterations;	/* bitset CAGRA max iterations, 0 auto */
 } AnnIndexOptions;
 
 extern AnnIndexOptions AnnIndexConfig;
@@ -66,6 +100,16 @@ void		AnnIndexFileClose(AnnIndexFile *file);
 AnnStatus	AnnIndexRegister(AnnIndexFile *file);
 AnnIndexFile *AnnIndexGet(const char *name);
 void		AnnIndexPut(AnnIndexFile *file);
+
+/*
+ * Rows matching attribute IN (values): sorted keys and ordinals, and the
+ * prebuilt per-shard bitsets when exactly one value has them. A single value
+ * returns slices of the index (*owned = 0); several are merged into new
+ * arrays the caller frees (*owned = 1).
+ */
+AnnStatus	AnnIndexMatch(const AnnIndexFile *file, const char *attribute, const int32_t *values,
+						  uint32_t nvalues, const int64_t **keys, const uint64_t **ordinals,
+						  uint64_t *count, uint32_t *const **bitsets, int *owned);
 
 /* Map sorted unique keys to sorted global ordinals; returns the count found. */
 uint64_t	AnnIndexOrdinals(const AnnIndexFile *file, const int64_t *keys, uint32_t nkeys,

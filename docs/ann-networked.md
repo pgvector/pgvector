@@ -49,7 +49,7 @@ SELECT * FROM ann_hybrid_search('docs', $1, 10, format('tenant = %s AND lang = %
 SELECT * FROM ann_index_search('docs', $1, 10, ARRAY(SELECT id FROM docs WHERE tenant = $2));
 ```
 
-`ann_hybrid_search` runs the filter once and collects its keys straight from the executor (a `DestReceiver`, so no per-row SPI tuple is built). It then routes by the count, against `ann.gpu_min_eligible` (default 1000):
+To resolve filters on the GPU node instead, see [filters resolved on the GPU node](ann-gpu-filters.md). `ann_hybrid_search` runs the filter once and collects its keys straight from the executor (a `DestReceiver`, so no per-row SPI tuple is built). It then routes by the count, against `ann.gpu_min_eligible` (default 1000):
 
 - **Below the threshold:** the host runs `ORDER BY vector <-> query LIMIT k` itself, so the result is exact and no network is used.
 - **At or above it:** the host sends the sorted keys to a GPU node as a zigzag varint first key followed by varint gaps. For dense filters that's one or two bytes per key instead of eight. The node scores only those rows with its [GPU gather scan](ann-cuvs-index.md#search-execution), so the result is exact.

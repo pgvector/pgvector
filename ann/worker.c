@@ -317,10 +317,10 @@ main(int argc, char **argv)
 		}
 		else if (strcmp(argv[i], "--filtered-itopk") == 0)
 		{
-			/* Single-CTA CAGRA search, the cuVS default, supports up to 512. */
+			/* Single-CTA search takes up to 512; multi-CTA more (see cuvs.c). */
 			AnnIndexConfig.filtered_itopk = (uint32_t) strtoul(value, NULL, 10);
-			if (AnnIndexConfig.filtered_itopk > 512)
-				AnnIndexConfig.filtered_itopk = 512;
+			if (AnnIndexConfig.filtered_itopk > 4096)
+				AnnIndexConfig.filtered_itopk = 4096;
 		}
 		else if (strcmp(argv[i], "--exact-limit") == 0)
 			AnnIndexConfig.exact_limit = (uint32_t) strtoul(value, NULL, 10);
@@ -330,6 +330,14 @@ main(int argc, char **argv)
 			AnnIndexConfig.replicate = strcmp(value, "on") == 0;
 		else if (strcmp(argv[i], "--gather-limit") == 0)
 			AnnIndexConfig.gather_limit = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--bitset-min") == 0)
+			AnnIndexConfig.bitset_min = strtoull(value, NULL, 10);
+		else if (strcmp(argv[i], "--filtered-algo") == 0)
+			AnnIndexConfig.filtered_algo = strcmp(value, "single") == 0 ? 1 : strcmp(value, "multi") == 0 ? 2 : 0;
+		else if (strcmp(argv[i], "--filtered-width") == 0)
+			AnnIndexConfig.filtered_width = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--filtered-iterations") == 0)
+			AnnIndexConfig.filtered_iterations = (uint32_t) strtoul(value, NULL, 10);
 		else
 			goto usage;
 	}
@@ -497,12 +505,14 @@ usage:
 #ifdef ANN_USE_CUVS
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
-			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS]]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS] [--bitset-min ROWS]\n"
+			"  [--filtered-algo auto|single|multi] [--filtered-width N] [--filtered-iterations N]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
-			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS]]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS] [--bitset-min ROWS]\n"
+			"  [--filtered-algo auto|single|multi] [--filtered-width N] [--filtered-iterations N]]\n"
 			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");
 #endif
 	return 2;

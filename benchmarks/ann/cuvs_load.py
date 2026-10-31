@@ -36,6 +36,19 @@ WORKLOADS = {
     # the 1% filter goes to a GPU node, the 0.1% filter stays exact on this host.
     'sql-1pct': "SELECT id FROM ann_hybrid_search(:idx, :v::vector, 10, 'category = ' || :c);",
     'sql-0.1pct': "SELECT id FROM ann_hybrid_search(:idx, :v::vector, 10, 'tenant = ' || :t);",
+    # 10%: ten categories, about 1M eligible keys.
+    'sql-10pct': "SELECT id FROM ann_hybrid_search(:idx, :v::vector, 10, 'category / 10 = ' || :d);",
+    # ann_attribute_search sends only the predicate; the GPU node resolves it
+    # from attribute columns stored with the index (build --attribute).
+    'attr-1pct': "SELECT id FROM ann_attribute_search(:idx, :v::vector, 10, 'category', ARRAY[:c]::integer[]);",
+    'attr-0.1pct': "SELECT id FROM ann_attribute_search(:idx, :v::vector, 10, 'tenant', ARRAY[:t]::integer[]);",
+    'attr-10pct': ("SELECT id FROM ann_attribute_search(:idx, :v::vector, 10, 'category', "
+                   "ARRAY(SELECT generate_series(:d * 10, :d * 10 + 9)));"),
+    # ann_bitmap_search reads the filter's prebuilt bitmap from ann_filter_bitmap
+    # (ann_filter_bitmap_build) and sends it with the query.
+    'bitmap-1pct': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'category = ' || :c);",
+    'bitmap-0.1pct': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'tenant = ' || :t);",
+    'bitmap-10pct': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'category / 10 = ' || :d);",
 }
 
 
@@ -126,18 +139,33 @@ def psql(args, sql):
 def recall(args, workload):
     """Mean recall@10 over sample queries against exact SQL."""
     where = {'ann': 'true', 'hybrid-1pct': 't.category = q.c', 'hybrid-0.1pct': 't.tenant = q.t',
-             'sql-1pct': 't.category = q.c', 'sql-0.1pct': 't.tenant = q.t'}[workload]
+             'sql-1pct': 't.category = q.c', 'sql-0.1pct': 't.tenant = q.t', 'sql-10pct': 't.category / 10 = q.d',
+             'attr-1pct': 't.category = q.c', 'attr-0.1pct': 't.tenant = q.t',
+             'attr-10pct': 't.category / 10 = q.d', 'bitmap-1pct': 't.category = q.c',
+             'bitmap-0.1pct': 't.tenant = q.t', 'bitmap-10pct': 't.category / 10 = q.d'}[workload]
+    queries = (f"SELECT v::vector AS v, q % 100 AS c, q % 1000 AS t, q % 10 AS d FROM {args.table}_queries "
+               f"WHERE q <= {args.recall_queries} OFFSET 0")
+    if workload.startswith('attr-'):
+        column, values = {'attr-1pct': ('category', 'ARRAY[q.c]'), 'attr-0.1pct': ('tenant', 'ARRAY[q.t]'),
+                          'attr-10pct': ('category', 'ARRAY(SELECT generate_series(q.d * 10, q.d * 10 + 9))')}[workload]
+        return float(psql(args, f"""
+        SET max_parallel_workers_per_gather = 16;
+        SELECT round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3) FROM (
+          SELECT ARRAY(SELECT s.id FROM ann_attribute_search('{args.index}', q.v, 10, '{column}', {values}) s) a,
+                 ARRAY(SELECT t.id FROM {args.table} t WHERE {where} ORDER BY t.emb <-> q.v LIMIT 10) b
+          FROM ({queries}) q) x"""))
     fltr = {'ann': '', 'hybrid-1pct': f', ARRAY(SELECT id FROM {args.table} t WHERE {where})',
             'hybrid-0.1pct': f', ARRAY(SELECT id FROM {args.table} t WHERE {where})'}.get(workload)
-    if workload.startswith('sql-'):
-        column = 'category' if workload == 'sql-1pct' else 'tenant'
-        value = 'c' if column == 'category' else 't'
+    if workload.startswith('sql-') or workload.startswith('bitmap-'):
+        kind, size = workload.split('-')
+        predicate = {'1pct': "'category = ' || q.c", '0.1pct': "'tenant = ' || q.t",
+                     '10pct': "'category / 10 = ' || q.d"}[size]
+        function = 'ann_hybrid_search' if kind == 'sql' else 'ann_bitmap_search'
         return float(psql(args, f"""
         SELECT round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3) FROM (
-          SELECT ARRAY(SELECT s.id FROM ann_hybrid_search('{args.index}', q.v, 10, '{column} = ' || q.{value}) s) a,
+          SELECT ARRAY(SELECT s.id FROM {function}('{args.index}', q.v, 10, {predicate}) s) a,
                  ARRAY(SELECT t.id FROM {args.table} t WHERE {where} ORDER BY t.emb <-> q.v LIMIT 10) b
-          FROM (SELECT v::vector AS v, q % 100 AS c, q % 1000 AS t FROM {args.table}_queries
-                WHERE q <= {args.recall_queries} OFFSET 0) q) x"""))
+          FROM ({queries}) q) x"""))
     return float(psql(args, f"""
         SET max_parallel_workers_per_gather = 16;
         SELECT round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3) FROM (
@@ -158,7 +186,8 @@ def bench(args):
         for workload in workloads:
             script = os.path.join(directory, f'{workload}.sql')
             with open(script, 'w') as out:
-                out.write('\\set q random(1, 1000)\n\\set c random(0, 99)\n\\set t random(0, 999)\n')
+                out.write('\\set q random(1, 1000)\n\\set c random(0, 99)\n\\set t random(0, 999)\n'
+                          '\\set d random(0, 9)\n')
                 out.write(f'SELECT v FROM {args.table}_queries WHERE q = :q \\gset\n')
                 out.write(WORKLOADS[workload].format(table=args.table) + '\n')
             for clients in [int(c) for c in args.clients.split(',')]:

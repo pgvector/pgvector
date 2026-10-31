@@ -1067,6 +1067,23 @@ SearchShards(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnIndexJob *c
 		}
 		lane->params->itopk_size = itopk;
 		lane->params->persistent = AnnIndexConfig.persistent != 0;
+
+		/* Lane parameters are shared: set every filtered knob each time. */
+		lane->params->algo = AUTO;
+		lane->params->search_width = 1;
+		lane->params->max_iterations = 0;
+		if (bitsets)
+		{
+			if (AnnIndexConfig.filtered_algo == 1)
+				lane->params->algo = SINGLE_CTA;
+			else if (AnnIndexConfig.filtered_algo == 2)
+				lane->params->algo = MULTI_CTA;
+			if (AnnIndexConfig.filtered_width)
+				lane->params->search_width = AnnIndexConfig.filtered_width;
+			lane->params->max_iterations = AnnIndexConfig.filtered_iterations;
+		}
+		if (lane->params->algo != MULTI_CTA && lane->params->itopk_size > 512)
+			lane->params->itopk_size = 512;
 		queries = QueryTensor(lane->queries, shard->device, state->fp16, queryShape);
 		neighbors = Tensor(lane->neighbors + slot[s], kDLCUDA, shard->device, kDLUInt, 2, resultShape);
 		distances = Tensor(lane->distances + slot[s], kDLCUDA, shard->device, kDLFloat, 2, resultShape);
@@ -1548,9 +1565,11 @@ static void
 SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 {
 	uint64_t   *ordinals = NULL;
+	const uint64_t *known;
 	uint64_t	n;
 	uint32_t	k = job->k;
 	uint32_t   *bitsets[ANN_INDEX_MAX_SHARDS] = {0};
+	int			prebuilt = job->bitsets != NULL;
 	int			useShard[ANN_INDEX_MAX_SHARDS] = {0};
 	uint32_t	counts[ANN_INDEX_MAX_SHARDS] = {0};
 	AnnIndexHit *lists = NULL;
@@ -1560,6 +1579,35 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 	double		selectivity;
 	uint32_t	itopk;
 	uint64_t	exactLimit = AnnIndexConfig.exact_limit;
+
+	/*
+	 * A broad bitmap filter arrives as per-shard bitsets alone: every shard
+	 * runs filtered CAGRA, with no per-row work here.
+	 */
+	if (job->ordinals == NULL && job->filter == NULL && job->bitsets != NULL)
+	{
+		uint32_t	graphCounts[ANN_INDEX_MAX_SHARDS] = {0};
+		AnnIndexHit *graphLists = malloc(sizeof(AnnIndexHit) * (size_t) k * state->nshards);
+
+		for (uint32_t s = 0; s < state->nshards; s++)
+		{
+			useShard[s] = 1;
+			bitsets[s] = job->bitsets[s];
+		}
+		itopk = RoundTopK(k) > AnnIndexConfig.itopk ? RoundTopK(k) : AnnIndexConfig.itopk;
+		if ((double) job->nfilter / (double) file->rows < 0.25 && AnnIndexConfig.filtered_itopk > itopk)
+			itopk = AnnIndexConfig.filtered_itopk;
+		if (graphLists == NULL ||
+			!SearchShards(file, state, jobs, 1, k, itopk, bitsets, useShard, graphLists, graphCounts))
+			job->status = ANN_BACKEND_ERROR;
+		else
+		{
+			MergeJob(job, graphLists, graphCounts, state->nshards, k);
+			job->route = ANN_ROUTE_FILTERED;
+		}
+		free(graphLists);
+		return;
+	}
 
 	/*
 	 * Mid-sized filters go to the GPU gather scan, which maps keys to rows on
@@ -1577,15 +1625,26 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		if (exactLimit < ANN_EXACT_FALLBACK)
 			exactLimit = ANN_EXACT_FALLBACK;
 	}
-	ordinals = malloc(sizeof(uint64_t) * (job->nfilter ? job->nfilter : 1));
+	/* Attribute filters arrive with their ordinals, and maybe bitsets. */
+	if (job->ordinals == NULL)
+		ordinals = malloc(sizeof(uint64_t) * (job->nfilter ? job->nfilter : 1));
 	lists = malloc(sizeof(AnnIndexHit) * (size_t) k * state->nshards);
 	job->status = ANN_NOMEM;
-	if (ordinals == NULL || lists == NULL)
+	if ((job->ordinals == NULL && ordinals == NULL) || lists == NULL)
 		goto done;
-	n = AnnIndexOrdinals(file, job->filter, job->nfilter, ordinals);
+	if (job->ordinals)
+	{
+		known = job->ordinals;
+		n = job->nfilter;
+	}
+	else
+	{
+		n = AnnIndexOrdinals(file, job->filter, job->nfilter, ordinals);
+		known = ordinals;
+	}
 	if (n <= exactLimit)
 	{
-		AnnIndexExact(file, job, ordinals, n);
+		AnnIndexExact(file, job, known, n);
 		goto done;
 	}
 	for (uint32_t s = 0; s < state->nshards; s++)
@@ -1594,22 +1653,27 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		uint64_t	end = first + file->shards[s].rows;
 		uint64_t	start = lo;
 
-		while (lo < n && ordinals[lo] < end)
+		while (lo < n && known[lo] < end)
 			lo++;
 		if (lo - start <= exactLimit / state->nshards)
 		{
 			AnnIndexJob part = *job;
 
 			part.results = lists + (size_t) s * k;
-			AnnIndexExact(file, &part, ordinals + start, lo - start);
+			AnnIndexExact(file, &part, known + start, lo - start);
 			counts[s] = part.nresults;
 			continue;
 		}
-		bitsets[s] = calloc(((size_t) file->shards[s].rows + 31) / 32, sizeof(uint32_t));
-		if (bitsets[s] == NULL)
-			goto done;
-		for (uint64_t i = start; i < lo; i++)
-			bitsets[s][(ordinals[i] - first) / 32] |= UINT32_C(1) << ((ordinals[i] - first) % 32);
+		if (prebuilt)
+			bitsets[s] = job->bitsets[s];
+		else
+		{
+			bitsets[s] = calloc(((size_t) file->shards[s].rows + 31) / 32, sizeof(uint32_t));
+			if (bitsets[s] == NULL)
+				goto done;
+			for (uint64_t i = start; i < lo; i++)
+				bitsets[s][(known[i] - first) / 32] |= UINT32_C(1) << ((known[i] - first) % 32);
+		}
 		useShard[s] = 1;
 		graphShards++;
 	}
@@ -1643,7 +1707,7 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 	MergeJob(job, lists, counts, state->nshards, k);
 	job->route = graphShards ? ANN_ROUTE_FILTERED : ANN_ROUTE_EXACT;
 done:
-	for (uint32_t s = 0; s < state->nshards; s++)
+	for (uint32_t s = 0; !prebuilt && s < state->nshards; s++)
 		free(bitsets[s]);
 	free(ordinals);
 	free(lists);
@@ -1719,12 +1783,17 @@ SearchIndex(AnnIndexJob *jobs, uint32_t count)
 				uint64_t   *ordinals = NULL;
 				uint64_t	n = 0;
 
-				if (jobs[j].filtered && (ordinals = malloc(sizeof(uint64_t) * (jobs[j].nfilter + 1))))
-					n = AnnIndexOrdinals(file, jobs[j].filter, jobs[j].nfilter, ordinals);
-				if (jobs[j].filtered && ordinals == NULL)
-					jobs[j].status = ANN_NOMEM;
+				if (jobs[j].filtered && jobs[j].ordinals)
+					AnnIndexExact(file, &jobs[j], jobs[j].ordinals, jobs[j].nfilter);
 				else
-					AnnIndexExact(file, &jobs[j], ordinals, n);
+				{
+					if (jobs[j].filtered && (ordinals = malloc(sizeof(uint64_t) * (jobs[j].nfilter + 1))))
+						n = AnnIndexOrdinals(file, jobs[j].filter, jobs[j].nfilter, ordinals);
+					if (jobs[j].filtered && ordinals == NULL)
+						jobs[j].status = ANN_NOMEM;
+					else
+						AnnIndexExact(file, &jobs[j], ordinals, n);
+				}
 				free(ordinals);
 			}
 			else if (jobs[j].filtered)

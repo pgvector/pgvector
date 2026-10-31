@@ -30,11 +30,16 @@ def f32(value):
     return struct.unpack('<f', struct.pack('<f', value))[0]
 
 
-def write_index(directory, keys, vectors, shards=1, source='-', dtype='float32', key='id', vector='emb'):
-    """Test fixture writer for the documented on-disk format (CPU route only)."""
+def write_index(directory, keys, vectors, shards=1, source='-', dtype='float32', key='id', vector='emb',
+                attributes=None):
+    """Test fixture writer for the documented on-disk format (CPU route only).
+
+    attributes maps a column name to one int32 per row, in the order of keys.
+    """
     order = sorted(range(len(keys)), key=lambda i: keys[i])
     keys = [keys[i] for i in order]
     vectors = [vectors[i] for i in order]
+    attributes = attributes or {}
     os.makedirs(directory, exist_ok=True)
     with open(os.path.join(directory, 'keys.i64'), 'wb') as out:
         out.write(struct.pack('<%dq' % len(keys), *keys))
@@ -46,6 +51,10 @@ def write_index(directory, keys, vectors, shards=1, source='-', dtype='float32',
              'metric l2', f'dtype {dtype}', f'source {source}', f'key {key}', f'vector {vector}',
              f'shards {shards}']
     lines += [f'shard {i} {bounds[i]} {bounds[i + 1] - bounds[i]} shard-{i}.cagra' for i in range(shards)]
+    for name, values in attributes.items():
+        with open(os.path.join(directory, f'attr-{name}.i32'), 'wb') as out:
+            out.write(struct.pack('<%di' % len(values), *[values[i] for i in order]))
+        lines.append(f'attribute {name} attr-{name}.i32')
     with open(os.path.join(directory, 'manifest'), 'w') as out:
         out.write('\n'.join(lines) + '\n')
     return keys, vectors
@@ -63,6 +72,49 @@ def search_frame(request, name, query, k, keys=None):
     if keys:
         payload += struct.pack('<%dq' % len(keys), *keys)
     return frame(SEARCH, request, payload)
+
+
+MATCH = 17
+BITMAP = 18
+SEARCH_BITMAP = 19
+
+
+def match_frame(request, name, query, k, attribute, values):
+    payload = struct.pack('<I', len(name)) + name.encode()
+    payload += struct.pack('<III', len(query), k, len(attribute)) + attribute.encode()
+    payload += struct.pack('<I%di' % len(values), len(values), *values)
+    payload += struct.pack('<%df' % len(query), *query)
+    return frame(MATCH, request, payload)
+
+
+def varints(keys):
+    """Packed keys: zigzag varint first key, then varint gaps (sorted unique)."""
+    out = bytearray()
+    previous = None
+    for key in keys:
+        value = ((key << 1) ^ (key >> 63)) & (2 ** 64 - 1) if previous is None else key - previous
+        previous = key
+        while True:
+            byte = value & 0x7f
+            value >>= 7
+            out.append(byte | (0x80 if value else 0))
+            if not value:
+                break
+    return bytes(out)
+
+
+def bitmap_frame(request, name, keys):
+    keys = sorted(set(keys))
+    packed = varints(keys)
+    payload = struct.pack('<I', len(name)) + name.encode() + struct.pack('<II', len(keys), len(packed)) + packed
+    return frame(BITMAP, request, payload)
+
+
+def search_bitmap_frame(request, name, query, k, bitmap):
+    payload = struct.pack('<I', len(name)) + name.encode()
+    payload += struct.pack('<III', len(query), k, len(bitmap) // 4)
+    payload += struct.pack('<%df' % len(query), *query) + bitmap
+    return frame(SEARCH_BITMAP, request, payload)
 
 
 def decode_hits(payload):
@@ -93,13 +145,17 @@ class IndexWorkerTests(unittest.TestCase):
         self.server.close()
         self.directory.cleanup()
 
-    def fixture(self, name='docs', rows=600, dimensions=5, shards=4, seed=3):
+    def fixture(self, name='docs', rows=600, dimensions=5, shards=4, seed=3, attributes=None):
         rng = random.Random(seed)
         keys = rng.sample(range(-10 ** 9, 10 ** 9), rows)
         vectors = [[round(rng.uniform(-3, 3), 3) for _ in range(dimensions)] for _ in range(rows)]
         path = os.path.join(self.directory.name, name)
-        keys, vectors = write_index(path, keys, vectors, shards=shards)
-        return path, keys, vectors
+        values = {column: make(keys, rng) for column, make in (attributes or {}).items()}
+        sorted_keys, vectors = write_index(path, keys, vectors, shards=shards, attributes=values)
+        if attributes:
+            # Attribute values by key, for checking.
+            return path, sorted_keys, vectors, {c: dict(zip(keys, v)) for c, v in values.items()}
+        return path, sorted_keys, vectors
 
     def call(self, connection, data):
         connection.sendall(data)
@@ -139,6 +195,72 @@ class IndexWorkerTests(unittest.TestCase):
                 _, hits = decode_hits(payload)
                 want = exact(keys, vectors, query, 10, set(allowed))
                 self.assertEqual([key for key, _ in hits], [key for _, key in want])
+
+    def test_attribute_search_matches_exact(self):
+        # Shards of 600 rows / 7 do not start on 32-row boundaries.
+        path, keys, vectors, columns = self.fixture(shards=7, attributes={
+            'color': lambda keys, rng: [rng.randrange(6) for _ in keys],
+            'size': lambda keys, rng: [rng.choice([-2 ** 31, 1, 2 ** 31 - 1]) for _ in keys]})
+        rng = random.Random(5)
+        with self.server.connect() as connection:
+            self.assertEqual(self.call(connection, load_frame(1, 'docs', path))[2], 0)
+            cases = [('color', [3]), ('color', [0, 5, 5, 42]), ('size', [2 ** 31 - 1]), ('color', [99]),
+                     ('color', [1, 2, 3, 4, 0, 5])]
+            for request, (column, values) in enumerate(cases, 2):
+                query = [rng.uniform(-3, 3) for _ in range(5)]
+                _, _, status, payload = self.call(connection, match_frame(request, 'docs', query, 10, column, values))
+                self.assertEqual(status, 0)
+                _, hits = decode_hits(payload)
+                allowed = {key for key in keys if columns[column][key] in values}
+                want = exact(keys, vectors, query, 10, allowed)
+                self.assertEqual([key for key, _ in hits], [key for _, key in want], (column, values))
+            # Unknown attribute, no values, and too many values are rejected.
+            self.assertEqual(self.call(connection, match_frame(20, 'docs', [0] * 5, 3, 'nosuch', [1]))[2], 1)
+            self.assertEqual(self.call(connection, match_frame(21, 'docs', [0] * 5, 3, 'color', []))[2], 1)
+            self.assertEqual(self.call(connection, match_frame(22, 'docs', [0] * 5, 3, 'color',
+                                                               list(range(65))))[2], 1)
+            self.assertEqual(self.call(connection, match_frame(23, 'other', [0] * 5, 3, 'color', [1]))[2], 3)
+
+    def test_bitmap_build_and_search(self):
+        path, keys, vectors = self.fixture(shards=7)
+        rng = random.Random(6)
+        with self.server.connect() as connection:
+            self.assertEqual(self.call(connection, load_frame(1, 'docs', path))[2], 0)
+            for request in range(2, 12, 2):
+                allowed = rng.sample(keys, rng.randint(0, 300))
+                _, _, status, reply = self.call(connection, bitmap_frame(request, 'docs', allowed + [10 ** 12]))
+                self.assertEqual(status, 0)
+                eligible, bitmap = struct.unpack_from('<Q', reply)[0], reply[8:]
+                self.assertEqual(eligible, len(allowed))
+                self.assertEqual(len(bitmap), (len(keys) + 31) // 32 * 4)
+                ordinals = {i for i in range(len(keys)) if bitmap[i // 8] >> (i % 8) & 1}
+                self.assertEqual(ordinals, {keys.index(key) for key in allowed})
+                query = [rng.uniform(-3, 3) for _ in range(5)]
+                _, _, status, payload = self.call(connection, search_bitmap_frame(request + 1, 'docs', query, 10,
+                                                                                  bitmap))
+                self.assertEqual(status, 0)
+                _, hits = decode_hits(payload)
+                want = exact(keys, vectors, query, 10, set(allowed))
+                self.assertEqual([key for key, _ in hits], [key for _, key in want])
+            # A bitmap of the wrong size, or for an unloaded index, is rejected.
+            self.assertEqual(self.call(connection, search_bitmap_frame(30, 'docs', [0] * 5, 3, b'\0' * 4))[2], 1)
+            self.assertEqual(self.call(connection, bitmap_frame(31, 'other', [1]))[2], 3)
+
+    def test_bitmap_search_without_gather_limit(self):
+        # Workers without CAGRA state expand every bitmap, however broad.
+        path, keys, vectors = self.fixture(shards=3)
+        self.server.close()
+        self.server = Server('--backend', self.backend, '--gather-limit', '0', executable=self.worker)
+        with self.server.connect() as connection:
+            self.assertEqual(self.call(connection, load_frame(1, 'docs', path))[2], 0)
+            allowed = keys[::2]
+            _, _, status, reply = self.call(connection, bitmap_frame(2, 'docs', allowed))
+            self.assertEqual(status, 0)
+            query = [0.5] * 5
+            _, _, status, payload = self.call(connection, search_bitmap_frame(3, 'docs', query, 10, reply[8:]))
+            self.assertEqual(status, 0)
+            _, hits = decode_hits(payload)
+            self.assertEqual([key for key, _ in hits], [key for _, key in exact(keys, vectors, query, 10, set(allowed))])
 
     def test_errors(self):
         path, _, _ = self.fixture()
@@ -183,8 +305,9 @@ class IndexSqlTests(unittest.TestCase):
             key, vector = line.split('\t')
             keys.append(int(key))
             vectors.append([float(x) for x in vector.strip('[]').split(',')])
+        tenants = [int(key) // 7 % 9 for key in keys]
         cls.path = os.path.join(cls.directory.name, 'index')
-        write_index(cls.path, keys, vectors, shards=3, source=f'public.{cls.table}')
+        write_index(cls.path, keys, vectors, shards=3, source=f'public.{cls.table}', attributes={'tenant': tenants})
         cls.name = cls.table
         cls.psql(f"SELECT ann_index_load('{cls.name}', '{cls.path}')")
 
@@ -224,6 +347,38 @@ class IndexSqlTests(unittest.TestCase):
                 FROM {self.table} q WHERE q.id % 89 = 0) x
         """)
         self.assertEqual(output.strip(), '0')
+
+    def test_attribute_search_matches_exact_sql(self):
+        output = self.psql(f"""
+            SELECT count(*) FILTER (WHERE a IS DISTINCT FROM b), count(*) FROM (
+                SELECT ARRAY(SELECT s.id FROM ann_attribute_search('{self.name}', q.emb, 5, 'tenant',
+                        ARRAY[q.tenant, (q.tenant + 4) % 9, NULL]) s ORDER BY s.distance, s.id) a,
+                    ARRAY(SELECT t.id FROM {self.table} t WHERE t.tenant IN (q.tenant, (q.tenant + 4) % 9)
+                        ORDER BY t.emb <-> q.emb, t.id LIMIT 5) b
+                FROM {self.table} q WHERE q.id % 89 = 0) x;
+            SELECT count(*) FROM ann_attribute_search('{self.name}', '[1,1,1,1]', 3, 'tenant', '{{}}');
+        """)
+        self.assertEqual(output.split(), ['0|22', '0'])
+        self.assertIn('rejected', self.psql(
+            f"SELECT * FROM ann_attribute_search('{self.name}', '[1,1,1,1]', 3, 'nosuch', ARRAY[1])", check=False))
+
+    def test_bitmap_search_matches_exact_sql(self):
+        filters = ['tenant = 3', 'tenant < 2', 'id % 5 = 0', 'false']
+        built = self.psql(';'.join(f"SELECT ann_filter_bitmap_build('{self.name}', $f${f}$f$)" for f in filters))
+        self.assertEqual(built.split(), self.psql(';'.join(
+            f'SELECT count(*) FROM {self.table} WHERE {f}' for f in filters)).split())
+        for f in filters:
+            output = self.psql(f"""
+                SELECT count(*) FILTER (WHERE a IS DISTINCT FROM b) FROM (
+                    SELECT ARRAY(SELECT s.id FROM ann_bitmap_search('{self.name}', q.emb, 5, $f${f}$f$) s
+                            ORDER BY s.distance, s.id) a,
+                        ARRAY(SELECT t.id FROM {self.table} t WHERE {f} ORDER BY t.emb <-> q.emb, t.id LIMIT 5) b
+                    FROM {self.table} q WHERE q.id % 89 = 0) x
+            """)
+            self.assertEqual(output.strip(), '0', f)
+        self.assertIn('no ann filter bitmap', self.psql(
+            f"SELECT * FROM ann_bitmap_search('{self.name}', '[1,1,1,1]', 3, 'tenant = 4')", check=False))
+        self.psql(f"DELETE FROM ann_filter_bitmap WHERE index_name = '{self.name}'")
 
     def test_join_returns_rows_and_edge_cases(self):
         output = self.psql(f"""

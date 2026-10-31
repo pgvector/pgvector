@@ -13,6 +13,11 @@ ann_index_load(name, path); see docs/ann-cuvs-index.md.
 This is offline tooling: Python, NumPy, psycopg, CuPy and the cuVS Python
 package are needed here only, never on the query path. --no-cagra writes the
 manifest, keys and vectors only, for CPU-only testing.
+
+--attribute COLUMN (repeatable) also writes attr-COLUMN.i32, one int32 per
+row in key order, so the worker can resolve "COLUMN IN (values)" filters
+itself (ann_attribute_search) instead of receiving key lists. NULL is stored
+as -2147483648, which therefore never matches.
 """
 
 import argparse
@@ -82,6 +87,22 @@ def export(dsn, table, key, vector, limit=None):
     return keys, np.ascontiguousarray(np.vstack(chunks).astype('<f4'))
 
 
+def export_attribute(dsn, table, key, vector, column, keys):
+    """One int32 per row of the index, in key order; NULL becomes INT32_MIN."""
+    import psycopg
+    from psycopg import sql
+
+    query = sql.SQL('SELECT {key}::bigint, coalesce({column}::integer, -2147483648) FROM {table} '
+                    'WHERE {vector} IS NOT NULL ORDER BY 1').format(
+        key=sql.Identifier(key), column=sql.Identifier(column), vector=sql.Identifier(vector),
+        table=sql.Identifier(*table.split('.')))
+    with psycopg.connect(dsn) as db:
+        rows = db.execute(query).fetchall()
+    if len(rows) != len(keys) or any(row[0] != k for row, k in zip(rows, keys.tolist())):
+        raise SystemExit(f'table changed while exporting attribute {column}')
+    return np.asarray([row[1] for row in rows], dtype='<i4')
+
+
 def build_shard(index, first, vectors, out, dtype, graph_degree, intermediate_degree, devices):
     import cupy
     from cuvs.neighbors import cagra
@@ -111,6 +132,8 @@ def main():
     parser.add_argument('--graph-degree', type=int, default=32)
     parser.add_argument('--intermediate-graph-degree', type=int, default=64)
     parser.add_argument('--limit', type=int, help='export at most this many rows (testing)')
+    parser.add_argument('--attribute', action='append', default=[],
+                        help='integer column the worker can filter on (repeatable)')
     parser.add_argument('--no-cagra', action='store_true', help='write keys/vectors only (CPU tests)')
     args = parser.parse_args()
 
@@ -123,6 +146,10 @@ def main():
     log(f'exported {rows} rows x {dimensions} dims in {time.time() - started:.1f}s')
     keys.astype('<i8').tofile(os.path.join(args.out, 'keys.i64'))
     vectors.tofile(os.path.join(args.out, 'vectors.f32'))
+    for column in args.attribute:
+        export_attribute(args.dsn, args.table, args.key, args.vector, column, keys).tofile(
+            os.path.join(args.out, f'attr-{column}.i32'))
+        log(f'exported attribute {column}')
 
     shards = []
     if not args.no_cagra:
@@ -143,6 +170,7 @@ def main():
              f'dtype {args.dtype}', f'source {args.table}', f'key {args.key}', f'vector {args.vector}',
              f'shards {len(shards)}']
     lines += [f'shard {i} {first} {n} shard-{i}.cagra' for i, first, n in shards]
+    lines += [f'attribute {column} attr-{column}.i32' for column in args.attribute]
     with open(os.path.join(args.out, 'manifest.tmp'), 'w') as manifest:
         manifest.write('\n'.join(lines) + '\n')
     os.replace(os.path.join(args.out, 'manifest.tmp'), os.path.join(args.out, 'manifest'))

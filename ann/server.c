@@ -49,6 +49,10 @@ typedef struct Job
 	AnnGatheredJob job;
 	AnnIndexJob index;
 	int64_t    *keys;			/* sorted filter keys owned by the job */
+	uint64_t   *ordinals;		/* their ordinals, when owned by the job */
+	uint32_t   *shardBitsets[ANN_INDEX_MAX_SHARDS]; /* bitmap route, per shard */
+	uint32_t   *ownedBitsets[ANN_INDEX_MAX_SHARDS]; /* those this job
+													 * allocated */
 	Connection *connection;
 	int			rdma;			/* reply over RDMA, as requested */
 	uint16_t	operation;
@@ -307,6 +311,9 @@ Finish(Service *service, Job *job)
 	free(job->job.results);
 	free(job->index.results);
 	free(job->keys);
+	free(job->ordinals);
+	for (uint32_t s = 0; s < ANN_INDEX_MAX_SHARDS; s++)
+		free(job->ownedBitsets[s]);
 	free(job->payload);
 	free(job);
 }
@@ -579,6 +586,40 @@ KeyCompare(const void *a, const void *b)
 }
 
 /*
+ * Strictly increasing keys: a zigzag varint for the first, then varint
+ * gaps. Dense filters cost one or two bytes per key. Returns 0 unless the
+ * bytes hold exactly count keys.
+ */
+static int
+DecodeKeys(const unsigned char *data, uint32_t bytes, uint64_t count, int64_t *keys)
+{
+	const unsigned char *end = data + bytes;
+	uint64_t	previous = 0;
+
+	for (uint64_t i = 0; i < count; i++)
+	{
+		uint64_t	value = 0;
+		int			shift = 0;
+
+		do
+		{
+			if (data == end || shift > 63)
+				return 0;
+			value |= (uint64_t) (*data & 0x7f) << shift;
+			shift += 7;
+		} while (*data++ & 0x80);
+		if (i == 0)
+			previous = (value >> 1) ^ (~(value & 1) + 1);
+		else if (value == 0)
+			return 0;
+		else
+			previous += value;
+		keys[i] = (int64_t) previous;
+	}
+	return data == end;
+}
+
+/*
  * Index search payload: u32 name length, name, u32 dimensions, k, filter
  * count (UINT32_MAX for none); FP32 query; i64 filter keys in any order.
  */
@@ -652,45 +693,7 @@ SubmitIndex(Service *service, Connection *connection, int rdma, uint16_t operati
 	offset += (size_t) dimensions * 4;
 	if (packed)
 	{
-		/*
-		 * Strictly increasing keys: a zigzag varint for the first, then
-		 * varint gaps. Dense filters cost one or two bytes per key.
-		 */
-		const unsigned char *data = payload + offset;
-		const unsigned char *end = data + packedBytes;
-		uint64_t	previous = 0;
-
-		for (uint64_t i = 0; i < keys; i++)
-		{
-			uint64_t	value = 0;
-			int			shift = 0;
-
-			do
-			{
-				if (data == end || shift > 63)
-				{
-					free(job->index.results);
-					free(job->keys);
-					free(job);
-					return ANN_INVALID;
-				}
-				value |= (uint64_t) (*data & 0x7f) << shift;
-				shift += 7;
-			} while (*data++ & 0x80);
-			if (i == 0)
-				previous = (value >> 1) ^ (~(value & 1) + 1);
-			else if (value == 0)
-			{
-				free(job->index.results);
-				free(job->keys);
-				free(job);
-				return ANN_INVALID;
-			}
-			else
-				previous += value;
-			job->keys[i] = (int64_t) previous;
-		}
-		if (data != end)
+		if (!DecodeKeys(payload + offset, packedBytes, keys, job->keys))
 		{
 			free(job->index.results);
 			free(job->keys);
@@ -730,6 +733,354 @@ SubmitIndex(Service *service, Connection *connection, int rdma, uint16_t operati
 		return ANN_OVERLOADED;
 	}
 	return ANN_PENDING;
+}
+
+/*
+ * Attribute search payload: u32 name length, name, u32 dimensions, k,
+ * attribute name length, attribute name, value count; i32 values; FP32
+ * query. The worker resolves "attribute IN (values)" from the index's own
+ * inverted attribute columns, so the caller sends no keys.
+ */
+static AnnStatus
+SubmitMatch(Service *service, Connection *connection, int rdma, uint64_t request,
+			unsigned char *payload, uint32_t size)
+{
+	Job		   *job;
+	AnnIndexFile *file;
+	char		attribute[64];
+	int32_t		values[ANN_INDEX_MAX_VALUES];
+	uint32_t	nameLength,
+				attributeLength,
+				dimensions,
+				k,
+				nvalues;
+	size_t		offset;
+	const int64_t *keys;
+	const uint64_t *ordinals;
+	uint64_t	count;
+	uint32_t   *const *bitsets;
+	int			owned;
+	AnnStatus	status;
+
+	if (service->backend->search_index == NULL)
+		return ANN_UNSUPPORTED;
+	if (size < 4 || (nameLength = (uint32_t) Read(payload, 4)) == 0 ||
+		nameLength > ANN_INDEX_NAME_MAX || (uint64_t) size < 16 + (uint64_t) nameLength ||
+		memchr(payload + 4, '\0', nameLength))
+		return ANN_INVALID;
+	offset = 4 + nameLength;
+	dimensions = (uint32_t) Read(payload + offset, 4);
+	k = (uint32_t) Read(payload + offset + 4, 4);
+	attributeLength = (uint32_t) Read(payload + offset + 8, 4);
+	offset += 12;
+	if (attributeLength == 0 || attributeLength >= sizeof(attribute) ||
+		(uint64_t) size < offset + attributeLength + 4 || memchr(payload + offset, '\0', attributeLength))
+		return ANN_INVALID;
+	memcpy(attribute, payload + offset, attributeLength);
+	attribute[attributeLength] = '\0';
+	offset += attributeLength;
+	nvalues = (uint32_t) Read(payload + offset, 4);
+	offset += 4;
+	if (dimensions == 0 || dimensions > ANN_MAX_DIM || k == 0 || k > 10000 ||
+		nvalues == 0 || nvalues > ANN_INDEX_MAX_VALUES ||
+		(uint64_t) size != offset + (uint64_t) nvalues * 4 + (uint64_t) dimensions * 4)
+		return ANN_INVALID;
+	for (uint32_t i = 0; i < nvalues; i++)
+		values[i] = (int32_t) (uint32_t) Read(payload + offset + (size_t) i * 4, 4);
+	offset += (size_t) nvalues * 4;
+
+	/* Loaded indexes are never freed, so the slices outlive the job. */
+	{
+		char		name[ANN_INDEX_NAME_MAX + 1];
+
+		memcpy(name, payload + 4, nameLength);
+		name[nameLength] = '\0';
+		if ((file = AnnIndexGet(name)) == NULL)
+			return ANN_STALE;
+	}
+	status = AnnIndexMatch(file, attribute, values, nvalues, &keys, &ordinals, &count, &bitsets, &owned);
+	AnnIndexPut(file);
+	if (status != ANN_OK)
+		return status;
+	if (count > UINT32_MAX - 1)
+	{
+		if (owned)
+		{
+			free((void *) keys);
+			free((void *) ordinals);
+		}
+		return ANN_INVALID;
+	}
+	job = calloc(1, sizeof(*job));
+	if (job == NULL || (job->index.results = malloc(sizeof(AnnIndexHit) * k)) == NULL)
+	{
+		free(job);
+		if (owned)
+		{
+			free((void *) keys);
+			free((void *) ordinals);
+		}
+		return ANN_NOMEM;
+	}
+	job->kind = JOB_INDEX;
+	memcpy(job->index.name, payload + 4, nameLength);
+	job->index.dimensions = dimensions;
+	job->index.k = k;
+	job->index.filtered = 1;
+	{
+		float	   *query = (float *) (void *) payload;
+
+		for (uint32_t d = 0; d < dimensions; d++)
+		{
+			uint32_t	bits = (uint32_t) Read(payload + offset + (size_t) d * 4, 4);
+
+			memcpy(&query[d], &bits, sizeof(bits));
+		}
+		job->index.query = query;
+	}
+	job->index.filter = keys;
+	job->index.nfilter = (uint32_t) count;
+	job->index.ordinals = ordinals;
+	job->index.bitsets = bitsets;
+	if (owned)
+	{
+		job->keys = (int64_t *) keys;
+		job->ordinals = (uint64_t *) ordinals;
+	}
+	job->connection = connection;
+	job->operation = ANN_OP_INDEX_SEARCH_MATCH;
+	job->rdma = rdma;
+	job->request = request;
+	job->payload = payload;
+	job->charge = (uint64_t) size + sizeof(AnnIndexHit) * k + (owned ? count * 16 : 0);
+	if (!Enqueue(service, connection, job))
+	{
+		free(job->index.results);
+		free(job->keys);
+		free(job->ordinals);
+		free(job);
+		return ANN_OVERLOADED;
+	}
+	return ANN_PENDING;
+}
+
+/*
+ * Bitmap build payload: u32 name length, name, u32 key count, u32 packed
+ * bytes, packed keys (as for packed index search). The reply is u64 eligible
+ * rows, then one bit per index row in ordinal (key) order, as little-endian
+ * u32 words: bit i of word w is ordinal 32 * w + i. Keys missing from the
+ * index are dropped. PostgreSQL stores the reply in ann_filter_bitmap.
+ */
+static AnnStatus
+BuildBitmap(const unsigned char *payload, uint32_t size, unsigned char **reply, size_t *replyLength)
+{
+	char		name[ANN_INDEX_NAME_MAX + 1];
+	uint32_t	nameLength,
+				nkeys,
+				packedBytes;
+	AnnIndexFile *file;
+	int64_t    *keys;
+	uint64_t   *ordinals;
+	uint64_t	n;
+	size_t		words;
+	unsigned char *data;
+
+	if (size < 12 || (nameLength = (uint32_t) Read(payload, 4)) == 0 ||
+		nameLength > ANN_INDEX_NAME_MAX || (uint64_t) size < 12 + (uint64_t) nameLength ||
+		memchr(payload + 4, '\0', nameLength))
+		return ANN_INVALID;
+	memcpy(name, payload + 4, nameLength);
+	name[nameLength] = '\0';
+	nkeys = (uint32_t) Read(payload + 4 + nameLength, 4);
+	packedBytes = (uint32_t) Read(payload + 8 + nameLength, 4);
+	if ((uint64_t) size != 12 + (uint64_t) nameLength + packedBytes)
+		return ANN_INVALID;
+	if ((file = AnnIndexGet(name)) == NULL)
+		return ANN_STALE;
+	words = (file->rows + 31) / 32;
+	keys = malloc(sizeof(int64_t) * (nkeys ? nkeys : 1));
+	ordinals = malloc(sizeof(uint64_t) * (nkeys ? nkeys : 1));
+	data = calloc(8 + words * 4, 1);
+	if (keys == NULL || ordinals == NULL || data == NULL ||
+		!DecodeKeys(payload + 12 + nameLength, packedBytes, nkeys, keys))
+	{
+		AnnStatus	status = keys && ordinals && data ? ANN_INVALID : ANN_NOMEM;
+
+		AnnIndexPut(file);
+		free(keys);
+		free(ordinals);
+		free(data);
+		return status;
+	}
+	n = AnnIndexOrdinals(file, keys, nkeys, ordinals);
+	AnnIndexPut(file);
+	Write(data, n, 8);
+	for (uint64_t i = 0; i < n; i++)
+		data[8 + ordinals[i] / 8] |= (unsigned char) (1U << (ordinals[i] % 8));
+	free(keys);
+	free(ordinals);
+	*reply = data;
+	*replyLength = 8 + words * 4;
+	return ANN_OK;
+}
+
+/*
+ * Bitmap search payload: u32 name length, name, u32 dimensions, k, bitmap
+ * words; FP32 query; the bitmap as built by BuildBitmap, without its count.
+ * Broad filters go straight to CAGRA with per-shard slices of the bitmap as
+ * cuVS bitsets; filters within the gather limit, and all filters on
+ * indexes without device state (CPU backends, files without CAGRA shards),
+ * are expanded to ordinals and keys and routed as usual.
+ */
+static AnnStatus
+SubmitBitmap(Service *service, Connection *connection, int rdma, uint64_t request,
+			 unsigned char *payload, uint32_t size)
+{
+	Job		   *job;
+	AnnIndexFile *file;
+	char		name[ANN_INDEX_NAME_MAX + 1];
+	uint32_t	nameLength,
+				dimensions,
+				k,
+				words;
+	size_t		offset;
+	uint32_t   *bitmap;
+	uint64_t	n = 0;
+	uint64_t	rows;
+
+	if (service->backend->search_index == NULL)
+		return ANN_UNSUPPORTED;
+	if (size < 4 || (nameLength = (uint32_t) Read(payload, 4)) == 0 ||
+		nameLength > ANN_INDEX_NAME_MAX || (uint64_t) size < 16 + (uint64_t) nameLength ||
+		memchr(payload + 4, '\0', nameLength))
+		return ANN_INVALID;
+	memcpy(name, payload + 4, nameLength);
+	name[nameLength] = '\0';
+	offset = 4 + nameLength;
+	dimensions = (uint32_t) Read(payload + offset, 4);
+	k = (uint32_t) Read(payload + offset + 4, 4);
+	words = (uint32_t) Read(payload + offset + 8, 4);
+	offset += 12;
+	if (dimensions == 0 || dimensions > ANN_MAX_DIM || k == 0 || k > 10000 ||
+		(uint64_t) size != offset + (uint64_t) dimensions * 4 + (uint64_t) words * 4)
+		return ANN_INVALID;
+	if ((file = AnnIndexGet(name)) == NULL)
+		return ANN_STALE;
+	rows = file->rows;
+	AnnIndexPut(file);
+	if (words != (rows + 31) / 32)
+		return ANN_INVALID;
+	job = calloc(1, sizeof(*job));
+	if (job == NULL || (job->index.results = malloc(sizeof(AnnIndexHit) * k)) == NULL)
+	{
+		free(job);
+		return ANN_NOMEM;
+	}
+
+	/*
+	 * Decode the query to the front of the payload and move the bitmap right
+	 * behind it, both now aligned; clear bits past the last row.
+	 */
+	{
+		float	   *query = (float *) (void *) payload;
+
+		for (uint32_t d = 0; d < dimensions; d++)
+		{
+			uint32_t	bits = (uint32_t) Read(payload + offset + (size_t) d * 4, 4);
+
+			memcpy(&query[d], &bits, sizeof(bits));
+		}
+		job->index.query = query;
+	}
+	offset += (size_t) dimensions * 4;
+	bitmap = (uint32_t *) (void *) (payload + (size_t) dimensions * 4);
+	memmove(bitmap, payload + offset, (size_t) words * 4);
+	if (!LittleEndian())
+		for (uint32_t w = 0; w < words; w++)
+			bitmap[w] = (uint32_t) Read((unsigned char *) &bitmap[w], 4);
+	if (rows % 32)
+		bitmap[words - 1] &= (UINT32_C(1) << (rows % 32)) - 1;
+	for (uint32_t w = 0; w < words; w++)
+		n += (uint64_t) __builtin_popcount(bitmap[w]);
+
+	job->kind = JOB_INDEX;
+	strcpy(job->index.name, name);
+	job->index.dimensions = dimensions;
+	job->index.k = k;
+	job->index.filtered = 1;
+	job->index.nfilter = (uint32_t) (n < UINT32_MAX ? n : UINT32_MAX - 1);
+	if (n <= AnnIndexConfig.gather_limit || file->device == NULL)
+	{
+		/* Expand to ordinals and keys; loaded indexes are never freed. */
+		uint64_t	i = 0;
+
+		job->keys = malloc(sizeof(int64_t) * (n ? n : 1));
+		job->ordinals = malloc(sizeof(uint64_t) * (n ? n : 1));
+		if (job->keys == NULL || job->ordinals == NULL)
+			goto nomem;
+		for (uint32_t w = 0; w < words; w++)
+			for (uint32_t bits = bitmap[w]; bits; bits &= bits - 1)
+			{
+				uint64_t	ordinal = (uint64_t) w * 32 + (uint64_t) __builtin_ctz(bits);
+
+				job->ordinals[i] = ordinal;
+				job->keys[i++] = file->keys[ordinal];
+			}
+		job->index.filter = job->keys;
+		job->index.ordinals = job->ordinals;
+	}
+	else
+	{
+		/* Each shard's slice: in place when word aligned, else shifted. */
+		for (uint32_t s = 0; s < file->nshards; s++)
+		{
+			uint64_t	first = file->shards[s].first;
+			size_t		shardWords = ((size_t) file->shards[s].rows + 31) / 32;
+			uint32_t	shift = (uint32_t) (first % 32);
+
+			if (shift == 0)
+			{
+				job->shardBitsets[s] = bitmap + first / 32;
+				continue;
+			}
+			if ((job->ownedBitsets[s] = malloc(shardWords * 4)) == NULL)
+				goto nomem;
+			for (size_t w = 0; w < shardWords; w++)
+			{
+				size_t		at = first / 32 + w;
+				uint32_t	low = bitmap[at] >> shift;
+				uint32_t	high = at + 1 < words ? bitmap[at + 1] << (32 - shift) : 0;
+
+				job->ownedBitsets[s][w] = low | high;
+			}
+			job->shardBitsets[s] = job->ownedBitsets[s];
+		}
+		job->index.bitsets = job->shardBitsets;
+	}
+	job->connection = connection;
+	job->operation = ANN_OP_INDEX_SEARCH_BITMAP;
+	job->rdma = rdma;
+	job->request = request;
+	job->payload = payload;
+	job->charge = (uint64_t) size + sizeof(AnnIndexHit) * k + (job->keys ? n * 16 : 0);
+	if (Enqueue(service, connection, job))
+		return ANN_PENDING;
+	job->payload = NULL;
+	free(job->index.results);
+	free(job->keys);
+	free(job->ordinals);
+	for (uint32_t s = 0; s < ANN_INDEX_MAX_SHARDS; s++)
+		free(job->ownedBitsets[s]);
+	free(job);
+	return ANN_OVERLOADED;
+nomem:
+	free(job->index.results);
+	free(job->keys);
+	free(job->ordinals);
+	for (uint32_t s = 0; s < ANN_INDEX_MAX_SHARDS; s++)
+		free(job->ownedBitsets[s]);
+	free(job);
+	return ANN_NOMEM;
 }
 
 /*
@@ -924,6 +1275,10 @@ RdmaFrame(void *context, uint64_t peer, unsigned char *frame, size_t size)
 		status = ANN_NOMEM;
 	else if (operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED)
 		status = SubmitIndex(service, connection, 1, operation, request, payload, length);
+	else if (operation == ANN_OP_INDEX_SEARCH_MATCH)
+		status = SubmitMatch(service, connection, 1, request, payload, length);
+	else if (operation == ANN_OP_INDEX_SEARCH_BITMAP)
+		status = SubmitBitmap(service, connection, 1, request, payload, length);
 	else if (operation == ANN_OP_GATHERED_SEARCH)
 		status = Submit(service, connection, 1, operation, request, payload, length);
 	else if (operation == 5)
@@ -1054,6 +1409,29 @@ Reader(void *argument)
 			if (status == ANN_PENDING)
 				continue;
 			Reply(connection, operation, request, status, NULL, 0);
+		}
+		else if (operation == ANN_OP_INDEX_SEARCH_MATCH)
+		{
+			status = SubmitMatch(service, connection, 0, request, payload, length);
+			if (status == ANN_PENDING)
+				continue;
+			Reply(connection, operation, request, status, NULL, 0);
+		}
+		else if (operation == ANN_OP_INDEX_SEARCH_BITMAP)
+		{
+			status = SubmitBitmap(service, connection, 0, request, payload, length);
+			if (status == ANN_PENDING)
+				continue;
+			Reply(connection, operation, request, status, NULL, 0);
+		}
+		else if (operation == ANN_OP_INDEX_BITMAP)
+		{
+			unsigned char *bitmap = NULL;
+			size_t		bitmapLength = 0;
+
+			status = BuildBitmap(payload, length, &bitmap, &bitmapLength);
+			Reply(connection, operation, request, status, bitmap, bitmapLength);
+			free(bitmap);
 		}
 		else if (operation == ANN_OP_LOAD_INDEX)
 		{

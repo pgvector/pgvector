@@ -1275,3 +1275,41 @@ CREATE FUNCTION ann_hybrid_search(name text, query vector, k integer, filter tex
 	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE ROWS 10;
 
 COMMENT ON FUNCTION ann_hybrid_search(text, vector, integer, text) IS 'hybrid search: selective SQL filters run exactly here, broad ones on GPU nodes';
+
+CREATE FUNCTION ann_attribute_search(name text, query vector, k integer, attribute text, attribute_values integer[],
+	OUT id bigint, OUT distance real) RETURNS SETOF record
+	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE ROWS 10;
+
+COMMENT ON FUNCTION ann_attribute_search(text, vector, integer, text, integer[]) IS 'hybrid search filtered on the GPU node: rows whose index attribute is one of the values';
+
+-- filter conditions precomputed as bitmaps over an index's rows
+
+CREATE TABLE ann_filter_bitmap (
+	index_name text NOT NULL,
+	filter text NOT NULL,
+	eligible bigint NOT NULL,
+	bitmap bytea NOT NULL,
+	built_at timestamptz NOT NULL DEFAULT now(),
+	PRIMARY KEY (index_name, filter)
+);
+
+-- bitmaps are read whole on every search: store them uncompressed
+ALTER TABLE ann_filter_bitmap ALTER COLUMN bitmap SET STORAGE EXTERNAL;
+
+COMMENT ON TABLE ann_filter_bitmap IS 'filter conditions as bitmaps over an ann index''s rows in key order, for cuVS filtered search';
+
+REVOKE ALL ON ann_filter_bitmap FROM PUBLIC;
+GRANT SELECT ON ann_filter_bitmap TO PUBLIC;
+
+CREATE FUNCTION ann_filter_bitmap_build(name text, filter text) RETURNS bigint
+	AS 'MODULE_PATHNAME' LANGUAGE C STRICT VOLATILE;
+
+COMMENT ON FUNCTION ann_filter_bitmap_build(text, text) IS 'evaluate a filter once and store it in ann_filter_bitmap; returns its eligible rows';
+
+REVOKE ALL ON FUNCTION ann_filter_bitmap_build(text, text) FROM PUBLIC;
+
+CREATE FUNCTION ann_bitmap_search(name text, query vector, k integer, filter text,
+	OUT id bigint, OUT distance real) RETURNS SETOF record
+	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE ROWS 10;
+
+COMMENT ON FUNCTION ann_bitmap_search(text, vector, integer, text) IS 'filtered search with the filter''s bitmap from ann_filter_bitmap';

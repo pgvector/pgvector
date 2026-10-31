@@ -13,6 +13,9 @@
 #define ANN_OP_INDEX_SEARCH_PACKED 14
 #define ANN_OP_INDEX_INFO 15
 #define ANN_OP_RDMA_HELLO 16
+#define ANN_OP_INDEX_SEARCH_MATCH 17
+#define ANN_OP_INDEX_BITMAP 18
+#define ANN_OP_INDEX_SEARCH_BITMAP 19
 
 typedef struct AnnServeOptions
 {

@@ -81,6 +81,8 @@ typedef struct AnnIndexJob
 	const int64_t *filter;
 	uint32_t	nfilter;
 	int			filtered;
+	const uint64_t *ordinals;	/* filter's global ordinals, if known */
+	uint32_t   *const *bitsets; /* filter's per-shard bitsets, if prebuilt */
 	AnnIndexHit *results;
 	uint32_t	nresults;
 	uint32_t	route;

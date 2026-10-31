@@ -53,6 +53,8 @@ AnnRemoteBroadcast(uint16 operation, const char *payload, size_t length, int tim
 #define ANN_OP_INDEX_SEARCH 12
 #define ANN_OP_INDEX_SEARCH_PACKED 14
 #define ANN_OP_RDMA_HELLO 16
+#define ANN_OP_INDEX_SEARCH_MATCH 17
+#define ANN_OP_INDEX_SEARCH_BITMAP 19
 #define ANN_MAX_NODES 64
 
 /*
@@ -281,7 +283,8 @@ fail:
 static bool
 RdmaOperation(uint16 operation)
 {
-	return operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED;
+	return operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED ||
+		operation == ANN_OP_INDEX_SEARCH_MATCH || operation == ANN_OP_INDEX_SEARCH_BITMAP;
 }
 
 /* Reap the previous send's completion before reusing the send buffer. */

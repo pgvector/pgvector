@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000};
+AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0};
 
 typedef struct Entry
 {
@@ -113,6 +113,202 @@ MapFile(const char *directory, const char *name, size_t expected, const void **d
 	return 1;
 }
 
+static int
+Int32Compare(const void *left, const void *right)
+{
+	int32_t		a = *(const int32_t *) left;
+	int32_t		b = *(const int32_t *) right;
+
+	return (a > b) - (a < b);
+}
+
+/* Index of value in the attribute's sorted values, or nvalues. */
+static uint32_t
+FindValue(const AnnIndexAttribute *attribute, int32_t value)
+{
+	uint32_t	low = 0,
+				high = attribute->nvalues;
+
+	while (low < high)
+	{
+		uint32_t	middle = low + (high - low) / 2;
+
+		if (attribute->postings[middle].value < value)
+			low = middle + 1;
+		else
+			high = middle;
+	}
+	return low < attribute->nvalues && attribute->postings[low].value == value ? low : attribute->nvalues;
+}
+
+/*
+ * Invert one int32 column: distinct values by sorting a copy, then a
+ * counting pass and a placement pass in ordinal order, so each value's rows
+ * come out sorted. Values with more than bitset_min rows also get per-shard
+ * bitsets.
+ */
+static int
+LoadAttribute(AnnIndexFile *file, AnnIndexAttribute *attribute)
+{
+	const void *data;
+	size_t		bytes;
+	const int32_t *column;
+	int32_t    *sorted;
+	uint64_t   *fill;
+	uint32_t	nvalues = 0;
+
+	if (!MapFile(file->directory, attribute->file, file->rows * sizeof(int32_t), &data, &bytes))
+		return 0;
+	column = data;
+	sorted = malloc(sizeof(int32_t) * file->rows);
+	if (sorted == NULL)
+	{
+		(void) munmap((void *) data, bytes);
+		return 0;
+	}
+	memcpy(sorted, column, sizeof(int32_t) * file->rows);
+	qsort(sorted, file->rows, sizeof(int32_t), Int32Compare);
+	for (uint64_t i = 0; i < file->rows; i++)
+		if (i == 0 || sorted[i] != sorted[i - 1])
+			sorted[nvalues++] = sorted[i];
+	attribute->nvalues = nvalues;
+	attribute->postings = calloc(nvalues ? nvalues : 1, sizeof(AnnIndexPosting));
+	attribute->keys = malloc(sizeof(int64_t) * file->rows);
+	attribute->ordinals = malloc(sizeof(uint64_t) * file->rows);
+	fill = calloc(nvalues ? nvalues : 1, sizeof(uint64_t));
+	if (attribute->postings == NULL || attribute->keys == NULL || attribute->ordinals == NULL || fill == NULL)
+	{
+		free(sorted);
+		free(fill);
+		(void) munmap((void *) data, bytes);
+		return 0;
+	}
+	for (uint32_t v = 0; v < nvalues; v++)
+		attribute->postings[v].value = sorted[v];
+	free(sorted);
+	for (uint64_t i = 0; i < file->rows; i++)
+		attribute->postings[FindValue(attribute, column[i])].count++;
+	for (uint32_t v = 1; v < nvalues; v++)
+		attribute->postings[v].offset = attribute->postings[v - 1].offset + attribute->postings[v - 1].count;
+	for (uint64_t i = 0; i < file->rows; i++)
+	{
+		uint32_t	v = FindValue(attribute, column[i]);
+		uint64_t	at = attribute->postings[v].offset + fill[v]++;
+
+		attribute->ordinals[at] = i;
+		attribute->keys[at] = file->keys[i];
+	}
+	free(fill);
+	(void) munmap((void *) data, bytes);
+
+	for (uint32_t v = 0; file->nshards && v < nvalues; v++)
+	{
+		AnnIndexPosting *posting = &attribute->postings[v];
+		uint32_t	s = 0;
+
+		if (posting->count <= AnnIndexConfig.bitset_min)
+			continue;
+		posting->bitsets = calloc(file->nshards, sizeof(uint32_t *));
+		if (posting->bitsets == NULL)
+			return 0;
+		for (uint32_t t = 0; t < file->nshards; t++)
+			if ((posting->bitsets[t] = calloc(((size_t) file->shards[t].rows + 31) / 32, sizeof(uint32_t))) == NULL)
+				return 0;
+		for (uint64_t i = 0; i < posting->count; i++)
+		{
+			uint64_t	ordinal = attribute->ordinals[posting->offset + i];
+
+			while (ordinal >= file->shards[s].first + file->shards[s].rows)
+				s++;
+			ordinal -= file->shards[s].first;
+			posting->bitsets[s][ordinal / 32] |= UINT32_C(1) << (ordinal % 32);
+		}
+	}
+	return 1;
+}
+
+static int
+OrdinalCompare(const void *left, const void *right)
+{
+	uint64_t	a = *(const uint64_t *) left;
+	uint64_t	b = *(const uint64_t *) right;
+
+	return (a > b) - (a < b);
+}
+
+AnnStatus
+AnnIndexMatch(const AnnIndexFile *file, const char *name, const int32_t *values, uint32_t nvalues,
+			  const int64_t **keys, const uint64_t **ordinals, uint64_t *count,
+			  uint32_t *const **bitsets, int *owned)
+{
+	const AnnIndexAttribute *attribute = NULL;
+	const AnnIndexPosting *found[ANN_INDEX_MAX_VALUES];
+	uint32_t	nfound = 0;
+	uint64_t	total = 0;
+	int64_t    *mergedKeys;
+	uint64_t   *mergedOrdinals;
+
+	*keys = NULL;
+	*ordinals = NULL;
+	*count = 0;
+	*bitsets = NULL;
+	*owned = 0;
+	for (uint32_t a = 0; a < file->nattributes; a++)
+		if (strcmp(file->attributes[a].name, name) == 0)
+			attribute = &file->attributes[a];
+	if (attribute == NULL || nvalues > ANN_INDEX_MAX_VALUES)
+		return ANN_INVALID;
+	for (uint32_t i = 0; i < nvalues; i++)
+	{
+		uint32_t	v = FindValue(attribute, values[i]);
+		int			duplicate = 0;
+
+		if (v == attribute->nvalues)
+			continue;
+		for (uint32_t j = 0; j < nfound; j++)
+			duplicate |= found[j] == &attribute->postings[v];
+		if (!duplicate)
+		{
+			found[nfound++] = &attribute->postings[v];
+			total += attribute->postings[v].count;
+		}
+	}
+	if (nfound == 0)
+		return ANN_OK;
+	if (nfound == 1)
+	{
+		*keys = attribute->keys + found[0]->offset;
+		*ordinals = attribute->ordinals + found[0]->offset;
+		*count = found[0]->count;
+		*bitsets = found[0]->bitsets;
+		return ANN_OK;
+	}
+
+	/* Several values: concatenate ordinals, sort, and look keys up. */
+	mergedKeys = malloc(sizeof(int64_t) * total);
+	mergedOrdinals = malloc(sizeof(uint64_t) * total);
+	if (mergedKeys == NULL || mergedOrdinals == NULL)
+	{
+		free(mergedKeys);
+		free(mergedOrdinals);
+		return ANN_NOMEM;
+	}
+	total = 0;
+	for (uint32_t j = 0; j < nfound; j++)
+	{
+		memcpy(mergedOrdinals + total, attribute->ordinals + found[j]->offset, sizeof(uint64_t) * found[j]->count);
+		total += found[j]->count;
+	}
+	qsort(mergedOrdinals, total, sizeof(uint64_t), OrdinalCompare);
+	for (uint64_t i = 0; i < total; i++)
+		mergedKeys[i] = file->keys[mergedOrdinals[i]];
+	*keys = mergedKeys;
+	*ordinals = mergedOrdinals;
+	*count = total;
+	*owned = 1;
+	return ANN_OK;
+}
+
 /* Parse "key value" lines; unknown keys are rejected so typos fail loudly. */
 static AnnStatus
 ParseManifest(AnnIndexFile *file)
@@ -158,6 +354,10 @@ ParseManifest(AnnIndexFile *file)
 			continue;
 		else if (strcmp(key, "vector") == 0 && sscanf(line, "%*s %63s", file->vector) == 1)
 			continue;
+		else if (strcmp(key, "attribute") == 0 && file->nattributes < ANN_INDEX_MAX_ATTRIBUTES &&
+				 sscanf(line, "%*s %63s %255s", file->attributes[file->nattributes].name, text) == 2 &&
+				 !strchr(text, '/'))
+			strcpy(file->attributes[file->nattributes++].file, text);
 		else if (strcmp(key, "shards") == 0 && sscanf(line, "%*s %llu", &a) == 1 && a <= ANN_INDEX_MAX_SHARDS)
 			continue;
 		else if (strcmp(key, "shard") == 0 &&
@@ -220,6 +420,12 @@ AnnIndexFileOpen(const char *name, const char *directory, AnnIndexFile **result)
 			fprintf(stderr, "ann index: keys.i64 is not strictly increasing\n");
 			status = ANN_INVALID;
 		}
+	for (uint32_t a = 0; status == ANN_OK && a < file->nattributes; a++)
+		if (!LoadAttribute(file, &file->attributes[a]))
+		{
+			fprintf(stderr, "ann index: cannot load attribute %s\n", file->attributes[a].name);
+			status = ANN_INVALID;
+		}
 	if (status != ANN_OK)
 	{
 		AnnIndexFileClose(file);
@@ -238,6 +444,21 @@ AnnIndexFileClose(AnnIndexFile *file)
 		(void) munmap((void *) file->keys, file->keysBytes);
 	if (file->vectors)
 		(void) munmap((void *) file->vectors, file->vectorsBytes);
+	for (uint32_t a = 0; a < file->nattributes; a++)
+	{
+		AnnIndexAttribute *attribute = &file->attributes[a];
+
+		for (uint32_t v = 0; attribute->postings && v < attribute->nvalues; v++)
+			if (attribute->postings[v].bitsets)
+			{
+				for (uint32_t s = 0; s < file->nshards; s++)
+					free(attribute->postings[v].bitsets[s]);
+				free(attribute->postings[v].bitsets);
+			}
+		free(attribute->postings);
+		free(attribute->keys);
+		free(attribute->ordinals);
+	}
 	free(file);
 }
 

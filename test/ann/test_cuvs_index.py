@@ -28,8 +28,9 @@ class CuvsIndexTests(unittest.TestCase):
         # default, filtered CAGRA when the gather scan is off.
         cls.server = Server('--backend', 'cuvs', '--lanes', '8', '--exact-limit', '500',
                             executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
+        # Attribute values all get prebuilt bitsets on the graph worker.
         cls.graph = Server('--backend', 'cuvs', '--lanes', '8', '--exact-limit', '500', '--gather-limit', '0',
-                           executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
+                           '--bitset-min', '0', executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
         cls.table = 'ann_cuvs_' + uuid.uuid4().hex[:10]
         cls.psql(f"""
             CREATE TABLE {cls.table} (id bigint PRIMARY KEY, tenant int, emb vector(32));
@@ -41,10 +42,13 @@ class CuvsIndexTests(unittest.TestCase):
         for dtype in ['float32', 'float16']:
             path = os.path.join(cls.directory.name, dtype)
             subprocess.run([sys.executable, BUILD, '--dsn', DSN, '--table', f'public.{cls.table}', '--key', 'id',
-                            '--vector', 'emb', '--out', path, '--shards', '4', '--dtype', dtype],
+                            '--vector', 'emb', '--out', path, '--shards', '4', '--dtype', dtype,
+                            '--attribute', 'tenant'],
                            check=True, capture_output=True)
             for server in [cls.server, cls.graph]:
                 cls.psql(f"SELECT ann_index_load('{cls.table}_{dtype}', '{path}')", server)
+        cls.psql(f"""SELECT ann_filter_bitmap_build('{cls.table}_float32', 'tenant = ' || t)
+                     FROM generate_series(0, 49) t""")
 
     @classmethod
     def tearDownClass(cls):
@@ -72,6 +76,34 @@ class CuvsIndexTests(unittest.TestCase):
               SELECT ARRAY(SELECT s.id FROM ann_index_search('{index}', q.emb, 10{fltr}) s) a,
                      ARRAY(SELECT t.id FROM {self.table} t WHERE {where} ORDER BY t.emb <-> q.emb LIMIT 10) b
               FROM {self.table} q WHERE q.id % 1200 = 0) x""", server))
+
+    def filtered(self, function, server=None):
+        """(mismatches with exact SQL, recall@10, rows outside the filter) for one tenant per query."""
+        call = {'attribute': f"ann_attribute_search('{self.table}_float32', q.emb, 10, 'tenant', ARRAY[q.tenant])",
+                'bitmap': f"ann_bitmap_search('{self.table}_float32', q.emb, 10, 'tenant = ' || q.tenant)"}[function]
+        return self.psql(f"""
+            SELECT count(*) FILTER (WHERE a IS DISTINCT FROM b),
+                   round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3),
+                   sum((SELECT count(*) FROM {self.table} t WHERE t.id = ANY (a) AND t.tenant <> x.tenant))
+            FROM (
+              SELECT q.tenant, ARRAY(SELECT s.id FROM {call} s ORDER BY s.distance, s.id) a,
+                     ARRAY(SELECT t.id FROM {self.table} t WHERE t.tenant = q.tenant
+                           ORDER BY t.emb <-> q.emb, t.id LIMIT 10) b
+              FROM {self.table} q WHERE q.id % 1200 = 0) x""", server).split('|')
+
+    def test_attribute_and_bitmap_gather_route_match_sql(self):
+        for function in ['attribute', 'bitmap']:
+            mismatches, _, outside = self.filtered(function)
+            self.assertEqual((mismatches, outside), ('0', '0'), function)
+
+    def test_attribute_and_bitmap_graph_route(self):
+        # Filtered CAGRA with cuVS bitsets: prebuilt per attribute value, or
+        # sliced from the stored bitmap (shards of 10,000 rows are not
+        # 32-row aligned).
+        for function in ['attribute', 'bitmap']:
+            _, recall, outside = self.filtered(function, self.graph)
+            self.assertGreaterEqual(float(recall), 0.9, function)
+            self.assertEqual(outside, '0', function)
 
     def test_ann_recall(self):
         for dtype in ['float32', 'float16']:
