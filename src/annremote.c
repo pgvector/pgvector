@@ -49,6 +49,8 @@ AnnRemoteBroadcast(uint16 operation, const char *payload, size_t length, int tim
 #define ANN_HEADER_SIZE 32
 #define ANN_OP_PROBE 5
 #define ANN_OP_AUTH 13
+#define ANN_OP_INDEX_SEARCH 12
+#define ANN_OP_INDEX_SEARCH_PACKED 14
 #define ANN_OP_RDMA_HELLO 16
 #define ANN_MAX_NODES 64
 
@@ -263,6 +265,16 @@ fail:
 	if (rdmaClient == NULL)
 		free(client);
 	CloseRdma();
+}
+
+/*
+ * Only searches travel over RDMA; the worker answers other operations
+ * (loads, index info, statistics) on the TCP connection alone.
+ */
+static bool
+RdmaOperation(uint16 operation)
+{
+	return operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED;
 }
 
 /* Reap the previous send's completion before reusing the send buffer. */
@@ -750,7 +762,7 @@ AnnRemoteCall(uint16 operation, const char *payload, size_t length, int timeoutM
 		remoteBusy = true;
 		if (
 #ifdef ANN_USE_RDMA
-			(rdmaClient && ANN_HEADER_SIZE + length <= rdmaClient->frame) ?
+			(rdmaClient && RdmaOperation(operation) && ANN_HEADER_SIZE + length <= rdmaClient->frame) ?
 			RdmaExchange(remoteFd, operation, payload, length, timeoutMs, status, reply, replyLength) :
 #endif
 			Exchange(remoteFd, operation, payload, length, timeoutMs, status, reply, replyLength))
