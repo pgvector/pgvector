@@ -15,7 +15,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0};
+AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0, 1, 80};
+AnnIndexBitmapHooks AnnIndexBitmapDevice = {NULL, NULL};
 
 typedef struct Entry
 {
@@ -310,8 +311,10 @@ AnnIndexMatch(const AnnIndexFile *file, const char *name, const int32_t *values,
 }
 
 static void
-FreeBitmap(AnnIndexBitmap *bitmap)
+FreeBitmap(AnnIndexFile *file, AnnIndexBitmap *bitmap)
 {
+	if (bitmap->device && AnnIndexBitmapDevice.release)
+		AnnIndexBitmapDevice.release(file, bitmap);
 	for (uint32_t s = 0; s < ANN_INDEX_MAX_SHARDS; s++)
 		free(bitmap->owned[s]);
 	free(bitmap->words);
@@ -371,7 +374,7 @@ AnnIndexBitmapPut(AnnIndexFile *file, uint64_t id, const uint32_t *words, size_t
 		}
 		if ((bitmap->owned[s] = malloc(shardWords * 4)) == NULL)
 		{
-			FreeBitmap(bitmap);
+			FreeBitmap(file, bitmap);
 			return ANN_NOMEM;
 		}
 		for (size_t w = 0; w < shardWords; w++)
@@ -392,7 +395,7 @@ AnnIndexBitmapPut(AnnIndexFile *file, uint64_t id, const uint32_t *words, size_t
 		bitmap->ordinals = malloc(sizeof(uint64_t) * (bitmap->count ? bitmap->count : 1));
 		if (bitmap->keys == NULL || bitmap->ordinals == NULL)
 		{
-			FreeBitmap(bitmap);
+			FreeBitmap(file, bitmap);
 			return ANN_NOMEM;
 		}
 		for (size_t w = 0; w < nwords; w++)
@@ -404,6 +407,9 @@ AnnIndexBitmapPut(AnnIndexFile *file, uint64_t id, const uint32_t *words, size_t
 				bitmap->keys[i++] = file->keys[ordinal];
 			}
 	}
+
+	if (AnnIndexConfig.device_bitmaps && AnnIndexBitmapDevice.upload && file->device)
+		AnnIndexBitmapDevice.upload(file, bitmap);
 
 	(void) pthread_mutex_lock(&file->bitmapMutex);
 	for (link = &file->bitmaps[id % ANN_INDEX_BITMAP_BUCKETS]; *link; link = &(*link)->next)
@@ -451,7 +457,7 @@ AnnIndexBitmapRelease(AnnIndexFile *file, AnnIndexBitmap *bitmap)
 	last = --bitmap->references == 0;
 	(void) pthread_mutex_unlock(&file->bitmapMutex);
 	if (last)
-		FreeBitmap(bitmap);
+		FreeBitmap(file, bitmap);
 }
 
 /* Parse "key value" lines; unknown keys are rejected so typos fail loudly. */
@@ -611,7 +617,7 @@ AnnIndexFileClose(AnnIndexFile *file)
 			AnnIndexBitmap *bitmap = file->bitmaps[b];
 
 			file->bitmaps[b] = bitmap->next;
-			FreeBitmap(bitmap);
+			FreeBitmap(file, bitmap);
 		}
 	(void) pthread_mutex_destroy(&file->bitmapMutex);
 	free(file);

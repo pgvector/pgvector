@@ -814,6 +814,58 @@ DestroyIndexState(AnnCuvsIndex *state)
 }
 
 /* Shards load in parallel, one thread each; any failure rejects the load. */
+/*
+ * Cached filter bitmaps: copy each shard's bitset to every device holding
+ * that shard, once, so filtered CAGRA reads it in place. Any failure frees
+ * what was copied and leaves the bitmap on the per-query copy path.
+ */
+static void
+UploadBitmap(AnnIndexFile *file, AnnIndexBitmap *bitmap)
+{
+	AnnCuvsIndex *state = file->device;
+	size_t		n = (size_t) state->copies * state->nshards;
+	void	  **device = calloc(n, sizeof(void *));
+	int			ok = device != NULL;
+
+	for (size_t i = 0; ok && i < n; i++)
+	{
+		uint32_t	s = (uint32_t) (i % state->nshards);
+		size_t		bytes = ((size_t) file->shards[s].rows + 31) / 32 * sizeof(uint32_t);
+
+		ok = cudaSetDevice(state->shards[i].device) == cudaSuccess &&
+			cudaMalloc(&device[i], bytes) == cudaSuccess &&
+			cudaMemcpy(device[i], bitmap->bitsets[s], bytes, cudaMemcpyHostToDevice) == cudaSuccess;
+	}
+	if (ok)
+	{
+		bitmap->device = device;
+		return;
+	}
+	fprintf(stderr, "cuVS: could not keep filter bitmap %llu on the GPUs; it is copied per query\n",
+			(unsigned long long) bitmap->id);
+	for (size_t i = 0; device && i < n; i++)
+		if (device[i])
+		{
+			(void) cudaSetDevice(state->shards[i].device);
+			(void) cudaFree(device[i]);
+		}
+	free(device);
+}
+
+static void
+ReleaseBitmap(AnnIndexFile *file, AnnIndexBitmap *bitmap)
+{
+	AnnCuvsIndex *state = file->device;
+
+	for (size_t i = 0; state && i < (size_t) state->copies * state->nshards; i++)
+	{
+		(void) cudaSetDevice(state->shards[i].device);
+		(void) cudaFree(bitmap->device[i]);
+	}
+	free(bitmap->device);
+	bitmap->device = NULL;
+}
+
 static AnnStatus
 LoadIndex(const char *name, const char *directory)
 {
@@ -828,6 +880,8 @@ LoadIndex(const char *name, const char *directory)
 
 	if (status != ANN_OK)
 		return status;
+	AnnIndexBitmapDevice.upload = UploadBitmap;
+	AnnIndexBitmapDevice.release = ReleaseBitmap;
 	if (file->nshards == 0 || cudaGetDeviceCount(&devices) != cudaSuccess || devices <= 0)
 	{
 		/* No CAGRA shards or devices: serve exact results from the files. */
@@ -862,15 +916,20 @@ LoadIndex(const char *name, const char *directory)
 	/*
 	 * Blocking synchronization lets waiting lanes sleep instead of spinning a
 	 * core each, leaving CPUs to PostgreSQL. It must precede context
-	 * creation. Stream-ordered allocation outside lane pools avoids
-	 * device-wide syncs.
+	 * creation. Allocations outside lane pools (cuVS allocates temporaries
+	 * per filtered search) use stream-ordered allocation, which avoids
+	 * device-wide syncs, or with --memory-pool an RMM pool per GPU, which
+	 * also avoids the driver allocator's process-wide locks.
 	 */
 	for (int d = 0; d < devices; d++)
 		if (cudaSetDevice(d) != cudaSuccess ||
 			(cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync) != cudaSuccess &&
 			 cudaGetLastError() != cudaErrorSetOnActiveProcess) ||
-			cuvsRMMAsyncMemoryResourceEnable() != CUVS_SUCCESS)
-			fprintf(stderr, "cuVS: asynchronous memory resource unavailable on device %d\n", d);
+			(AnnIndexConfig.memory_pool ?
+			 cuvsRMMPoolMemoryResourceEnable((int) AnnIndexConfig.memory_pool / 4 + 1,
+											 (int) AnnIndexConfig.memory_pool, false) :
+			 cuvsRMMAsyncMemoryResourceEnable()) != CUVS_SUCCESS)
+			fprintf(stderr, "cuVS: memory resource unavailable on device %d\n", d);
 	for (uint32_t s = 0; s < total; s++)
 	{
 		uint32_t	copy = s / file->nshards;
@@ -1001,8 +1060,8 @@ RoundTopK(uint32_t value)
  */
 static int
 SearchShards(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnIndexJob *const *jobs,
-			 uint32_t m, uint32_t k, uint32_t itopk, uint32_t **bitsets, const int *useShard,
-			 AnnIndexHit *lists, uint32_t *counts)
+			 uint32_t m, uint32_t k, uint32_t itopk, uint32_t **bitsets, void *const *deviceBitsets,
+			 const int *useShard, AnnIndexHit *lists, uint32_t *counts)
 {
 	uint32_t	dims = file->dimensions;
 	size_t		unit = state->fp16 ? 2 : 4;
@@ -1013,11 +1072,13 @@ SearchShards(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnIndexJob *c
 	size_t		perDevice[ANN_CUVS_MAX_DEVICES] = {0};
 	size_t		bitsetWords[ANN_CUVS_MAX_DEVICES] = {0};
 	AnnCuvsShard *shards;
+	uint32_t	copy;
 	int			ok = host != NULL;
 
 	if (laneHome < 0)
 		laneHome = (int) (atomic_fetch_add(&nextHome, 1) % ANN_CUVS_MAX_DEVICES);
-	shards = state->shards + (size_t) (laneHome % state->copies) * state->nshards;
+	copy = (uint32_t) (laneHome % state->copies);
+	shards = state->shards + (size_t) copy * state->nshards;
 
 	/*
 	 * Each shard gets m * k result slots, and its own bitset slot, in its
@@ -1087,7 +1148,15 @@ SearchShards(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnIndexJob *c
 		queries = QueryTensor(lane->queries, shard->device, state->fp16, queryShape);
 		neighbors = Tensor(lane->neighbors + slot[s], kDLCUDA, shard->device, kDLUInt, 2, resultShape);
 		distances = Tensor(lane->distances + slot[s], kDLCUDA, shard->device, kDLFloat, 2, resultShape);
-		if (bitsets)
+		if (bitsets && deviceBitsets && deviceBitsets[(size_t) copy * state->nshards + s])
+		{
+			/* Cached on this shard's device when the bitmap was pushed. */
+			mask = Tensor(deviceBitsets[(size_t) copy * state->nshards + s], kDLCUDA, shard->device,
+						  kDLUInt, 1, bitsetShape);
+			filter.type = BITSET;
+			filter.addr = (uintptr_t) &mask;
+		}
+		else if (bitsets)
 		{
 			if (cudaMemcpyAsync(lane->bitset + bitsetSlot[s], bitsets[s], words * sizeof(uint32_t),
 								cudaMemcpyHostToDevice, stream) != cudaSuccess)
@@ -1598,7 +1667,8 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		if ((double) job->nfilter / (double) file->rows < 0.25 && AnnIndexConfig.filtered_itopk > itopk)
 			itopk = AnnIndexConfig.filtered_itopk;
 		if (graphLists == NULL ||
-			!SearchShards(file, state, jobs, 1, k, itopk, bitsets, useShard, graphLists, graphCounts))
+			!SearchShards(file, state, jobs, 1, k, itopk, bitsets, job->deviceBitsets, useShard, graphLists,
+						  graphCounts))
 			job->status = ANN_BACKEND_ERROR;
 		else
 		{
@@ -1690,7 +1760,8 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		if (selectivity < 0.25)
 			itopk = AnnIndexConfig.filtered_itopk > itopk ? AnnIndexConfig.filtered_itopk : itopk;
 		if (graphLists == NULL ||
-			!SearchShards(file, state, jobs, 1, k, itopk, bitsets, useShard, graphLists, graphCounts))
+			!SearchShards(file, state, jobs, 1, k, itopk, bitsets, prebuilt ? job->deviceBitsets : NULL, useShard,
+						  graphLists, graphCounts))
 		{
 			free(graphLists);
 			job->status = ANN_BACKEND_ERROR;
@@ -1735,7 +1806,7 @@ SearchUnfiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob **jo
 	lists = malloc(sizeof(AnnIndexHit) * (size_t) m * state->nshards * k);
 	counts = calloc((size_t) m * state->nshards, sizeof(uint32_t));
 	if (lists == NULL || counts == NULL ||
-		!SearchShards(file, state, (const AnnIndexJob *const *) jobs, m, k, itopk, NULL, useShard, lists, counts))
+		!SearchShards(file, state, (const AnnIndexJob *const *) jobs, m, k, itopk, NULL, NULL, useShard, lists, counts))
 	{
 		for (uint32_t j = 0; j < m; j++)
 			jobs[j]->status = ANN_BACKEND_ERROR;

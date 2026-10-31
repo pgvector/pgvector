@@ -69,13 +69,29 @@ typedef struct AnnIndexBitmap
 	uint32_t   *owned[ANN_INDEX_MAX_SHARDS];
 	int64_t    *keys;			/* NULL for filters only the graph route takes */
 	uint64_t   *ordinals;
+	void	  **device;			/* backend copies of the bitsets, or NULL */
 	int			references;
 	struct AnnIndexBitmap *next;
 } AnnIndexBitmap;
 
+/*
+ * Backend hooks for cached bitmaps: upload copies the per-shard bitsets to
+ * device memory before the bitmap is published (failure leaves device NULL,
+ * and searches copy them per query); release frees those copies.
+ */
+typedef struct AnnIndexFile AnnIndexFile;
+
+typedef struct AnnIndexBitmapHooks
+{
+	void		(*upload) (AnnIndexFile *file, AnnIndexBitmap *bitmap);
+	void		(*release) (AnnIndexFile *file, AnnIndexBitmap *bitmap);
+} AnnIndexBitmapHooks;
+
+extern AnnIndexBitmapHooks AnnIndexBitmapDevice;
+
 #define ANN_INDEX_BITMAP_BUCKETS 1024
 
-typedef struct AnnIndexFile
+struct AnnIndexFile
 {
 	char		name[ANN_INDEX_NAME_MAX + 1];
 	char		directory[1024];
@@ -98,7 +114,7 @@ typedef struct AnnIndexFile
 	size_t		keysBytes;		/* mapped or reserved bytes, for munmap */
 	size_t		vectorsBytes;
 	void	   *device;			/* backend-owned device state */
-} AnnIndexFile;
+};
 
 /* Worker-wide tuning shared by index backends; set once before serving. */
 typedef struct AnnIndexOptions
@@ -115,6 +131,9 @@ typedef struct AnnIndexOptions
 	uint32_t	filtered_algo;	/* bitset CAGRA: 0 auto, 1 single, 2 multi CTA */
 	uint32_t	filtered_width; /* bitset CAGRA search width, 0 default */
 	uint32_t	filtered_iterations;	/* bitset CAGRA max iterations, 0 auto */
+	int			device_bitmaps; /* keep cached bitmaps' bitsets on the GPUs */
+	uint32_t	memory_pool;	/* RMM pool per GPU, max % of memory; 0 for
+								 * stream-ordered allocation */
 } AnnIndexOptions;
 
 extern AnnIndexOptions AnnIndexConfig;

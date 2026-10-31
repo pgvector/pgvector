@@ -75,7 +75,7 @@ COMMENT ON FUNCTION ann_attribute_search(text, vector, integer, text, integer[])
 -- filter conditions precomputed as bitmaps over an index's rows
 
 CREATE TABLE ann_filter_bitmap (
-	id bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+	id bigint NOT NULL UNIQUE,
 	index_name text NOT NULL,
 	filter text NOT NULL,
 	eligible bigint NOT NULL,

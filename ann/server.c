@@ -1207,7 +1207,10 @@ SubmitCached(Service *service, Connection *connection, int rdma, uint64_t reques
 		job->index.ordinals = bitmap->ordinals;
 	}
 	if (file->nshards)
+	{
 		job->index.bitsets = bitmap->bitsets;
+		job->index.deviceBitsets = bitmap->device;
+	}
 	if (job->index.filter == NULL && job->index.bitsets == NULL)
 	{
 		/* Neither form usable: the worker's limits changed under the entry. */

@@ -87,6 +87,8 @@ flowchart LR
 | `--filtered-itopk N` | Internal top-k for selective filters: at most 512 with single-CTA search, 4096 with multi-CTA. |
 | `--filtered-algo`, `--filtered-width`, `--filtered-iterations` | CAGRA algorithm (default `multi`), search width (default 4) and iteration limit for bitset-filtered searches. |
 | `--bitset-min ROWS` | Attribute values with more rows get prebuilt per-shard bitsets (default 4,000,000). |
+| `--memory-pool PERCENT` | Serve cuVS's temporary allocations from an RMM pool on each GPU, growing up to this share of its memory (default 80; index data is allocated from it too). `0` uses stream-ordered `cudaMallocAsync` instead, whose process-wide driver locks serialized concurrent searches: on 8 GPUs with 96 lanes the pool raised unfiltered ANN from 158k to 370k QPS and 10% filtered CAGRA from 6.6k to 102k ([details](ann-gpu-filters.md#scaling-across-gpus-and-hosts)). |
+| `--device-bitmaps on\|off` | Keep cached filter bitmaps' per-shard bitsets in GPU memory (default on), instead of copying them per filtered search. |
 | `--max-batch N`, `--delay-us N` | Queries per CAGRA submission, and an optional wait to fill a batch. |
 | `--lanes N` | Concurrent submissions across all GPUs. |
 | `--cagra-persistent on` | cuVS persistent search kernels, for many small batches. |

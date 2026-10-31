@@ -406,6 +406,13 @@ class IndexSqlTests(unittest.TestCase):
         built = self.psql(';'.join(f"SELECT ann_filter_bitmap_build('{self.name}', $f${f}$f$)" for f in filters))
         self.assertEqual(built.split(), self.psql(';'.join(
             f'SELECT count(*) FROM {self.table} WHERE {f}' for f in filters)).split())
+        # Ids hash the index name and filter text: stable across rebuilds and
+        # hosts, so hosts sharing GPU nodes share cached bitmaps.
+        ids = f"SELECT string_agg(id::text, ',' ORDER BY filter) FROM ann_filter_bitmap WHERE index_name = '{self.name}'"
+        before = self.psql(ids).strip()
+        self.psql(f"SELECT ann_filter_bitmap_build('{self.name}', 'tenant = 3')")
+        self.assertEqual(self.psql(ids).strip(), before)
+        self.assertEqual(len(set(before.split(','))), len(filters))
         for f in filters:
             output = self.psql(f"""
                 SELECT count(*) FILTER (WHERE a IS DISTINCT FROM b) FROM (

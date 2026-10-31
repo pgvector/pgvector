@@ -3,6 +3,7 @@
 #include "ann.h"
 #include "catalog/namespace.h"
 #include "catalog/pg_type_d.h"
+#include "common/hashfn.h"
 #include "executor/spi.h"
 #include "fmgr.h"
 #include "funcapi.h"
@@ -141,6 +142,22 @@ BitmapTableName(FunctionCallInfo fcinfo)
 }
 
 static int64 PushAllBitmaps(FunctionCallInfo fcinfo, const char *name);
+
+/*
+ * A filter's cache id: a hash of the index name and the filter's text. Every
+ * PostgreSQL host computes the same id for the same filter, so hosts sharing
+ * GPU nodes share cached bitmaps instead of overwriting each other's.
+ */
+static int64
+FilterId(const char *name, const char *filter)
+{
+	StringInfoData key;
+
+	initStringInfo(&key);
+	appendBinaryStringInfo(&key, name, strlen(name) + 1);
+	appendStringInfoString(&key, filter);
+	return (int64) hash_bytes_extended((const unsigned char *) key.data, key.len, 0x616e6e5f62697473);
+}
 
 static char *
 QualifiedSource(const char *source)
@@ -922,10 +939,9 @@ ann_filter_bitmap_build(PG_FUNCTION_ARGS)
 	uint32		replyLength;
 	uint64		eligible;
 	bytea	   *bitmap;
-	Oid			types[4] = {TEXTOID, TEXTOID, INT8OID, BYTEAOID};
-	Datum		values[4];
+	Oid			types[5] = {TEXTOID, TEXTOID, INT8OID, BYTEAOID, INT8OID};
+	Datum		values[5];
 	int64		id;
-	bool		isnull;
 	bool		ok;
 	int			failures;
 
@@ -967,15 +983,16 @@ ann_filter_bitmap_build(PG_FUNCTION_ARGS)
 	values[1] = CStringGetTextDatum(filter);
 	values[2] = Int64GetDatum((int64) eligible);
 	values[3] = PointerGetDatum(bitmap);
+	id = FilterId(name, filter);
+	values[4] = Int64GetDatum(id);
 	if (SPI_connect() != SPI_OK_CONNECT)
 		elog(ERROR, "SPI_connect failed");
-	if (SPI_execute_with_args(psprintf("INSERT INTO %s (index_name, filter, eligible, bitmap) VALUES ($1, $2, $3, $4) "
+	if (SPI_execute_with_args(psprintf("INSERT INTO %s (index_name, filter, eligible, bitmap, id) VALUES ($1, $2, $3, $4, $5) "
 									   "ON CONFLICT (index_name, filter) DO UPDATE SET eligible = excluded.eligible, "
-									   "bitmap = excluded.bitmap, built_at = now() RETURNING id",
+									   "bitmap = excluded.bitmap, built_at = now()",
 									   BitmapTableName(fcinfo)),
-							  4, types, values, NULL, false, 1) != SPI_OK_INSERT_RETURNING || SPI_processed != 1)
+							  5, types, values, NULL, false, 0) != SPI_OK_INSERT)
 		elog(ERROR, "could not store the ann filter bitmap");
-	id = DatumGetInt64(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
 	SPI_finish();
 
 	/* The row is the source of truth; searches push it again if needed. */
