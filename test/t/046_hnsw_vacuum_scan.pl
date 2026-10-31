@@ -30,7 +30,7 @@ $node->pgbench(
     [qr{^$}],
     "concurrent SELECTs and VACUUM",
     {
-        "046_hnsw_vacuum_scan_select\@1000" => "SELECT i FROM tst ORDER BY v <-> '[0,0,0]' LIMIT 10;",
+        "046_hnsw_vacuum_scan_select\@1000" => "SET hnsw.iterative_scan = strict_order; SELECT i FROM tst ORDER BY v <-> '[0,0,0]' LIMIT 10;",
         "046_hnsw_vacuum_scan_vacuum\@1" => "VACUUM tst;"
     }
 );

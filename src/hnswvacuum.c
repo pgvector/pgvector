@@ -503,6 +503,108 @@ RepairGraph(HnswVacuumState * vacuumstate)
 }
 
 /*
+ * Repair deleting neighbors
+ */
+static void
+RepairDeletingNeighbors(HnswVacuumState * vacuumstate, ItemPointer neighbortid)
+{
+	Relation	index = vacuumstate->index;
+	BufferAccessStrategy bas = vacuumstate->bas;
+	Buffer		nbuf;
+	Page		npage;
+	GenericXLogState *state;
+	HnswNeighborTuple ntup;
+
+	nbuf = ReadBufferExtended(index, MAIN_FORKNUM, ItemPointerGetBlockNumber(neighbortid), RBM_NORMAL, bas);
+	LockBuffer(nbuf, BUFFER_LOCK_EXCLUSIVE);
+	state = GenericXLogStart(index);
+	npage = GenericXLogRegisterBuffer(state, nbuf, 0);
+	ntup = (HnswNeighborTuple) PageGetItem(npage, PageGetItemId(npage, ItemPointerGetOffsetNumber(neighbortid)));
+
+	/* Overwrite neighbors */
+	for (int i = 0; i < ntup->count; i++)
+		ItemPointerSetInvalid(&ntup->indextids[i]);
+
+	/*
+	 * We modified the tuple in place, no need to call PageIndexTupleOverwrite
+	 */
+
+	/* Commit */
+	GenericXLogFinish(state);
+	UnlockReleaseBuffer(nbuf);
+}
+
+/*
+ * Repair deleting
+ */
+static void
+RepairDeleting(HnswVacuumState * vacuumstate)
+{
+	Relation	index = vacuumstate->index;
+	BufferAccessStrategy bas = vacuumstate->bas;
+	BlockNumber blkno = HNSW_HEAD_BLKNO;
+
+	/*
+	 * Wait for inserts and index scans to complete. Inserts and scans started
+	 * before this point may visit tuples about to be deleted. Inserts and
+	 * scans started after this point will not, since the graph has been
+	 * repaired. However, resumed iterative scans may still visit.
+	 */
+	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
+
+	LockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
+	UnlockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
+
+	while (BlockNumberIsValid(blkno))
+	{
+		Buffer		buf;
+		Page		page;
+		OffsetNumber offno;
+		OffsetNumber maxoffno;
+		ItemPointerData neighbortids[MaxOffsetNumber];
+		int			neighbortidsLength = 0;
+
+		vacuum_delay_point();
+
+		buf = ReadBufferExtended(index, MAIN_FORKNUM, blkno, RBM_NORMAL, bas);
+		LockBuffer(buf, BUFFER_LOCK_SHARE);
+		page = BufferGetPage(buf);
+		maxoffno = PageGetMaxOffsetNumber(page);
+
+		/* Load items into memory to minimize locking */
+		for (offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+		{
+			HnswElementTuple etup = (HnswElementTuple) PageGetItem(page, PageGetItemId(page, offno));
+			ItemPointer neighbortid;
+
+			/* Skip neighbor tuples */
+			if (!HnswIsElementTuple(etup))
+				continue;
+
+			/* Skip deleted tuples */
+			if (etup->deleted)
+				continue;
+
+			/* Skip live tuples */
+			if (ItemPointerIsValid(&etup->heaptids[0]))
+				continue;
+
+			/* Get neighbor TID */
+			neighbortid = &neighbortids[neighbortidsLength++];
+			ItemPointerCopy(&etup->neighbortid, neighbortid);
+		}
+
+		blkno = HnswPageGetOpaque(page)->nextblkno;
+
+		UnlockReleaseBuffer(buf);
+
+		for (int i = 0; i < neighbortidsLength; i++)
+			RepairDeletingNeighbors(vacuumstate, &neighbortids[i]);
+	}
+}
+
+/*
  * Confirm graph was repaired
  */
 static void
@@ -542,10 +644,6 @@ ConfirmRepaired(HnswVacuumState * vacuumstate)
 
 			/* Skip deleted tuples */
 			if (etup->deleted)
-				continue;
-
-			/* Skip if being deleted */
-			if (!ItemPointerIsValid(&etup->heaptids[0]))
 				continue;
 
 			/* Get neighbor page */
@@ -601,16 +699,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 	bool		useFsm = HnswGetTypeInfo(index)->useFsm;
 
-	/*
-	 * Wait for inserts and index scans to complete. Inserts and scans before
-	 * this point may visit tuples about to be deleted. Inserts and scans
-	 * after this point will not, since the graph has been repaired.
-	 */
-	LockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
-	UnlockPage(index, HNSW_UPDATE_LOCK, ExclusiveLock);
-
-	ConfirmRepaired(vacuumstate);
-
+	/* Wait for iterative scan batch to complete */
 	LockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
 	UnlockPage(index, HNSW_SCAN_LOCK, ExclusiveLock);
 
@@ -803,7 +892,13 @@ hnswbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	/* Pass 2: Repair graph */
 	HnswBench("RepairGraph", RepairGraph(&vacuumstate));
 
-	/* Passes 3 and 4: Confirm repaired and mark as deleted */
+	/* Pass 3: Repair deleting */
+	HnswBench("RepairDeleting", RepairDeleting(&vacuumstate));
+
+	/* Pass 4: Confirm repaired */
+	HnswBench("ConfirmRepaired", ConfirmRepaired(&vacuumstate));
+
+	/* Pass 5: Mark as deleted */
 	HnswBench("MarkDeleted", MarkDeleted(&vacuumstate));
 
 	FreeVacuumState(&vacuumstate);
