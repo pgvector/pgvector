@@ -68,7 +68,7 @@ make installcheck
 ANN_PG_DSN='dbname=test_database' make -C ann check-postgres
 ```
 
-Runtime code remains C; Python drives tests and benchmarks only. Local testing uses PostgreSQL 17.6/macOS ARM64; the full PostgreSQL/Windows CI matrix is still required. Native worker IPC, pre-eligibility admission, process-wide batching, accelerator mappings/generations, and sustained-load validation are next milestones. CAGRA integration and compilation against cuVS remain deferred.
+Runtime code remains C; Python drives tests and benchmarks only. Local testing uses PostgreSQL 17.6/macOS ARM64; the full PostgreSQL CI matrix is still required. Native worker IPC, pre-eligibility admission, process-wide batching, accelerator mappings/generations, and sustained-load validation are next milestones. CAGRA integration and compilation against cuVS remain deferred.
 
 The SQL benchmark generator can include this route alongside the existing exact and HNSW baselines:
 

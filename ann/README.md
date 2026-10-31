@@ -4,7 +4,7 @@ Runtime code in this directory is C. Python is used only by test helpers and ben
 
 ## Build and test
 
-A C11 compiler, POSIX threads, and Make are required for the standalone worker on Linux/macOS. PostgreSQL's main build is independent of this experimental worker. Windows worker threading support remains pending; existing PostgreSQL extension Windows builds are unaffected.
+A C11 compiler, POSIX threads, and Make are required for the standalone worker on Linux/macOS. PostgreSQL's main build is independent of this experimental worker. Windows is not a supported worker platform.
 
 ```sh
 make -C ann

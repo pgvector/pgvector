@@ -498,7 +498,7 @@ flowchart LR
 ### Phase 0: Pin dependencies and establish the baseline
 
 - [ ] Record target PostgreSQL major version, hardware, row counts, dimension, metrics, write rate, `k`, and latency/throughput/recall objectives.
-- [ ] Pin cuVS, CUDA, compiler, and worker build configuration; confirm that the portable C adapter fits both PGXS and Windows builds without a CUDA dependency.
+- [ ] Pin cuVS, CUDA, compiler, and worker build configuration; confirm that the portable C adapter fits PGXS builds without a CUDA dependency. Windows is not a supported worker or accelerator platform.
 - [ ] Review the AM callback boundaries, naming, state ownership, page layout, and proposed SQL objects against the repository conventions in section 9.
 - [ ] Compile and run capability smoke tests for bulk build, reload, bitsets, per-query Roaring, exact search, and result edge cases.
 - [x] Generate representative predicates for both full-text and metadata, including their conjunctions (`benchmarks/ann/postgres.py`; executed on the temporary PostgreSQL 17.6 test cluster).
