@@ -24,9 +24,12 @@ class CuvsIndexTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.directory = tempfile.TemporaryDirectory()
-        # A small exact limit makes 2% filters take the filtered CAGRA route.
+        # A small exact limit sends 2% filters to the GPU: the gather scan by
+        # default, filtered CAGRA when the gather scan is off.
         cls.server = Server('--backend', 'cuvs', '--lanes', '8', '--exact-limit', '500',
                             executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
+        cls.graph = Server('--backend', 'cuvs', '--lanes', '8', '--exact-limit', '500', '--gather-limit', '0',
+                           executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
         cls.table = 'ann_cuvs_' + uuid.uuid4().hex[:10]
         cls.psql(f"""
             CREATE TABLE {cls.table} (id bigint PRIMARY KEY, tenant int, emb vector(32));
@@ -40,31 +43,35 @@ class CuvsIndexTests(unittest.TestCase):
             subprocess.run([sys.executable, BUILD, '--dsn', DSN, '--table', f'public.{cls.table}', '--key', 'id',
                             '--vector', 'emb', '--out', path, '--shards', '4', '--dtype', dtype],
                            check=True, capture_output=True)
-            cls.psql(f"SELECT ann_index_load('{cls.table}_{dtype}', '{path}')")
+            for server in [cls.server, cls.graph]:
+                cls.psql(f"SELECT ann_index_load('{cls.table}_{dtype}', '{path}')", server)
 
     @classmethod
     def tearDownClass(cls):
         cls.psql(f'DROP TABLE {cls.table}')
         cls.server.close()
+        cls.graph.close()
         cls.directory.cleanup()
 
     @classmethod
-    def psql(cls, script):
+    def psql(cls, script, server=None):
         result = subprocess.run([PSQL, DSN, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1'],
-                                input=f"SET ann.worker_socket = '{cls.server.path}';\n" + script,
+                                input=f"SET ann.worker_socket = '{(server or cls.server).path}';\n"
+                                # Send every filter to the worker, never to local SQL.
+                                "SET ann.gpu_min_eligible = 0;\n" + script,
                                 capture_output=True, text=True, timeout=600)
         if result.returncode != 0:
             raise AssertionError(result.stderr)
         return result.stdout.strip()
 
-    def recall(self, index, filtered):
+    def recall(self, index, filtered, server=None):
         fltr = f', ARRAY(SELECT id FROM {self.table} WHERE tenant = q.tenant)' if filtered else ''
         where = 't.tenant = q.tenant' if filtered else 'true'
         return float(self.psql(f"""
             SELECT avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10 FROM (
               SELECT ARRAY(SELECT s.id FROM ann_index_search('{index}', q.emb, 10{fltr}) s) a,
                      ARRAY(SELECT t.id FROM {self.table} t WHERE {where} ORDER BY t.emb <-> q.emb LIMIT 10) b
-              FROM {self.table} q WHERE q.id % 1200 = 0) x"""))
+              FROM {self.table} q WHERE q.id % 1200 = 0) x""", server))
 
     def test_ann_recall(self):
         for dtype in ['float32', 'float16']:
@@ -73,12 +80,30 @@ class CuvsIndexTests(unittest.TestCase):
     def test_filtered_graph_route(self):
         for dtype in ['float32', 'float16']:
             index = f'{self.table}_{dtype}'
-            self.assertGreaterEqual(self.recall(index, True), 0.9, dtype)
+            self.assertGreaterEqual(self.recall(index, True, self.graph), 0.9, dtype)
             outside = self.psql(f"""
                 SELECT count(*) FROM {self.table} q, ann_index_search('{index}', q.emb, 10,
                     ARRAY(SELECT id FROM {self.table} WHERE tenant = q.tenant)) s
-                JOIN {self.table} t USING (id) WHERE q.id % 1200 = 0 AND t.tenant <> q.tenant""")
+                JOIN {self.table} t USING (id) WHERE q.id % 1200 = 0 AND t.tenant <> q.tenant""", self.graph)
             self.assertEqual(outside, '0')
+
+    def test_gather_route_matches_sql(self):
+        # 800 eligible keys (2%) across all 4 shards, plus keys missing from
+        # the index: the gather scan is exact, so ids, order and distances
+        # match SQL.
+        for dtype in ['float32', 'float16']:
+            mismatches = self.psql(f"""
+                SELECT count(*) FILTER (WHERE a IS DISTINCT FROM b OR e > 1e-4) FROM (
+                  SELECT ARRAY(SELECT s.id FROM ann_index_search('{self.table}_{dtype}', q.emb, 10,
+                            ARRAY(SELECT id FROM {self.table} WHERE tenant = q.tenant UNION ALL
+                                  SELECT -1 - g FROM generate_series(1, 50) g)) s ORDER BY s.distance, s.id) a,
+                         ARRAY(SELECT t.id FROM {self.table} t WHERE t.tenant = q.tenant
+                               ORDER BY t.emb <-> q.emb, t.id LIMIT 10) b,
+                         (SELECT max(abs(s.distance - (t.emb <-> q.emb))) FROM ann_index_search(
+                            '{self.table}_{dtype}', q.emb, 10, ARRAY(SELECT id FROM {self.table}
+                            WHERE tenant = q.tenant)) s JOIN {self.table} t USING (id)) e
+                  FROM {self.table} q WHERE q.id % 1200 = 0) x""")
+            self.assertEqual(mismatches, '0', dtype)
 
     def test_exact_route_matches_sql(self):
         # 100 eligible keys is under the exact limit, so results are exact.

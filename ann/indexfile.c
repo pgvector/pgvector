@@ -1,3 +1,8 @@
+/* Huge-page advice and anonymous mappings are not strict C11. */
+#ifdef __linux__
+#define _GNU_SOURCE
+#endif
+
 #include "indexfile.h"
 
 #include <errno.h>
@@ -10,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-AnnIndexOptions AnnIndexConfig = {128, 512, 20000, 0, 0, 0};
+AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000};
 
 typedef struct Entry
 {
@@ -21,6 +26,59 @@ typedef struct Entry
 
 static pthread_mutex_t registryMutex = PTHREAD_MUTEX_INITIALIZER;
 static Entry *registry;
+
+#define ANN_HUGE_PAGE (2 * 1024 * 1024)
+
+/* Bytes reserved for a file's contents: whole huge pages when copied. */
+static size_t
+Reserved(size_t size)
+{
+#ifdef MADV_HUGEPAGE
+	return (size + ANN_HUGE_PAGE - 1) / ANN_HUGE_PAGE * ANN_HUGE_PAGE;
+#else
+	return size;
+#endif
+}
+
+/*
+ * Lookups touch keys and vectors at scattered rows, one page apart for
+ * selective filters, so with 4 KB pages every row is a TLB miss. Where the
+ * kernel supports it, read the file into anonymous memory backed by
+ * transparent huge pages and drop its page cache; otherwise map it.
+ */
+static void *
+ReadHuge(int fd, size_t size)
+{
+#ifdef MADV_HUGEPAGE
+	size_t		reserved = Reserved(size);
+	char	   *memory = mmap(NULL, reserved, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	size_t		done = 0;
+
+	if (memory == MAP_FAILED)
+		return NULL;
+	(void) madvise(memory, reserved, MADV_HUGEPAGE);
+	while (done < size)
+	{
+		ssize_t		n = pread(fd, memory + done, size - done < (1 << 26) ? size - done : (1 << 26), (off_t) done);
+
+		if (n <= 0)
+		{
+			(void) munmap(memory, reserved);
+			return NULL;
+		}
+		done += (size_t) n;
+	}
+	(void) mprotect(memory, reserved, PROT_READ);
+#ifdef POSIX_FADV_DONTNEED
+	(void) posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+#endif
+	return memory;
+#else
+	(void) fd;
+	(void) size;
+	return NULL;
+#endif
+}
 
 static int
 MapFile(const char *directory, const char *name, size_t expected, const void **data, size_t *size)
@@ -44,12 +102,14 @@ MapFile(const char *directory, const char *name, size_t expected, const void **d
 		(void) close(fd);
 		return 0;
 	}
-	mapping = expected ? mmap(NULL, expected, PROT_READ, MAP_SHARED, fd, 0) : NULL;
+	mapping = expected ? ReadHuge(fd, expected) : NULL;
+	*size = mapping ? Reserved(expected) : expected;
+	if (expected && mapping == NULL)
+		mapping = mmap(NULL, expected, PROT_READ, MAP_SHARED, fd, 0);
 	(void) close(fd);
 	if (mapping == MAP_FAILED)
 		return 0;
 	*data = mapping;
-	*size = expected;
 	return 1;
 }
 
@@ -241,36 +301,96 @@ AnnIndexPut(AnnIndexFile *file)
 uint64_t
 AnnIndexOrdinals(const AnnIndexFile *file, const int64_t *keys, uint32_t nkeys, uint64_t *ordinals)
 {
+	const int64_t *index = file->keys;
+	uint64_t	rows = file->rows;
 	uint64_t	count = 0;
 	uint64_t	low = 0;
+	double		density = 0;
 
 	/*
-	 * Both lists are sorted: gallop forward from the previous position, then
-	 * binary search the bracketed range. Dense filters touch nearby keys
-	 * only.
+	 * Both lists are sorted. Each key's position is first guessed from the
+	 * previous one by the index's average key density, then bracketed by
+	 * galloping from the guess and binary searched. Near-dense keys (serial
+	 * ids) land on or next to the guess, touching one or two cache lines per
+	 * key; skewed keys cost a gallop, as without the guess.
 	 */
-	for (uint32_t i = 0; i < nkeys && low < file->rows; i++)
+	if (rows > 1 && index[rows - 1] > index[0])
+		density = (double) (rows - 1) / ((double) index[rows - 1] - (double) index[0]);
+	for (uint32_t i = 0; i < nkeys && low < rows; i++)
 	{
-		uint64_t	high;
+		int64_t		key = keys[i];
+		uint64_t	below = low;	/* index[below] < key */
+		uint64_t	above;		/* index[above] >= key, or rows */
+		uint64_t	guess;
 		uint64_t	step = 1;
+		double		ahead;
 
-		while (low + step < file->rows && file->keys[low + step] < keys[i])
+#if defined(__GNUC__) || defined(__clang__)
+
+		/*
+		 * Each key is usually one cache miss: start loading a later key's
+		 * guessed position so the misses overlap.
+		 */
+		if (density > 0 && i + 16 < nkeys)
 		{
-			low += step;
-			step *= 2;
+			double		later = ((double) keys[i + 16] - (double) index[low]) * density;
+
+			if (later >= 0 && later < (double) (rows - low))
+				__builtin_prefetch(&index[low + (uint64_t) later]);
 		}
-		high = low + step < file->rows ? low + step + 1 : file->rows;
-		while (low < high)
+#endif
+		if (index[low] >= key)
 		{
-			uint64_t	middle = low + (high - low) / 2;
+			if (index[low] == key)
+				ordinals[count++] = low++;
+			continue;
+		}
+		if (low + 1 >= rows)
+			break;
+		ahead = ((double) key - (double) index[low]) * density;
+		guess = ahead < 1 ? low + 1 :
+			ahead < (double) (rows - 1 - low) ? low + (uint64_t) ahead : rows - 1;
+		if (index[guess] < key)
+		{
+			below = guess;
+			above = rows;
+			while (below + step < rows)
+			{
+				if (index[below + step] >= key)
+				{
+					above = below + step;
+					break;
+				}
+				below += step;
+				step *= 2;
+			}
+		}
+		else
+		{
+			above = guess;
+			while (above - low > step)
+			{
+				if (index[above - step] < key)
+				{
+					below = above - step;
+					break;
+				}
+				above -= step;
+				step *= 2;
+			}
+		}
+		while (above - below > 1)
+		{
+			uint64_t	middle = below + (above - below) / 2;
 
-			if (file->keys[middle] < keys[i])
-				low = middle + 1;
+			if (index[middle] < key)
+				below = middle;
 			else
-				high = middle;
+				above = middle;
 		}
-		if (low < file->rows && file->keys[low] == keys[i])
-			ordinals[count++] = low++;
+		if (above < rows && index[above] == key)
+			ordinals[count++] = above++;
+		low = above;
 	}
 	return count;
 }

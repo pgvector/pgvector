@@ -326,8 +326,8 @@ main(int argc, char **argv)
 			AnnIndexConfig.persistent = strcmp(value, "on") == 0;
 		else if (strcmp(argv[i], "--replicate") == 0)
 			AnnIndexConfig.replicate = strcmp(value, "on") == 0;
-		else if (strcmp(argv[i], "--filtered-bruteforce") == 0)
-			AnnIndexConfig.filtered_bruteforce = strcmp(value, "on") == 0;
+		else if (strcmp(argv[i], "--gather-limit") == 0)
+			AnnIndexConfig.gather_limit = (uint32_t) strtoul(value, NULL, 10);
 		else
 			goto usage;
 	}
@@ -495,12 +495,12 @@ usage:
 #ifdef ANN_USE_CUVS
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
-			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--filtered-bruteforce on|off]]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
-			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--filtered-bruteforce on|off]]\n"
+			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS]]\n"
 			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");
 #endif
 	return 2;

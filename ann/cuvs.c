@@ -5,9 +5,17 @@
 #include "backend.h"
 #include "indexfile.h"
 
+/* The driver API header has enumerators that are not strict ISO C. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#include <cuda.h>
+#pragma GCC diagnostic pop
 #include <cuda_runtime_api.h>
 #include <cuvs/neighbors/brute_force.h>
 #include <cuvs/neighbors/cagra.h>
+#include <cuvs/selection/select_k.h>
+#include <nvrtc.h>
+#include <dlfcn.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -556,8 +564,9 @@ typedef struct AnnCuvsShard
 	cuvsResources_t resources;	/* load-time owner of the index memory */
 	cuvsCagraIndex_t index;
 	cuvsDataset_t dataset;
-	float	   *vectors;		/* FP32 device copy for filtered brute force */
-	cuvsBruteForceIndex_t bruteForce;
+	const void *rows;			/* device view of the CAGRA dataset */
+	int64_t    *keys;			/* device copy of the shard's sorted keys */
+	int64_t		stride;			/* elements between rows */
 } AnnCuvsShard;
 
 /*
@@ -586,11 +595,17 @@ typedef struct AnnCuvsDevice
 	uint32_t   *bitset;
 	uint32_t   *hostNeighbors;	/* pinned */
 	float	   *hostDistances;	/* pinned */
-	int64_t    *neighbors64;	/* brute-force results, device then pinned */
-	int64_t    *hostNeighbors64;
+	int64_t    *gatherKeys;		/* gather scan: filter keys of one shard */
+	uint32_t   *gatherRows;		/* their shard rows, UINT32_MAX if absent */
+	float	   *gatherScores;	/* squared distance per eligible row */
+	float	   *gatherBest;		/* selected distances */
+	int64_t    *gatherIndex;	/* selected positions in gatherKeys */
+	int64_t    *hostKeys;		/* pinned */
+	int64_t    *hostIndex;		/* pinned */
+	size_t		gatherCount;
+	size_t		gatherTop;
 	size_t		queryBytes;
 	size_t		resultCount;
-	size_t		result64Count;
 	size_t		bitsetWords;
 } AnnCuvsDevice;
 
@@ -747,26 +762,29 @@ LoadShard(void *argument)
 	}
 
 	/*
-	 * Selective filters run exact brute force over an FP32 device copy of the
-	 * shard, masked by the eligibility bitset; build its norms once here.
+	 * The gather scan reads rows straight from the index's device dataset,
+	 * whose rows may be padded.
 	 */
-	if (AnnIndexConfig.filtered_bruteforce)
 	{
-		size_t		count = (size_t) args->file->shards[args->shard].rows * args->file->dimensions;
-		int64_t		shape[2] = {args->file->shards[args->shard].rows, args->file->dimensions};
-		DLManagedTensor data;
+		DLManagedTensor view = {0};
 
-		if (cudaMalloc((void **) &shard->vectors, count * sizeof(float)) != cudaSuccess ||
-			cudaMemcpy(shard->vectors, args->file->vectors + args->file->shards[args->shard].first * args->file->dimensions,
-					   count * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess ||
-			cuvsBruteForceIndexCreate(&shard->bruteForce) != CUVS_SUCCESS ||
-			(data = Tensor(shard->vectors, kDLCUDA, shard->device, kDLFloat, 2, shape),
-			 cuvsBruteForceBuild(shard->resources, &data, L2Expanded, 0, shard->bruteForce)) != CUVS_SUCCESS ||
-			cuvsStreamSync(shard->resources) != CUVS_SUCCESS)
+		if (cuvsCagraIndexGetDataset(shard->index, &view) == CUVS_SUCCESS &&
+			view.dl_tensor.ndim == 2 && view.dl_tensor.device.device_type == kDLCUDA &&
+			view.dl_tensor.dtype.bits == (strcmp(args->file->dtype, "float16") == 0 ? 16 : 32))
 		{
-			fprintf(stderr, "cuVS: cannot build brute-force copy of %s\n", path);
-			return NULL;
+			shard->rows = view.dl_tensor.data;
+			shard->stride = view.dl_tensor.strides ? view.dl_tensor.strides[0] : view.dl_tensor.shape[1];
 		}
+		if (view.deleter)
+			view.deleter(&view);
+	}
+	if (cudaMalloc((void **) &shard->keys, (size_t) args->file->shards[args->shard].rows * sizeof(int64_t)) != cudaSuccess ||
+		cudaMemcpy(shard->keys, args->file->keys + args->file->shards[args->shard].first,
+				   (size_t) args->file->shards[args->shard].rows * sizeof(int64_t), cudaMemcpyHostToDevice) != cudaSuccess)
+	{
+		if (shard->keys)
+			(void) cudaFree(shard->keys);
+		shard->keys = NULL;
 	}
 	args->status = ANN_OK;
 	return NULL;
@@ -782,10 +800,8 @@ DestroyIndexState(AnnCuvsIndex *state)
 		AnnCuvsShard *shard = &state->shards[s];
 
 		(void) cudaSetDevice(shard->device);
-		if (shard->bruteForce)
-			(void) cuvsBruteForceIndexDestroy(shard->bruteForce);
-		if (shard->vectors)
-			(void) cudaFree(shard->vectors);
+		if (shard->keys)
+			(void) cudaFree(shard->keys);
 		if (shard->index)
 			(void) cuvsCagraIndexDestroy(shard->index);
 		if (shard->dataset)
@@ -1108,74 +1124,317 @@ MergeJob(AnnIndexJob *job, AnnIndexHit *lists, uint32_t *counts, uint32_t nshard
 }
 
 /*
- * Exact filtered search of one query on the GPU: brute force over each
- * shard's FP32 copy, masked by its eligibility bitset. Each shard returns up
- * to n candidates, re-scored and sorted like graph results.
+ * Gather scan: exact filtered search over only the eligible rows, read from
+ * the CAGRA dataset already in device memory. One warp scores one row, then
+ * cuVS selects the top k. Cost follows the eligible count, not the shard
+ * size, so it beats a mostly-masked graph walk for selective filters (an
+ * inverted posting list scanned on the GPU). The kernel is compiled with
+ * NVRTC on first use, so building the worker needs no CUDA compiler.
+ */
+static const char GatherSource[] =
+"__device__ __forceinline__ float load(const float *p) { return *p; }\n"
+"__device__ __forceinline__ float load(const unsigned short *p)\n"
+"{ float f; unsigned short h = *p; asm(\"cvt.f32.f16 %0, %1;\" : \"=f\"(f) : \"h\"(h)); return f; }\n"
+"template <typename T> __device__ void gather(const T *data, long long stride, const unsigned *rows,\n"
+"    unsigned n, const float *query, int dims, float *out)\n"
+"{\n"
+"  unsigned i = (blockIdx.x * blockDim.x + threadIdx.x) >> 5;\n"
+"  int lane = threadIdx.x & 31;\n"
+"  if (i >= n) return;\n"
+"  if (rows[i] == 0xffffffffu) { if (lane == 0) out[i] = __int_as_float(0x7f800000); return; }\n"
+"  const T *v = data + (long long) rows[i] * stride;\n"
+"  float s = 0.0f;\n"
+"  for (int d = lane; d < dims; d += 32) { float t = load(v + d) - query[d]; s += t * t; }\n"
+"  for (int o = 16; o; o >>= 1) s += __shfl_xor_sync(0xffffffffu, s, o);\n"
+"  if (lane == 0) out[i] = s;\n"
+"}\n"
+"extern \"C\" __global__ void lookup(const long long *index, unsigned rows, const long long *keys,\n"
+"    unsigned n, unsigned *out)\n"
+"{\n"
+"  unsigned i = blockIdx.x * blockDim.x + threadIdx.x;\n"
+"  if (i >= n) return;\n"
+"  long long key = keys[i];\n"
+"  unsigned low = 0, high = rows;\n"
+"  while (low < high) { unsigned m = low + (high - low) / 2; if (index[m] < key) low = m + 1; else high = m; }\n"
+"  out[i] = low < rows && index[low] == key ? low : 0xffffffffu;\n"
+"}\n"
+"extern \"C\" __global__ void gather_f32(const float *d, long long st, const unsigned *r, unsigned n,\n"
+"    const float *q, int dims, float *o) { gather(d, st, r, n, q, dims, o); }\n"
+"extern \"C\" __global__ void gather_f16(const unsigned short *d, long long st, const unsigned *r,\n"
+"    unsigned n, const float *q, int dims, float *o) { gather(d, st, r, n, q, dims, o); }\n";
+
+#define ANN_GATHER_BLOCK 256
+#define ANN_GATHER_SLACK 32		/* extra FP16 candidates re-scored in FP32 */
+#define ANN_EXACT_FALLBACK 20000	/* CPU exact limit when gather cannot run */
+
+typedef struct GatherModule
+{
+	int			state;			/* 0 untried, 1 ready, -1 unavailable */
+	CUcontext	context;
+	CUmodule	module;
+	CUfunction	lookup;
+	CUfunction	f32;
+	CUfunction	f16;
+} GatherModule;
+
+static GatherModule gatherModules[ANN_CUVS_MAX_DEVICES];
+static pthread_mutex_t gatherMutex = PTHREAD_MUTEX_INITIALIZER;
+
+/*
+ * NVRTC is opened at run time: it is needed once per device, and the worker
+ * still serves (with CAGRA for filtered queries) on hosts without it.
+ */
+static struct
+{
+	nvrtcResult (*create) (nvrtcProgram *, const char *, const char *, int, const char *const *,
+						   const char *const *);
+	nvrtcResult (*compile) (nvrtcProgram, int, const char *const *);
+	nvrtcResult (*cubinSize) (nvrtcProgram, size_t *);
+	nvrtcResult (*cubin) (nvrtcProgram, char *);
+	nvrtcResult (*logSize) (nvrtcProgram, size_t *);
+	nvrtcResult (*log) (nvrtcProgram, char *);
+	nvrtcResult (*destroy) (nvrtcProgram *);
+}			nvrtc;
+
+static int
+OpenNvrtc(void)
+{
+	static const char *names[] = {"libnvrtc.so", "libnvrtc.so.13", "libnvrtc.so.12"};
+	void	   *library = NULL;
+
+	if (nvrtc.destroy)
+		return 1;
+	for (size_t i = 0; library == NULL && i < sizeof(names) / sizeof(names[0]); i++)
+		library = dlopen(names[i], RTLD_NOW | RTLD_LOCAL);
+	if (library == NULL)
+		return 0;
+	/* Assigning through void ** keeps ISO C object/function casts out. */
+	*(void **) &nvrtc.create = dlsym(library, "nvrtcCreateProgram");
+	*(void **) &nvrtc.compile = dlsym(library, "nvrtcCompileProgram");
+	*(void **) &nvrtc.cubinSize = dlsym(library, "nvrtcGetCUBINSize");
+	*(void **) &nvrtc.cubin = dlsym(library, "nvrtcGetCUBIN");
+	*(void **) &nvrtc.logSize = dlsym(library, "nvrtcGetProgramLogSize");
+	*(void **) &nvrtc.log = dlsym(library, "nvrtcGetProgramLog");
+	*(void **) &nvrtc.destroy = dlsym(library, "nvrtcDestroyProgram");
+	if (!nvrtc.create || !nvrtc.compile || !nvrtc.cubinSize || !nvrtc.cubin || !nvrtc.logSize ||
+		!nvrtc.log || !nvrtc.destroy)
+	{
+		nvrtc.destroy = NULL;
+		return 0;
+	}
+	return 1;
+}
+
+/* Compile and load the gather kernels on a device once; NULL if unavailable. */
+static GatherModule *
+GatherKernels(int device)
+{
+	GatherModule *module = &gatherModules[device];
+	nvrtcProgram program = NULL;
+	char		arch[64];
+	char	   *image = NULL;
+	size_t		size = 0;
+	int			major = 0,
+				minor = 0;
+	CUdevice	handle;
+
+	if (module->state != 0)
+		return module->state > 0 ? module : NULL;
+	(void) pthread_mutex_lock(&gatherMutex);
+	if (module->state != 0)
+		goto unlock;
+	module->state = -1;
+	if (!OpenNvrtc() || cuInit(0) != CUDA_SUCCESS || cuDeviceGet(&handle, device) != CUDA_SUCCESS ||
+		cuDevicePrimaryCtxRetain(&module->context, handle) != CUDA_SUCCESS ||
+		cuCtxSetCurrent(module->context) != CUDA_SUCCESS ||
+		cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device) != cudaSuccess ||
+		cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device) != cudaSuccess)
+		goto fail;
+	snprintf(arch, sizeof(arch), "--gpu-architecture=sm_%d%d", major, minor);
+	{
+		const char *options[] = {arch, "--std=c++17", "-default-device"};
+
+		if (nvrtc.create(&program, GatherSource, "gather.cu", 0, NULL, NULL) != NVRTC_SUCCESS ||
+			nvrtc.compile(program, 3, options) != NVRTC_SUCCESS ||
+			nvrtc.cubinSize(program, &size) != NVRTC_SUCCESS || size == 0 ||
+			(image = malloc(size)) == NULL || nvrtc.cubin(program, image) != NVRTC_SUCCESS)
+			goto fail;
+	}
+	if (cuModuleLoadData(&module->module, image) != CUDA_SUCCESS ||
+		cuModuleGetFunction(&module->lookup, module->module, "lookup") != CUDA_SUCCESS ||
+		cuModuleGetFunction(&module->f32, module->module, "gather_f32") != CUDA_SUCCESS ||
+		cuModuleGetFunction(&module->f16, module->module, "gather_f16") != CUDA_SUCCESS)
+		goto fail;
+	module->state = 1;
+	goto unlock;
+fail:
+	if (program)
+	{
+		size_t		logSize = 0;
+		char	   *log;
+
+		if (nvrtc.logSize(program, &logSize) == NVRTC_SUCCESS && logSize > 1 &&
+			(log = malloc(logSize)) != NULL)
+		{
+			if (nvrtc.log(program, log) == NVRTC_SUCCESS)
+				fprintf(stderr, "cuVS gather kernel: %s\n", log);
+			free(log);
+		}
+	}
+	fprintf(stderr, "cuVS: gather scan unavailable on device %d; filtered queries use CAGRA\n", device);
+unlock:
+	if (program)
+		(void) nvrtc.destroy(&program);
+	free(image);
+	(void) pthread_mutex_unlock(&gatherMutex);
+	return module->state > 0 ? module : NULL;
+}
+
+/* Size this lane's gather buffers on its current device. */
+static int
+GatherBuffers(AnnCuvsDevice *lane, size_t rows, size_t top)
+{
+	if (rows > lane->gatherCount)
+	{
+		size_t		count = rows + rows / 2;
+
+		(void) cudaFree(lane->gatherKeys);
+		(void) cudaFree(lane->gatherRows);
+		(void) cudaFree(lane->gatherScores);
+		(void) cudaFreeHost(lane->hostKeys);
+		lane->gatherKeys = NULL;
+		lane->gatherRows = NULL;
+		lane->gatherScores = NULL;
+		lane->hostKeys = NULL;
+		lane->gatherCount = 0;
+		if (cudaMalloc((void **) &lane->gatherKeys, count * sizeof(int64_t)) != cudaSuccess ||
+			cudaMalloc((void **) &lane->gatherRows, count * sizeof(uint32_t)) != cudaSuccess ||
+			cudaMalloc((void **) &lane->gatherScores, count * sizeof(float)) != cudaSuccess ||
+			cudaMallocHost((void **) &lane->hostKeys, count * sizeof(int64_t)) != cudaSuccess)
+			return 0;
+		lane->gatherCount = count;
+	}
+	if (top > lane->gatherTop)
+	{
+		size_t		count = top + top / 2;
+
+		(void) cudaFree(lane->gatherBest);
+		(void) cudaFree(lane->gatherIndex);
+		(void) cudaFreeHost(lane->hostIndex);
+		lane->gatherBest = NULL;
+		lane->gatherIndex = NULL;
+		lane->hostIndex = NULL;
+		lane->gatherTop = 0;
+		if (cudaMalloc((void **) &lane->gatherBest, count * sizeof(float)) != cudaSuccess ||
+			cudaMalloc((void **) &lane->gatherIndex, count * sizeof(int64_t)) != cudaSuccess ||
+			cudaMallocHost((void **) &lane->hostIndex, count * sizeof(int64_t)) != cudaSuccess)
+			return 0;
+		lane->gatherTop = count;
+	}
+	return 1;
+}
+
+/*
+ * Exact top k of one filtered query by gather scan. Keys are sorted and
+ * unique; each shard's slice goes to its device, where a lookup kernel finds
+ * each key's row in the shard's key array (misses score +inf), the gather
+ * kernel scores the rows, and cuVS selects the best. Every shard launches
+ * before any waits; the per-shard lists are re-scored in FP32 and merged.
+ * Returns 0 when the gather scan cannot run, before any result is written.
  */
 static int
-SearchShardsBruteForce(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnIndexJob *job,
-					   uint32_t k, uint32_t **bitsets, const int *useShard, const uint64_t *eligible,
-					   AnnIndexHit *lists, uint32_t *counts)
+SearchGather(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 {
 	uint32_t	dims = file->dimensions;
-	size_t		slot[ANN_INDEX_MAX_SHARDS];
-	size_t		bitsetSlot[ANN_INDEX_MAX_SHARDS];
+	uint32_t	k = job->k;
+	uint32_t	slack = state->fp16 ? ANN_GATHER_SLACK : 0;
+	const int64_t *keys = job->filter;
+	uint64_t	start[ANN_INDEX_MAX_SHARDS + 1];
+	uint64_t	eligible[ANN_INDEX_MAX_SHARDS];
 	uint32_t	wanted[ANN_INDEX_MAX_SHARDS];
-	size_t		perDevice[ANN_CUVS_MAX_DEVICES] = {0};
-	size_t		bitsetWords[ANN_CUVS_MAX_DEVICES] = {0};
+	size_t		keySlot[ANN_INDEX_MAX_SHARDS];
+	size_t		topSlot[ANN_INDEX_MAX_SHARDS];
+	size_t		perDeviceKeys[ANN_CUVS_MAX_DEVICES] = {0};
+	size_t		perDeviceTop[ANN_CUVS_MAX_DEVICES] = {0};
 	int			uploaded[ANN_CUVS_MAX_DEVICES] = {0};
+	uint32_t	counts[ANN_INDEX_MAX_SHARDS] = {0};
+	AnnIndexHit *lists = NULL;
 	AnnCuvsShard *shards;
 	int			ok = 1;
 
 	if (laneHome < 0)
 		laneHome = (int) (atomic_fetch_add(&nextHome, 1) % ANN_CUVS_MAX_DEVICES);
 	shards = state->shards + (size_t) (laneHome % state->copies) * state->nshards;
+
+	/* Split the keys at each shard's first key. */
+	start[0] = 0;
+	start[state->nshards] = job->nfilter;
+	for (uint32_t s = 1; s < state->nshards; s++)
+	{
+		int64_t		boundary = file->keys[file->shards[s].first];
+		uint64_t	low = start[s - 1],
+					high = job->nfilter;
+
+		while (low < high)
+		{
+			uint64_t	middle = low + (high - low) / 2;
+
+			if (keys[middle] < boundary)
+				low = middle + 1;
+			else
+				high = middle;
+		}
+		start[s] = low;
+	}
 	for (uint32_t s = 0; s < state->nshards; s++)
 	{
 		int			device = shards[s].device;
 
-		wanted[s] = (uint32_t) ((uint64_t) k + 32 < eligible[s] ? (uint64_t) k + 32 : eligible[s]);
-		slot[s] = perDevice[device];
-		bitsetSlot[s] = bitsetWords[device];
-		if (!useShard[s])
-			continue;
-		perDevice[device] += wanted[s];
-		bitsetWords[device] += ((size_t) file->shards[s].rows + 31) / 32;
+		eligible[s] = start[s + 1] - start[s];
+		wanted[s] = (uint32_t) ((uint64_t) k + slack < eligible[s] ? (uint64_t) k + slack : eligible[s]);
+		keySlot[s] = perDeviceKeys[device];
+		topSlot[s] = perDeviceTop[device];
+		perDeviceKeys[device] += eligible[s];
+		perDeviceTop[device] += wanted[s];
+		if (eligible[s] && (shards[s].rows == NULL || shards[s].keys == NULL || GatherKernels(device) == NULL))
+			return 0;
 	}
+	lists = malloc(sizeof(AnnIndexHit) * (size_t) (k + slack) * state->nshards);
+	if (lists == NULL)
+		return 0;
 	for (uint32_t s = 0; ok && s < state->nshards; s++)
 	{
 		AnnCuvsShard *shard = &shards[s];
-		size_t		words = ((size_t) file->shards[s].rows + 31) / 32;
-		int64_t		queryShape[2] = {1, dims};
-		int64_t		resultShape[2] = {1, wanted[s]};
-		int64_t		bitmapShape[1] = {(int64_t) words};
-		DLManagedTensor query,
-					neighbors,
-					distances,
-					bitmap;
-		cuvsFilter	filter;
+		GatherModule *module = &gatherModules[shard->device];
+		unsigned	count = (unsigned) eligible[s];
+		unsigned	shardRows = file->shards[s].rows;
+		long long	stride = shard->stride;
+		int			dimensions = (int) dims;
+		int64_t		scoreShape[2] = {1, (int64_t) eligible[s]};
+		int64_t		topShape[2] = {1, wanted[s]};
+		DLManagedTensor scores,
+					best,
+					index;
 		AnnCuvsDevice *lane;
 		cudaStream_t stream;
+		int64_t    *wantedKeys;
+		uint32_t   *rows;
+		float	   *queries;
+		float	   *out;
+		void	   *lookup[5];
+		void	   *gather[7];
+		unsigned	lookupBlocks;
+		unsigned	gatherBlocks;
 
-		if (!useShard[s])
+		if (eligible[s] == 0)
 			continue;
-		lane = LaneDevice(shard->device, dims * sizeof(float), perDevice[shard->device],
-						  bitsetWords[shard->device]);
+		lane = LaneDevice(shard->device, dims * sizeof(float), 1, 1);
 		if (lane == NULL || cuvsStreamGet(lane->resources, &stream) != CUVS_SUCCESS ||
-			!GrowDevice((void **) &lane->neighbors64, &lane->result64Count, perDevice[shard->device], sizeof(int64_t)))
+			!GatherBuffers(lane, perDeviceKeys[shard->device], perDeviceTop[shard->device]) ||
+			cuCtxSetCurrent(module->context) != CUDA_SUCCESS)
 		{
 			ok = 0;
 			break;
-		}
-		if (lane->hostNeighbors64 == NULL || lane->result64Count > lane->resultCount)
-		{
-			(void) cudaFreeHost(lane->hostNeighbors64);
-			lane->hostNeighbors64 = NULL;
-			if (cudaMallocHost((void **) &lane->hostNeighbors64, lane->result64Count * sizeof(int64_t)) != cudaSuccess)
-			{
-				ok = 0;
-				break;
-			}
 		}
 		if (!uploaded[shard->device] &&
 			!(uploaded[shard->device] = cudaMemcpyAsync(lane->queries, job->query, dims * sizeof(float),
@@ -1184,53 +1443,100 @@ SearchShardsBruteForce(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnI
 			ok = 0;
 			break;
 		}
-		query = Tensor(lane->queries, kDLCUDA, shard->device, kDLFloat, 2, queryShape);
-		neighbors = Tensor(lane->neighbors64 + slot[s], kDLCUDA, shard->device, kDLInt, 2, resultShape);
-		neighbors.dl_tensor.dtype.bits = 64;
-		distances = Tensor(lane->distances + slot[s], kDLCUDA, shard->device, kDLFloat, 2, resultShape);
-		bitmap = Tensor(lane->bitset + bitsetSlot[s], kDLCUDA, shard->device, kDLUInt, 1, bitmapShape);
-		filter.addr = (uintptr_t) &bitmap;
-		filter.type = BITMAP;
-		if (cudaMemcpyAsync(lane->bitset + bitsetSlot[s], bitsets[s], words * sizeof(uint32_t),
+		wantedKeys = lane->gatherKeys + keySlot[s];
+		rows = lane->gatherRows + keySlot[s];
+		queries = lane->queries;
+		out = lane->gatherScores + keySlot[s];
+		memcpy(lane->hostKeys + keySlot[s], keys + start[s], eligible[s] * sizeof(int64_t));
+		lookup[0] = &shard->keys;
+		lookup[1] = &shardRows;
+		lookup[2] = &wantedKeys;
+		lookup[3] = &count;
+		lookup[4] = &rows;
+		gather[0] = (void *) &shard->rows;
+		gather[1] = &stride;
+		gather[2] = &rows;
+		gather[3] = &count;
+		gather[4] = &queries;
+		gather[5] = &dimensions;
+		gather[6] = &out;
+		lookupBlocks = (unsigned) ((eligible[s] + ANN_GATHER_BLOCK - 1) / ANN_GATHER_BLOCK);
+		gatherBlocks = (unsigned) ((eligible[s] * 32 + ANN_GATHER_BLOCK - 1) / ANN_GATHER_BLOCK);
+		scores = Tensor(out, kDLCUDA, shard->device, kDLFloat, 2, scoreShape);
+		best = Tensor(lane->gatherBest + topSlot[s], kDLCUDA, shard->device, kDLFloat, 2, topShape);
+		index = Tensor(lane->gatherIndex + topSlot[s], kDLCUDA, shard->device, kDLInt, 2, topShape);
+		index.dl_tensor.dtype.bits = 64;
+		if (cudaMemcpyAsync(wantedKeys, lane->hostKeys + keySlot[s], eligible[s] * sizeof(int64_t),
 							cudaMemcpyHostToDevice, stream) != cudaSuccess ||
-			cuvsBruteForceSearch(lane->resources, shard->bruteForce, &query, &neighbors, &distances,
-								 filter) != CUVS_SUCCESS ||
-			cudaMemcpyAsync(lane->hostNeighbors64 + slot[s], lane->neighbors64 + slot[s],
+			cuLaunchKernel(module->lookup, lookupBlocks, 1, 1, ANN_GATHER_BLOCK, 1, 1, 0,
+						   (CUstream) stream, lookup, NULL) != CUDA_SUCCESS ||
+			cuLaunchKernel(state->fp16 ? module->f16 : module->f32, gatherBlocks, 1, 1,
+						   ANN_GATHER_BLOCK, 1, 1, 0, (CUstream) stream, gather, NULL) != CUDA_SUCCESS ||
+			cuvsSelectK(lane->resources, &scores, &best, &index) != CUVS_SUCCESS ||
+			cudaMemcpyAsync(lane->hostIndex + topSlot[s], lane->gatherIndex + topSlot[s],
 							wanted[s] * sizeof(int64_t), cudaMemcpyDeviceToHost, stream) != cudaSuccess)
 		{
 			const char *message = cuvsGetLastErrorText();
 
-			fprintf(stderr, "cuVS filtered brute force: %s\n", message ? message : "failed");
+			fprintf(stderr, "cuVS gather scan: %s\n", message ? message : "failed");
 			ok = 0;
 		}
 	}
 	for (int d = 0; d < ANN_CUVS_MAX_DEVICES; d++)
-		if (laneDevices[d].resources && perDevice[d] &&
+		if (laneDevices[d].resources && perDeviceKeys[d] &&
 			(cudaSetDevice(d) != cudaSuccess || cuvsStreamSync(laneDevices[d].resources) != CUVS_SUCCESS))
 			ok = 0;
+
+	/*
+	 * Map the selected keys back to rows on the host: k binary searches. Keys
+	 * missing from the index scored +inf and are dropped here.
+	 */
 	for (uint32_t s = 0; ok && s < state->nshards; s++)
 	{
-		const int64_t *found;
-		uint32_t   *local;
+		const int64_t *found = laneDevices[shards[s].device].hostIndex + topSlot[s];
+		AnnIndexHit *hits = lists + (size_t) s * (k + slack);
+		uint64_t	first = file->shards[s].first;
 
-		if (!useShard[s])
-			continue;
-		found = laneDevices[shards[s].device].hostNeighbors64 + slot[s];
-		local = malloc(sizeof(uint32_t) * (wanted[s] ? wanted[s] : 1));
-		if (local == NULL)
-		{
-			ok = 0;
-			break;
-		}
 		for (uint32_t i = 0; i < wanted[s]; i++)
-			local[i] = found[i] < 0 || found[i] >= file->shards[s].rows ? UINT32_MAX : (uint32_t) found[i];
-		/* Lists are k + 32 apart: a shard may return that many candidates. */
-		counts[s] = ShardHits(file, s, local, wanted[s], job->query, bitsets[s], lists + (size_t) s * (k + 32));
+		{
+			int64_t		key;
+			uint64_t	low = first,
+						high = first + file->shards[s].rows;
+
+			if (found[i] < 0 || (uint64_t) found[i] >= eligible[s])
+				continue;
+			key = keys[start[s] + (uint64_t) found[i]];
+			while (low < high)
+			{
+				uint64_t	middle = low + (high - low) / 2;
+
+				if (file->keys[middle] < key)
+					low = middle + 1;
+				else
+					high = middle;
+			}
+			if (low == first + file->shards[s].rows || file->keys[low] != key)
+				continue;
+			hits[counts[s]].key = key;
+			hits[counts[s]].distance = ExactDistance(file, low, job->query);
+			counts[s]++;
+		}
+		qsort(hits, counts[s], sizeof(*hits), HitCompare);
 		if (counts[s] > k)
 			counts[s] = k;
-		free(local);
 	}
-	return ok;
+	if (ok)
+	{
+		/* MergeJob expects lists k apart. */
+		for (uint32_t s = 1; slack && s < state->nshards; s++)
+			memmove(lists + (size_t) s * k, lists + (size_t) s * (k + slack), sizeof(AnnIndexHit) * counts[s]);
+		MergeJob(job, lists, counts, state->nshards, k);
+		job->route = ANN_ROUTE_EXACT;
+	}
+	else
+		job->status = ANN_BACKEND_ERROR;
+	free(lists);
+	return 1;
 }
 
 /*
@@ -1241,25 +1547,43 @@ SearchShardsBruteForce(const AnnIndexFile *file, AnnCuvsIndex *state, const AnnI
 static void
 SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 {
-	uint64_t   *ordinals = malloc(sizeof(uint64_t) * (job->nfilter ? job->nfilter : 1));
+	uint64_t   *ordinals = NULL;
 	uint64_t	n;
 	uint32_t	k = job->k;
 	uint32_t   *bitsets[ANN_INDEX_MAX_SHARDS] = {0};
 	int			useShard[ANN_INDEX_MAX_SHARDS] = {0};
 	uint32_t	counts[ANN_INDEX_MAX_SHARDS] = {0};
-	AnnIndexHit *lists = malloc(sizeof(AnnIndexHit) * (size_t) k * state->nshards);
+	AnnIndexHit *lists = NULL;
 	const AnnIndexJob *jobs[1] = {job};
 	uint64_t	lo = 0;
-	uint64_t	eligible[ANN_INDEX_MAX_SHARDS] = {0};
 	uint32_t	graphShards = 0;
 	double		selectivity;
 	uint32_t	itopk;
+	uint64_t	exactLimit = AnnIndexConfig.exact_limit;
 
+	/*
+	 * Mid-sized filters go to the GPU gather scan, which maps keys to rows on
+	 * the device, so no per-key work happens here.
+	 */
+	if (job->nfilter > AnnIndexConfig.exact_limit && job->nfilter <= AnnIndexConfig.gather_limit)
+	{
+		if (SearchGather(file, state, job))
+			return;
+
+		/*
+		 * Without the gather scan, CPU scans beat a mostly-masked graph walk
+		 * up to a larger size.
+		 */
+		if (exactLimit < ANN_EXACT_FALLBACK)
+			exactLimit = ANN_EXACT_FALLBACK;
+	}
+	ordinals = malloc(sizeof(uint64_t) * (job->nfilter ? job->nfilter : 1));
+	lists = malloc(sizeof(AnnIndexHit) * (size_t) k * state->nshards);
 	job->status = ANN_NOMEM;
 	if (ordinals == NULL || lists == NULL)
 		goto done;
 	n = AnnIndexOrdinals(file, job->filter, job->nfilter, ordinals);
-	if (n <= AnnIndexConfig.exact_limit)
+	if (n <= exactLimit)
 	{
 		AnnIndexExact(file, job, ordinals, n);
 		goto done;
@@ -1272,8 +1596,7 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 
 		while (lo < n && ordinals[lo] < end)
 			lo++;
-		eligible[s] = lo - start;
-		if (lo - start <= AnnIndexConfig.exact_limit / state->nshards)
+		if (lo - start <= exactLimit / state->nshards)
 		{
 			AnnIndexJob part = *job;
 
@@ -1297,33 +1620,6 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 
 		selectivity = (double) n / (double) file->rows;
 
-		/*
-		 * Selective filters: exact GPU brute force beats a mostly-masked
-		 * graph walk.
-		 */
-		if (AnnIndexConfig.filtered_bruteforce && state->shards[0].bruteForce && selectivity < 0.25)
-		{
-			AnnIndexHit *bfLists = malloc(sizeof(AnnIndexHit) * (size_t) (k + 32) * state->nshards);
-			uint32_t	bfCounts[ANN_INDEX_MAX_SHARDS] = {0};
-
-			if (bfLists == NULL ||
-				!SearchShardsBruteForce(file, state, job, k, bitsets, useShard, eligible, bfLists, bfCounts))
-			{
-				free(bfLists);
-				job->status = ANN_BACKEND_ERROR;
-				goto done;
-			}
-			for (uint32_t s = 0; s < state->nshards; s++)
-				if (useShard[s])
-				{
-					memcpy(lists + (size_t) s * k, bfLists + (size_t) s * (k + 32), sizeof(AnnIndexHit) * bfCounts[s]);
-					counts[s] = bfCounts[s];
-				}
-			free(bfLists);
-			MergeJob(job, lists, counts, state->nshards, k);
-			job->route = ANN_ROUTE_EXACT;
-			goto done;
-		}
 		itopk = RoundTopK(k);
 		if (itopk < AnnIndexConfig.itopk)
 			itopk = AnnIndexConfig.itopk;

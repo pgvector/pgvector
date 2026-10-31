@@ -40,7 +40,7 @@ typedef struct AnnIndexFile
 	AnnIndexShard shards[ANN_INDEX_MAX_SHARDS];
 	const int64_t *keys;		/* mapped */
 	const float *vectors;		/* mapped */
-	size_t		keysBytes;
+	size_t		keysBytes;		/* mapped or reserved bytes, for munmap */
 	size_t		vectorsBytes;
 	void	   *device;			/* backend-owned device state */
 } AnnIndexFile;
@@ -53,8 +53,8 @@ typedef struct AnnIndexOptions
 	uint32_t	exact_limit;	/* filtered queries this selective run exact */
 	int			persistent;		/* CAGRA persistent kernels */
 	int			replicate;		/* full shard set on every GPU */
-	int			filtered_bruteforce;	/* exact GPU brute force for selective
-										 * filters */
+	uint32_t	gather_limit;	/* filtered queries this selective run a GPU
+								 * gather scan */
 } AnnIndexOptions;
 
 extern AnnIndexOptions AnnIndexConfig;

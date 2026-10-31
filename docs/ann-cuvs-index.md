@@ -52,7 +52,10 @@ flowchart LR
     B --> G0[CAGRA shard 0 on GPU 0]
     B --> G1[CAGRA shard 1 on GPU 1]
     B --> Gn[... shard N on GPU N mod devices]
-    U -->|"eligible ≤ exact limit"| X[Exact scan of eligible rows]
+    U -->|"keys ≤ exact limit"| X[Exact CPU scan of eligible rows]
+    U -->|"keys ≤ gather limit"| GS["GPU gather scan: key lookup,
+    distances of eligible rows, select top-k"]
+    GS --> R
     U -->|larger| F[Per-shard bitsets]
     F --> G0 & G1 & Gn
     F -->|"small shard slice"| X
@@ -64,7 +67,14 @@ flowchart LR
 
 - **Lanes and devices.** A lane is a worker thread with its own cuVS resources, stream, workspace pool and buffers on every GPU. Shard *i* lives on GPU *i* mod the device count, or on every GPU with `--replicate on`. Requests from all PostgreSQL connections share one queue and one admission budget (`--max-pending-mb`).
 - **Unfiltered batching.** A lane takes up to `--max-batch` queued queries. Unfiltered queries against the same index go to each shard as one query matrix. Each shard is searched asynchronously on its own GPU, then the lane synchronizes every device once.
-- **Filtered queries.** The worker maps the eligible keys to ordinals. If the total is at most `--exact-limit` (default 20,000 rows), it scans those rows exactly on the CPU, which is cheaper than a graph search and gives full recall. Otherwise each shard whose slice is at most `exact-limit / shards` is scanned exactly, and the remaining shards run CAGRA with a bitset of their eligible rows. Selective filters (under 25% of rows) raise the CAGRA internal top-k to `--filtered-itopk` (default 512) to keep recall up.
+- **Filtered queries.** Filters of at most `--exact-limit` keys (default 2,000) are scanned exactly on the CPU. Larger filters, up to `--gather-limit` keys (default 4,000,000), run a GPU gather scan, an exact search over only the eligible rows, like an inverted posting list scanned on the GPU:
+  1. The lane splits the sorted keys at shard boundaries and copies each slice to its shard's GPU.
+  2. A lookup kernel binary-searches each key in the shard's key array, which is kept in device memory.
+  3. A gather kernel computes each eligible row's distance from the CAGRA dataset already on the device, one warp per row.
+  4. `cuvsSelectK` picks the top k, and the worker re-scores those rows in FP32.
+
+  Cost follows the number of eligible rows, not the shard size, and results are exact. The kernels are compiled at first use with NVRTC, which the worker opens at run time. If NVRTC is missing, or the gather limit is exceeded, the worker falls back to the earlier route: it maps the keys to ordinals, scans filters of up to 20,000 rows exactly, and otherwise runs CAGRA with a bitset of each shard's eligible rows. Each shard whose slice is at most the exact limit divided by the shard count is scanned exactly. Selective filters (under 25% of rows) raise the CAGRA internal top-k to `--filtered-itopk` (default 512).
+- **Host memory.** On Linux the worker reads `keys.i64` and `vectors.f32` into memory backed by transparent huge pages, instead of mapping them, and drops their page cache. Filtered lookups touch rows a page or more apart, so 4 KB pages cost a TLB miss per row. With huge pages, mapping 100k sorted keys to rows took 0.74 ms instead of 2.4 ms on the B200 host. Ordinal mapping also starts each key's search at the position its key gap predicts.
 - **Merge.** The worker re-scores each shard's candidates with FP32 vectors, sorts them, and merges the shard lists pairwise, halving their number each round, down to the global top-k.
 
 ## B200 throughput options
@@ -78,20 +88,21 @@ flowchart LR
 | `--lanes N` | Concurrent submissions across all GPUs. |
 | `--cagra-persistent on` | cuVS persistent search kernels, for many small batches. |
 | `--replicate on` (worker) | Loads every shard on every GPU, and each lane searches its home GPU's copy. Combined with `--shards 1` in the builder, a query is a single CAGRA search on one GPU: the highest ANN throughput measured. Use it when one copy of the index fits in one GPU's memory. |
-| `--exact-limit ROWS` | Where filtered queries switch from exact scans to filtered CAGRA. |
+| `--exact-limit ROWS` | Largest filter scanned exactly on the CPU (default 2,000). |
+| `--gather-limit ROWS` | Largest filter sent to the GPU gather scan (default 4,000,000); larger filters run filtered CAGRA. `0` turns the gather scan off. |
 
 cuVS 26.10's CAGRA supports FP32, FP16, int8 and uint8 datasets. It has no NVFP4 or FP8 path, so those aren't offered. int8/uint8 need a quantization scale chosen when building the index; that's left for a later builder option.
 
 ## Build flag
 
-The extension never links CUDA: it talks to the worker over a Unix socket, so the extension and the CPU worker build anywhere, including hosts without a GPU. `make -C ann USE_CUVS=1` additionally builds `ann-worker-cuvs` against cuVS (`CUVS_PREFIX`, `CUDA_HOME`, plus `CPPFLAGS`/`LDFLAGS` for pip-installed SDKs). Without it, the CPU worker's `cpu-exact` backend serves loaded indexes exactly from `keys.i64` and `vectors.f32`, using the same per-shard tree merge. That makes it the reference for tests.
+The extension never links CUDA: it talks to the worker over a Unix socket, so the extension and the CPU worker build anywhere, including hosts without a GPU. `make -C ann USE_CUVS=1` additionally builds `ann-worker-cuvs` against cuVS (`CUVS_PREFIX`, `CUDA_HOME`, plus `CPPFLAGS`/`LDFLAGS` for pip-installed SDKs) and the CUDA driver library. NVRTC (`libnvrtc.so`, from the CUDA toolkit or the `nvidia-cuda-nvrtc` wheel) is optional: it's opened at run time for the gather scan, and no CUDA compiler is needed to build. Without it, the CPU worker's `cpu-exact` backend serves loaded indexes exactly from `keys.i64` and `vectors.f32`, using the same per-shard tree merge. That makes it the reference for tests.
 
 ## Tests
 
 | Test | Needs | Covers |
 | --- | --- | --- |
 | `test/ann/test_index.py` | CPU worker; `ANN_PG_DSN` for the SQL tests | File format, corrupt files, sharded tree merge against brute force, filters (unknown keys, duplicates), protocol errors. Through SQL: ANN and hybrid results equal to `ORDER BY <->`, joins, empty/NULL filters, unavailable worker, stale-index refusal, superuser-only load. |
-| `test/ann/test_cuvs_index.py` | `ANN_CUVS_TEST=1`, GPU, cuVS Python | Builder output for FP32 and FP16; recall ≥ 0.9 for ANN and filtered CAGRA; filtered results stay within the filter; exact route equal to SQL; exact distances. |
+| `test/ann/test_cuvs_index.py` | `ANN_CUVS_TEST=1`, GPU, cuVS Python | Builder output for FP32 and FP16; recall ≥ 0.9 for ANN and filtered CAGRA (`--gather-limit 0`); filtered results stay within the filter; the GPU gather scan over 4 shards, with keys missing from the index, equal to SQL in ids, order and distances; exact route equal to SQL; exact distances. |
 | `test/ann/test_cuvs_gathered.py` | `ANN_CUVS_TEST=1`, GPU | GPU brute force for the pipelined CustomScan route. |
 
 ```sh
@@ -136,7 +147,7 @@ What the measurements showed:
 - **ANN saturates the host at about 350–390k QPS from 1,024 clients on.** All eight GPUs then report about 99% utilization, and the host CPUs are about 95% busy; the worker accounts for about 150 cores, mostly in kernel time. Per query, the host side (PostgreSQL, the socket round trip, lane wake-ups and device synchronization) costs about as much as the GPU work, so FP16 adds little at this scale.
 - **Per-lane cuVS workspace pools were the largest single fix.** Without them, concurrent searches serialize on device allocation: ANN reached 26,891 QPS with a flat 28 ms median.
 - **Hybrid throughput is bounded by producing the eligibility array in PostgreSQL.** With a covering index, a 100k-key array costs about 7 ms, roughly 11k arrays per second at best; a 10k-key array costs about 1 ms (about 34k per second). Without the covering index the heap visits dominate: about 3k and 9k arrays per second.
-- **Filtered CAGRA recall depends on shard size.** Eight 1.25M-row graphs keep recall@10 at 1.0 with a 1% filter. One 10M-row graph drops to 0.68, because CAGRA's internal top-k is capped at 512. With a single replicated shard, raise `--exact-limit` (exact scans of up to about 100k rows cost a few milliseconds) or keep shards smaller.
+- **Filtered CAGRA recall depends on shard size.** Eight 1.25M-row graphs keep recall@10 at 1.0 with a 1% filter. One 10M-row graph drops to 0.66, because CAGRA's internal top-k is capped at 512. The GPU gather scan, the default route for filters up to 4M keys, avoids this: it is exact on any shard layout. On one B200 with one 10M-row shard, it served the 1% filter at 34k QPS against 4.7k for filtered CAGRA, and the 10% filter at 3.4k QPS against 1.5k (filtered CAGRA recall@10 there: 0.97).
 - **Synthetic data choice matters.** Isotropic random vectors (uniform, or Gaussian clusters with full-dimensional noise) defeat every graph index: CAGRA reached recall@10 of 0.13 on them even when driven directly from Python. The generator therefore projects 16-dimensional clustered latents to 128 dimensions. Measure your own embeddings before relying on these numbers.
 
 Reproduce:
