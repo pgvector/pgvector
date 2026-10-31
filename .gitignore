@@ -17,3 +17,8 @@ regression.*
 /ann/ann-worker-cuvs
 /ann/ann-worker-cuvs.dSYM/
 __pycache__/
+/ann/libannbatch.a
+/ann/ann-batch-tests
+/ann/ann-batch-tests.dSYM/
+/ann/ann-batch-bench
+/ann/ann-batch-bench.dSYM/

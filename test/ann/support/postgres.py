@@ -1,4 +1,4 @@
-"""Experimental frozen heap-table adapter, not a PostgreSQL index access method."""
+"""Test-only frozen-table SQL reference; not runtime integration."""
 
 import json
 import time

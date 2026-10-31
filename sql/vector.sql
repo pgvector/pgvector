@@ -1215,3 +1215,19 @@ CREATE OPERATOR CLASS sparsevec_l1_ops
 	OPERATOR 1 <+> (sparsevec, sparsevec) FOR ORDER BY float_ops,
 	FUNCTION 1 l1_distance(sparsevec, sparsevec),
 	FUNCTION 3 hnsw_sparsevec_support(internal);
+
+-- Experimental exact CPU staging access method
+
+CREATE FUNCTION annhandler(internal) RETURNS index_am_handler
+	AS 'MODULE_PATHNAME' LANGUAGE C;
+
+COMMENT ON FUNCTION annhandler(internal) IS 'ann index access method handler';
+
+CREATE ACCESS METHOD ann TYPE INDEX HANDLER annhandler;
+
+COMMENT ON ACCESS METHOD ann IS 'experimental exact vector staging index';
+
+CREATE OPERATOR CLASS vector_l2_ops
+	FOR TYPE vector USING ann AS
+	OPERATOR 1 <-> (vector, vector) FOR ORDER BY float_ops,
+	FUNCTION 1 l2_distance(vector, vector);

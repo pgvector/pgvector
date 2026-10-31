@@ -9,8 +9,8 @@ import struct
 import sys
 import time
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from ann.client import Worker
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'test/ann'))
+from support.client import Worker
 
 
 def main():

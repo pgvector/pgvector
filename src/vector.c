@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "ann.h"
 #include "bitutils.h"
 #include "bitvec.h"
 #include "catalog/pg_type.h"
@@ -46,7 +47,7 @@
 #endif
 
 #if PG_VERSION_NUM >= 180000
-PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.8.7");
+PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.9.0");
 #else
 PG_MODULE_MAGIC;
 #endif
@@ -58,6 +59,7 @@ PGDLLEXPORT void _PG_init(void);
 void
 _PG_init(void)
 {
+	AnnInit();
 	BitvecInit();
 	HalfvecInit();
 	HnswInit();

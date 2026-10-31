@@ -1,4 +1,4 @@
-/* Optional adapter for the cuVS 26.10 C API. No SDK dependency in the CPU build. */
+/* Draft only: CAGRA integration, SDK compilation, and GPU validation are TODO. */
 #include "backend.h"
 
 #include <cuvs/neighbors/cagra.h>
@@ -14,7 +14,7 @@ typedef struct AnnCuvsState
 	cuvsDataset_t dataset;
 	cuvsCagraIndexParams_t build;
 	cuvsCagraSearchParams_t search;
-	int device;
+	int			device;
 } AnnCuvsState;
 
 /* Error paths synchronize before releasing objects referenced by queued work. */
@@ -38,7 +38,7 @@ typedef struct AnnCuvsState
 
 static DLManagedTensor
 Tensor(void *data, DLDeviceType deviceType, int device,
-	   uint8_t code, int dimensions, int64_t *shape)
+	   uint8_t code, int dimensions, int64_t * shape)
 {
 	DLManagedTensor tensor = {0};
 
@@ -46,7 +46,10 @@ Tensor(void *data, DLDeviceType deviceType, int device,
 	tensor.dl_tensor.device.device_type = deviceType;
 	tensor.dl_tensor.device.device_id = device;
 	tensor.dl_tensor.ndim = dimensions;
-	tensor.dl_tensor.dtype = (DLDataType) {code, 32, 1};
+	tensor.dl_tensor.dtype = (DLDataType)
+	{
+		code, 32, 1
+	};
 	tensor.dl_tensor.shape = shape;
 	return tensor;
 }
@@ -79,14 +82,14 @@ static AnnStatus
 Build(AnnIndex *index, uint64_t generation, uint32_t rows,
 	  uint32_t dimensions, const float *vectors)
 {
-	AnnIndex next = {0};
+	AnnIndex	next = {0};
 	AnnCuvsState *state;
-	AnnStatus status;
-	int64_t shape[2] = {rows, dimensions};
+	AnnStatus	status;
+	int64_t		shape[2] = {rows, dimensions};
 	DLManagedTensor source;
-	uint16_t major;
-	uint16_t minor;
-	uint16_t patch;
+	uint16_t	major;
+	uint16_t	minor;
+	uint16_t	patch;
 
 	/* Conservative initial envelope for the chosen graph degrees. */
 	if (rows < 128)
@@ -122,7 +125,7 @@ Build(AnnIndex *index, uint64_t generation, uint32_t rows,
 	state->search->persistent = false;
 	source = Tensor(next.vectors, kDLCPU, 0, kDLFloat, 2, shape);
 	CuvsCall(cuvsDatasetMakePadded(state->resources, &source,
-								 CUVS_DATASET_MEM_TYPE_DEVICE, &state->dataset));
+								   CUVS_DATASET_MEM_TYPE_DEVICE, &state->dataset));
 	CuvsCall(cuvsCagraBuild(state->resources, state->build, state->dataset, state->graph));
 	CuvsCall(cuvsStreamSync(state->resources));
 	/* Publish only after all construction work has completed successfully. */
@@ -138,8 +141,8 @@ done:
 static int
 IdCompare(const void *left, const void *right)
 {
-	uint32_t a = *(const uint32_t *) left;
-	uint32_t b = *(const uint32_t *) right;
+	uint32_t	a = *(const uint32_t *) left;
+	uint32_t	b = *(const uint32_t *) right;
 
 	return a < b ? -1 : a > b;
 }
@@ -161,22 +164,22 @@ Search(const AnnIndex *index, const float *query, uint32_t metric,
 	   AnnCandidate *results, uint32_t *nresults)
 {
 	AnnCuvsState *state = index->backend_state;
-	float *deviceQuery = NULL;
-	float *deviceDistances = NULL;
-	uint32_t *deviceNeighbors = NULL;
-	uint32_t *deviceMask = NULL;
-	uint32_t *mask = NULL;
-	uint32_t *neighbors = NULL;
-	size_t words = ((size_t) index->rows + 31) / 32;
-	int64_t queryShape[2] = {1, index->dimensions};
-	int64_t resultShape[2];
-	int64_t maskShape[1] = {(int64_t) words};
+	float	   *deviceQuery = NULL;
+	float	   *deviceDistances = NULL;
+	uint32_t   *deviceNeighbors = NULL;
+	uint32_t   *deviceMask = NULL;
+	uint32_t   *mask = NULL;
+	uint32_t   *neighbors = NULL;
+	size_t		words = ((size_t) index->rows + 31) / 32;
+	int64_t		queryShape[2] = {1, index->dimensions};
+	int64_t		resultShape[2];
+	int64_t		maskShape[1] = {(int64_t) words};
 	DLManagedTensor queryTensor;
 	DLManagedTensor neighborTensor;
 	DLManagedTensor distanceTensor;
 	DLManagedTensor maskTensor;
-	cuvsFilter filter = {0};
-	AnnStatus status = ANN_BACKEND_ERROR;
+	cuvsFilter	filter = {0};
+	AnnStatus	status = ANN_BACKEND_ERROR;
 
 	*nresults = 0;
 	if (metric != 0)
@@ -227,13 +230,13 @@ Search(const AnnIndex *index, const float *query, uint32_t metric,
 	}
 	state->search->itopk_size = k < 128 ? 128 : ((size_t) k + 31) / 32 * 32;
 	CuvsCall(cuvsCagraSearch(state->resources, state->search, state->graph,
-						   &queryTensor, &neighborTensor, &distanceTensor, filter));
+							 &queryTensor, &neighborTensor, &distanceTensor, filter));
 	CuvsCall(cuvsStreamSync(state->resources));
 	CudaCall(cudaMemcpy(neighbors, deviceNeighbors, (size_t) k * sizeof(uint32_t), cudaMemcpyDeviceToHost));
 	for (uint32_t i = 0; i < k; i++)
 	{
-		uint32_t id = neighbors[i];
-		double squared = 0;
+		uint32_t	id = neighbors[i];
+		double		squared = 0;
 
 		if (id == UINT32_MAX)
 			continue;
@@ -242,14 +245,21 @@ Search(const AnnIndex *index, const float *query, uint32_t metric,
 		for (uint32_t j = 0; j < *nresults; j++)
 			if (results[j].id == id)
 				goto done;
-		/* Canonical reranking fixes score precision, not approximate membership. */
+
+		/*
+		 * Canonical reranking fixes score precision, not approximate
+		 * membership.
+		 */
 		for (uint32_t d = 0; d < index->dimensions; d++)
 		{
-			double delta = (double) index->vectors[(size_t) id * index->dimensions + d] - query[d];
+			double		delta = (double) index->vectors[(size_t) id * index->dimensions + d] - query[d];
 
 			squared += delta * delta;
 		}
-		results[*nresults] = (AnnCandidate) {id, sqrt(squared)};
+		results[*nresults] = (AnnCandidate)
+		{
+			id, sqrt(squared)
+		};
 		(*nresults)++;
 	}
 	qsort(results, *nresults, sizeof(*results), CandidateCompare);

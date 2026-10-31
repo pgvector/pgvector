@@ -1,4 +1,5 @@
 #include "backend.h"
+#include "batching.h"
 
 #include <float.h>
 #include <stdio.h>
@@ -13,15 +14,15 @@ _Static_assert(sizeof(double) == 8 && DBL_MANT_DIG == 53,
 typedef struct Cursor
 {
 	unsigned char *data;
-	size_t size;
-	size_t offset;
-	int valid;
+	size_t		size;
+	size_t		offset;
+	int			valid;
 } Cursor;
 
 static uint64_t
 ReadInteger(Cursor *cursor, unsigned int width)
 {
-	uint64_t value = 0;
+	uint64_t	value = 0;
 
 	if (!cursor->valid || width > cursor->size - cursor->offset)
 	{
@@ -48,8 +49,8 @@ WriteInteger(Cursor *cursor, uint64_t value, unsigned int width)
 static float
 ReadFloat(Cursor *cursor)
 {
-	uint32_t bits = (uint32_t) ReadInteger(cursor, 4);
-	float value;
+	uint32_t	bits = (uint32_t) ReadInteger(cursor, 4);
+	float		value;
 
 	memcpy(&value, &bits, sizeof(value));
 	return value;
@@ -58,7 +59,7 @@ ReadFloat(Cursor *cursor)
 static void
 WriteDouble(Cursor *cursor, double value)
 {
-	uint64_t bits;
+	uint64_t	bits;
 
 	memcpy(&bits, &value, sizeof(bits));
 	WriteInteger(cursor, bits, 8);
@@ -67,7 +68,7 @@ WriteDouble(Cursor *cursor, double value)
 static uint32_t *
 ReadIds(Cursor *cursor, uint32_t rows, uint32_t *count)
 {
-	uint32_t *ids;
+	uint32_t   *ids;
 
 	*count = (uint32_t) ReadInteger(cursor, 4);
 	if (!cursor->valid || *count > rows || *count > (cursor->size - cursor->offset) / 4)
@@ -90,11 +91,11 @@ ReadIds(Cursor *cursor, uint32_t rows, uint32_t *count)
 static AnnStatus
 Build(const AnnBackend *backend, AnnIndex *index, uint64_t generation, Cursor *input)
 {
-	uint32_t rows = (uint32_t) ReadInteger(input, 4);
-	uint32_t dimensions = (uint32_t) ReadInteger(input, 4);
-	uint64_t count = (uint64_t) rows * dimensions;
-	float *vectors;
-	AnnStatus status;
+	uint32_t	rows = (uint32_t) ReadInteger(input, 4);
+	uint32_t	dimensions = (uint32_t) ReadInteger(input, 4);
+	uint64_t	count = (uint64_t) rows * dimensions;
+	float	   *vectors;
+	AnnStatus	status;
 
 	if (!input->valid || dimensions == 0 || dimensions > ANN_MAX_DIM ||
 		count > ANN_MAX_BYTES / 4 || count * 4 != input->size - input->offset)
@@ -110,20 +111,22 @@ Build(const AnnBackend *backend, AnnIndex *index, uint64_t generation, Cursor *i
 }
 
 static AnnStatus
-Search(const AnnBackend *backend, const AnnIndex *index, Cursor *input, Cursor *output)
+Search(const AnnBackend *backend, const AnnIndex *index, AnnBatcher *batcher,
+	   Cursor *input, Cursor *output)
 {
-	uint32_t queries = (uint32_t) ReadInteger(input, 4);
-	uint32_t dimensions = (uint32_t) ReadInteger(input, 4);
-	uint32_t k = (uint32_t) ReadInteger(input, 4);
-	uint32_t metric = (uint32_t) ReadInteger(input, 4);
-	uint32_t filter = (uint32_t) ReadInteger(input, 4);
-	uint32_t *shared = NULL;
-	uint32_t sharedCount = 0;
-	float *vectors = NULL;
+	uint32_t	queries = (uint32_t) ReadInteger(input, 4);
+	uint32_t	dimensions = (uint32_t) ReadInteger(input, 4);
+	uint32_t	k = (uint32_t) ReadInteger(input, 4);
+	uint32_t	metric = (uint32_t) ReadInteger(input, 4);
+	uint32_t	filter = (uint32_t) ReadInteger(input, 4);
+	uint32_t   *shared = NULL;
+	uint32_t	sharedCount = 0;
+	float	   *vectors = NULL;
 	AnnCandidate *results = NULL;
-	AnnStatus status = ANN_INVALID;
-	uint64_t count = (uint64_t) queries * dimensions;
-	uint64_t capacity;
+	AnnRequest **requests = NULL;
+	AnnStatus	status = ANN_INVALID;
+	uint64_t	count = (uint64_t) queries * dimensions;
+	uint64_t	capacity;
 
 	if (!input->valid || queries == 0 || queries > 1024 ||
 		dimensions != index->dimensions || filter > 2 ||
@@ -141,7 +144,8 @@ Search(const AnnBackend *backend, const AnnIndex *index, Cursor *input, Cursor *
 	results = malloc(k ? (size_t) k * sizeof(*results) : sizeof(*results));
 	output->data = malloc((size_t) capacity);
 	output->size = (size_t) capacity;
-	if (vectors == NULL || results == NULL || output->data == NULL)
+	requests = calloc(queries, sizeof(*requests));
+	if (vectors == NULL || results == NULL || output->data == NULL || requests == NULL)
 	{
 		status = ANN_NOMEM;
 		goto done;
@@ -152,9 +156,9 @@ Search(const AnnBackend *backend, const AnnIndex *index, Cursor *input, Cursor *
 		shared = ReadIds(input, index->rows, &sharedCount);
 	for (uint32_t i = 0; i < queries; i++)
 	{
-		uint32_t nids = sharedCount;
-		uint32_t *ids = shared;
-		uint32_t nresults;
+		uint32_t	nids = sharedCount;
+		uint32_t   *ids = shared;
+		uint32_t	nresults;
 
 		if (filter == 2)
 			ids = ReadIds(input, index->rows, &nids);
@@ -165,12 +169,18 @@ Search(const AnnBackend *backend, const AnnIndex *index, Cursor *input, Cursor *
 			status = ANN_INVALID;
 			goto done;
 		}
-		status = backend->search(index, vectors + (size_t) i * dimensions,
-								 metric, ids, nids, k, results, &nresults);
+		if (batcher)
+			status = AnnBatchSubmit(batcher, vectors + (size_t) i * dimensions,
+									k, metric, ids, nids, 30000000, &requests[i]);
+		else
+			status = backend->search(index, vectors + (size_t) i * dimensions,
+									 metric, ids, nids, k, results, &nresults);
 		if (filter == 2)
 			free(ids);
 		if (status != ANN_OK)
 			goto done;
+		if (batcher)
+			continue;
 		WriteInteger(output, nresults, 4);
 		for (uint32_t j = 0; j < nresults; j++)
 		{
@@ -179,8 +189,36 @@ Search(const AnnBackend *backend, const AnnIndex *index, Cursor *input, Cursor *
 		}
 	}
 	if (!input->valid || input->offset != input->size || !output->valid)
+	{
 		status = ANN_INVALID;
+		goto done;
+	}
+	for (uint32_t i = 0; batcher && i < queries; i++)
+	{
+		uint32_t	nresults;
+		const AnnCandidate *found;
+
+		status = AnnRequestWait(requests[i], 30000000);
+		if (status == ANN_PENDING)
+			status = ANN_TIMED_OUT;
+		if (status != ANN_OK)
+			goto done;
+		found = AnnRequestResults(requests[i], &nresults);
+		WriteInteger(output, nresults, 4);
+		for (uint32_t j = 0; j < nresults; j++)
+		{
+			WriteInteger(output, found[j].id, 4);
+			WriteDouble(output, found[j].distance);
+		}
+	}
 done:
+	for (uint32_t i = 0; requests && i < queries; i++)
+		if (requests[i])
+		{
+			(void) AnnRequestCancel(requests[i]);
+			AnnRequestRelease(requests[i]);
+		}
+	free(requests);
 	free(shared);
 	free(vectors);
 	free(results);
@@ -192,7 +230,7 @@ Reply(uint16_t operation, uint64_t request, uint64_t generation,
 	  AnnStatus status, const void *data, size_t size)
 {
 	unsigned char bytes[32] = {'P', 'V', 'A', 'N'};
-	Cursor header = {bytes, sizeof(bytes), 4, 1};
+	Cursor		header = {bytes, sizeof(bytes), 4, 1};
 
 	WriteInteger(&header, 1, 2);
 	WriteInteger(&header, operation, 2);
@@ -208,9 +246,10 @@ int
 main(int argc, char **argv)
 {
 	const AnnBackend *backend = AnnCpuBackend();
-	AnnIndex index = {0};
-	uint64_t lastGeneration = 0;
-	int exitCode = 0;
+	AnnIndex	index = {0};
+	AnnBatcher *batcher = NULL;
+	uint64_t	lastGeneration = 0;
+	int			exitCode = 0;
 
 	if (argc == 3 && strcmp(argv[1], "--backend") == 0)
 	{
@@ -220,7 +259,7 @@ main(int argc, char **argv)
 #endif
 	}
 	if (argc != 1 && !(argc == 3 && strcmp(argv[1], "--backend") == 0 &&
-					  strcmp(argv[2], backend->name) == 0))
+					   strcmp(argv[2], backend->name) == 0))
 	{
 #ifdef ANN_USE_CUVS
 		fprintf(stderr, "available backends: cpu-exact, cuvs; hipvs and fused-nvfp4 require vendor adapters\n");
@@ -232,17 +271,17 @@ main(int argc, char **argv)
 	for (;;)
 	{
 		unsigned char bytes[32];
-		Cursor header = {bytes, sizeof(bytes), 4, 1};
-		Cursor input = {NULL, 0, 0, 1};
-		Cursor output = {NULL, 0, 0, 1};
-		size_t received = fread(bytes, 1, sizeof(bytes), stdin);
-		uint16_t version;
-		uint16_t operation;
-		uint64_t request;
-		uint64_t generation;
-		uint32_t length;
-		uint32_t requestStatus;
-		AnnStatus status = ANN_INVALID;
+		Cursor		header = {bytes, sizeof(bytes), 4, 1};
+		Cursor		input = {NULL, 0, 0, 1};
+		Cursor		output = {NULL, 0, 0, 1};
+		size_t		received = fread(bytes, 1, sizeof(bytes), stdin);
+		uint16_t	version;
+		uint16_t	operation;
+		uint64_t	request;
+		uint64_t	generation;
+		uint32_t	length;
+		uint32_t	requestStatus;
+		AnnStatus	status = ANN_INVALID;
 
 		if (received == 0 && feof(stdin))
 			break;
@@ -272,16 +311,16 @@ main(int argc, char **argv)
 		}
 		if (operation == 0 && length == 0)
 		{
-			char caps[512];
-			int size = snprintf(caps, sizeof(caps),
-				"{\"backend\":\"%s\",\"algorithm\":\"%s\",\"storage\":\"%s\","
-				"\"metrics_mask\":%u,\"filters_mask\":%u,\"input\":\"fp32\","
-				"\"min_rows\":%u,\"max_k\":%u,"
-				"\"exact\":%s,\"max_frame_bytes\":%u,\"max_queries\":1024}",
-				backend->name, backend->algorithm, backend->storage,
-				backend->metrics, backend->filters, backend->min_rows, backend->max_k,
-				backend->exact ? "true" : "false",
-				ANN_MAX_BYTES);
+			char		caps[512];
+			int			size = snprintf(caps, sizeof(caps),
+										"{\"backend\":\"%s\",\"algorithm\":\"%s\",\"storage\":\"%s\","
+										"\"metrics_mask\":%u,\"filters_mask\":%u,\"input\":\"fp32\","
+										"\"min_rows\":%u,\"max_k\":%u,"
+										"\"exact\":%s,\"max_frame_bytes\":%u,\"max_queries\":1024}",
+										backend->name, backend->algorithm, backend->storage,
+										backend->metrics, backend->filters, backend->min_rows, backend->max_k,
+										backend->exact ? "true" : "false",
+										ANN_MAX_BYTES);
 
 			status = ANN_OK;
 			if (size < 0 || (size_t) size >= sizeof(caps))
@@ -299,23 +338,46 @@ main(int argc, char **argv)
 		}
 		else if (operation == 1)
 		{
+			AnnIndex	next = {0};
+			AnnBatcher *nextBatcher = NULL;
+
 			status = generation <= lastGeneration ? ANN_STALE :
-				Build(backend, &index, generation, &input);
+				Build(backend, &next, generation, &input);
+			if (status == ANN_OK && backend == AnnCpuBackend())
+			{
+				AnnBatchOptions options;
+
+				AnnBatchDefaultOptions(&options);
+				options.max_pending_requests = 1024;
+				status = AnnBatchCreateBorrowed(backend, &next, &options, &nextBatcher);
+			}
 			if (status == ANN_OK)
+			{
+				if (batcher)
+					AnnBatchClose(batcher);
+				backend->destroy(&index);
+				index = next;
+				memset(&next, 0, sizeof(next));
+				batcher = nextBatcher;
 				lastGeneration = generation;
+			}
+			backend->destroy(&next);
 		}
 		else if (generation == 0 || generation != index.generation)
 			status = ANN_STALE;
 		else if (operation == 2)
-			status = Search(backend, &index, &input, &output);
+			status = Search(backend, &index, batcher, &input, &output);
 		else if (operation == 3 && length == 0)
 		{
+			if (batcher)
+				AnnBatchClose(batcher);
+			batcher = NULL;
 			backend->destroy(&index);
 			status = ANN_OK;
 		}
 		else if (operation == 4 && length == 0)
 		{
-			size_t count = (size_t) index.rows * index.dimensions;
+			size_t		count = (size_t) index.rows * index.dimensions;
 
 			output.size = 8 + count * 4;
 			output.data = malloc(output.size);
@@ -326,7 +388,7 @@ main(int argc, char **argv)
 				WriteInteger(&output, index.dimensions, 4);
 				for (size_t i = 0; i < count; i++)
 				{
-					uint32_t bits;
+					uint32_t	bits;
 
 					memcpy(&bits, &index.vectors[i], sizeof(bits));
 					WriteInteger(&output, bits, 4);
@@ -338,6 +400,17 @@ main(int argc, char **argv)
 			/* Diagnostic transport probe, never a search result. */
 			status = ANN_OK;
 		}
+		else if (operation == 6 && length == 0)
+		{
+			output.size = 8;
+			output.data = malloc(output.size);
+			status = output.data ? ANN_OK : ANN_NOMEM;
+			if (output.data)
+			{
+				WriteInteger(&output, index.rows, 4);
+				WriteInteger(&output, index.dimensions, 4);
+			}
+		}
 		else
 			status = ANN_UNSUPPORTED;
 		if (!Reply(operation, request, generation, status,
@@ -348,6 +421,8 @@ main(int argc, char **argv)
 		if (exitCode)
 			break;
 	}
+	if (batcher)
+		AnnBatchClose(batcher);
 	backend->destroy(&index);
 	return exitCode;
 }

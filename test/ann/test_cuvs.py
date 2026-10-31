@@ -8,8 +8,8 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-from ann.client import Worker, WorkerError
+sys.path.insert(0, str(ROOT / 'test/ann'))
+from support.client import Worker, WorkerError
 
 
 @unittest.skipUnless(os.environ.get('ANN_CUVS_TEST') == '1', 'set ANN_CUVS_TEST=1 on a cuVS host')

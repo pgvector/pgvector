@@ -1,4 +1,4 @@
-"""Binary-protocol reference client; no PostgreSQL or GPU dependencies."""
+"""Test-only binary protocol driver; not a runtime client."""
 
 import json
 import hashlib
@@ -25,7 +25,7 @@ class Worker:
     def __init__(self, executable=None, backend='cpu-exact', timeout=30):
         if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
             raise ValueError('timeout must be a positive finite number of seconds')
-        executable = executable or Path(__file__).with_name('ann-worker')
+        executable = executable or Path(__file__).resolve().parents[3] / 'ann/ann-worker'
         self.process = subprocess.Popen(
             [str(executable), '--backend', backend],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -83,6 +83,10 @@ class Worker:
 
     def capabilities(self):
         return json.loads(self.request(0))
+
+    def index_info(self, generation):
+        rows, dimensions = struct.unpack('<II', self.request(6, generation))
+        return {'rows': rows, 'dimensions': dimensions}
 
     def build(self, generation, vectors, dimensions=None):
         dimensions = dimensions if dimensions is not None else len(vectors[0])

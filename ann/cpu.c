@@ -15,12 +15,12 @@ static AnnStatus
 Build(AnnIndex *index, uint64_t generation, uint32_t rows,
 	  uint32_t dimensions, const float *vectors)
 {
-	uint64_t wideCount = (uint64_t) rows * dimensions;
-	size_t count;
-	float *copy;
+	uint64_t	wideCount = (uint64_t) rows * dimensions;
+	size_t		count;
+	float	   *copy;
 
 	if (generation == 0 || dimensions == 0 || dimensions > ANN_MAX_DIM ||
-		wideCount > ANN_MAX_BYTES / sizeof(float))
+		wideCount > ANN_MAX_BYTES / sizeof(float) || (wideCount && vectors == NULL))
 		return ANN_INVALID;
 	count = (size_t) wideCount;
 	for (size_t i = 0; i < count; i++)
@@ -29,7 +29,8 @@ Build(AnnIndex *index, uint64_t generation, uint32_t rows,
 	copy = malloc(count ? count * sizeof(float) : 1);
 	if (copy == NULL)
 		return ANN_NOMEM;
-	memcpy(copy, vectors, count * sizeof(float));
+	if (count)
+		memcpy(copy, vectors, count * sizeof(float));
 	Destroy(index);
 	index->vectors = copy;
 	index->rows = rows;
@@ -52,7 +53,7 @@ SiftDown(AnnCandidate *heap, uint32_t count, uint32_t parent)
 {
 	for (;;)
 	{
-		uint32_t child = parent * 2 + 1;
+		uint32_t	child = parent * 2 + 1;
 		AnnCandidate tmp;
 
 		if (child >= count)
@@ -79,8 +80,8 @@ Search(const AnnIndex *index, const float *query, uint32_t metric,
 	   const uint32_t *ids, uint32_t nids, uint32_t k,
 	   AnnCandidate *results, uint32_t *nresults)
 {
-	uint32_t count = ids ? nids : index->rows;
-	double queryNorm = 0;
+	uint32_t	count = ids ? nids : index->rows;
+	double		queryNorm = 0;
 
 	*nresults = 0;
 	if (metric > 2)
@@ -93,22 +94,26 @@ Search(const AnnIndex *index, const float *query, uint32_t metric,
 	}
 	if (metric == 2 && queryNorm == 0)
 		return ANN_INVALID;
-	/* Sorted unique local IDs prevent duplicate output and permit linear validation. */
+
+	/*
+	 * Sorted unique local IDs prevent duplicate output and permit linear
+	 * validation.
+	 */
 	for (uint32_t i = 0; ids && i < nids; i++)
 		if (ids[i] >= index->rows || (i && ids[i] <= ids[i - 1]))
 			return ANN_INVALID;
 	for (uint32_t i = 0; i < count; i++)
 	{
-		uint32_t id = ids ? ids[i] : i;
+		uint32_t	id = ids ? ids[i] : i;
 		const float *vector = index->vectors + (size_t) id * index->dimensions;
-		double distance = 0;
-		double norm = 0;
+		double		distance = 0;
+		double		norm = 0;
 		AnnCandidate candidate;
 
 		for (uint32_t d = 0; d < index->dimensions; d++)
 		{
-			double a = vector[d];
-			double b = query[d];
+			double		a = vector[d];
+			double		b = query[d];
 
 			distance += metric == 0 ? (a - b) * (a - b) : a * b;
 			norm += a * a;
@@ -123,7 +128,7 @@ Search(const AnnIndex *index, const float *query, uint32_t metric,
 			continue;
 		if (*nresults < k)
 		{
-			uint32_t child = (*nresults)++;
+			uint32_t	child = (*nresults)++;
 
 			results[child] = candidate;
 			while (child && Compare(&results[(child - 1) / 2], &results[child]) < 0)

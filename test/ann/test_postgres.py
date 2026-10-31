@@ -6,7 +6,7 @@ import sys
 import unittest
 import uuid
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'test/ann'))
 
 
 @unittest.skipUnless(os.environ.get('ANN_PG_DSN'), 'set ANN_PG_DSN for live PostgreSQL tests')
@@ -38,7 +38,7 @@ class PostgresTests(unittest.TestCase):
         self.db.close()
 
     def test_combined_predicate_and_shared_query_batch(self):
-        from ann.postgres import FrozenIndex
+        from support.postgres import FrozenIndex
 
         predicate = self.sql.SQL("tenant = %s AND tags @> %s AND terms @@ to_tsquery('simple', %s)")
         params = ('even', ['database'], 'database & query')
@@ -63,7 +63,7 @@ class PostgresTests(unittest.TestCase):
             index.search([[0, 1, 2]], 1)
 
     def test_freeze_blocks_all_external_mutations(self):
-        from ann.postgres import FrozenIndex
+        from support.postgres import FrozenIndex
 
         with FrozenIndex(self.dsn, 'documents', schema=self.schema):
             self.db.execute("SET lock_timeout = '100ms'")
@@ -78,7 +78,7 @@ class PostgresTests(unittest.TestCase):
                         ('changed',))
 
     def test_budget_cleanup_releases_lock(self):
-        from ann.postgres import FrozenIndex
+        from support.postgres import FrozenIndex
 
         with self.assertRaises(ValueError):
             with FrozenIndex(self.dsn, 'documents', schema=self.schema, max_rows=1):
@@ -87,7 +87,7 @@ class PostgresTests(unittest.TestCase):
         self.db.execute(self.sql.SQL('DELETE FROM {} WHERE id = 0').format(self.relation))
 
     def test_private_freeze_transaction_is_read_only(self):
-        from ann.postgres import FrozenIndex
+        from support.postgres import FrozenIndex
 
         with FrozenIndex(self.dsn, 'documents', schema=self.schema) as index:
             self.assertEqual(index._connection.execute('SHOW transaction_read_only').fetchone(), ('on',))
@@ -96,7 +96,7 @@ class PostgresTests(unittest.TestCase):
                     'DELETE FROM {} WHERE id = 0').format(self.relation))
 
     def test_freeze_loss_during_external_search_discards_results(self):
-        from ann.postgres import FrozenIndex
+        from support.postgres import FrozenIndex
 
         with FrozenIndex(self.dsn, 'documents', schema=self.schema) as index:
             pid = index._connection.info.backend_pid
@@ -112,7 +112,7 @@ class PostgresTests(unittest.TestCase):
                 index.search([[0, 1, 2]], 5)
 
     def test_predicate_timeout_releases_freeze(self):
-        from ann.postgres import FrozenIndex
+        from support.postgres import FrozenIndex
 
         with FrozenIndex(self.dsn, 'documents', schema=self.schema, statement_timeout_ms=100) as index:
             with self.assertRaises(self.psycopg.errors.QueryCanceled):

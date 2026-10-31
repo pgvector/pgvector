@@ -9,8 +9,8 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-from ann.client import HEADER, Worker, WorkerError
+sys.path.insert(0, str(ROOT / 'test/ann'))
+from support.client import HEADER, Worker, WorkerError
 
 
 class WorkerTests(unittest.TestCase):
@@ -37,7 +37,7 @@ class WorkerTests(unittest.TestCase):
         for payload in [b'', bytes(1024 * 1024)]:
             child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            with patch('ann.client.subprocess.Popen', return_value=child):
+            with patch('support.client.subprocess.Popen', return_value=child):
                 with Worker(timeout=.05) as stalled:
                     with self.assertRaises(TimeoutError):
                         stalled.request(0, payload=payload)
@@ -50,7 +50,7 @@ class WorkerTests(unittest.TestCase):
                 'sys.stdout.buffer.write(bytes(32)); sys.stdout.buffer.flush()')
         child = subprocess.Popen([sys.executable, '-c', code],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        with patch('ann.client.subprocess.Popen', return_value=child):
+        with patch('support.client.subprocess.Popen', return_value=child):
             with Worker(timeout=2) as broken:
                 with self.assertRaises(ValueError):
                     broken.capabilities()

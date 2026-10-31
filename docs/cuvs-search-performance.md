@@ -1,6 +1,6 @@
 # cuVS filtered-search throughput analysis
 
-Status: proposed optimization design and experiment plan; no throughput measurements have been collected for this implementation.
+Status: proposed optimization design and experiment plan; no sustained throughput measurements have been collected for this implementation. The opt-in [native exact CustomScan](ann-filtered-search.md) now provides predicate-first execution and EXPLAIN counters; `benchmarks/ann/postgres.py --filtered-native` adds it to the SQL baseline fixture. Accelerator execution and cross-process batching remain pending.
 
 Prepared: 2026-10-30. Release-specific observations refer to cuVS v26.10.00. This document extends the [overall implementation plan](cuvs-filtered-ann-plan.md), including its PostgreSQL architecture, snapshot, and result contracts.
 

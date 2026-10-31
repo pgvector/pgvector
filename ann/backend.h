@@ -14,40 +14,45 @@ typedef enum AnnStatus
 	ANN_UNSUPPORTED,
 	ANN_STALE,
 	ANN_NOMEM,
-	ANN_BACKEND_ERROR
+	ANN_BACKEND_ERROR,
+	ANN_PENDING,
+	ANN_OVERLOADED,
+	ANN_TIMED_OUT,
+	ANN_CANCELLED,
+	ANN_CLOSED
 } AnnStatus;
 
 typedef struct AnnIndex
 {
-	uint64_t generation;
-	uint32_t rows;
-	uint32_t dimensions;
-	float *vectors;
-	void *backend_state;
+	uint64_t	generation;
+	uint32_t	rows;
+	uint32_t	dimensions;
+	float	   *vectors;
+	void	   *backend_state;
 } AnnIndex;
 
 typedef struct AnnCandidate
 {
-	uint32_t id;
-	double distance;
+	uint32_t	id;
+	double		distance;
 } AnnCandidate;
 
 /* Vendor-specific objects and precision/layout conversion stay behind this API. */
 typedef struct AnnBackend
 {
 	const char *name;
-	uint32_t metrics;
-	uint32_t filters;
+	uint32_t	metrics;
+	uint32_t	filters;
 	const char *algorithm;
 	const char *storage;
-	int exact;
-	uint32_t min_rows;
-	uint32_t max_k;
-	AnnStatus (*build)(AnnIndex *, uint64_t, uint32_t, uint32_t, const float *);
-	AnnStatus (*search)(const AnnIndex *, const float *, uint32_t,
-						 const uint32_t *, uint32_t, uint32_t,
-						 AnnCandidate *, uint32_t *);
-	void (*destroy)(AnnIndex *);
+	int			exact;
+	uint32_t	min_rows;
+	uint32_t	max_k;
+	AnnStatus	(*build) (AnnIndex *, uint64_t, uint32_t, uint32_t, const float *);
+	AnnStatus	(*search) (const AnnIndex *, const float *, uint32_t,
+						   const uint32_t *, uint32_t, uint32_t,
+						   AnnCandidate *, uint32_t *);
+	void		(*destroy) (AnnIndex *);
 } AnnBackend;
 
 const AnnBackend *AnnCpuBackend(void);

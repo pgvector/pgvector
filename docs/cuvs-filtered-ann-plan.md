@@ -1,6 +1,6 @@
 # cuVS bulk build and filtered ANN implementation plan
 
-Status: standalone CPU worker and a live-tested frozen-table PostgreSQL prototype are implemented in [ann/](../ann/README.md). Optional cuVS CAGRA source is implemented but SDK/GPU validation is pending. Native AM/CustomScan and mutable indexing remain proposed.
+Status: CPU worker and batching/admission runtime are implemented in C in [ann/](../ann/README.md). Frozen-table PostgreSQL behavior is validated by test-only Python fixtures; the native C exact L2 AM now provides a storage/lifecycle baseline ([guide](ann-native-index.md)). The opt-in selective exact CustomScan is implemented ([guide](ann-filtered-search.md)); native worker IPC remains a todo. CAGRA integration and compilation against cuVS are deferred todos; existing adapter source is an unvalidated draft. Accelerator generation/delta storage remains proposed.
 
 Prepared: 2026-10-30. cuVS capability checks below refer to released **v26.10.00**. Compile and runtime smoke tests remain implementation work.
 
@@ -62,7 +62,7 @@ Relevant local code:
 | [src/ivfscan.c](../src/ivfscan.c) | Selects lists, sorts candidate batches, and emits heap TIDs. |
 | [README.md: Filtering](../README.md#filtering) | Documents post-scan filtering and iterative scans. |
 
-Add a new `cuvs` access method following the existing HNSW/IVFFlat lifecycle, then an opt-in `CustomPath`/`CustomScan` for supported combined queries. Keep ordinary AM scanning and combined-filter execution separate: the AM takes order-by keys and emits heap TIDs; the custom executor connects PostgreSQL predicate evaluation to the GPU allowlist. Simply creating a GIN index and a cuVS index will not make PostgreSQL perform this connection automatically.
+Use the vendor-neutral `ann` access method following the existing HNSW/IVFFlat lifecycle, then an opt-in `CustomPath`/`CustomScan` for supported combined queries. Keep ordinary AM scanning and combined-filter execution separate: the AM takes order-by keys and emits heap TIDs; the custom executor connects PostgreSQL predicate evaluation to the GPU allowlist. Simply creating a GIN index and a cuVS index will not make PostgreSQL perform this connection automatically.
 
 PostgreSQL describes custom scans as an extension mechanism for alternative execution, including hardware acceleration. Its interfaces require version-specific integration and validation. See [Writing a Custom Scan Provider](https://www.postgresql.org/docs/current/custom-scan.html).
 
@@ -79,7 +79,7 @@ flowchart TB
     Mapping --> Router[Per-shard search router]
     Router --> CPU[CPU exact search]
     Router --> IPC[Bounded worker protocol]
-    IPC --> Worker[Persistent C++ GPU worker]
+    IPC --> Worker[Persistent C worker with vendor C API]
     Worker --> Exact[GPU exact search]
     Worker --> CAGRA[Filtered CAGRA search]
     CPU --> Merge[Merge, recheck, and rerank]
@@ -123,7 +123,7 @@ Pin the initial dependency to [cuVS v26.10.00](https://github.com/NVIDIA/cuvs/re
 | --- | --- |
 | Bulk ANN construction | Build CAGRA shards; compare NN-Descent and IVF-PQ initial-graph builders. |
 | Shared filter | A dense bitset permits or rejects each dataset row; bit 1 means allowed. |
-| Different filters per query | Use direct C++ CAGRA search with per-query Roaring allowlists. |
+| Different filters per query | Preserve each filter in the C adapter. Use supported C API submissions or the exact CPU route; advanced Roaring batching remains deferred until a suitable vendor C binding exists. |
 | C binding | Released CAGRA C search accepts `NO_FILTER` and `BITSET`, and rejects `BITMAP`. |
 | Roaring batching | Direct C++ `cagra::search` supports Roaring; cuVS dynamic batching and tiered search reject this filter type. |
 | Multi-GPU wrapper | The released C multi-GPU CAGRA search signature has no filter argument. Use explicit filtered shard searches and merge. |
@@ -374,7 +374,7 @@ The `cuvs` AM/GUC/module names below remain provisional design names. Choose one
 | Repository reference | Apply to the cuVS implementation |
 | --- | --- |
 | [.editorconfig](../.editorconfig) | Tabs with width 4 for C, headers, Perl, and SQL. Match neighboring PostgreSQL-style code. |
-| [src/vector.c](../src/vector.c) | One extension entry point, `_PG_init()`, with a new `CuvsInit()` alongside `HnswInit()` and `IvfflatInit()`. |
+| [src/vector.c](../src/vector.c) | One extension entry point, `_PG_init()`, with a new `AnnInit()` alongside `HnswInit()` and `IvfflatInit()`. |
 | [src/hnsw.c](../src/hnsw.c) | Handler registration, bounded reloptions, GUC definitions, costing, opclass validation, and version guards. |
 | [src/hnsw.h](../src/hnsw.h) | AM-specific constants, support procedures, page layouts, state structs, and shared helper declarations. |
 | [src/hnswscan.c](../src/hnswscan.c) | Begin/rescan/gettuple/end callbacks, opaque scan state, and scan-local memory ownership. |
@@ -388,42 +388,42 @@ The `cuvs` AM/GUC/module names below remain provisional design names. Choose one
 
 ```mermaid
 flowchart TD
-    Normal[PostgreSQL IndexScan] --> AM[cuvsscan.c: AM callbacks]
-    Combined[Opt-in combined-filter CustomScan] --> Custom[cuvscustom.c: executor state]
+    Normal[PostgreSQL IndexScan] --> AM[annscan.c: AM callbacks]
+    Combined[Opt-in combined-filter CustomScan] --> Custom[anncustom.c: executor state]
     Custom --> Predicate[PostgreSQL predicate child plan]
-    Predicate --> Filter[cuvsfilter.c: eligible ordinal sets]
+    Predicate --> Filter[annfilter.c: eligible ordinal sets]
     Filter --> Search[Typed Cuvs search and generation helpers]
     AM --> Search
-    Search --> Pages[cuvsutils.c: index pages and support procedures]
+    Search --> Pages[annutils.c: index pages and support procedures]
     Search --> CPU[Exact CPU route]
-    Search --> Client[cuvsworker.c: bounded IPC]
-    Client --> GPU[Separate C++ and CUDA worker]
-    Build[cuvsbuild.c] --> Pages
-    Insert[cuvsinsert.c: durable delta append] --> Pages
-    Vacuum[cuvsvacuum.c: PostgreSQL vacuum callbacks] --> Pages
+    Search --> Client[annworker.c: bounded IPC]
+    Client --> GPU[Separate C worker and vendor SDK]
+    Build[annbuild.c] --> Pages
+    Insert[anninsert.c: durable delta append] --> Pages
+    Vacuum[annvacuum.c: PostgreSQL vacuum callbacks] --> Pages
 ```
 
-- The ordinary AM implements `cuvsbeginscan`, `cuvsrescan`, `cuvsgettuple`, and `cuvsendscan` with `CuvsScanOpaqueData`. Read the scan descriptor's order-by keys and return `xs_heaptid`; set recheck flags according to the actual distance/qual contract. This path does not receive arbitrary WHERE expressions or the query's LIMIT.
-- The custom executor has a distinct `CuvsCustomScanState`. It owns its predicate child plan, eligible sets, safe top-k pushdown, and final row production. Do not pass executor state through AM-private fields or assume that a normal scan has the custom path's information.
-- Share narrowly typed helpers such as `CuvsSearch` and generation lookup. The inputs describe the metric, query vector, optional eligible ordinals, and search budget; results contain generation-scoped candidates and status. An opaque PostgreSQL `PlanState`, CUDA pointer, or C++ object is not a cross-process request format.
+- The ordinary AM implements `annbeginscan`, `annrescan`, `anngettuple`, and `annendscan` with `AnnScanOpaqueData`. Read the scan descriptor's order-by keys and return `xs_heaptid`; set recheck flags according to the actual distance/qual contract. This path does not receive arbitrary WHERE expressions or the query's LIMIT.
+- The custom executor has a distinct `AnnCustomScanState`. It owns its predicate child plan, eligible sets, safe top-k pushdown, and final row production. Do not pass executor state through AM-private fields or assume that a normal scan has the custom path's information.
+- Share narrowly typed helpers such as `AnnSearch` and generation lookup. The inputs describe the metric, query vector, optional eligible ordinals, and search budget; results contain generation-scoped candidates and status. An opaque PostgreSQL `PlanState`, CUDA pointer, or C++ object is not a cross-process request format.
 - Keep HNSW/IVFFlat scans and their on-disk formats independent. Reuse public vector representations and distance semantics; do not make cuVS depend on HNSW graph internals.
 
 ### Proposed modules
 
-These names describe planned responsibilities; none of these new files or APIs exists yet. Add files as their responsibilities are implemented, rather than creating empty layers in advance.
+The basic AM files now exist as the exact CPU staging implementation. CustomScan, IPC, and accelerator storage responsibilities below remain proposed. Add files as their responsibilities are implemented, rather than creating empty layers in advance.
 
 | Proposed location | Responsibility |
 | --- | --- |
-| `src/cuvs.c`, `src/cuvs.h` | `CuvsInit`, `cuvshandler`, options, support constants, state structs, and shared declarations. |
-| `src/cuvsbuild.c` | `cuvsbuild`, `cuvsbuildempty`, table build callback, packing, ordinal assignment, and publication. |
-| `src/cuvsscan.c` | Ordinary AM begin/rescan/gettuple/end callbacks and `CuvsScanOpaqueData`. |
-| `src/cuvsinsert.c` | `cuvsinsert`, validation, synchronous delta append, and refresh notification. |
-| `src/cuvsvacuum.c` | `cuvsbulkdelete`, `cuvsvacuumcleanup`, safe reclamation, and vacuum statistics. |
-| `src/cuvsutils.c` | Support-procedure lookup, index page/metapage helpers, generic WAL, mapping and generation access. |
-| `src/cuvsplan.c` | Opt-in planner hooks, supported-shape detection, costing, and CustomPath creation. |
-| `src/cuvscustom.c` | CustomScan callbacks, predicate child plan, routing, merge, reranking, and row production. |
-| `src/cuvsfilter.c` | Eligible-ID conversion, shard grouping, and portable filter encoding. |
-| `src/cuvsworker.c` | Portable C client protocol, request ownership, availability checks, and error translation. |
+| `src/ann.c`, `src/ann.h` | `AnnInit`, `annhandler`, options, support constants, state structs, and shared declarations. |
+| `src/annbuild.c` | `annbuild`, `annbuildempty`, table build callback, packing, ordinal assignment, and publication. |
+| `src/annscan.c` | Ordinary AM begin/rescan/gettuple/end callbacks and `AnnScanOpaqueData`. |
+| `src/anninsert.c` | `anninsert`, validation, synchronous delta append, and refresh notification. |
+| `src/annvacuum.c` | `annbulkdelete`, `annvacuumcleanup`, safe reclamation, and vacuum statistics. |
+| `src/annutils.c` | Support-procedure lookup, index page/metapage helpers, generic WAL, mapping and generation access. |
+| `src/annplan.c` | Opt-in planner hooks, supported-shape detection, costing, and CustomPath creation. |
+| `src/anncustom.c` | CustomScan callbacks, predicate child plan, routing, merge, reranking, and row production. |
+| `src/annfilter.c` | Eligible-ID conversion, shard grouping, and portable filter encoding. |
+| `src/annworker.c` | Portable C client protocol, request ownership, availability checks, and error translation. |
 | `ann/` | Standalone worker protocol, CPU reference, client, and future isolated cuVS/hipVS/precision adapters. |
 | `test/sql/`, `test/expected/`, `test/t/` | Regression pairs and TAP tests following the existing harness. |
 | `benchmarks/cuvs/` | Reproducible bulk-build and filtered-query benchmarks, separate from regression expectations. |
@@ -433,17 +433,17 @@ The delta is an index data structure maintained by insertion, vacuum, and genera
 ### C style and state ownership
 
 - Put `#include "postgres.h"` first in backend C files. Follow neighboring include grouping, brace placement, declarations, and short `/* ... */` comments explaining intent or invariants.
-- Use lowercase AM callbacks (`cuvsbuild`), `Cuvs`-prefixed shared helpers and types (`CuvsBuildState`), uppercase constants (`CUVS_*`), and `static` file-local helpers (`BuildCallback`, `InitBuildState`). Keep headers private unless an external consumer needs them.
-- Use the existing handler export convention, including `FUNCTION_PREFIX PG_FUNCTION_INFO_V1(cuvshandler)`. Match local `PG_VERSION_NUM` guards where PostgreSQL callback signatures or AM fields differ.
+- Use lowercase AM callbacks (`annbuild`), `Cuvs`-prefixed shared helpers and types (`AnnBuildState`), uppercase constants (`ANN_*`), and `static` file-local helpers (`BuildCallback`, `InitBuildState`). Keep headers private unless an external consumer needs them.
+- Use the existing handler export convention, including `FUNCTION_PREFIX PG_FUNCTION_INFO_V1(annhandler)`. Match local `PG_VERSION_NUM` guards where PostgreSQL callback signatures or AM fields differ.
 - Allocate backend state with PostgreSQL allocation APIs and build/scan/vacuum memory contexts. Reset `tmpCtx` between appropriate batches or tuples. Use checked size arithmetic such as `add_size` and `mul_size` for vector, ordinal, and filter buffers, including 32-bit builds.
 - Use `ereport` with suitable SQLSTATE/detail/hint for user-facing failures and the existing `elog` style for internal invariants. Place `CHECK_FOR_INTERRUPTS()` in long CPU loops and use interruptible PostgreSQL wait facilities for worker requests.
 - Release generation pins, external handles, and requests on rescan, normal end, ERROR, cancellation, and transaction abort through appropriate PostgreSQL resource/error cleanup. Memory-context deletion alone does not finish external GPU work.
-- Keep C++ exceptions, STL types, CUDA headers, and cuVS resource ownership inside the worker. Return structured errors over the protocol. Define fixed-width wire fields and explicit encoding; do not serialize raw PostgreSQL structs or process pointers.
+- Keep project runtime code in C and use vendor C APIs. SDK implementation details, CUDA headers, and cuVS resource ownership stay behind the worker backend boundary. C++-only SDK features remain deferred unless a vendor C binding becomes available. Return structured errors over the protocol. Define fixed-width wire fields and explicit encoding; do not serialize raw PostgreSQL structs or process pointers.
 - `.editorconfig` currently does not define `.cpp` or `.cu` formatting. Add a scoped worker formatting policy when introducing those files; do not reformat existing C sources as part of the integration.
 
 ### Initialization, SQL semantics, and configuration
 
-`CuvsInit()` should register bounded index options and `cuvs.*` GUCs and reserve the GUC prefix. It must not connect to a worker, create a CUDA context, allocate large queues, or require a worker merely to load `vector`.
+`AnnInit()` should register bounded index options and `cuvs.*` GUCs and reserve the GUC prefix. It must not connect to a worker, create a CUDA context, allocate large queues, or require a worker merely to load `vector`.
 
 Use reloptions for persistent build properties such as graph degree, and GUCs for per-query search budgets and experimental planner enablement. Derive backend CPU budgets from appropriate PostgreSQL settings such as `work_mem` and `maintenance_work_mem`, with separate explicit GPU/queue limits. Do not imitate HNSW's tiny shared-memory tranche-ID allocation for substantial worker queues; shared memory would require proper sizing and lifecycle registration.
 
@@ -458,7 +458,7 @@ Advertise only implemented AM capabilities. Initially keep multicolumn, INCLUDE,
 - Give the cuVS index its own versioned metapage and page/tuple layouts. Keep canonical vectors, ordinal mappings, delta entries, and generation metadata in index-owned storage.
 - Follow `ReadBuffer`/`ReadBufferExtended`, buffer locks, `GenericXLogStart`/`GenericXLogRegisterBuffer`/`GenericXLogFinish`, and `UnlockReleaseBuffer` patterns for updates. Follow build-time `log_newpage_range` and `RelationNeedsWAL` handling where appropriate. Prefer PostgreSQL generic WAL to a new custom resource manager.
 - Use `table_index_build_scan`, return `IndexBuildResult` counts, and report progress through the existing build-phase conventions. Handle `MAIN_FORKNUM` and `INIT_FORKNUM` deliberately; implement unlogged/temporary behavior correctly or reject it explicitly during the experimental phase.
-- Have `cuvsinsert` append durable entries before an asynchronous refresh can observe them. Have `cuvsbulkdelete` use PostgreSQL's deletion callback to determine reclaimable heap identities, with `cuvsvacuumcleanup` reporting statistics. A worker's view of live rows does not replace these callbacks.
+- Have `anninsert` append durable entries before an asynchronous refresh can observe them. Have `annbulkdelete` use PostgreSQL's deletion callback to determine reclaimable heap identities, with `annvacuumcleanup` reporting statistics. A worker's view of live rows does not replace these callbacks.
 - Copy bounded batches under the necessary buffer locks, pin the logical generation, release buffer content locks, then submit GPU work. Never wait for IPC, queue admission, or GPU completion while holding buffer content locks or inside a critical section.
 - Specify lock order for publication, insertion, and vacuum. Keep these logical locks and generation pins distinct from short-lived buffer locks and from the worker's device-reference lifetime.
 - Invalidate cached identities on relevant DROP, TRUNCATE, REINDEX, and relation-rewrite transitions. Cache keys must include database, physical index identity, and generation; an index OID alone is insufficient. The worker must not modify PostgreSQL relation files or act as an independent WAL writer.
@@ -501,7 +501,7 @@ flowchart LR
 - [ ] Pin cuVS, CUDA, compiler, and worker build configuration; confirm that the portable C adapter fits both PGXS and Windows builds without a CUDA dependency.
 - [ ] Review the AM callback boundaries, naming, state ownership, page layout, and proposed SQL objects against the repository conventions in section 9.
 - [ ] Compile and run capability smoke tests for bulk build, reload, bitsets, per-query Roaring, exact search, and result edge cases.
-- [x] Generate representative predicates for both full-text and metadata, including their conjunctions (`benchmarks/ann/postgres.py`; PostgreSQL execution remains unverified on this host).
+- [x] Generate representative predicates for both full-text and metadata, including their conjunctions (`benchmarks/ann/postgres.py`; executed on the temporary PostgreSQL 17.6 test cluster).
 - [ ] Compute exact filtered ground truth and benchmark current pgvector iterative HNSW and PostgreSQL filter-then-exact plans.
 - [ ] Measure the CPU eligibility/mapping ceiling with a diagnostic no-compute worker and record raw candidates, visited heap pages, and final eligible counts.
 
@@ -509,22 +509,24 @@ Deliverable: reproducible harness, capability report, and workload manifest. Gat
 
 ### Phase 1: Standalone build/search worker
 
-- [x] Define fixed-width request/response encoding and generation-scoped ID types without leaking PostgreSQL structs or C++ objects across the process boundary (`ann/worker.c`, `ann/client.py`; serialized reference transport).
+- [ ] Complete CAGRA integration (deferred; existing adapter source is a draft).
+- [ ] Compile/link against cuVS 26.10 and validate on a supported GPU host (deferred).
+- [x] Define fixed-width request/response encoding and generation-scoped ID types without leaking PostgreSQL structs or C++ objects across the process boundary (`ann/worker.c`, `test/ann/support/client.py`; serialized reference transport).
 - [ ] Implement bounded vector ingestion, CAGRA shard build, serialization, load, and unload.
 - [ ] Implement CPU exact reference, GPU gathered exact, GPU filtered brute force, and filtered CAGRA search.
 - [ ] Implement same-filter shared-bitset batches and per-query Roaring batches with explicit ownership and range validation.
 - [ ] Add per-shard routing, result merge, memory accounting, timings, deadlines, and cancellation behavior.
 - [ ] Define request cleanup after PostgreSQL errors and GPU stream completion; verify that submission never requires retaining a backend buffer content lock.
 - [ ] Fit preliminary route crossovers from complete search costs, including filter setup and transfers.
-- [ ] Add compatible direct-search microbatches, reusable buffers, and admission by estimated work and bytes; sweep batch delay and submission lanes at fixed recall and latency.
+- [ ] Add compatible direct-search microbatches, reusable buffers, and admission by estimated work and bytes; sweep batch delay and submission lanes at fixed recall and latency. CPU ready-query microbatching, request/byte/work admission, deadline/cancel handling, and a burst benchmark are implemented in `ann/batching.c`; GPU buffers, additional lanes, and full performance sweeps remain pending.
 
 Deliverable: worker executable and benchmark reports. Gate: all returned IDs satisfy the supplied allowlist, exact results match the reference, and ANN recall is measured after reload as well as immediately after build.
 
 ### Phase 2: Immutable PostgreSQL prototype
 
-- [x] Enforce the table freeze for the full build/query window and build stable integer-key-to-ordinal mappings; live tests cover external mutations, context expiry, and failed-build cleanup (`ann/postgres.py`).
-- [x] Add an experimental client-side search entry point obtaining eligible rows from native PostgreSQL predicate execution (`FrozenIndex`; not a SQL function or planner hook).
-- [x] Support combined full-text and metadata filters through PostgreSQL predicate execution; the CPU path matches SQL exact results in live tests.
+- [ ] Implement the native C table freeze; the test-only Python reference enforces the table freeze for the full build/query window and build stable integer-key-to-ordinal mappings; live tests cover external mutations, context expiry, and failed-build cleanup (`test/ann/support/postgres.py`).
+- [ ] Implement a C PostgreSQL search entry point. `FrozenIndex` is a test-only Python SQL reference, not a runtime API.
+- [ ] Implement combined text/metadata eligibility in the native C PostgreSQL path. Test-only Python fixtures already match SQL exact results.
 - [ ] Translate eligible identities to shard IDs; route and merge results; rerank and return rows. Single-generation CPU prototype is implemented; shard/adaptive routing and GPU validation remain pending.
 - [ ] Instrument filter evaluation, identity mapping, gathering, queue time, upload, search, download, and reranking.
 - [ ] Compare end-to-end performance with existing PostgreSQL plans and current pgvector.
@@ -537,13 +539,13 @@ Deliverable: a working combined-query prototype on immutable data. Gate: qualify
 
 Implement and review the ordinary AM lifecycle before layering in the custom executor. Each part should be independently reviewable and testable.
 
-- [ ] Add `CuvsInit` and handler/options/support validation using existing initialization, export, and PostgreSQL-version conventions.
+- [ ] Add `AnnInit` and handler/options/support validation using existing initialization, export, and PostgreSQL-version conventions.
 - [ ] Implement build/buildempty callbacks, progress, fork handling, and `IndexBuildResult` using PostgreSQL index-build visibility rules.
-- [ ] Implement ordinary begin/rescan/gettuple/end callbacks in `cuvsscan.c`, with opaque scan state and error-safe resource cleanup.
+- [x] Implement ordinary begin/rescan/gettuple/end callbacks in `annscan.c`, with opaque scan state and PostgreSQL resource cleanup (exact L2 CPU baseline).
 - [ ] Implement canonical index pages, mappings, metadata, generic WAL, and atomic generation publication using existing buffer-manager patterns.
 - [ ] Resolve existing HOT root/member identities and test pre-existing HOT chains even while writes are frozen.
-- [ ] Add portable objects to both Makefiles, canonical install SQL, and matching upgrade SQL; test fresh-install/upgrade parity and unavailable-worker behavior without CUDA.
-- [ ] Introduce opt-in CustomPath/CustomScan support in separate planner/custom-executor modules, with hook chaining and a documented whitelist of query shapes.
+- [x] Add native AM objects to both Makefiles, canonical install SQL, and matching 0.8.7-to-0.9.0 upgrade SQL; validate fresh install/upgrade without CUDA. The CPU AM has no worker dependency; external-worker availability behavior remains pending.
+- [x] Introduce opt-in CustomPath/CustomScan support in separate planner/custom-executor modules, with hook chaining and a documented whitelist of query shapes (exact CPU route; worker integration remains pending).
 - [ ] Cost predicate materialization, mapping, transfer, and vector search rather than only the GPU kernel.
 - [ ] Calibrate exact-versus-ANN routes and planner startup/spill costs from the performance experiments; expose actual route, batch, queue, and recheck costs.
 - [ ] Add ordered-output validation, `EXPLAIN` instrumentation, prepared-parameter handling, and fallback selection.
@@ -555,10 +557,10 @@ Deliverable: native integration with an explicit supported contract. Gate: corre
 ### Phase 4: Transactional writes and compaction
 
 - [ ] Extend the baseline root-TID/version mapping to concurrent HOT updates, ordinal retirement, VACUUM, and TID-reuse invariants.
-- [ ] Implement synchronous generic-WAL-protected delta append through `cuvsinsert` and snapshot-aware result validation.
+- [ ] Implement synchronous generic-WAL-protected delta append through `anninsert` and snapshot-aware result validation.
 - [ ] Search base plus every required delta entry, including the querying transaction's own writes.
 - [ ] Implement compaction with explicit coverage boundaries and atomic replacement publication.
-- [ ] Implement `cuvsbulkdelete`/`cuvsvacuumcleanup` using PostgreSQL's deletion callback and statistics conventions; preserve old snapshots and active generation readers.
+- [ ] Implement `annbulkdelete`/`annvacuumcleanup` using PostgreSQL's deletion callback and statistics conventions; preserve old snapshots and active generation readers.
 - [ ] Test cache identity invalidation through DROP, TRUNCATE, REINDEX, and table rewrite alongside insertion/vacuum lock ordering.
 - [ ] Test aborts, deletes, HOT and non-HOT updates, repeated primary keys, long-running transactions, and crash/replay at publication boundaries.
 - [ ] Measure sustained offered-load behavior while GIN pending entries, delta segments, compaction, and retained snapshots compete with search.
@@ -644,7 +646,7 @@ Make exact subset search and filtered CAGRA explicit alternatives:
 
 The router chooses per shard using actual eligible count, dimension, residency, candidate budget, batch type, and load. Do not use one selectivity percentage as a universal threshold.
 
-Use direct C++ search with compatible microbatches, separate selectivity/work classes, resident vectors/graphs, and reusable buffers. Bound batch delay, workspace, and queued bytes. Reuse resources per submission lane and keep each query's identity/filter mapping intact. Test persistent kernels and cuVS's own batching wrapper as targeted later experiments, not default solutions for arbitrary text filters.
+Use a C backend interface with compatible microbatches, separate selectivity/work classes, resident vectors/graphs, and reusable buffers. Bound batch delay, workspace, and queued bytes. Reuse resources per submission lane and keep each query's identity/filter mapping intact. Test persistent kernels and cuVS's own batching wrapper as targeted later experiments, not default solutions for arbitrary text filters.
 
 Decision criteria: prioritize this work when the producer can supply sufficient work and measurements show GPU idle gaps, allocation/transfer overhead, inefficient batches, or costly ANN traversal. Compare whole-query throughput at equal filtered recall; a faster search with lower recall is a different operating point.
 
@@ -672,17 +674,17 @@ The priority order is producer-ceiling measurement, compact mapping and safe sha
 
 ## 14. Current implementation and next executable gates
 
-Implemented: standalone C worker, CPU exact top-k with shared/per-query sparse filters, explicit unsupported-vendor selection, bounded versioned frames, generation checks, canonical checksummed snapshot reload, Python client, independent-oracle tests, and a synthetic throughput harness. See [worker documentation](../ann/README.md) for commands and protocol details.
+Implemented: standalone C worker, CPU exact top-k with shared/per-query sparse filters, explicit unsupported-vendor selection, bounded versioned frames, generation checks, canonical checksummed snapshot reload, test-only Python client, independent-oracle tests, and a synthetic throughput harness. See [worker documentation](../ann/README.md) for commands and protocol details.
 
-Also implemented: `FrozenIndex`, a client-side frozen heap-table prototype using native SQL predicates and a private read-only transaction; and `ann/cuvs.c`, an optional FP32 L2 CAGRA adapter for the cuVS 26.10 C API. The current worker invokes the GPU adapter serially per query; asynchronous microbatching and persistent GPU graph artifacts are not implemented.
+Test reference only: `FrozenIndex` now resides under `test/ann/support/`; it validates SQL predicates, table freezes, and failure behavior. It is not a runtime implementation. Native PostgreSQL integration will be C. `ann/cuvs.c` is an unvalidated FP32 L2 CAGRA draft retained for future integration. CAGRA integration and cuVS SDK compilation are deferred at the user's request and do not count as completed implementation milestones. The draft invokes GPU search serially per query; GPU microbatching and persistent GPU graph artifacts are not implemented.
 
-Validated locally: compiler warnings as errors, CPU correctness/protocol tests, AddressSanitizer/UndefinedBehaviorSanitizer, and live frozen-table integration tests. A checksum-verified PostgreSQL 17.6 source build was installed in a temporary development directory. This checkout's pgvector compiled, all 14 existing SQL regression tests passed, and generated text/metadata/exact/HNSW baselines executed successfully. The test cluster is temporary, not a system installation.
+Validated locally: compiler warnings as errors, CPU correctness/protocol tests, AddressSanitizer/UndefinedBehaviorSanitizer, and live frozen-table integration tests. A checksum-verified PostgreSQL 17.6 source build was installed in a temporary development directory. This checkout's pgvector compiled, all 15 SQL regression tests passed, and generated text/metadata/exact/HNSW baselines executed successfully. The test cluster is temporary, not a system installation.
 
-This macOS ARM64 host still lacks CUDA and ROCm SDKs/devices. The optional cuVS adapter has not been compiled against its SDK or executed on GPU here; its explicit hardware test target must pass before claiming GPU support. hipVS and fused NVFP4 adapters, GPU performance, native AM/CustomScan integration, and mutable index semantics remain incomplete. Canonical snapshots are not native graph serialization or PostgreSQL WAL.
+This macOS ARM64 host still lacks CUDA and ROCm SDKs/devices. The optional cuVS adapter has not been compiled against its SDK or executed on GPU here; its explicit hardware test target must pass before claiming GPU support. hipVS and fused NVFP4 adapters, GPU performance, worker integration, and accelerator generation/delta semantics remain incomplete. The selective exact CustomScan is implemented. The exact CPU native AM has initial WAL/MVCC/vacuum coverage. Canonical snapshots are not native graph serialization or PostgreSQL WAL.
 
-Next gates: compile/run the cuVS adapter on a supported GPU host, collect target workload requirements, validate backend capabilities and filtered recall, and implement bounded asynchronous admission and the native AM/CustomScan. Preserve the tested frozen-table path as a correctness reference. The protocol client remains synchronous and does not provide production scheduling/cancellation.
+CPU ready-query batching/admission is implemented with correctness and concurrency tests. Next active work is native worker integration, pre-eligibility host admission, and sustained-load performance validation. Preserve the tested frozen-table path as a correctness reference. Deferred GPU gates are completing CAGRA integration, compiling against cuVS, and validating capabilities, filtered recall, and performance on supported hardware. The C worker runs CPU frames through `AnnBatcher`; Python protocol clients are test infrastructure only. Multi-process scheduling, GPU workspace admission, and production kernel cancellation remain pending.
 
-Transport hardening is implemented: configurable finite request timeouts cover blocked pipe writes/reads; transport corruption and cancellation invalidate the dedicated process/session. The frozen-table prototype applies per-statement SQL timeouts, releases its freeze on failed searches, and records per-search stage timings. Dedicated tests cover stalled workers, malformed responses, SQL timeout cleanup, and session loss. Whole-request admission/deadlines and GPU kernel cancellation remain separate work.
+Test-only Python helpers validate finite wire timeouts, corruption handling, SQL statement timeouts, freeze cleanup, and stage timings. A native C external protocol client and PostgreSQL worker integration of those controls remain todos. C scheduler deadlines and queued cancellation are implemented. Dedicated tests cover stalled workers, malformed responses, SQL timeout cleanup, and session loss. Whole-request admission/deadlines and GPU kernel cancellation remain separate work.
 
 The first implementation slice is Phase 0 through Phase 2: bulk build, native PostgreSQL eligibility, and adaptive exact/CAGRA search on an immutable dataset. The transaction and storage work becomes a production release gate rather than an assumption hidden inside the prototype.
 
@@ -697,3 +699,33 @@ The first implementation slice is Phase 0 through Phase 2: bulk build, native Po
 - [Brute-force and filtered exact search guide](https://docs.nvidia.com/cuvs/user-guide/api-guides/indexing-guide/brute-force)
 - [PostgreSQL custom scans](https://www.postgresql.org/docs/current/custom-scan.html)
 - [PostgreSQL text-search indexes](https://www.postgresql.org/docs/current/textsearch-indexes.html)
+
+## 15. CPU batching implementation status
+
+Implemented in [ann/batching.c](../ann/batching.c): C backend/index lifetime ownership, compatible batches, private filters, finite collection delay, outstanding request/allocation-byte/work budgets, queued cancellation, monotonic queue/running deadlines, per-request backend errors, and physical-completion accounting. CPU protocol search frames use the C scheduler. Request handles remain valid after close until explicitly released. The [burst benchmark](../benchmarks/ann/batch.c) compares sequential and scheduled requests and includes overload outcomes. This is a tested single-process ready-query scheduler; GPU integration is deferred.
+
+Admission charges the C request object, copied query/filter arrays, and reserved result storage, plus estimated distance work. Resident index memory, allocator overhead, retained caller results, and upstream SQL materialization have separate lifetimes. Full arrival-rate sweeps, deployment SLOs, cross-process fairness, and measured production throughput are not complete. Native PostgreSQL integration must reserve eligibility resources separately before producing large ID sets.
+
+## 16. Runtime language and test boundary
+
+All runtime implementation is C. [ann/batching.c](../ann/batching.c) implements scheduling and admission; [ann/batching.h](../ann/batching.h) defines ownership and request APIs. The C worker uses this scheduler for CPU search frames. No Python package or runtime scheduler is shipped under `ann/`. Python helpers are confined to `test/ann/support/` and benchmark/test launchers; the batching benchmark executes C code.
+
+The standalone worker currently uses POSIX threads on Linux/macOS. These threads never call PostgreSQL backend APIs. Native backend code uses PostgreSQL memory contexts, buffer locks, interrupts, and generic WAL in C. Native wire-client deadlines and table-freeze/runtime eligibility remain explicit todos; Python reference tests are not completion of those runtime milestones. CAGRA integration and cuVS compilation remain deferred.
+
+## 17. Native exact CPU AM implementation
+
+The vendor-neutral `ann` AM now follows the existing source split: `ann.c`, `annbuild.c`, `anninsert.c`, `annscan.c`, `annutils.c`, and `annvacuum.c`, with shared declarations in `ann.h`. Callbacks, helper names, memory contexts, buffer locks, generic WAL, and formatting follow the existing pgvector architecture. [The native index guide](ann-native-index.md) contains implemented execution/storage diagrams and validation commands.
+
+The registered opclass supports fixed-dimension `vector` L2 through 2,000 dimensions, including NULLs. Scans evaluate all stored vectors, spillably sort distances/TIDs, and rely on PostgreSQL for heap MVCC checks and executor predicates. This is a correctness and lifecycle baseline; no filtered-search throughput improvement or GPU execution is claimed.
+
+Completed tests cover SQL ordering/rescans, selective executor filters, updates/deletes/abort, repeatable-read visibility, free-space reuse, concurrent writers, unlogged/temporary indexes, generic-WAL replay to a streaming replica, immediate-shutdown recovery, concurrent reindex, and truncate. Local PostgreSQL 17.6 results: 15 SQL regressions, 8 native oracle tests, and 10 WAL/recovery assertions pass. The existing 6 frozen-table reference tests remain separate.
+
+Remaining steps: C IPC and whole-request admission/deadlines, then sustained-load and concurrency/fault validation. Accelerator row mapping, generations/deltas, and durable graph publication are still separate milestones. CAGRA integration/cuVS compilation, hipVS, and fused NVFP4 remain deferred.
+
+## 18. Selective exact CustomScan implementation
+
+The opt-in native C `AnnFilteredSearch` path is implemented in `src/annplan.c` and `src/anncustom.c`. It retains a normal PostgreSQL predicate child plan, moves distance scoring after child qualification, and uses execution-parameter bounds for exact top-k sorting. It preserves ordinary path costs and alternative plans. It does not yet contact the standalone worker. [The guide](ann-filtered-search.md) contains the execution diagram, supported-shape whitelist, GUC/cache behavior, and test commands.
+
+The first route supports top-level single-table queries with a matching unconditional ANN column index, complete sequential/B-tree/bitmap predicates, ascending distance with secondary tie keys, and Const/external Param query vectors and limits. RLS and snapshot handling remain in the PostgreSQL child. Unsupported shapes keep ordinary plans. Fuzzy GIN is rejected for this exact route, including an execution guard for cached plans.
+
+Validation adds twelve live oracle scenarios and an SQL regression for filtered ordering, prepared parameters, and scroll cursors. EXPLAIN reports route, eligible rows, custom-stage distance evaluations, and sort space/method. A 4,096-row fixture evaluated only its 40 eligible vectors using a B-tree child and bounded top-N sort. No SQL throughput gain over core exact search or GPU execution is claimed. Native C worker IPC, pre-eligibility admission, and whole-request deadlines remain next.
