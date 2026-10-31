@@ -184,7 +184,7 @@ ERROR:  1001 is outside the valid range for parameter "hnsw.ef_search" (1 .. 100
 SHOW hnsw.iterative_scan;
  hnsw.iterative_scan 
 ---------------------
- off
+ strict_order
 (1 row)
 
 SET hnsw.iterative_scan = on;

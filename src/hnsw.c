@@ -105,7 +105,7 @@ HnswInit(void)
 
 	DefineCustomEnumVariable("hnsw.iterative_scan", "Sets the mode for iterative scans",
 							 NULL, &hnsw_iterative_scan,
-							 HNSW_ITERATIVE_SCAN_OFF, hnsw_iterative_scan_options, PGC_USERSET, 0, NULL, NULL, NULL);
+							 HNSW_ITERATIVE_SCAN_STRICT, hnsw_iterative_scan_options, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	/* This is approximate and does not affect the initial scan */
 	DefineCustomIntVariable("hnsw.max_scan_tuples", "Sets the max number of tuples to visit for iterative scans",
