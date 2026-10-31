@@ -14,7 +14,7 @@ make -C ann USE_CUVS=1 CUVS_PREFIX=/path/to/libcuvs CUDA_HOME=/path/to/cuda
 make -C ann check-cuvs CUVS_PREFIX=/path/to/libcuvs
 ```
 
-`USE_CUVS` defaults to 0, so hosts without a GPU SDK build and test every CPU path. Loaded indexes are served by both builds. The CPU worker scans them exactly, which makes it the test reference; the cuVS worker searches CAGRA shards on all GPUs ([guide](../docs/ann-cuvs-index.md)).
+`USE_RDMA=1` adds RDMA search frames over InfiniBand or RoCE verbs for networked workers ([guide](../docs/ann-networked.md#rdma-infiniband-roce)). `USE_CUVS` defaults to 0, so hosts without a GPU SDK build and test every CPU path. Loaded indexes are served by both builds. The CPU worker scans them exactly, which makes it the test reference; the cuVS worker searches CAGRA shards on all GPUs ([guide](../docs/ann-cuvs-index.md)).
 
 `make` builds the C executable and `libannbatch.a`, without Python or a GPU SDK. `make check` uses Python to drive C protocol and scheduler tests. Live PostgreSQL and GPU tests are explicitly gated.
 

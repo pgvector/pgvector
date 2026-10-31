@@ -82,6 +82,7 @@ Network clients must send the shared token (operation 13) before any other frame
 | 13 auth | Token bytes | Empty |
 | 14 packed index search | u32 name length, name, u32 dimensions, k, key count (UINT32_MAX = no filter), u32 packed bytes; FP32 query; varint keys | As operation 12 |
 | 15 index info | Index name | Same text as operation 11, including `key` and `vector` columns |
+| 16 RDMA hello | The client's 32-byte queue pair address | u32 largest RDMA frame, the worker's 32-byte queue pair address for this client, device name |
 
 ## Measured scaling
 
@@ -105,13 +106,41 @@ Each CPU host ran its own PostgreSQL 17.6 cluster and `pgbench`, and they connec
 - **Filtered brute force didn't help.** `--filtered-bruteforce on` adds exact GPU brute force over a device copy of each shard for selective filters. Under load it reached about 800 QPS on the 1% filter, against 1,200 for filtered CAGRA, so it is off by default.
 - **Larger-scale caveats.** These hosts shared one machine's memory system and talked over loopback. A real network adds round-trip latency (about 10–50 µs in a data center) and per-query bandwidth (about 150 KB for a 1% filter on 10M keys).
 
-## RDMA (EFA, InfiniBand)
+## RDMA (InfiniBand, RoCE)
 
-Not implemented yet. The intended design is a libfabric RDM transport for search frames: libfabric is the native API for AWS EFA, and it also drives InfiniBand through its verbs provider. Authentication and fabric address exchange would stay on the existing TCP connection, and completion queues would be polled from user space. The test host has ConnectX-7 InfiniBand adapters but no AWS EFA, and no libfabric installed.
+Search frames can bypass the kernel network stack over RDMA. The transport uses InfiniBand verbs from rdma-core directly, so it runs on any InfiniBand or RoCE adapter (tested with ConnectX-7):
+
+- **Connection setup:** each PostgreSQL backend keeps its TCP connection for authentication, heartbeats, loads, and frames too large for RDMA. After authenticating, it sends its queue pair address (LID, queue pair number, starting packet sequence number, GID) in operation 16. The worker connects a reliable-connected queue pair back and replies with its own address. No IP-over-InfiniBand addresses are needed. RoCE ports route by GID.
+- **Data path:** each request is one RDMA send of up to 256 KB, enough for packed filters of about 100k keys. The worker receives every client's frames on one shared receive queue, with all buffers registered once at startup. Replies go back on the client's queue pair.
+- **Completions:** the worker's progress thread and each backend poll their completion queues from user space, so a search needs no system call or interrupt. `--rdma-poll wait` uses a completion channel instead, which sleeps between bursts at the cost of an interrupt per wakeup.
+- **Security:** the worker accepts RDMA frames only on queue pairs it connected for authenticated TCP connections. A queue pair is destroyed when its connection's last in-flight reply is done.
+- **Fallback:** frames that don't fit go over TCP. If the device can't be opened, the backend stays on TCP and logs at DEBUG1.
+
+```sh
+# GPU node (an active port; check with ibv_devinfo)
+make -C ann USE_CUVS=1 USE_RDMA=1 CUVS_PREFIX=...
+ann/ann-worker-cuvs --backend cuvs --listen /run/ann.sock --listen-tcp 0.0.0.0:7700 \
+    --auth-token-file /etc/ann/token --rdma mlx5_0:1 [--rdma-poll spin|wait]
+
+# PostgreSQL hosts
+make USE_RDMA=1 && make install USE_RDMA=1
+```
+
+```sql
+ALTER SYSTEM SET ann.worker_rdma = 'mlx5_0';   -- local device[:port], empty for TCP only
+SELECT pg_reload_conf();
+```
+
+The worker's statistics (operation 8) count `rdma_frames`. Each backend uses one queue pair, and a worker accepts up to 32,768.
+
+**Limits.**
+- Spin polling dedicates a core to the worker's progress thread, and each waiting backend spins on its own completion queue.
+- AWS EFA isn't supported: it needs the SRD transport through libfabric or `efadv`, not reliable-connected queue pairs.
+- The test host's IP-over-InfiniBand interfaces have no addresses, so libfabric's `verbs;ofi_rxm` provider can't be used there. Native verbs addressing by LID works without them.
 
 ## Tests
 
-`test/ann/test_remote.py` needs `ANN_PG_DSN`; it starts local networked workers. It covers:
+`test/ann/test_remote.py` needs `ANN_PG_DSN`; it starts local networked workers. With `ANN_TEST_RDMA=mlx5_0` (an active port, and both builds made with `USE_RDMA=1`), every test runs with search frames over RDMA, and an extra test checks that the worker received them as RDMA frames. It covers:
 
 - Token authentication and unauthenticated disconnects, and refusal of shared memory over TCP.
 - Packed-filter decoding, including malformed gaps.

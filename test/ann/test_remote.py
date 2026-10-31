@@ -3,6 +3,9 @@
 Needs ANN_PG_DSN for a superuser on this host (the test starts local
 networked workers); ANN_PSQL overrides psql. Uses the CPU worker, so it runs
 without a GPU; ANN_INDEX_WORKER/ANN_INDEX_BACKEND select the cuVS build.
+ANN_TEST_RDMA=<device[:port]> (an active InfiniBand/RoCE port, such as
+mlx5_0) runs everything with search frames over RDMA; it needs USE_RDMA=1
+builds of the worker and extension.
 """
 
 import os
@@ -22,6 +25,7 @@ from test_server import ROOT, Server, frame, receive  # noqa: E402
 DSN = os.environ.get('ANN_PG_DSN')
 PSQL = os.environ.get('ANN_PSQL', 'psql')
 TOKEN = 'test-token-' + uuid.uuid4().hex
+RDMA = os.environ.get('ANN_TEST_RDMA', '')
 
 
 def free_port():
@@ -36,8 +40,9 @@ class Node:
         token = os.path.join(directory, f'token-{self.port}')
         with open(token, 'w') as out:
             out.write(TOKEN + '\n')
+        rdma = ['--rdma', RDMA] if RDMA else []
         self.server = Server('--backend', IndexWorkerTests.backend, '--listen-tcp', f'127.0.0.1:{self.port}',
-                             '--auth-token-file', token, executable=IndexWorkerTests.worker)
+                             '--auth-token-file', token, *rdma, executable=IndexWorkerTests.worker)
         deadline = time.monotonic() + 5
         while True:
             try:
@@ -163,7 +168,8 @@ class RemoteSqlTests(unittest.TestCase):
     def settings(cls, nodes=None):
         nodes = nodes or cls.nodes
         return (f"SET ann.worker_address = '{','.join(n.address for n in nodes)}';\n"
-                f"SET ann.worker_auth_token = '{TOKEN}';\n")
+                f"SET ann.worker_auth_token = '{TOKEN}';\n"
+                f"SET ann.worker_rdma = '{RDMA}';\n")
 
     @classmethod
     def psql(cls, script, check=True, nodes=None):
@@ -179,6 +185,22 @@ class RemoteSqlTests(unittest.TestCase):
                 SELECT ARRAY(SELECT s.id FROM {search} s ORDER BY s.distance, s.id) a,
                        ARRAY(SELECT t.id FROM {self.table} t {exact} ORDER BY t.emb <-> q.emb, t.id LIMIT 7) b
                 FROM {self.table} q WHERE {where}) x""").strip()
+
+    def rdma_frames(self, node):
+        with socket.create_connection(('127.0.0.1', node.port)) as connection:
+            connection.sendall(frame(13, 1, TOKEN.encode()))
+            receive(connection)
+            connection.sendall(frame(8, 2))
+            import json
+            return json.loads(receive(connection)[3])['rdma_frames']
+
+    @unittest.skipUnless(RDMA, 'set ANN_TEST_RDMA to an active InfiniBand/RoCE device')
+    def test_searches_travel_over_rdma(self):
+        before = sum(self.rdma_frames(node) for node in self.nodes)
+        output = self.psql(f"SELECT count(*) FROM {self.table} q, ann_index_search('{self.name}', q.emb, 5) s "
+                           f"WHERE q.id % 97 = 0")
+        self.assertEqual(int(output), 5 * len([i for i in range(1, 3001) if (i * 5) % 97 == 0]))
+        self.assertGreaterEqual(sum(self.rdma_frames(node) for node in self.nodes) - before, 30)
 
     def test_ann_over_tcp(self):
         self.assertEqual(self.mismatches(f"ann_index_search('{self.name}', q.emb, 7)", ''), '0')

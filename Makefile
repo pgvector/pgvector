@@ -32,6 +32,13 @@ ifeq ($(shell uname -m), riscv64)
 	OPTFLAGS =
 endif
 
+# USE_RDMA=1 lets backends send search frames to GPU nodes over
+# InfiniBand/RoCE verbs (rdma-core); see docs/ann-networked.md.
+ifeq ($(USE_RDMA),1)
+	PG_CPPFLAGS += -DANN_USE_RDMA
+	SHLIB_LINK += -libverbs
+endif
+
 # For auto-vectorization:
 # - GCC (needs -ftree-vectorize OR -O3) - https://gcc.gnu.org/projects/tree-ssa/vectorization.html
 # - Clang (could use pragma instead) - https://llvm.org/docs/Vectorizers.html

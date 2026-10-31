@@ -279,6 +279,10 @@ main(int argc, char **argv)
 			listen = value;
 		else if (strcmp(argv[i], "--listen-tcp") == 0)
 			serveOptions.tcp = value;
+		else if (strcmp(argv[i], "--rdma") == 0)
+			serveOptions.rdma = value;
+		else if (strcmp(argv[i], "--rdma-poll") == 0)
+			serveOptions.rdma_spin = strcmp(value, "wait") != 0;
 		else if (strcmp(argv[i], "--auth-token-file") == 0)
 		{
 			static char token[256];
@@ -489,12 +493,12 @@ main(int argc, char **argv)
 
 usage:
 #ifdef ANN_USE_CUVS
-	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE] "
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
 			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--filtered-bruteforce on|off]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
-	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE] "
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
 			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--filtered-bruteforce on|off]]\n"
 			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");

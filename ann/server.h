@@ -12,6 +12,7 @@
 #define ANN_OP_AUTH 13
 #define ANN_OP_INDEX_SEARCH_PACKED 14
 #define ANN_OP_INDEX_INFO 15
+#define ANN_OP_RDMA_HELLO 16
 
 typedef struct AnnServeOptions
 {
@@ -22,6 +23,9 @@ typedef struct AnnServeOptions
 	uint64_t	delay_us;		/* wait for more jobs before a partial batch */
 	const char *tcp;			/* optional "host:port" network listener */
 	const char *token;			/* shared secret network clients must send */
+	const char *rdma;			/* InfiniBand/RoCE device[:port] for search
+								 * frames */
+	int			rdma_spin;		/* busy-poll completions instead of interrupts */
 } AnnServeOptions;
 
 void		AnnServeDefaultOptions(AnnServeOptions *options);

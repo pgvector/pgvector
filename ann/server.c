@@ -5,6 +5,7 @@
 
 #include "server.h"
 #include "indexfile.h"
+#include "rdma.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -34,6 +35,8 @@ typedef struct Connection
 	int			authenticated;
 	const unsigned char *shared;	/* client-written read-only vectors */
 	size_t		shared_size;
+	AnnRdma    *rdma;			/* set once the client connected a queue pair */
+	uint64_t	peer;
 	pthread_mutex_t mutex;		/* serializes replies and guards references */
 } Connection;
 
@@ -47,6 +50,7 @@ typedef struct Job
 	AnnIndexJob index;
 	int64_t    *keys;			/* sorted filter keys owned by the job */
 	Connection *connection;
+	int			rdma;			/* reply over RDMA, as requested */
 	uint16_t	operation;
 	uint64_t	request;
 	unsigned char *payload;
@@ -72,6 +76,10 @@ typedef struct Service
 	uint64_t	batches;
 	uint64_t	max_batch;
 	uint64_t	rows;
+	AnnRdma    *rdma;
+	Connection **peers;			/* by RDMA peer id, under mutex */
+	uint64_t	npeers;
+	uint64_t	rdma_frames;
 } Service;
 
 static volatile sig_atomic_t stopRequested;
@@ -88,6 +96,8 @@ AnnServeDefaultOptions(AnnServeOptions *options)
 	options->delay_us = 0;
 	options->tcp = NULL;
 	options->token = NULL;
+	options->rdma = NULL;
+	options->rdma_spin = 1;
 }
 
 static void
@@ -175,6 +185,9 @@ Release(Connection *connection)
 	(void) pthread_mutex_unlock(&connection->mutex);
 	if (last)
 	{
+		/* No job or reader can send to the queue pair any more. */
+		if (connection->rdma)
+			AnnRdmaRemovePeer(connection->rdma, connection->peer);
 		(void) close(connection->fd);
 		if (connection->shared)
 			(void) munmap((void *) connection->shared, connection->shared_size);
@@ -205,6 +218,30 @@ Reply(Connection *connection, uint16_t operation, uint64_t request,
 		(void) shutdown(connection->fd, SHUT_RDWR);
 	}
 	(void) pthread_mutex_unlock(&connection->mutex);
+}
+
+/* Reply on the transport the request used. */
+static void
+SendReply(Connection *connection, int rdma, uint16_t operation, uint64_t request,
+		  AnnStatus status, const unsigned char *data, size_t size)
+{
+	unsigned char header[32] = {'P', 'V', 'A', 'N'};
+
+	if (!rdma)
+	{
+		Reply(connection, operation, request, status, data, size);
+		return;
+	}
+	Write(header + 4, 1, 2);
+	Write(header + 6, operation, 2);
+	Write(header + 8, request, 8);
+	Write(header + 16, 0, 8);
+	Write(header + 24, size, 4);
+	Write(header + 28, status, 4);
+
+	/* Replies larger than an RDMA frame fall back to the TCP connection. */
+	if (!AnnRdmaSend(connection->rdma, connection->peer, header, sizeof(header), data, size))
+		Reply(connection, operation, request, status, data, size);
 }
 
 static void
@@ -257,8 +294,8 @@ Finish(Service *service, Job *job)
 			}
 		}
 	}
-	Reply(job->connection, job->operation, job->request, job->job.status,
-		  data, job->job.status == ANN_OK ? size : 0);
+	SendReply(job->connection, job->rdma, job->operation, job->request, job->job.status,
+			  data, job->job.status == ANN_OK ? size : 0);
 	free(data);
 	(void) pthread_mutex_lock(&service->mutex);
 	service->pending_bytes -= job->charge;
@@ -384,7 +421,7 @@ Lane(void *argument)
  * attached segment, then the FP32 query; vectors stay in the segment.
  */
 static AnnStatus
-Submit(Service *service, Connection *connection, uint16_t operation,
+Submit(Service *service, Connection *connection, int rdma, uint16_t operation,
 	   uint64_t request, unsigned char *payload, uint32_t size)
 {
 	Job		   *job;
@@ -444,6 +481,7 @@ Submit(Service *service, Connection *connection, uint16_t operation,
 	job->job.vectors = vectors;
 	job->connection = connection;
 	job->operation = operation;
+	job->rdma = rdma;
 	job->request = request;
 	job->payload = payload;
 	job->charge = charge;
@@ -544,7 +582,7 @@ KeyCompare(const void *a, const void *b)
  * count (UINT32_MAX for none); FP32 query; i64 filter keys in any order.
  */
 static AnnStatus
-SubmitIndex(Service *service, Connection *connection, uint16_t operation, uint64_t request,
+SubmitIndex(Service *service, Connection *connection, int rdma, uint16_t operation, uint64_t request,
 			unsigned char *payload, uint32_t size)
 {
 	Job		   *job;
@@ -679,6 +717,7 @@ SubmitIndex(Service *service, Connection *connection, uint16_t operation, uint64
 	job->index.filter = job->keys;
 	job->connection = connection;
 	job->operation = operation;
+	job->rdma = rdma;
 	job->request = request;
 	job->payload = payload;
 	job->charge = (uint64_t) size + keys * 8 + sizeof(AnnIndexHit) * k;
@@ -736,7 +775,7 @@ LoadIndex(Service *service, const unsigned char *payload, uint32_t size,
 
 /* Index info payload: the index name. Replies like LoadIndex. */
 static AnnStatus
-IndexInfo	(const unsigned char *payload, uint32_t size, char *reply, size_t replySize, size_t *replyLength)
+DescribeIndex(const unsigned char *payload, uint32_t size, char *reply, size_t replySize, size_t *replyLength)
 {
 	char		name[ANN_INDEX_NAME_MAX + 1];
 	AnnIndexFile *file;
@@ -769,6 +808,133 @@ TokenMatches(const char *token, const unsigned char *given, uint32_t size)
 	for (size_t i = 0; i < length; i++)
 		difference |= (unsigned char) token[i] ^ given[i];
 	return difference == 0;
+}
+
+/*
+ * RDMA hello over an authenticated connection: the payload is the client's
+ * queue pair address. The worker connects a queue pair to it, and frames on
+ * that queue pair are then answered as this connection's. Reply: u32
+ * largest frame, the worker's queue pair address, device name.
+ */
+static AnnStatus
+Hello(Service *service, Connection *connection, const unsigned char *payload, uint32_t size,
+	  unsigned char *reply, size_t replySize, size_t *replyLength)
+{
+	const char *device;
+	uint64_t	peer;
+
+	if (service->rdma == NULL)
+		return ANN_UNSUPPORTED;
+	if (connection->rdma || size != ANN_RDMA_ADDRESS || (connection->remote && !connection->authenticated))
+		return ANN_INVALID;
+	device = AnnRdmaDevice(service->rdma);
+	if (4 + ANN_RDMA_ADDRESS + strlen(device) > replySize ||
+		!AnnRdmaAddPeer(service->rdma, payload, reply + 4, &peer))
+		return ANN_BACKEND_ERROR;
+	(void) pthread_mutex_lock(&service->mutex);
+	if (peer >= service->npeers)
+	{
+		uint64_t	count = peer + 64;
+		Connection **peers = realloc(service->peers, sizeof(*peers) * count);
+
+		if (peers == NULL)
+		{
+			(void) pthread_mutex_unlock(&service->mutex);
+			AnnRdmaRemovePeer(service->rdma, peer);
+			return ANN_NOMEM;
+		}
+		memset(peers + service->npeers, 0, sizeof(*peers) * (count - service->npeers));
+		service->peers = peers;
+		service->npeers = count;
+	}
+	service->peers[peer] = connection;
+	(void) pthread_mutex_unlock(&service->mutex);
+	(void) pthread_mutex_lock(&connection->mutex);
+	connection->references++;	/* held by the peer table */
+	connection->rdma = service->rdma;
+	connection->peer = peer;
+	(void) pthread_mutex_unlock(&connection->mutex);
+	Write(reply, AnnRdmaMaxFrame(service->rdma), 4);
+	memcpy(reply + 4 + ANN_RDMA_ADDRESS, device, strlen(device));
+	*replyLength = 4 + ANN_RDMA_ADDRESS + strlen(device);
+	return ANN_OK;
+}
+
+/*
+ * A closing connection stops accepting RDMA frames. Its queue pair lives
+ * until the connection's last job has replied; Release destroys it.
+ */
+static void
+Goodbye(Service *service, Connection *connection)
+{
+	if (connection->rdma == NULL)
+		return;
+	(void) pthread_mutex_lock(&service->mutex);
+	if (connection->peer < service->npeers && service->peers[connection->peer] == connection)
+		service->peers[connection->peer] = NULL;
+	(void) pthread_mutex_unlock(&service->mutex);
+	Release(connection);
+}
+
+/*
+ * A frame from the RDMA progress thread. Only searches and probes are
+ * served here; loads, hellos, statistics and shared memory use TCP.
+ */
+static void
+RdmaFrame(void *context, uint64_t peer, unsigned char *frame, size_t size)
+{
+	Service    *service = context;
+	Connection *connection = NULL;
+	uint16_t	operation;
+	uint64_t	request;
+	uint32_t	length;
+	unsigned char *payload;
+	AnnStatus	status;
+
+	if (size < 32 || memcmp(frame, "PVAN", 4) != 0 || Read(frame + 4, 2) != 1 ||
+		(length = (uint32_t) Read(frame + 24, 4)) != size - 32)
+	{
+		free(frame);
+		return;
+	}
+	(void) pthread_mutex_lock(&service->mutex);
+	if (peer < service->npeers)
+		connection = service->peers[peer];
+	if (connection)
+	{
+		(void) pthread_mutex_lock(&connection->mutex);
+		connection->references++;
+		(void) pthread_mutex_unlock(&connection->mutex);
+	}
+	service->rdma_frames++;
+	(void) pthread_mutex_unlock(&service->mutex);
+	if (connection == NULL)
+	{
+		free(frame);
+		return;
+	}
+	operation = (uint16_t) Read(frame + 6, 2);
+	request = Read(frame + 8, 8);
+	payload = malloc(length ? length : 1);
+	if (payload)
+		memcpy(payload, frame + 32, length);
+	free(frame);
+	if (payload == NULL)
+		status = ANN_NOMEM;
+	else if (operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED)
+		status = SubmitIndex(service, connection, 1, operation, request, payload, length);
+	else if (operation == ANN_OP_GATHERED_SEARCH)
+		status = Submit(service, connection, 1, operation, request, payload, length);
+	else if (operation == 5)
+		status = ANN_OK;
+	else
+		status = ANN_UNSUPPORTED;
+	if (status != ANN_PENDING)
+	{
+		SendReply(connection, 1, operation, request, status, NULL, 0);
+		free(payload);
+	}
+	Release(connection);
 }
 
 typedef struct ReaderArgs
@@ -838,68 +1004,78 @@ Reader(void *argument)
 		}
 		if (operation == ANN_OP_GATHERED_SEARCH || operation == ANN_OP_SHARED_SEARCH)
 		{
-			status = Submit(service, connection, operation, request, payload, length);
+			status = Submit(service, connection, 0, operation, request, payload, length);
 			if (status == ANN_PENDING)
 				continue;		/* the lane owns the payload */
 			Reply(connection, operation, request, status, NULL, 0);
 		}
 		else if (operation == 0 || operation == ANN_OP_STATS)
 		{
-			char text[	512];
+			char		message[512];
 			int			size;
 
 			(void) pthread_mutex_lock(&service->mutex);
 			if (operation == 0)
-				size = snprintf(text, sizeof(text),
-								"{\"backend\":\"%s\",\"mode\":\"server\",\"operations\":[0,5,7,8,9,10,11,12,13,14,15],"
+				size = snprintf(message, sizeof(message),
+								"{\"backend\":\"%s\",\"mode\":\"server\",\"operations\":[0,5,7,8,9,10,11,12,13,14,15,16],"
 								"\"metrics_mask\":%u,\"exact\":%s,\"lanes\":%u,\"max_batch_jobs\":%u,"
 								"\"max_frame_bytes\":%u}",
 								service->backend->name, service->backend->metrics,
 								service->backend->exact ? "true" : "false",
 								service->options.lanes, service->options.max_batch_jobs, ANN_MAX_BYTES);
 			else
-				size = snprintf(text, sizeof(text),
+				size = snprintf(message, sizeof(message),
 								"{\"jobs\":%llu,\"batches\":%llu,\"max_batch\":%llu,\"rows\":%llu,"
-								"\"rejected\":%llu,\"failed\":%llu,\"pending_bytes\":%llu,\"device_jobs\":%llu}",
+								"\"rejected\":%llu,\"failed\":%llu,\"pending_bytes\":%llu,\"device_jobs\":%llu,"
+								"\"rdma_frames\":%llu}",
 								(unsigned long long) service->jobs, (unsigned long long) service->batches,
 								(unsigned long long) service->max_batch, (unsigned long long) service->rows,
 								(unsigned long long) service->rejected, (unsigned long long) service->failed,
 								(unsigned long long) service->pending_bytes,
 								(unsigned long long) (service->backend->device_jobs ?
-													  service->backend->device_jobs() : 0));
+													  service->backend->device_jobs() : 0),
+								(unsigned long long) service->rdma_frames);
 			(void) pthread_mutex_unlock(&service->mutex);
-			Reply(connection, operation, request, ANN_OK, (unsigned char *) text,
-				  size > 0 && (size_t) size < sizeof(text) ? (size_t) size : 0);
+			Reply(connection, operation, request, ANN_OK, (unsigned char *) message,
+				  size > 0 && (size_t) size < sizeof(message) ? (size_t) size : 0);
 		}
 		else if (operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED)
 		{
-			status = SubmitIndex(service, connection, operation, request, payload, length);
+			status = SubmitIndex(service, connection, 0, operation, request, payload, length);
 			if (status == ANN_PENDING)
 				continue;
 			Reply(connection, operation, request, status, NULL, 0);
 		}
 		else if (operation == ANN_OP_LOAD_INDEX)
 		{
-			char text[	512];
+			char		message[512];
 			size_t		textLength = 0;
 
 			/* Loading blocks only this connection's reader. */
-			status = LoadIndex(service, payload, length, text, sizeof(text), &textLength);
-			Reply(connection, operation, request, status, (unsigned char *) text,
+			status = LoadIndex(service, payload, length, message, sizeof(message), &textLength);
+			Reply(connection, operation, request, status, (unsigned char *) message,
 				  status == ANN_OK ? textLength : 0);
 		}
 		else if (operation == ANN_OP_INDEX_INFO)
 		{
-			char text[	512];
+			char		message[512];
 			size_t		textLength = 0;
 
-			status = IndexInfo (payload, length, text, sizeof(text), &textLength);
+			status = DescribeIndex(payload, length, message, sizeof(message), &textLength);
 
-			Reply(connection, operation, request, status, (unsigned char *) text,
+			Reply(connection, operation, request, status, (unsigned char *) message,
 				  status == ANN_OK ? textLength : 0);
 		}
 		else if (operation == ANN_OP_AUTH)
 			Reply(connection, operation, request, ANN_OK, NULL, 0);
+		else if (operation == ANN_OP_RDMA_HELLO)
+		{
+			unsigned char message[1400];
+			size_t		messageLength = 0;
+
+			status = Hello(service, connection, payload, length, message, sizeof(message), &messageLength);
+			Reply(connection, operation, request, status, message, status == ANN_OK ? messageLength : 0);
+		}
 		else if (operation == ANN_OP_ATTACH_SHARED)
 			Reply(connection, operation, request, Attach(connection, payload, length), NULL, 0);
 		else if (operation == 5)
@@ -912,6 +1088,7 @@ Reader(void *argument)
 	connection->broken = 1;
 	(void) shutdown(connection->fd, SHUT_RDWR);
 	(void) pthread_mutex_unlock(&connection->mutex);
+	Goodbye(service, connection);
 	Release(connection);
 	return NULL;
 }
@@ -986,6 +1163,21 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 	for (uint32_t i = 0; i < options->lanes; i++)
 		if (pthread_create(&lanes[i], NULL, Lane, &service) != 0)
 			return 1;
+	if (options->rdma)
+	{
+		char		error[512];
+
+		service.rdma = AnnRdmaOpen(options->rdma, options->rdma_spin, RdmaFrame, &service,
+								   error, sizeof(error));
+		if (service.rdma == NULL)
+		{
+			fprintf(stderr, "ann-worker: %s\n", error);
+			return 1;
+		}
+		fprintf(stderr, "ann-worker: RDMA on %s, frames up to %zu bytes, %s completions\n",
+				AnnRdmaDevice(service.rdma), AnnRdmaMaxFrame(service.rdma),
+				options->rdma_spin ? "spin-polled" : "interrupt-driven");
+	}
 	fprintf(stderr, "ann-worker: backend %s listening on %s%s%s\n", backend->name, path,
 			options->tcp ? " and " : "", options->tcp ? options->tcp : "");
 	while (!stopRequested)
@@ -1069,6 +1261,7 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 	(void) close(listener);
 	if (network >= 0)
 		(void) close(network);
+	AnnRdmaClose(service.rdma);
 	(void) unlink(path);
 	(void) pthread_mutex_lock(&service.mutex);
 	service.stopping = 1;
