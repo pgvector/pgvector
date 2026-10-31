@@ -521,7 +521,10 @@ RepairDeletingNeighbors(HnswVacuumState * vacuumstate, ItemPointer neighbortid)
 	npage = GenericXLogRegisterBuffer(state, nbuf, 0);
 	ntup = (HnswNeighborTuple) PageGetItem(npage, PageGetItemId(npage, ItemPointerGetOffsetNumber(neighbortid)));
 
-	/* Overwrite neighbors */
+	/*
+	 * Clear neighbors, which effectively marks the tuple as deleted for
+	 * resumed iterative scans
+	 */
 	for (int i = 0; i < ntup->count; i++)
 		ItemPointerSetInvalid(&ntup->indextids[i]);
 
