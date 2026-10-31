@@ -148,3 +148,18 @@ The worker's statistics (operation 8) count `rdma_frames`. Each backend uses one
 - Both routes of `ann_hybrid_search` and of the key-array filter, each equal to exact SQL.
 - Read-only filter enforcement, attach and catalog, a wrong token.
 - Failover with heartbeats after a node dies while idle, and every node down.
+
+### Unattended runs on a GPU node
+
+`scripts/ann/gpu_handoff.sh` builds and checks the networked stack on a GPU node without a session attached:
+
+- It builds the cuVS and RDMA worker and the RDMA extension from a fresh clone.
+- It runs every test alone, in its own process group, with a hard time limit, so a hang is reported rather than blocking the run.
+- It can wait for other GPU workloads (`ANN_HANDOFF_WAIT_PORTS`) to stop, then runs the cuVS suites and benchmarks TCP, RDMA with spin polling, and RDMA with interrupts.
+- It writes a report with per-step results.
+
+Paths, cores and devices are set through `ANN_HANDOFF_*` variables, listed at the top of the script.
+
+```sh
+ANN_HANDOFF_WAIT_PORTS="7710 7711" setsid nohup scripts/ann/gpu_handoff.sh >/dev/null 2>&1 < /dev/null &
+```
