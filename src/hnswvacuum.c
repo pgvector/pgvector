@@ -539,6 +539,10 @@ RepairDeletingNeighbors(HnswVacuumState * vacuumstate, ItemPointer neighbortid)
 
 /*
  * Repair deleting
+ *
+ * This is necessary to avoid errors with resumed iterative scans
+ *
+ * This is done after repairing the graph so the graph stays connected during repair
  */
 static void
 RepairDeleting(HnswVacuumState * vacuumstate)
