@@ -221,6 +221,10 @@ class RemoteSqlTests(unittest.TestCase):
             f"SELECT * FROM ann_hybrid_search('{self.name}', '[1,1,1,1]', 3, 'true); DELETE FROM {self.table}; --')",
             check=False))
         self.assertEqual(self.psql(f'SELECT count(*) FROM {self.table}').strip(), '3000')
+        # Two valid SELECTs are refused too: only the first would feed keys.
+        self.assertIn('single boolean expression', self.psql(
+            f"SELECT * FROM ann_hybrid_search('{self.name}', '[1,1,1,1]', 3, 'true); SELECT (1')",
+            check=False))
 
     def test_key_filter_routes_agree_with_sql(self):
         for threshold in (1000, 1):

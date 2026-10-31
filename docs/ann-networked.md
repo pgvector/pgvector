@@ -49,12 +49,12 @@ SELECT * FROM ann_hybrid_search('docs', $1, 10, format('tenant = %s AND lang = %
 SELECT * FROM ann_index_search('docs', $1, 10, ARRAY(SELECT id FROM docs WHERE tenant = $2));
 ```
 
-`ann_hybrid_search` counts the filter's rows with a scan capped at `ann.gpu_min_eligible` (default 1000):
+`ann_hybrid_search` runs the filter once and collects its keys straight from the executor (a `DestReceiver`, so no per-row SPI tuple is built). It then routes by the count, against `ann.gpu_min_eligible` (default 1000):
 
 - **Below the threshold:** the host runs `ORDER BY vector <-> query LIMIT k` itself, so the result is exact and no network is used.
-- **At or above it:** the host streams the matching keys and sends them to a GPU node as a zigzag varint first key followed by varint gaps. For dense filters that's one or two bytes per key instead of eight.
+- **At or above it:** the host sends the sorted keys to a GPU node as a zigzag varint first key followed by varint gaps. For dense filters that's one or two bytes per key instead of eight. The node scores only those rows with its [GPU gather scan](ann-cuvs-index.md#search-execution), so the result is exact.
 
-The filter is a SQL boolean expression over the source table. It is prepared as one read-only statement and runs with the caller's privileges, like any dynamic SQL; build it with `format()` so values are quoted.
+The filter is a SQL boolean expression over the source table. It is prepared as one read-only statement, and anything that parses as more than one statement is rejected. It runs with the caller's privileges, like any dynamic SQL; build it with `format()` so values are quoted.
 
 **Choosing the threshold.** The measurements below show the trade-off. The GPU node's exact scan over memory-mapped vectors is far cheaper per query than PostgreSQL fetching scattered heap rows. Local scoring wins only when CPU hosts are numerous enough, or the eligible rows cheap enough to read (for example, a covering index that includes the vector column), to outrun the GPU node's own CPUs.
 
@@ -103,8 +103,40 @@ Each CPU host ran its own PostgreSQL 17.6 cluster and `pgbench`, and they connec
 
 - A single 64-core CPU host already drives the GPU node to about 300k ANN QPS. Adding hosts helps until the node saturates, at the same ~390k ceiling measured when everything shared one machine.
 - Scoring on the CPU hosts is the part that scales with more hosts, but it costs about 4× more per query than the GPU node's exact route on this schema. That's why the default `ann.gpu_min_eligible` is 1000.
-- **Filtered brute force didn't help.** `--filtered-bruteforce on` adds exact GPU brute force over a device copy of each shard for selective filters. Under load it reached about 800 QPS on the 1% filter, against 1,200 for filtered CAGRA, so it is off by default.
+- **Full-shard brute force didn't help; the gather scan replaced it.** Masked brute force over each shard (`--filtered-bruteforce`, now removed) scored every row of the shard and reached about 800 QPS on the 1% filter. The gather scan scores only the eligible rows; see below.
 - **Larger-scale caveats.** These hosts shared one machine's memory system and talked over loopback. A real network adds round-trip latency (about 10–50 µs in a data center) and per-query bandwidth (about 150 KB for a 1% filter on 10M keys).
+
+### Many PostgreSQL hosts sharing one GPU
+
+The topology this targets is many PostgreSQL hosts, each holding the full table with its own indexes for filters, sharing one GPU node for vector scoring. Adding hosts should add throughput until the GPU node saturates, so the node's cost per filtered query has to be small. Measured on the same machine with an unsharded 10M-row index (`bench10m-1shard`) and a worker on a single B200 with 28 cores (`--lanes 32 --itopk 64`).
+
+The worker alone, driven over TCP by a C load generator (`k = 10`; recall against an exact CPU worker):
+
+| Filter | Filtered CAGRA | Gather scan |
+| --- | --- | --- |
+| 1% (100k keys) | 4.7k QPS, recall@10 0.66 | 34k QPS, recall@10 1.0, 0.87 ms unloaded |
+| 10% (1M keys) | 1.5k QPS, recall@10 0.97 | 3.4k QPS, recall@10 1.0 |
+| 0.1% (10k keys) | 14k QPS (CPU exact route) | 72–95k QPS, recall@10 1.0 |
+
+Three changes got there:
+
+1. **The gather scan.** It replaced filtered CAGRA, which spent about 6 ms of GPU time per 1% query on a mostly masked graph walk with internal top-k 512.
+2. **Keys mapped to rows on the GPU.** This moved the per-key binary searches off the worker's CPUs.
+3. **Huge-page host copies of keys and vectors,** which cut TLB misses on the CPU routes and on FP32 re-scoring.
+
+End to end with `ann_hybrid_search`, each PostgreSQL host on its own 64 cores, both sharing that one-GPU worker (best of 128 or 256 clients):
+
+| Workload | Host A alone | Hosts A + B (total) | Before: A alone / A + B |
+| --- | --- | --- | --- |
+| 1% filter | 6,832 | 10,883 | 3,977 / 5,916 |
+| 0.1% filter, GPU route (`gpu_min_eligible = 0`) | 31,684 | 56,110 | 23,792 / 40,107 |
+| ANN | 302,529 | 384,041 | GPU worker (28 cores) saturates |
+
+The "before" column is the previous extension, against the same gather-scan worker.
+
+- **Filtered throughput now scales with PostgreSQL hosts.** The GPU worker serves about 34k 1% queries per second, while one 64-core host produces about 7k.
+- **PostgreSQL's key scan is now the cost.** An index-only scan of 100k keys takes about 11 ms, about 100 ns per row. Running the filter once instead of counting first, and collecting keys without SPI tuples, cut a host's CPU per 1% query from about 16 ms to about 10 ms. Beyond that, keys need a cheaper source than an executor scan, such as cached per-value posting lists.
+- **Remaining worker cost is host-side.** For a 1% query that's about 0.26 ms decoding 100k varint keys in the connection reader, and about 0.8 ms of lane time issuing copies and kernels and waiting for the device. Batching several filtered queries into one launch is the next step there.
 
 ## RDMA (InfiniBand, RoCE)
 

@@ -520,13 +520,139 @@ ann_index_search(PG_FUNCTION_ARGS)
 	return (Datum) 0;
 }
 
+/* Eligible keys collected straight from the executor, without SPI tuples. */
+typedef struct KeyReceiver
+{
+	DestReceiver pub;
+	int64	   *keys;			/* in the caller's context, which outlives SPI */
+	int			nkeys;
+	int			capacity;
+} KeyReceiver;
+
+static bool
+KeyReceive(TupleTableSlot *slot, DestReceiver *self)
+{
+	KeyReceiver *receiver = (KeyReceiver *) self;
+	bool		isnull;
+	Datum		value = slot_getattr(slot, 1, &isnull);
+
+	if (isnull)
+		return true;
+	if (receiver->nkeys == receiver->capacity)
+	{
+		if (receiver->capacity > INT_MAX / 2)
+			ereport(ERROR,
+					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+					 errmsg("ann hybrid filter matches too many rows")));
+		receiver->capacity *= 2;
+		receiver->keys = repalloc_huge(receiver->keys, sizeof(int64) * receiver->capacity);
+	}
+	receiver->keys[receiver->nkeys++] = DatumGetInt64(value);
+	return true;
+}
+
+static void
+KeyStartup(DestReceiver *self, int operation, TupleDesc typeinfo)
+{
+}
+
+static void
+KeyShutdown(DestReceiver *self)
+{
+}
+
+static void
+KeyDestroy(DestReceiver *self)
+{
+}
+
+/*
+ * Run the filter once and return every eligible key, in the caller's memory
+ * context. Rows reach the receiver as executor slots, so no per-row SPI
+ * tuple is built or copied.
+ */
+static int64 *
+CollectKeys(const AnnCatalogEntry *entry, const char *filter, int *nkeys)
+{
+	KeyReceiver receiver = {0};
+	SPIPlanPtr	plan;
+
+	receiver.pub.receiveSlot = KeyReceive;
+	receiver.pub.rStartup = KeyStartup;
+	receiver.pub.rShutdown = KeyShutdown;
+	receiver.pub.rDestroy = KeyDestroy;
+	receiver.pub.mydest = DestNone;
+	receiver.capacity = 1024;
+	receiver.keys = palloc(sizeof(int64) * receiver.capacity);
+	if (SPI_connect() != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed");
+
+	/* One prepared read-only statement: a filter cannot smuggle in writes. */
+	plan = SPI_prepare(psprintf("SELECT %s::bigint FROM %s WHERE (%s)", entry->key, entry->source, filter), 0, NULL);
+	if (plan == NULL)
+		elog(ERROR, "could not prepare the ann hybrid filter: %s", SPI_result_code_string(SPI_result));
+	if (list_length(SPI_plan_get_plan_sources(plan)) != 1)
+		ereport(ERROR,
+				(errcode(ERRCODE_SYNTAX_ERROR),
+				 errmsg("ann hybrid filter must be a single boolean expression")));
+#if PG_VERSION_NUM >= 140000
+	{
+		SPIExecuteOptions options = {0};
+		int			result;
+
+		options.read_only = true;
+		options.dest = &receiver.pub;
+		result = SPI_execute_plan_extended(plan, &options);
+
+		/* SPI reports a SELECT into a DestNone receiver as a utility. */
+		if (result != SPI_OK_SELECT && result != SPI_OK_UTILITY)
+			elog(ERROR, "could not evaluate the ann hybrid filter");
+	}
+#else
+	{
+		Portal		portal = SPI_cursor_open(NULL, plan, NULL, NULL, true);
+
+		for (;;)
+		{
+			SPI_cursor_fetch(portal, true, ANN_KEY_FETCH);
+			if (SPI_processed == 0)
+				break;
+			for (uint64 i = 0; i < SPI_processed; i++)
+			{
+				bool		isnull;
+				Datum		value = SPI_getbinval(SPI_tuptable->vals[i], SPI_tuptable->tupdesc, 1, &isnull);
+
+				if (isnull)
+					continue;
+				if (receiver.nkeys == receiver.capacity)
+				{
+					if (receiver.capacity > INT_MAX / 2)
+						ereport(ERROR,
+								(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+								 errmsg("ann hybrid filter matches too many rows")));
+					receiver.capacity *= 2;
+					receiver.keys = repalloc_huge(receiver.keys, sizeof(int64) * receiver.capacity);
+				}
+				receiver.keys[receiver.nkeys++] = DatumGetInt64(value);
+			}
+			SPI_freetuptable(SPI_tuptable);
+			CHECK_FOR_INTERRUPTS();
+		}
+		SPI_cursor_close(portal);
+	}
+#endif
+	SPI_finish();
+	*nkeys = receiver.nkeys;
+	return receiver.keys;
+}
+
 /*
  * ann_hybrid_search(name, query, k, filter): hybrid search where this host
- * evaluates the SQL filter on the index's source table. A capped count
- * decides the route: filters under ann.gpu_min_eligible rows run exactly
- * here; larger ones stream their keys to a GPU node. The filter is a SQL
- * boolean expression over the source table, run read-only with the
- * caller's privileges, like any dynamic SQL; quote values with format().
+ * evaluates the SQL filter on the index's source table, once. Filters with
+ * fewer than ann.gpu_min_eligible rows run exactly here; larger ones send
+ * their keys to a GPU node. The filter is a SQL boolean expression over the
+ * source table, run read-only with the caller's privileges, like any dynamic
+ * SQL; quote values with format().
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ann_hybrid_search);
 Datum
@@ -538,15 +664,8 @@ ann_hybrid_search(PG_FUNCTION_ARGS)
 	int32		k;
 	char	   *filter;
 	AnnCatalogEntry entry;
-	SPIPlanPtr	plan;
-	Portal		portal;
 	int64	   *keys;
-	int			nkeys = 0;
-	int			capacity = ANN_KEY_FETCH;
-	int64		limit = (int64) ann_gpu_min_eligible;
-	bool		isnull;
-	int64		count;
-	MemoryContext caller = CurrentMemoryContext;
+	int			nkeys;
 
 	InitResult(fcinfo, &tupdesc, &store);
 	if (PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(2) || PG_ARGISNULL(3))
@@ -559,48 +678,18 @@ ann_hybrid_search(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
 				 errmsg("ann index \"%s\" is not in this database's catalog", name),
 				 errhint("Run ann_index_load or ann_index_attach on this host.")));
-	if (SPI_connect() != SPI_OK_CONNECT)
-		elog(ERROR, "SPI_connect failed");
-	plan = SPI_prepare(psprintf("SELECT count(*) FROM (SELECT FROM %s WHERE (%s) LIMIT " INT64_FORMAT ") s",
-								entry.source, filter, limit), 0, NULL);
-	if (plan == NULL || SPI_execute_plan(plan, NULL, NULL, true, 1) != SPI_OK_SELECT)
-		elog(ERROR, "could not evaluate the ann hybrid filter");
-	count = DatumGetInt64(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
-	if (count < limit)
+	keys = CollectKeys(&entry, filter, &nkeys);
+	if (nkeys == 0)
+		return (Datum) 0;
+	if (nkeys < ann_gpu_min_eligible)
 	{
-		SPI_finish();
+		/*
+		 * Few rows: score them here, exactly. Rerunning the filter lets the
+		 * plan use whatever index serves it, with no index on the key.
+		 */
 		SearchLocal(fcinfo, &entry, PG_GETARG_DATUM(1), k, filter, NULL, 0, tupdesc, store);
 		return (Datum) 0;
 	}
-
-	/* Broad filter: stream the eligible keys, then search on a GPU node. */
-	keys = MemoryContextAlloc(caller, sizeof(int64) * capacity);
-	plan = SPI_prepare(psprintf("SELECT %s::bigint FROM %s WHERE (%s)", entry.key, entry.source, filter), 0, NULL);
-	if (plan == NULL || (portal = SPI_cursor_open(NULL, plan, NULL, NULL, true)) == NULL)
-		elog(ERROR, "could not evaluate the ann hybrid filter");
-	for (;;)
-	{
-		SPI_cursor_fetch(portal, true, ANN_KEY_FETCH);
-		if (SPI_processed == 0)
-			break;
-		if (nkeys + SPI_processed > (uint64) capacity)
-		{
-			while (nkeys + SPI_processed > (uint64) capacity)
-				capacity *= 2;
-			keys = repalloc_huge(keys, sizeof(int64) * capacity);
-		}
-		for (uint64 i = 0; i < SPI_processed; i++)
-		{
-			Datum		value = SPI_getbinval(SPI_tuptable->vals[i], SPI_tuptable->tupdesc, 1, &isnull);
-
-			if (!isnull)
-				keys[nkeys++] = DatumGetInt64(value);
-		}
-		SPI_freetuptable(SPI_tuptable);
-		CHECK_FOR_INTERRUPTS();
-	}
-	SPI_cursor_close(portal);
-	SPI_finish();
 	nkeys = SortKeys(keys, nkeys);
 	SearchGpu(name, PG_GETARG_VECTOR_P(1), k, true, keys, nkeys, tupdesc, store);
 	return (Datum) 0;
