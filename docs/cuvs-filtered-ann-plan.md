@@ -1,6 +1,6 @@
 # cuVS bulk build and filtered ANN implementation plan
 
-Status: CPU worker and batching/admission runtime are implemented in C in [ann/](../ann/README.md). Frozen-table PostgreSQL behavior is validated by test-only Python fixtures; the native C exact L2 AM now provides a storage/lifecycle baseline ([guide](ann-native-index.md)). The opt-in selective exact CustomScan is implemented ([guide](ann-filtered-search.md)); native worker IPC remains a todo. CAGRA integration and compilation against cuVS are deferred todos; existing adapter source is an unvalidated draft. Accelerator generation/delta storage remains proposed.
+Status: CPU worker and batching/admission runtime are implemented in C in [ann/](../ann/README.md). Frozen-table PostgreSQL behavior is validated by test-only Python fixtures; the native C exact L2 AM now provides a storage/lifecycle baseline ([guide](ann-native-index.md)). The opt-in selective exact CustomScan is implemented ([guide](ann-filtered-search.md)); the pipelined native worker route is implemented with a mocked GPU backend ([guide](ann-worker-pipeline.md)). CAGRA integration and compilation against cuVS are deferred todos; existing adapter source is an unvalidated draft. Accelerator generation/delta storage remains proposed.
 
 Prepared: 2026-10-30. cuVS capability checks below refer to released **v26.10.00**. Compile and runtime smoke tests remain implementation work.
 
@@ -518,20 +518,20 @@ Deliverable: reproducible harness, capability report, and workload manifest. Gat
 - [ ] Add per-shard routing, result merge, memory accounting, timings, deadlines, and cancellation behavior.
 - [ ] Define request cleanup after PostgreSQL errors and GPU stream completion; verify that submission never requires retaining a backend buffer content lock.
 - [ ] Fit preliminary route crossovers from complete search costs, including filter setup and transfers.
-- [ ] Add compatible direct-search microbatches, reusable buffers, and admission by estimated work and bytes; sweep batch delay and submission lanes at fixed recall and latency. CPU ready-query microbatching, request/byte/work admission, deadline/cancel handling, and a burst benchmark are implemented in `ann/batching.c`; GPU buffers, additional lanes, and full performance sweeps remain pending.
+- [ ] Add compatible direct-search microbatches, reusable buffers, and admission by estimated work and bytes; sweep batch delay and submission lanes at fixed recall and latency. CPU ready-query microbatching, request/byte/work admission, deadline/cancel handling, and a burst benchmark are implemented in `ann/batching.c`; Server mode adds cross-connection lanes, fair batch splitting and shared-memory request buffers with a mocked device; real GPU buffers and full sweeps remain pending.
 
 Deliverable: worker executable and benchmark reports. Gate: all returned IDs satisfy the supplied allowlist, exact results match the reference, and ANN recall is measured after reload as well as immediately after build.
 
 ### Phase 2: Immutable PostgreSQL prototype
 
 - [ ] Implement the native C table freeze; the test-only Python reference enforces the table freeze for the full build/query window and build stable integer-key-to-ordinal mappings; live tests cover external mutations, context expiry, and failed-build cleanup (`test/ann/support/postgres.py`).
-- [ ] Implement a C PostgreSQL search entry point. `FrozenIndex` is a test-only Python SQL reference, not a runtime API.
+- [x] Implement a C PostgreSQL search entry point. `AnnFilteredSearch` pipelines eligible chunks to the worker ([guide](ann-worker-pipeline.md)); `FrozenIndex` remains a test-only Python SQL reference.
 - [ ] Implement combined text/metadata eligibility in the native C PostgreSQL path. Test-only Python fixtures already match SQL exact results.
 - [ ] Translate eligible identities to shard IDs; route and merge results; rerank and return rows. Single-generation CPU prototype is implemented; shard/adaptive routing and GPU validation remain pending.
 - [ ] Instrument filter evaluation, identity mapping, gathering, queue time, upload, search, download, and reranking.
 - [ ] Compare end-to-end performance with existing PostgreSQL plans and current pgvector.
 - [ ] Evaluate an explicit batch entry point reusing one predicate result across multiple query vectors; compare CPU savings with cross-backend GPU batching. The frozen-table client now implements shared eligibility batches; throughput comparison remains pending.
-- [ ] Bound host eligibility materialization before worker admission; benchmark compact ID arrays, page-local mapping, spill, and concurrent prepared queries.
+- [x] Bound host eligibility materialization before worker admission: scans hold at most `ann.worker_pipeline_depth + 1` chunks plus candidates, and concurrent prepared queries are benchmarked. Compact ID arrays and page-local mapping still apply to the future resident-index route.
 
 Deliverable: a working combined-query prototype on immutable data. Gate: qualifying-row correctness, exact-route correctness, adequate filtered recall, and a measured benefit on the target workload. If exact search wins for the target's selective queries, retain it as the chosen route.
 
@@ -548,7 +548,7 @@ Implement and review the ordinary AM lifecycle before layering in the custom exe
 - [x] Introduce opt-in CustomPath/CustomScan support in separate planner/custom-executor modules, with hook chaining and a documented whitelist of query shapes (exact CPU route; worker integration remains pending).
 - [ ] Cost predicate materialization, mapping, transfer, and vector search rather than only the GPU kernel.
 - [ ] Calibrate exact-versus-ANN routes and planner startup/spill costs from the performance experiments; expose actual route, batch, queue, and recheck costs.
-- [ ] Add ordered-output validation, `EXPLAIN` instrumentation, prepared-parameter handling, and fallback selection.
+- [x] Add ordered-output validation, `EXPLAIN` instrumentation, prepared-parameter handling, and fallback selection (worker route: re-scored candidates, per-chunk local fallback).
 - [ ] Test cancellation, worker restart, invalid artifacts, transaction abort during build, backup/restore, and GPU-less behavior.
 - [ ] Keep table-level freeze enforcement in this stage until Phase 4 passes; an access-method insert callback alone cannot reject every mutation. Test DELETE, TRUNCATE, HOT updates, rewrites, and freeze loss.
 
@@ -728,4 +728,4 @@ The opt-in native C `AnnFilteredSearch` path is implemented in `src/annplan.c` a
 
 The first route supports top-level single-table queries with a matching unconditional ANN column index, complete sequential/B-tree/bitmap predicates, ascending distance with secondary tie keys, and Const/external Param query vectors and limits. RLS and snapshot handling remain in the PostgreSQL child. Unsupported shapes keep ordinary plans. Fuzzy GIN is rejected for this exact route, including an execution guard for cached plans.
 
-Validation adds twelve live oracle scenarios and an SQL regression for filtered ordering, prepared parameters, and scroll cursors. EXPLAIN reports route, eligible rows, custom-stage distance evaluations, and sort space/method. A 4,096-row fixture evaluated only its 40 eligible vectors using a B-tree child and bounded top-N sort. No SQL throughput gain over core exact search or GPU execution is claimed. Native C worker IPC, pre-eligibility admission, and whole-request deadlines remain next.
+Validation adds twelve live oracle scenarios and an SQL regression for filtered ordering, prepared parameters, and scroll cursors. EXPLAIN reports route, eligible rows, custom-stage distance evaluations, and sort space/method. A 4,096-row fixture evaluated only its 40 eligible vectors using a B-tree child and bounded top-N sort. No SQL throughput gain over core exact search or GPU execution is claimed. Native C worker IPC, cross-backend admission, and per-request deadlines are now implemented by the [worker pipeline](ann-worker-pipeline.md).

@@ -1,5 +1,6 @@
 #include "backend.h"
 #include "batching.h"
+#include "server.h"
 
 #include <float.h>
 #include <stdio.h>
@@ -248,26 +249,46 @@ main(int argc, char **argv)
 	const AnnBackend *backend = AnnCpuBackend();
 	AnnIndex	index = {0};
 	AnnBatcher *batcher = NULL;
+	AnnServeOptions serveOptions;
+	const char *listen = NULL;
 	uint64_t	lastGeneration = 0;
 	int			exitCode = 0;
 
-	if (argc == 3 && strcmp(argv[1], "--backend") == 0)
+	AnnServeDefaultOptions(&serveOptions);
+	for (int i = 1; i < argc; i += 2)
 	{
+		const char *value = i + 1 < argc ? argv[i + 1] : NULL;
+
+		if (value == NULL)
+			goto usage;
+		if (strcmp(argv[i], "--backend") == 0)
+		{
+			if (strcmp(value, "cpu-exact") == 0)
+				backend = AnnCpuBackend();
+			else if (strcmp(value, "mock-gpu") == 0)
+				backend = AnnMockGpuBackend();
 #ifdef ANN_USE_CUVS
-		if (strcmp(argv[2], "cuvs") == 0)
-			backend = AnnCuvsBackend();
+			else if (strcmp(value, "cuvs") == 0)
+				backend = AnnCuvsBackend();
 #endif
+			else
+				goto usage;
+		}
+		else if (strcmp(argv[i], "--listen") == 0)
+			listen = value;
+		else if (strcmp(argv[i], "--lanes") == 0)
+			serveOptions.lanes = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--max-batch") == 0)
+			serveOptions.max_batch_jobs = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--delay-us") == 0)
+			serveOptions.delay_us = strtoull(value, NULL, 10);
+		else if (strcmp(argv[i], "--max-pending-mb") == 0)
+			serveOptions.max_pending_bytes = strtoull(value, NULL, 10) * 1024 * 1024;
+		else
+			goto usage;
 	}
-	if (argc != 1 && !(argc == 3 && strcmp(argv[1], "--backend") == 0 &&
-					   strcmp(argv[2], backend->name) == 0))
-	{
-#ifdef ANN_USE_CUVS
-		fprintf(stderr, "available backends: cpu-exact, cuvs; hipvs and fused-nvfp4 require vendor adapters\n");
-#else
-		fprintf(stderr, "available backend: cpu-exact; cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");
-#endif
-		return 2;
-	}
+	if (listen)
+		return AnnServe(listen, backend, &serveOptions);
 	for (;;)
 	{
 		unsigned char bytes[32];
@@ -425,4 +446,16 @@ main(int argc, char **argv)
 		AnnBatchClose(batcher);
 	backend->destroy(&index);
 	return exitCode;
+
+usage:
+#ifdef ANN_USE_CUVS
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH "
+			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]]\n"
+			"hipvs and fused-nvfp4 require vendor adapters\n");
+#else
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH "
+			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]]\n"
+			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");
+#endif
+	return 2;
 }

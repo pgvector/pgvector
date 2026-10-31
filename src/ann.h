@@ -41,6 +41,20 @@ extern const CustomPathMethods AnnCustomPathMethods;
 extern const CustomScanMethods AnnCustomScanMethods;
 void		AnnInit(void);
 
+extern char *ann_worker_socket;
+extern int	ann_worker_chunk_rows;
+extern int	ann_worker_pipeline_depth;
+extern int	ann_worker_timeout_ms;
+extern int	ann_worker_shared_memory_mb;
+void		AnnWorkerInit(void);
+bool		AnnWorkerBegin(void);
+void		AnnWorkerEnd(void);
+float	   *AnnWorkerSharedBuffer(size_t *size);
+uint64		AnnWorkerSubmit(uint32 rows, uint32 dimensions, uint32 k,
+							const float *query, const float *vectors);
+bool		AnnWorkerReady(void);
+bool		AnnWorkerReceive(uint64 *request, uint32 *status, uint32 **ids, uint32 *count);
+
 Oid			AnnVectorTypeOid(void);
 void		AnnCheckPage(Page page);
 void		AnnCheckIndex(Relation index);

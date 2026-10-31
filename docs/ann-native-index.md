@@ -46,7 +46,7 @@ flowchart LR
     Qual --> Limit[LIMIT and results]
 ```
 
-This diagram describes ordinary AM execution. The opt-in [filtered CustomScan](ann-filtered-search.md) instead uses a PostgreSQL predicate child plan and scores its eligible vectors. Native worker IPC is future work. GIN and B-tree indexes are not automatically intersected with `ann` pages.
+This diagram describes ordinary AM execution. The opt-in [filtered CustomScan](ann-filtered-search.md) instead uses a PostgreSQL predicate child plan and scores its eligible vectors. Its worker pipeline sends eligible vectors, not `ann` pages, to the worker. GIN and B-tree indexes are not automatically intersected with `ann` pages.
 
 ```mermaid
 flowchart TB
@@ -78,4 +78,4 @@ python3 -m pip install -r test/ann/requirements-postgres.txt
 ANN_PG_DSN='dbname=test_database' make -C ann check-postgres
 ```
 
-Fresh install and 0.8.7-to-0.9.0 upgrade were also checked, including extension schema relocation. Local validation uses PostgreSQL 17.6 on macOS ARM64. The repository's PostgreSQL CI matrix still needs to run; compatibility beyond the tested host is not claimed. Production rollout also needs broader fault, concurrent-vacuum, and sustained-load tests. Selective exact eligibility execution is now implemented in the opt-in CustomScan. The next native milestone is a bounded C worker client/admission path. CAGRA integration and compilation against cuVS remain deferred, as do hipVS and fused NVFP4 adapters.
+Fresh install and 0.8.7-to-0.9.0 upgrade were also checked, including extension schema relocation. Local validation uses PostgreSQL 17.6 on macOS ARM64. The repository's PostgreSQL CI matrix still needs to run; compatibility beyond the tested host is not claimed. Production rollout also needs broader fault, concurrent-vacuum, and sustained-load tests. Selective exact eligibility execution is now implemented in the opt-in CustomScan. A bounded C worker client with admission is implemented ([worker pipeline](ann-worker-pipeline.md)). CAGRA integration and compilation against cuVS remain deferred, as do hipVS and fused NVFP4 adapters.

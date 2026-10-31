@@ -83,5 +83,33 @@ FETCH BACKWARD 2 FROM c;
 
 CLOSE c;
 COMMIT;
+-- An unavailable worker keeps exact local results.
+SET ann.worker_socket = '/nonexistent/ann-worker.sock';
+SELECT id FROM t WHERE tenant = 'a' ORDER BY val <-> '[3,3,3]', id LIMIT 3;
+ id 
+----
+  5
+  3
+  1
+(3 rows)
+
+SELECT id FROM t WHERE tenant = 'a' ORDER BY val <-> '[3,3,3]', id LIMIT 2 OFFSET 1;
+ id 
+----
+  3
+  1
+(2 rows)
+
+EXPLAIN (COSTS OFF) SELECT id FROM t WHERE tenant = 'a' ORDER BY val <-> '[3,3,3]', id LIMIT 3;
+                             QUERY PLAN                              
+---------------------------------------------------------------------
+ Limit
+   ->  Custom Scan (AnnFilteredSearch)
+         Search Route: worker pipeline or exact CPU after predicates
+         ->  Seq Scan on t
+               Filter: (tenant = 'a'::text)
+(5 rows)
+
+RESET ann.worker_socket;
 DROP TABLE t;
 RESET ann.enable_filtered_search;

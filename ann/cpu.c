@@ -150,11 +150,141 @@ Search(const AnnIndex *index, const float *query, uint32_t metric,
 	return ANN_OK;
 }
 
+/* Eight partial sums let compilers vectorize without fast-math flags. */
+static float
+L2Squared(const float *a, const float *b, uint32_t dimensions)
+{
+	float		sums[8] = {0};
+	float		sum = 0;
+	uint32_t	d = 0;
+
+	for (; d + 8 <= dimensions; d += 8)
+		for (int j = 0; j < 8; j++)
+		{
+			float		diff = a[d + j] - b[d + j];
+
+			sums[j] += diff * diff;
+		}
+	for (; d < dimensions; d++)
+		sum += (a[d] - b[d]) * (a[d] - b[d]);
+	return sum + ((sums[0] + sums[1]) + (sums[2] + sums[3])) +
+		((sums[4] + sums[5]) + (sums[6] + sums[7]));
+}
+
+/* Partition so position n holds the n-th smallest distance. */
+static void
+Select(AnnCandidate *items, uint32_t count, uint32_t n)
+{
+	uint32_t	left = 0;
+	uint32_t	right = count - 1;
+
+	while (left < right)
+	{
+		double		pivot = items[left + (right - left) / 2].distance;
+		uint32_t	i = left;
+		uint32_t	j = right;
+
+		while (i <= j)
+		{
+			while (items[i].distance < pivot)
+				i++;
+			while (items[j].distance > pivot)
+				j--;
+			if (i <= j)
+			{
+				AnnCandidate tmp = items[i];
+
+				items[i] = items[j];
+				items[j] = tmp;
+				i++;
+				if (j == 0)
+					break;
+				j--;
+			}
+		}
+		if (n <= j)
+			right = j;
+		else if (n >= i)
+			left = i;
+		else
+			break;
+	}
+}
+
+void
+AnnGatheredExact(AnnGatheredJob *job)
+{
+	double		threshold;
+	uint32_t	count = 0;
+
+	job->nresults = 0;
+	if (job->dimensions == 0 || job->dimensions > ANN_MAX_DIM || job->metric > 2)
+	{
+		job->status = ANN_INVALID;
+		return;
+	}
+	if (job->metric != 0)
+	{
+		AnnIndex	index = {0};
+
+		index.rows = job->rows;
+		index.dimensions = job->dimensions;
+		index.vectors = (float *) job->vectors;
+		job->status = Search(&index, job->query, job->metric, NULL, 0,
+							 job->rows, job->results, &job->nresults);
+	}
+	else
+	{
+		for (uint32_t i = 0; i < job->rows; i++)
+		{
+			double		distance = sqrt((double) L2Squared(job->vectors + (size_t) i * job->dimensions,
+														   job->query, job->dimensions));
+
+			if (!isfinite(distance))
+			{
+				job->status = ANN_INVALID;
+				return;
+			}
+			job->results[i].id = i;
+			job->results[i].distance = distance;
+		}
+		job->nresults = job->rows;
+		job->status = ANN_OK;
+	}
+	if (job->status != ANN_OK)
+		return;
+	if (job->k == 0)
+	{
+		job->nresults = 0;
+		return;
+	}
+	if (job->k < job->nresults)
+	{
+		/* Keep boundary ties and near-ties from differently rounded callers. */
+		Select(job->results, job->nresults, job->k - 1);
+		threshold = job->results[job->k - 1].distance;
+		threshold += ANN_GATHERED_TOLERANCE * fabs(threshold) + 1e-6;
+		for (uint32_t i = 0; i < job->nresults; i++)
+			if (job->results[i].distance <= threshold)
+				job->results[count++] = job->results[i];
+		job->nresults = count;
+	}
+	qsort(job->results, job->nresults, sizeof(*job->results), SortCompare);
+}
+
+static void
+SearchGathered(AnnGatheredJob *jobs, uint32_t count)
+{
+	for (uint32_t i = 0; i < count; i++)
+		AnnGatheredExact(&jobs[i]);
+}
+
 const AnnBackend *
 AnnCpuBackend(void)
 {
 	static const AnnBackend backend = {
-		"cpu-exact", 7, 7, "flat", "fp32", 1, 0, UINT32_MAX, Build, Search, Destroy
+		"cpu-exact", 7, 7, "flat", "fp32", 1, 0, UINT32_MAX, Build, Search, Destroy,
+		SearchGathered
 	};
 
 	return &backend;

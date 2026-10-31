@@ -30,5 +30,12 @@ FETCH BACKWARD 2 FROM c;
 CLOSE c;
 COMMIT;
 
+-- An unavailable worker keeps exact local results.
+SET ann.worker_socket = '/nonexistent/ann-worker.sock';
+SELECT id FROM t WHERE tenant = 'a' ORDER BY val <-> '[3,3,3]', id LIMIT 3;
+SELECT id FROM t WHERE tenant = 'a' ORDER BY val <-> '[3,3,3]', id LIMIT 2 OFFSET 1;
+EXPLAIN (COSTS OFF) SELECT id FROM t WHERE tenant = 'a' ORDER BY val <-> '[3,3,3]', id LIMIT 3;
+RESET ann.worker_socket;
+
 DROP TABLE t;
 RESET ann.enable_filtered_search;

@@ -1,6 +1,6 @@
 # Native filtered exact search
 
-`AnnFilteredSearch` is an opt-in C CustomScan. It computes exact distances over rows produced by a normal PostgreSQL predicate plan, so a restrictive text/metadata filter can avoid reading and scoring every vector in the `ann` index. The standalone worker and GPU adapters are not involved in this route.
+`AnnFilteredSearch` is an opt-in C CustomScan. It computes exact distances over rows produced by a normal PostgreSQL predicate plan, so a restrictive text/metadata filter can avoid reading and scoring every vector in the `ann` index. With `ann.worker_socket` set, scoring can be pipelined to the standalone worker; see the [worker pipeline guide](ann-worker-pipeline.md).
 
 ## Enable and inspect
 
@@ -56,7 +56,7 @@ Complete eligibility requires `gin_fuzzy_search_limit = 0`. Planning skips the c
 
 ## EXPLAIN and validation
 
-EXPLAIN reports `Search Route: exact CPU after predicates`. ANALYZE also reports total `Eligible Rows`, custom-stage `Distance Evaluations`, and sort method/space. NULL operands skip the distance call. Counts accumulate over executions/rescans of that node; they are not whole-query GPU or IPC metrics.
+EXPLAIN reports `Search Route: exact CPU after predicates`, or the worker route described in the [pipeline guide](ann-worker-pipeline.md). ANALYZE also reports total `Eligible Rows`, custom-stage `Distance Evaluations`, and sort method/space. NULL operands skip the distance call. Counts accumulate over executions/rescans of that node; they are not whole-query GPU or IPC metrics.
 
 A local 4,096-row fixture with 40 qualifying rows used a B-tree child scan, evaluated 40 distances, and used a top-N heapsort for LIMIT 10. This checks selective execution; it is not a production throughput measurement or a claimed speedup over PostgreSQL's ordinary filtered exact sort.
 
@@ -68,7 +68,7 @@ make installcheck
 ANN_PG_DSN='dbname=test_database' make -C ann check-postgres
 ```
 
-Runtime code remains C; Python drives tests and benchmarks only. Local testing uses PostgreSQL 17.6/macOS ARM64; the full PostgreSQL CI matrix is still required. Native worker IPC, pre-eligibility admission, process-wide batching, accelerator mappings/generations, and sustained-load validation are next milestones. CAGRA integration and compilation against cuVS remain deferred.
+Runtime code remains C; Python drives tests and benchmarks only. Local testing uses PostgreSQL 17.6/macOS ARM64; the full PostgreSQL CI matrix is still required. Native worker IPC and process-wide batching are implemented by the [worker pipeline](ann-worker-pipeline.md); accelerator mappings/generations and sustained-load validation are next milestones. CAGRA integration and compilation against cuVS remain deferred.
 
 The SQL benchmark generator can include this route alongside the existing exact and HNSW baselines:
 

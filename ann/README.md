@@ -77,7 +77,7 @@ The C worker uses version 1, 32-byte little-endian headers: magic `PVAN`, u16 ve
 
 Metric values: 0 L2, 1 negative inner product, 2 cosine. Filter values: 0 none, 1 shared IDs, 2 IDs per query. Allowlists are u32 count followed by strictly increasing unique u32 ordinals; an empty list differs from no filter. Capability masks use `1 << enum_value`. The CPU backend uses FP32 input and double accumulation.
 
-Statuses 0–5 are success, invalid, unsupported, stale, allocation failure, and backend failure. The C scheduling API adds 6 pending, 7 overloaded, 8 timed out, 9 canceled, and 10 closed. Search errors have empty protocol payloads. Wire read/write deadlines for a native external client remain a separate todo; timeouts in the Python test client are test infrastructure, not a shipped C client feature.
+Statuses 0–5 are success, invalid, unsupported, stale, allocation failure, and backend failure. The C scheduling API adds 6 pending, 7 overloaded, 8 timed out, 9 canceled, and 10 closed. Search errors have empty protocol payloads. The PostgreSQL client enforces `ann.worker_timeout_ms`, and server mode sets a 10 s reply write timeout; timeouts in the Python test client are test infrastructure, not a shipped C client feature.
 
 ## Test references and benchmarks
 
@@ -115,4 +115,4 @@ LD_LIBRARY_PATH=/path/to/cuvs/lib:/usr/local/cuda/lib64 make -C ann check-cuvs C
 
 The draft is FP32 L2 only, with 128 minimum rows and k capped at 1,024. GPU search remains serialized and outside the native CPU scheduler. No GPU compilation, performance, or recall result is claimed.
 
-Next runtime work is C PostgreSQL worker integration, pre-eligibility admission, native client deadlines, and sustained-load validation. Python remains test/benchmark tooling only.
+C PostgreSQL worker integration is implemented: `--listen PATH` serves pipelined gathered searches (operations 7–10) to `AnnFilteredSearch`, with a `mock-gpu` backend standing in for accelerators ([guide](../docs/ann-worker-pipeline.md)). Sustained-load validation remains. Python remains test/benchmark tooling only.

@@ -37,6 +37,25 @@ typedef struct AnnCandidate
 	double		distance;
 } AnnCandidate;
 
+/*
+ * A gathered job scores caller-supplied eligible vectors against one query.
+ * Results hold every row within a small tolerance of the k-th distance, so a
+ * caller recomputing distances with different rounding cannot lose a row of
+ * its own top k. Results capacity must be at least rows.
+ */
+typedef struct AnnGatheredJob
+{
+	uint32_t	rows;
+	uint32_t	dimensions;
+	uint32_t	k;
+	uint32_t	metric;
+	const float *query;
+	const float *vectors;
+	AnnCandidate *results;
+	uint32_t	nresults;
+	AnnStatus	status;
+} AnnGatheredJob;
+
 /* Vendor-specific objects and precision/layout conversion stay behind this API. */
 typedef struct AnnBackend
 {
@@ -53,9 +72,16 @@ typedef struct AnnBackend
 						   const uint32_t *, uint32_t, uint32_t,
 						   AnnCandidate *, uint32_t *);
 	void		(*destroy) (AnnIndex *);
+	/* One device submission for a batch of gathered jobs; sets each status. */
+	void		(*search_gathered) (AnnGatheredJob *, uint32_t);
 } AnnBackend;
 
+#define ANN_GATHERED_TOLERANCE 1e-3
+
+void		AnnGatheredExact(AnnGatheredJob *job);
+
 const AnnBackend *AnnCpuBackend(void);
+const AnnBackend *AnnMockGpuBackend(void);
 #ifdef ANN_USE_CUVS
 const AnnBackend *AnnCuvsBackend(void);
 #endif
