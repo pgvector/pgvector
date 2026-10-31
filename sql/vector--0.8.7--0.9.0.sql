@@ -75,6 +75,7 @@ COMMENT ON FUNCTION ann_attribute_search(text, vector, integer, text, integer[])
 -- filter conditions precomputed as bitmaps over an index's rows
 
 CREATE TABLE ann_filter_bitmap (
+	id bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
 	index_name text NOT NULL,
 	filter text NOT NULL,
 	eligible bigint NOT NULL,
@@ -86,7 +87,7 @@ CREATE TABLE ann_filter_bitmap (
 -- bitmaps are read whole on every search: store them uncompressed
 ALTER TABLE ann_filter_bitmap ALTER COLUMN bitmap SET STORAGE EXTERNAL;
 
-COMMENT ON TABLE ann_filter_bitmap IS 'filter conditions as bitmaps over an ann index''s rows in key order, for cuVS filtered search';
+COMMENT ON TABLE ann_filter_bitmap IS 'filter conditions as bitmaps over an ann index''s rows in key order; GPU nodes cache them by id for cuVS filtered search';
 
 REVOKE ALL ON ann_filter_bitmap FROM PUBLIC;
 GRANT SELECT ON ann_filter_bitmap TO PUBLIC;
@@ -94,12 +95,19 @@ GRANT SELECT ON ann_filter_bitmap TO PUBLIC;
 CREATE FUNCTION ann_filter_bitmap_build(name text, filter text) RETURNS bigint
 	AS 'MODULE_PATHNAME' LANGUAGE C STRICT VOLATILE;
 
-COMMENT ON FUNCTION ann_filter_bitmap_build(text, text) IS 'evaluate a filter once and store it in ann_filter_bitmap; returns its eligible rows';
+COMMENT ON FUNCTION ann_filter_bitmap_build(text, text) IS 'evaluate a filter once, store it in ann_filter_bitmap and cache it on the GPU nodes; returns its eligible rows';
 
 REVOKE ALL ON FUNCTION ann_filter_bitmap_build(text, text) FROM PUBLIC;
+
+CREATE FUNCTION ann_filter_bitmap_push(name text) RETURNS bigint
+	AS 'MODULE_PATHNAME' LANGUAGE C STRICT VOLATILE;
+
+COMMENT ON FUNCTION ann_filter_bitmap_push(text) IS 'cache every stored filter bitmap of an index on the GPU nodes; returns the number pushed';
+
+REVOKE ALL ON FUNCTION ann_filter_bitmap_push(text) FROM PUBLIC;
 
 CREATE FUNCTION ann_bitmap_search(name text, query vector, k integer, filter text,
 	OUT id bigint, OUT distance real) RETURNS SETOF record
 	AS 'MODULE_PATHNAME' LANGUAGE C VOLATILE ROWS 10;
 
-COMMENT ON FUNCTION ann_bitmap_search(text, vector, integer, text) IS 'filtered search with the filter''s bitmap from ann_filter_bitmap';
+COMMENT ON FUNCTION ann_bitmap_search(text, vector, integer, text) IS 'filtered search with a filter stored in ann_filter_bitmap and cached on the GPU nodes';

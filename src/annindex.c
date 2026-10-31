@@ -21,6 +21,9 @@
 #define ANN_ATTRIBUTE_MAX_VALUES 64
 #define ANN_OP_INDEX_BITMAP 18
 #define ANN_OP_INDEX_SEARCH_BITMAP 19
+#define ANN_OP_BITMAP_PUT 20
+#define ANN_OP_INDEX_SEARCH_CACHED 21
+#define ANN_BITMAP_TIMEOUT_MS (60 * 1000)
 #define ANN_INDEX_NAME_MAX 63
 #define ANN_INDEX_MAX_K 10000
 #define ANN_LOAD_TIMEOUT_MS (30 * 60 * 1000)
@@ -32,6 +35,7 @@
 #define ANN_STATUS_UNSUPPORTED 2
 #define ANN_STATUS_STALE 3
 #define ANN_STATUS_OVERLOADED 7
+#define ANN_STATUS_MISSING 11
 
 /* What the worker reports for a loaded index. */
 typedef struct AnnIndexInfo
@@ -135,6 +139,8 @@ BitmapTableName(FunctionCallInfo fcinfo)
 
 	return psprintf("%s.ann_filter_bitmap", quote_identifier(schema));
 }
+
+static int64 PushAllBitmaps(FunctionCallInfo fcinfo, const char *name);
 
 static char *
 QualifiedSource(const char *source)
@@ -273,6 +279,16 @@ ann_index_load(PG_FUNCTION_ARGS)
 	ParseInfo(reply, &info);
 	CheckSource(&info);
 	RecordCatalog(fcinfo, name, &info);
+
+	/* Freshly started nodes have no bitmaps: cache the stored ones. */
+	{
+		int64		pushed = PushAllBitmaps(fcinfo, name);
+
+		if (pushed > 0)
+			ereport(NOTICE,
+					(errmsg("cached %lld ann filter bitmaps of index \"%s\" on the GPU nodes",
+							(long long) pushed, name)));
+	}
 	PG_RETURN_INT64((int64) info.rows);
 }
 
@@ -297,6 +313,16 @@ ann_index_attach(PG_FUNCTION_ARGS)
 	ParseInfo(reply, &info);
 	CheckSource(&info);
 	RecordCatalog(fcinfo, name, &info);
+
+	/* Freshly started nodes have no bitmaps: cache the stored ones. */
+	{
+		int64		pushed = PushAllBitmaps(fcinfo, name);
+
+		if (pushed > 0)
+			ereport(NOTICE,
+					(errmsg("cached %lld ann filter bitmaps of index \"%s\" on the GPU nodes",
+							(long long) pushed, name)));
+	}
 	PG_RETURN_INT64((int64) info.rows);
 }
 
@@ -788,11 +814,97 @@ ann_attribute_search(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Cache one stored bitmap on every GPU node (or the local worker) under its
+ * id. Returns the number of nodes that took it; *failed counts nodes that
+ * refused or were unreachable, and *status holds the last such status
+ * (PG_UINT32_MAX when unreachable).
+ */
+static int
+PushBitmap(const char *name, int64 id, bytea *bitmap, int *failed, uint32 *status)
+{
+	StringInfoData payload;
+	char	   *reply = NULL;
+	uint32		replyLength;
+	int			accepted;
+
+	initStringInfo(&payload);
+	Put32(&payload, strlen(name));
+	appendBinaryStringInfo(&payload, name, strlen(name));
+	appendBinaryStringInfo(&payload, (char *) &id, sizeof(id));
+	Put32(&payload, VARSIZE_ANY_EXHDR(bitmap) / 4);
+	appendBinaryStringInfo(&payload, VARDATA_ANY(bitmap), VARSIZE_ANY_EXHDR(bitmap));
+	*status = PG_UINT32_MAX;
+	if (AnnRemoteConfigured())
+		accepted = AnnRemoteBroadcastEach(ANN_OP_BITMAP_PUT, payload.data, payload.len, ANN_BITMAP_TIMEOUT_MS,
+										  failed, status);
+	else
+	{
+		accepted = AnnWorkerCall(ANN_OP_BITMAP_PUT, payload.data, payload.len, ANN_BITMAP_TIMEOUT_MS,
+								 status, &reply, &replyLength) && *status == ANN_STATUS_OK;
+		*failed = !accepted;
+	}
+	pfree(payload.data);
+	return accepted;
+}
+
+/*
+ * Push every stored bitmap of an index, one row at a time so memory stays
+ * at one bitmap. Returns the number pushed; failures raise warnings.
+ */
+static int64
+PushAllBitmaps(FunctionCallInfo fcinfo, const char *name)
+{
+	Oid			types[1] = {TEXTOID};
+	Datum		values[1];
+	SPIPlanPtr	plan;
+	Portal		portal;
+	int64		pushed = 0;
+	int64		failed = 0;
+	int			nodeFailures;
+	uint32		status = 0;
+
+	values[0] = CStringGetTextDatum(name);
+	if (SPI_connect() != SPI_OK_CONNECT)
+		elog(ERROR, "SPI_connect failed");
+	plan = SPI_prepare(psprintf("SELECT id, bitmap FROM %s WHERE index_name = $1 ORDER BY id",
+								BitmapTableName(fcinfo)), 1, types);
+	if (plan == NULL)
+		elog(ERROR, "could not read ann filter bitmaps");
+	portal = SPI_cursor_open(NULL, plan, values, NULL, true);
+	for (;;)
+	{
+		bool		isnull;
+		int64		id;
+
+		SPI_cursor_fetch(portal, true, 1);
+		if (SPI_processed == 0)
+			break;
+		id = DatumGetInt64(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
+		if (PushBitmap(name, id,
+					   DatumGetByteaPP(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 2, &isnull)),
+					   &nodeFailures, &status) > 0)
+			pushed++;
+		if (nodeFailures)
+			failed++;
+		SPI_freetuptable(SPI_tuptable);
+		CHECK_FOR_INTERRUPTS();
+	}
+	SPI_cursor_close(portal);
+	SPI_finish();
+	if (failed)
+		ereport(WARNING,
+				(errmsg("could not push %lld ann filter bitmaps of index \"%s\" to every GPU node (worker status %d)",
+						(long long) failed, name, (int) status),
+				 errhint("Searches push missing bitmaps on demand; ann_filter_bitmap_push retries all.")));
+	return pushed;
+}
+
+/*
  * ann_filter_bitmap_build(name, filter): evaluate a SQL filter on the
  * index's source table once, have the GPU node turn the matching keys into
- * a bitmap over the index's rows, and store it in ann_filter_bitmap under
- * the filter's text. Indexes are immutable, so a bitmap stays valid for the
- * index it was built for; rebuild it after loading a new index.
+ * a bitmap over the index's rows, store it in ann_filter_bitmap under the
+ * filter's text, and cache it on every GPU node under its id. Indexes are
+ * immutable, so a bitmap stays valid for the index it was built for.
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ann_filter_bitmap_build);
 Datum
@@ -812,7 +924,10 @@ ann_filter_bitmap_build(PG_FUNCTION_ARGS)
 	bytea	   *bitmap;
 	Oid			types[4] = {TEXTOID, TEXTOID, INT8OID, BYTEAOID};
 	Datum		values[4];
+	int64		id;
+	bool		isnull;
 	bool		ok;
+	int			failures;
 
 	if (!superuser())
 		ereport(ERROR,
@@ -856,19 +971,48 @@ ann_filter_bitmap_build(PG_FUNCTION_ARGS)
 		elog(ERROR, "SPI_connect failed");
 	if (SPI_execute_with_args(psprintf("INSERT INTO %s (index_name, filter, eligible, bitmap) VALUES ($1, $2, $3, $4) "
 									   "ON CONFLICT (index_name, filter) DO UPDATE SET eligible = excluded.eligible, "
-									   "bitmap = excluded.bitmap, built_at = now()", BitmapTableName(fcinfo)),
-							  4, types, values, NULL, false, 0) != SPI_OK_INSERT)
+									   "bitmap = excluded.bitmap, built_at = now() RETURNING id",
+									   BitmapTableName(fcinfo)),
+							  4, types, values, NULL, false, 1) != SPI_OK_INSERT_RETURNING || SPI_processed != 1)
 		elog(ERROR, "could not store the ann filter bitmap");
+	id = DatumGetInt64(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
 	SPI_finish();
+
+	/* The row is the source of truth; searches push it again if needed. */
+	PushBitmap(name, id, bitmap, &failures, &status);
+	if (failures)
+		ereport(WARNING,
+				(errmsg("could not cache ann filter bitmap %lld on every GPU node (worker status %d)",
+						(long long) id, (int) status),
+				 errhint("Searches push missing bitmaps on demand.")));
 	PG_RETURN_INT64((int64) eligible);
 }
 
 /*
+ * ann_filter_bitmap_push(name): cache every stored bitmap of an index on
+ * every GPU node, for example after nodes restart. ann_index_load does this
+ * itself. Returns the number pushed.
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ann_filter_bitmap_push);
+Datum
+ann_filter_bitmap_push(PG_FUNCTION_ARGS)
+{
+	const char *name = CheckName(PG_GETARG_TEXT_PP(0));
+
+	if (!superuser())
+		ereport(ERROR,
+				(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
+				 errmsg("must be superuser to push ann filter bitmaps")));
+	PG_RETURN_INT64(PushAllBitmaps(fcinfo, name));
+}
+
+/*
  * ann_bitmap_search(name, query, k, filter): top k among the rows of a
- * filter built with ann_filter_bitmap_build, matched by its exact text. The
- * bitmap travels with the query and the GPU node searches CAGRA with it as
- * a cuVS bitset (selective filters run its exact routes instead), so this
- * host does one primary-key lookup and no filter evaluation.
+ * filter built with ann_filter_bitmap_build, matched by its exact text. Only
+ * the filter's id travels with the query: GPU nodes cache the bitmaps. A
+ * node without it (restarted, or loaded by another host) answers
+ * ANN_MISSING; the bitmap is then pushed from the table and the search
+ * retried once.
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(ann_bitmap_search);
 Datum
@@ -886,6 +1030,7 @@ ann_bitmap_search(PG_FUNCTION_ARGS)
 	uint32		status = 0;
 	char	   *reply = NULL;
 	uint32		replyLength;
+	int64		id = 0;
 	bool		ok;
 	bool		found;
 
@@ -896,18 +1041,11 @@ ann_bitmap_search(PG_FUNCTION_ARGS)
 	query = PG_GETARG_VECTOR_P(1);
 	k = CheckK(PG_GETARG_INT32(2));
 	filter = text_to_cstring(PG_GETARG_TEXT_PP(3));
-
-	/* The payload lives outside SPI; the bitmap is appended from inside. */
-	initStringInfo(&payload);
-	Put32(&payload, strlen(name));
-	appendBinaryStringInfo(&payload, name, strlen(name));
-	Put32(&payload, query->dim);
-	Put32(&payload, k);
 	values[0] = CStringGetTextDatum(name);
 	values[1] = CStringGetTextDatum(filter);
 	if (SPI_connect() != SPI_OK_CONNECT)
 		elog(ERROR, "SPI_connect failed");
-	if (SPI_execute_with_args(psprintf("SELECT bitmap FROM %s WHERE index_name = $1 AND filter = $2",
+	if (SPI_execute_with_args(psprintf("SELECT id FROM %s WHERE index_name = $1 AND filter = $2",
 									   BitmapTableName(fcinfo)),
 							  2, types, values, NULL, true, 1) != SPI_OK_SELECT)
 		elog(ERROR, "could not read ann filter bitmaps");
@@ -915,11 +1053,8 @@ ann_bitmap_search(PG_FUNCTION_ARGS)
 	if (found)
 	{
 		bool		isnull;
-		bytea	   *bitmap = DatumGetByteaPP(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
 
-		Put32(&payload, VARSIZE_ANY_EXHDR(bitmap) / 4);
-		appendBinaryStringInfo(&payload, (char *) query->x, sizeof(float) * query->dim);
-		appendBinaryStringInfo(&payload, VARDATA_ANY(bitmap), VARSIZE_ANY_EXHDR(bitmap));
+		id = DatumGetInt64(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull));
 	}
 	SPI_finish();
 	if (!found)
@@ -927,7 +1062,46 @@ ann_bitmap_search(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
 				 errmsg("no ann filter bitmap for index \"%s\" and filter \"%s\"", name, filter),
 				 errhint("Run ann_filter_bitmap_build first.")));
-	ok = IndexCall(ANN_OP_INDEX_SEARCH_BITMAP, payload.data, payload.len, 0, &status, &reply, &replyLength);
+
+	initStringInfo(&payload);
+	Put32(&payload, strlen(name));
+	appendBinaryStringInfo(&payload, name, strlen(name));
+	Put32(&payload, query->dim);
+	Put32(&payload, k);
+	appendBinaryStringInfo(&payload, (char *) &id, sizeof(id));
+	appendBinaryStringInfo(&payload, (char *) query->x, sizeof(float) * query->dim);
+	ok = IndexCall(ANN_OP_INDEX_SEARCH_CACHED, payload.data, payload.len, 0, &status, &reply, &replyLength);
+	if (ok && status == ANN_STATUS_MISSING)
+	{
+		Oid			idType[1] = {INT8OID};
+		Datum		idValue[1] = {Int64GetDatum(id)};
+		bool		pushed = false;
+		uint32		pushStatus = 0;
+		int			failures;
+
+		if (SPI_connect() != SPI_OK_CONNECT)
+			elog(ERROR, "SPI_connect failed");
+		if (SPI_execute_with_args(psprintf("SELECT bitmap FROM %s WHERE id = $1", BitmapTableName(fcinfo)),
+								  1, idType, idValue, NULL, true, 1) == SPI_OK_SELECT && SPI_processed == 1)
+		{
+			bool		isnull;
+
+			pushed = PushBitmap(name, id,
+								DatumGetByteaPP(SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, &isnull)),
+								&failures, &pushStatus) > 0;
+		}
+		SPI_finish();
+		if (!pushed)
+			ereport(ERROR,
+					(errcode(ERRCODE_CONNECTION_FAILURE),
+					 errmsg("could not push ann filter bitmap %lld to the GPU nodes (worker status %d)",
+							(long long) id, (int) pushStatus)));
+		ok = IndexCall(ANN_OP_INDEX_SEARCH_CACHED, payload.data, payload.len, 0, &status, &reply, &replyLength);
+	}
+	if (ok && status == ANN_STATUS_MISSING)
+		ereport(ERROR,
+				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
+				 errmsg("ann filter bitmap %lld is not cached on the GPU node", (long long) id)));
 	StoreHits(ok, status, name, reply, replyLength, tupdesc, store);
 	return (Datum) 0;
 }

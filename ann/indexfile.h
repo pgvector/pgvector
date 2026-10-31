@@ -53,6 +53,28 @@ typedef struct AnnIndexAttribute
 	uint64_t   *ordinals;
 } AnnIndexAttribute;
 
+/*
+ * A filter bitmap pushed by PostgreSQL (ann_filter_bitmap) and cached under
+ * its id: the bitmap over global ordinals, one cuVS bitset per shard
+ * (pointing into it when the shard starts on a 32-row boundary), and, for
+ * filters the exact routes take, the matching ordinals and keys. Searches
+ * hold a reference, so a replaced entry is freed by its last user.
+ */
+typedef struct AnnIndexBitmap
+{
+	uint64_t	id;
+	uint64_t	count;
+	uint32_t   *words;
+	uint32_t   *bitsets[ANN_INDEX_MAX_SHARDS];
+	uint32_t   *owned[ANN_INDEX_MAX_SHARDS];
+	int64_t    *keys;			/* NULL for filters only the graph route takes */
+	uint64_t   *ordinals;
+	int			references;
+	struct AnnIndexBitmap *next;
+} AnnIndexBitmap;
+
+#define ANN_INDEX_BITMAP_BUCKETS 1024
+
 typedef struct AnnIndexFile
 {
 	char		name[ANN_INDEX_NAME_MAX + 1];
@@ -67,6 +89,10 @@ typedef struct AnnIndexFile
 	AnnIndexShard shards[ANN_INDEX_MAX_SHARDS];
 	uint32_t	nattributes;
 	AnnIndexAttribute attributes[ANN_INDEX_MAX_ATTRIBUTES];
+	pthread_mutex_t bitmapMutex;
+	AnnIndexBitmap *bitmaps[ANN_INDEX_BITMAP_BUCKETS];
+	uint64_t	nbitmaps;
+	uint64_t	bitmapBytes;
 	const int64_t *keys;		/* mapped */
 	const float *vectors;		/* mapped */
 	size_t		keysBytes;		/* mapped or reserved bytes, for munmap */
@@ -110,6 +136,18 @@ void		AnnIndexPut(AnnIndexFile *file);
 AnnStatus	AnnIndexMatch(const AnnIndexFile *file, const char *attribute, const int32_t *values,
 						  uint32_t nvalues, const int64_t **keys, const uint64_t **ordinals,
 						  uint64_t *count, uint32_t *const **bitsets, int *owned);
+
+/*
+ * Cache a filter bitmap of (rows + 31) / 32 words under id, replacing any
+ * entry with that id. Filters of at most expandLimit rows also get their
+ * ordinals and keys.
+ */
+AnnStatus	AnnIndexBitmapPut(AnnIndexFile *file, uint64_t id, const uint32_t *words, size_t nwords,
+							  uint64_t expandLimit);
+
+/* A referenced cached bitmap, or NULL; release it with AnnIndexBitmapRelease. */
+AnnIndexBitmap *AnnIndexBitmapGet(AnnIndexFile *file, uint64_t id);
+void		AnnIndexBitmapRelease(AnnIndexFile *file, AnnIndexBitmap *bitmap);
 
 /* Map sorted unique keys to sorted global ordinals; returns the count found. */
 uint64_t	AnnIndexOrdinals(const AnnIndexFile *file, const int64_t *keys, uint32_t nkeys,

@@ -16,6 +16,8 @@
 #define ANN_OP_INDEX_SEARCH_MATCH 17
 #define ANN_OP_INDEX_BITMAP 18
 #define ANN_OP_INDEX_SEARCH_BITMAP 19
+#define ANN_OP_BITMAP_PUT 20
+#define ANN_OP_INDEX_SEARCH_CACHED 21
 
 typedef struct AnnServeOptions
 {

@@ -66,6 +66,8 @@ bool		AnnRemoteCall(uint16 operation, const char *payload, size_t length, int ti
 						  uint32 *status, char **reply, uint32 *replyLength);
 int			AnnRemoteBroadcast(uint16 operation, const char *payload, size_t length, int timeoutMs,
 							   uint32 *status, char **reply, uint32 *replyLength);
+int			AnnRemoteBroadcastEach(uint16 operation, const char *payload, size_t length, int timeoutMs,
+								   int *failed, uint32 *status);
 bool		AnnWorkerCall(uint16 operation, const char *payload, size_t length, int timeoutMs,
 						  uint32 *status, char **reply, uint32 *replyLength);
 bool		AnnWorkerReceive(uint64 *request, uint32 *status, uint32 **ids, uint32 *count);

@@ -53,6 +53,8 @@ typedef struct Job
 	uint32_t   *shardBitsets[ANN_INDEX_MAX_SHARDS]; /* bitmap route, per shard */
 	uint32_t   *ownedBitsets[ANN_INDEX_MAX_SHARDS]; /* those this job
 													 * allocated */
+	AnnIndexFile *bitmapFile;	/* cached bitmap this job references */
+	AnnIndexBitmap *bitmap;
 	Connection *connection;
 	int			rdma;			/* reply over RDMA, as requested */
 	uint16_t	operation;
@@ -314,6 +316,8 @@ Finish(Service *service, Job *job)
 	free(job->ordinals);
 	for (uint32_t s = 0; s < ANN_INDEX_MAX_SHARDS; s++)
 		free(job->ownedBitsets[s]);
+	if (job->bitmap)
+		AnnIndexBitmapRelease(job->bitmapFile, job->bitmap);
 	free(job->payload);
 	free(job);
 }
@@ -1084,6 +1088,151 @@ nomem:
 }
 
 /*
+ * Bitmap put payload: u32 name length, name, u64 filter id, u32 words, then
+ * the bitmap as BuildBitmap returns it (without the count). The bitmap is
+ * cached under the id until replaced or the worker exits.
+ */
+static AnnStatus
+PutBitmap(const unsigned char *payload, uint32_t size)
+{
+	char		name[ANN_INDEX_NAME_MAX + 1];
+	uint32_t	nameLength,
+				words;
+	uint64_t	id;
+	AnnIndexFile *file;
+	uint32_t   *bitmap;
+	AnnStatus	status;
+
+	if (size < 4 || (nameLength = (uint32_t) Read(payload, 4)) == 0 ||
+		nameLength > ANN_INDEX_NAME_MAX || (uint64_t) size < 16 + (uint64_t) nameLength ||
+		memchr(payload + 4, '\0', nameLength))
+		return ANN_INVALID;
+	memcpy(name, payload + 4, nameLength);
+	name[nameLength] = '\0';
+	id = Read(payload + 4 + nameLength, 8);
+	words = (uint32_t) Read(payload + 12 + nameLength, 4);
+	if ((uint64_t) size != 16 + (uint64_t) nameLength + (uint64_t) words * 4)
+		return ANN_INVALID;
+	if ((bitmap = malloc((size_t) words * 4 + 4)) == NULL)
+		return ANN_NOMEM;
+	for (uint32_t w = 0; w < words; w++)
+		bitmap[w] = (uint32_t) Read(payload + 16 + nameLength + (size_t) w * 4, 4);
+	if ((file = AnnIndexGet(name)) == NULL)
+	{
+		free(bitmap);
+		return ANN_STALE;
+	}
+
+	/* Expand filters the exact routes take; see SubmitBitmap. */
+	status = AnnIndexBitmapPut(file, id, bitmap, words,
+							   file->device == NULL ? UINT64_MAX : AnnIndexConfig.gather_limit);
+	AnnIndexPut(file);
+	free(bitmap);
+	return status;
+}
+
+/*
+ * Cached bitmap search payload: u32 name length, name, u32 dimensions, k,
+ * u64 filter id; FP32 query. ANN_MISSING when the id is not cached here, so
+ * the caller can push the bitmap and retry.
+ */
+static AnnStatus
+SubmitCached(Service *service, Connection *connection, int rdma, uint64_t request,
+			 unsigned char *payload, uint32_t size)
+{
+	Job		   *job;
+	AnnIndexFile *file;
+	AnnIndexBitmap *bitmap;
+	char		name[ANN_INDEX_NAME_MAX + 1];
+	uint32_t	nameLength,
+				dimensions,
+				k;
+	uint64_t	id;
+	size_t		offset;
+
+	if (service->backend->search_index == NULL)
+		return ANN_UNSUPPORTED;
+	if (size < 4 || (nameLength = (uint32_t) Read(payload, 4)) == 0 ||
+		nameLength > ANN_INDEX_NAME_MAX || (uint64_t) size < 20 + (uint64_t) nameLength ||
+		memchr(payload + 4, '\0', nameLength))
+		return ANN_INVALID;
+	memcpy(name, payload + 4, nameLength);
+	name[nameLength] = '\0';
+	offset = 4 + nameLength;
+	dimensions = (uint32_t) Read(payload + offset, 4);
+	k = (uint32_t) Read(payload + offset + 4, 4);
+	id = Read(payload + offset + 8, 8);
+	offset += 16;
+	if (dimensions == 0 || dimensions > ANN_MAX_DIM || k == 0 || k > 10000 ||
+		(uint64_t) size != offset + (uint64_t) dimensions * 4)
+		return ANN_INVALID;
+	if ((file = AnnIndexGet(name)) == NULL)
+		return ANN_STALE;
+	bitmap = AnnIndexBitmapGet(file, id);
+	AnnIndexPut(file);
+	if (bitmap == NULL)
+		return ANN_MISSING;
+	job = calloc(1, sizeof(*job));
+	if (job == NULL || (job->index.results = malloc(sizeof(AnnIndexHit) * k)) == NULL)
+	{
+		free(job);
+		AnnIndexBitmapRelease(file, bitmap);
+		return ANN_NOMEM;
+	}
+	job->kind = JOB_INDEX;
+	strcpy(job->index.name, name);
+	job->index.dimensions = dimensions;
+	job->index.k = k;
+	job->index.filtered = 1;
+	{
+		float	   *query = (float *) (void *) payload;
+
+		for (uint32_t d = 0; d < dimensions; d++)
+		{
+			uint32_t	bits = (uint32_t) Read(payload + offset + (size_t) d * 4, 4);
+
+			memcpy(&query[d], &bits, sizeof(bits));
+		}
+		job->index.query = query;
+	}
+
+	/*
+	 * Filters within the gather limit carry ordinals and keys for the exact
+	 * routes; broader ones only bitsets, which send them to filtered CAGRA.
+	 */
+	job->index.nfilter = (uint32_t) (bitmap->count < UINT32_MAX ? bitmap->count : UINT32_MAX - 1);
+	if (bitmap->keys && (bitmap->count <= AnnIndexConfig.gather_limit || file->device == NULL))
+	{
+		job->index.filter = bitmap->keys;
+		job->index.ordinals = bitmap->ordinals;
+	}
+	if (file->nshards)
+		job->index.bitsets = bitmap->bitsets;
+	if (job->index.filter == NULL && job->index.bitsets == NULL)
+	{
+		/* Neither form usable: the worker's limits changed under the entry. */
+		free(job->index.results);
+		free(job);
+		AnnIndexBitmapRelease(file, bitmap);
+		return ANN_MISSING;
+	}
+	job->bitmapFile = file;
+	job->bitmap = bitmap;
+	job->connection = connection;
+	job->operation = ANN_OP_INDEX_SEARCH_CACHED;
+	job->rdma = rdma;
+	job->request = request;
+	job->payload = payload;
+	job->charge = (uint64_t) size + sizeof(AnnIndexHit) * k;
+	if (Enqueue(service, connection, job))
+		return ANN_PENDING;
+	free(job->index.results);
+	AnnIndexBitmapRelease(file, bitmap);
+	free(job);
+	return ANN_OVERLOADED;
+}
+
+/*
  * Load payload: u32 name length, name, then the directory path. The reply
  * is text: "rows N dimensions D shards S dtype T source NAME".
  */
@@ -1139,10 +1288,14 @@ DescribeIndex(const unsigned char *payload, uint32_t size, char *reply, size_t r
 	name[size] = '\0';
 	if ((file = AnnIndexGet(name)) == NULL)
 		return ANN_STALE;
-	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s",
+	(void) pthread_mutex_lock(&file->bitmapMutex);
+	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s "
+					   "bitmaps %llu bitmap_bytes %llu",
 					   (unsigned long long) file->rows, file->dimensions, file->nshards,
 					   file->dtype, file->source[0] ? file->source : "-",
-					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-");
+					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-",
+					   (unsigned long long) file->nbitmaps, (unsigned long long) file->bitmapBytes);
+	(void) pthread_mutex_unlock(&file->bitmapMutex);
 	AnnIndexPut(file);
 	*replyLength = written > 0 && (size_t) written < replySize ? (size_t) written : 0;
 	return ANN_OK;
@@ -1279,6 +1432,8 @@ RdmaFrame(void *context, uint64_t peer, unsigned char *frame, size_t size)
 		status = SubmitMatch(service, connection, 1, request, payload, length);
 	else if (operation == ANN_OP_INDEX_SEARCH_BITMAP)
 		status = SubmitBitmap(service, connection, 1, request, payload, length);
+	else if (operation == ANN_OP_INDEX_SEARCH_CACHED)
+		status = SubmitCached(service, connection, 1, request, payload, length);
 	else if (operation == ANN_OP_GATHERED_SEARCH)
 		status = Submit(service, connection, 1, operation, request, payload, length);
 	else if (operation == 5)
@@ -1424,6 +1579,15 @@ Reader(void *argument)
 				continue;
 			Reply(connection, operation, request, status, NULL, 0);
 		}
+		else if (operation == ANN_OP_INDEX_SEARCH_CACHED)
+		{
+			status = SubmitCached(service, connection, 0, request, payload, length);
+			if (status == ANN_PENDING)
+				continue;
+			Reply(connection, operation, request, status, NULL, 0);
+		}
+		else if (operation == ANN_OP_BITMAP_PUT)
+			Reply(connection, operation, request, PutBitmap(payload, length), NULL, 0);
 		else if (operation == ANN_OP_INDEX_BITMAP)
 		{
 			unsigned char *bitmap = NULL;

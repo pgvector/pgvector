@@ -19,7 +19,8 @@ typedef enum AnnStatus
 	ANN_OVERLOADED,
 	ANN_TIMED_OUT,
 	ANN_CANCELLED,
-	ANN_CLOSED
+	ANN_CLOSED,
+	ANN_MISSING					/* a cached filter bitmap is not on this node */
 } AnnStatus;
 
 typedef struct AnnIndex

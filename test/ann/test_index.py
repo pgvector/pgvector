@@ -117,6 +117,22 @@ def search_bitmap_frame(request, name, query, k, bitmap):
     return frame(SEARCH_BITMAP, request, payload)
 
 
+PUT_BITMAP = 20
+SEARCH_CACHED = 21
+MISSING = 11
+
+
+def put_bitmap_frame(request, name, filter_id, bitmap):
+    payload = struct.pack('<I', len(name)) + name.encode() + struct.pack('<qI', filter_id, len(bitmap) // 4) + bitmap
+    return frame(PUT_BITMAP, request, payload)
+
+
+def search_cached_frame(request, name, query, k, filter_id):
+    payload = struct.pack('<I', len(name)) + name.encode()
+    payload += struct.pack('<IIq', len(query), k, filter_id) + struct.pack('<%df' % len(query), *query)
+    return frame(SEARCH_CACHED, request, payload)
+
+
 def decode_hits(payload):
     count, route = struct.unpack_from('<II', payload)
     return route, [struct.unpack_from('<qf', payload, 8 + i * 12) for i in range(count)]
@@ -262,6 +278,29 @@ class IndexWorkerTests(unittest.TestCase):
             _, hits = decode_hits(payload)
             self.assertEqual([key for key, _ in hits], [key for _, key in exact(keys, vectors, query, 10, set(allowed))])
 
+    def test_cached_bitmaps(self):
+        path, keys, vectors = self.fixture(shards=7)
+        rng = random.Random(8)
+        with self.server.connect() as connection:
+            self.assertEqual(self.call(connection, load_frame(1, 'docs', path))[2], 0)
+            query = [0.25] * 5
+            self.assertEqual(self.call(connection, search_cached_frame(2, 'docs', query, 10, 5))[2], MISSING)
+            for request, allowed in enumerate([rng.sample(keys, 40), rng.sample(keys, 400), []], 3):
+                # Same id each time: a put replaces the cached entry.
+                reply = self.call(connection, bitmap_frame(request * 10, 'docs', allowed))[3]
+                self.assertEqual(self.call(connection, put_bitmap_frame(request * 10 + 1, 'docs', 5, reply[8:]))[2], 0)
+                _, _, status, payload = self.call(connection, search_cached_frame(request * 10 + 2, 'docs', query, 10, 5))
+                self.assertEqual(status, 0)
+                want = exact(keys, vectors, query, 10, set(allowed))
+                self.assertEqual([key for key, _ in decode_hits(payload)[1]], [key for _, key in want])
+            _, _, status, info = self.call(connection, frame(15, 50, b'docs'))
+            self.assertIn(b'bitmaps 1 ', info)
+            # Wrong size, unloaded index, malformed search.
+            self.assertEqual(self.call(connection, put_bitmap_frame(51, 'docs', 6, b'\0' * 4))[2], 1)
+            self.assertEqual(self.call(connection, put_bitmap_frame(52, 'other', 6, b'\0' * 76))[2], 3)
+            self.assertEqual(self.call(connection, search_cached_frame(53, 'other', query, 10, 5))[2], 3)
+            self.assertEqual(self.call(connection, search_cached_frame(54, 'docs', [0.25] * 4, 10, 5))[2], 1)
+
     def test_errors(self):
         path, _, _ = self.fixture()
         with self.server.connect() as connection:
@@ -378,6 +417,40 @@ class IndexSqlTests(unittest.TestCase):
             self.assertEqual(output.strip(), '0', f)
         self.assertIn('no ann filter bitmap', self.psql(
             f"SELECT * FROM ann_bitmap_search('{self.name}', '[1,1,1,1]', 3, 'tenant = 4')", check=False))
+
+        # A restarted worker, loaded without PostgreSQL: searches push the
+        # bitmaps they need; ann_filter_bitmap_push and ann_index_load push all.
+        other = Server('--backend', os.environ.get('ANN_INDEX_BACKEND', 'cpu-exact'),
+                       executable=IndexWorkerTests.worker)
+        try:
+            with other.connect() as connection:
+                connection.sendall(load_frame(1, self.name, self.path))
+                self.assertEqual(receive(connection)[2], 0)
+
+            def run(script):
+                result = subprocess.run([PSQL, DSN, '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1'],
+                                        input=f"SET ann.worker_socket = '{other.path}';\n" + script,
+                                        capture_output=True, text=True, timeout=120)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                return result.stdout.split()
+
+            def cached():
+                with other.connect() as connection:
+                    connection.sendall(frame(15, 2, self.name.encode()))
+                    return int(receive(connection)[3].split(b' bitmaps ')[1].split()[0])
+
+            self.assertEqual(cached(), 0)
+            self.assertEqual(run(f"""
+                SELECT count(*) FILTER (WHERE a IS DISTINCT FROM b) FROM (
+                    SELECT ARRAY(SELECT s.id FROM ann_bitmap_search('{self.name}', q.emb, 5, 'tenant = 3') s
+                            ORDER BY s.distance, s.id) a,
+                        ARRAY(SELECT t.id FROM {self.table} t WHERE tenant = 3 ORDER BY t.emb <-> q.emb, t.id LIMIT 5) b
+                    FROM {self.table} q WHERE q.id % 89 = 0) x"""), ['0'])
+            self.assertEqual(cached(), 1)
+            self.assertEqual(run(f"SELECT ann_filter_bitmap_push('{self.name}')"), [str(len(filters))])
+            self.assertEqual(cached(), len(filters))
+        finally:
+            other.close()
         self.psql(f"DELETE FROM ann_filter_bitmap WHERE index_name = '{self.name}'")
 
     def test_join_returns_rows_and_edge_cases(self):

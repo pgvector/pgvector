@@ -36,6 +36,14 @@ AnnRemoteBroadcast(uint16 operation, const char *payload, size_t length, int tim
 	return -1;
 }
 
+int
+AnnRemoteBroadcastEach(uint16 operation, const char *payload, size_t length, int timeoutMs,
+					   int *failed, uint32 *status)
+{
+	*failed = 0;
+	return 0;
+}
+
 #else
 
 #include <errno.h>
@@ -55,6 +63,7 @@ AnnRemoteBroadcast(uint16 operation, const char *payload, size_t length, int tim
 #define ANN_OP_RDMA_HELLO 16
 #define ANN_OP_INDEX_SEARCH_MATCH 17
 #define ANN_OP_INDEX_SEARCH_BITMAP 19
+#define ANN_OP_INDEX_SEARCH_CACHED 21
 #define ANN_MAX_NODES 64
 
 /*
@@ -284,7 +293,8 @@ static bool
 RdmaOperation(uint16 operation)
 {
 	return operation == ANN_OP_INDEX_SEARCH || operation == ANN_OP_INDEX_SEARCH_PACKED ||
-		operation == ANN_OP_INDEX_SEARCH_MATCH || operation == ANN_OP_INDEX_SEARCH_BITMAP;
+		operation == ANN_OP_INDEX_SEARCH_MATCH || operation == ANN_OP_INDEX_SEARCH_BITMAP ||
+		operation == ANN_OP_INDEX_SEARCH_CACHED;
 }
 
 /* Reap the previous send's completion before reusing the send buffer. */
@@ -848,6 +858,46 @@ AnnRemoteBroadcast(uint16 operation, const char *payload, size_t length, int tim
 			return -1;
 	}
 	return count;
+}
+
+/*
+ * Send one request to every node, continuing past failures, for caches that
+ * nodes can refill later. Returns the number of nodes that accepted it;
+ * *failed counts the rest and *status holds the last failure's status
+ * (UINT32_MAX when a node was unreachable).
+ */
+int
+AnnRemoteBroadcastEach(uint16 operation, const char *payload, size_t length, int timeoutMs,
+					   int *failed, uint32 *status)
+{
+	char	   *hosts[ANN_MAX_NODES];
+	char	   *ports[ANN_MAX_NODES];
+	int			count = ParseNodes(hosts, ports);
+	int			accepted = 0;
+
+	*failed = 0;
+	for (int i = 0; i < count; i++)
+	{
+		int			fd = ConnectNode(hosts[i], ports[i], timeoutMs);
+		uint32		nodeStatus = UINT32_MAX;
+		char	   *reply = NULL;
+		uint32		replyLength = 0;
+
+		if (fd >= 0)
+		{
+			if (!Exchange(fd, operation, payload, length, timeoutMs, &nodeStatus, &reply, &replyLength))
+				nodeStatus = UINT32_MAX;
+			close(fd);
+		}
+		if (nodeStatus == 0)
+			accepted++;
+		else
+		{
+			(*failed)++;
+			*status = nodeStatus;
+		}
+	}
+	return accepted;
 }
 
 #endif

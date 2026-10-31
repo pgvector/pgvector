@@ -309,6 +309,151 @@ AnnIndexMatch(const AnnIndexFile *file, const char *name, const int32_t *values,
 	return ANN_OK;
 }
 
+static void
+FreeBitmap(AnnIndexBitmap *bitmap)
+{
+	for (uint32_t s = 0; s < ANN_INDEX_MAX_SHARDS; s++)
+		free(bitmap->owned[s]);
+	free(bitmap->words);
+	free(bitmap->keys);
+	free(bitmap->ordinals);
+	free(bitmap);
+}
+
+static size_t
+BitmapBytes(const AnnIndexFile *file, const AnnIndexBitmap *bitmap)
+{
+	size_t		bytes = ((size_t) file->rows + 31) / 32 * 4;
+
+	for (uint32_t s = 0; s < ANN_INDEX_MAX_SHARDS; s++)
+		if (bitmap->owned[s])
+			bytes += ((size_t) file->shards[s].rows + 31) / 32 * 4;
+	if (bitmap->keys)
+		bytes += bitmap->count * 16;
+	return bytes;
+}
+
+AnnStatus
+AnnIndexBitmapPut(AnnIndexFile *file, uint64_t id, const uint32_t *words, size_t nwords, uint64_t expandLimit)
+{
+	AnnIndexBitmap *bitmap;
+	AnnIndexBitmap **link;
+	AnnIndexBitmap *old = NULL;
+	size_t		expected = ((size_t) file->rows + 31) / 32;
+
+	if (nwords != expected)
+		return ANN_INVALID;
+	bitmap = calloc(1, sizeof(*bitmap));
+	if (bitmap == NULL || (bitmap->words = malloc(nwords * 4)) == NULL)
+	{
+		free(bitmap);
+		return ANN_NOMEM;
+	}
+	bitmap->id = id;
+	bitmap->references = 1;
+	memcpy(bitmap->words, words, nwords * 4);
+	if (file->rows % 32)
+		bitmap->words[nwords - 1] &= (UINT32_C(1) << (file->rows % 32)) - 1;
+	for (size_t w = 0; w < nwords; w++)
+		bitmap->count += (uint64_t) __builtin_popcount(bitmap->words[w]);
+
+	/* Each shard's slice: in place when word aligned, else shifted. */
+	for (uint32_t s = 0; s < file->nshards; s++)
+	{
+		uint64_t	first = file->shards[s].first;
+		size_t		shardWords = ((size_t) file->shards[s].rows + 31) / 32;
+		uint32_t	shift = (uint32_t) (first % 32);
+
+		if (shift == 0)
+		{
+			bitmap->bitsets[s] = bitmap->words + first / 32;
+			continue;
+		}
+		if ((bitmap->owned[s] = malloc(shardWords * 4)) == NULL)
+		{
+			FreeBitmap(bitmap);
+			return ANN_NOMEM;
+		}
+		for (size_t w = 0; w < shardWords; w++)
+		{
+			size_t		at = first / 32 + w;
+			uint32_t	low = bitmap->words[at] >> shift;
+			uint32_t	high = at + 1 < nwords ? bitmap->words[at + 1] << (32 - shift) : 0;
+
+			bitmap->owned[s][w] = low | high;
+		}
+		bitmap->bitsets[s] = bitmap->owned[s];
+	}
+	if (bitmap->count <= expandLimit)
+	{
+		uint64_t	i = 0;
+
+		bitmap->keys = malloc(sizeof(int64_t) * (bitmap->count ? bitmap->count : 1));
+		bitmap->ordinals = malloc(sizeof(uint64_t) * (bitmap->count ? bitmap->count : 1));
+		if (bitmap->keys == NULL || bitmap->ordinals == NULL)
+		{
+			FreeBitmap(bitmap);
+			return ANN_NOMEM;
+		}
+		for (size_t w = 0; w < nwords; w++)
+			for (uint32_t bits = bitmap->words[w]; bits; bits &= bits - 1)
+			{
+				uint64_t	ordinal = (uint64_t) w * 32 + (uint64_t) __builtin_ctz(bits);
+
+				bitmap->ordinals[i] = ordinal;
+				bitmap->keys[i++] = file->keys[ordinal];
+			}
+	}
+
+	(void) pthread_mutex_lock(&file->bitmapMutex);
+	for (link = &file->bitmaps[id % ANN_INDEX_BITMAP_BUCKETS]; *link; link = &(*link)->next)
+		if ((*link)->id == id)
+		{
+			old = *link;
+			*link = old->next;
+			file->nbitmaps--;
+			file->bitmapBytes -= BitmapBytes(file, old);
+			break;
+		}
+	bitmap->next = file->bitmaps[id % ANN_INDEX_BITMAP_BUCKETS];
+	file->bitmaps[id % ANN_INDEX_BITMAP_BUCKETS] = bitmap;
+	file->nbitmaps++;
+	file->bitmapBytes += BitmapBytes(file, bitmap);
+	(void) pthread_mutex_unlock(&file->bitmapMutex);
+	if (old)
+		AnnIndexBitmapRelease(file, old);
+	return ANN_OK;
+}
+
+AnnIndexBitmap *
+AnnIndexBitmapGet(AnnIndexFile *file, uint64_t id)
+{
+	AnnIndexBitmap *bitmap;
+
+	(void) pthread_mutex_lock(&file->bitmapMutex);
+	for (bitmap = file->bitmaps[id % ANN_INDEX_BITMAP_BUCKETS]; bitmap; bitmap = bitmap->next)
+		if (bitmap->id == id)
+		{
+			bitmap->references++;
+			break;
+		}
+	(void) pthread_mutex_unlock(&file->bitmapMutex);
+	return bitmap;
+}
+
+/* The cache holds one reference, dropped when the entry is replaced. */
+void
+AnnIndexBitmapRelease(AnnIndexFile *file, AnnIndexBitmap *bitmap)
+{
+	int			last;
+
+	(void) pthread_mutex_lock(&file->bitmapMutex);
+	last = --bitmap->references == 0;
+	(void) pthread_mutex_unlock(&file->bitmapMutex);
+	if (last)
+		FreeBitmap(bitmap);
+}
+
 /* Parse "key value" lines; unknown keys are rejected so typos fail loudly. */
 static AnnStatus
 ParseManifest(AnnIndexFile *file)
@@ -402,6 +547,7 @@ AnnIndexFileOpen(const char *name, const char *directory, AnnIndexFile **result)
 	file = calloc(1, sizeof(*file));
 	if (file == NULL)
 		return ANN_NOMEM;
+	(void) pthread_mutex_init(&file->bitmapMutex, NULL);
 	strcpy(file->name, name);
 	strcpy(file->directory, directory);
 	status = ParseManifest(file);
@@ -459,6 +605,15 @@ AnnIndexFileClose(AnnIndexFile *file)
 		free(attribute->keys);
 		free(attribute->ordinals);
 	}
+	for (uint32_t b = 0; b < ANN_INDEX_BITMAP_BUCKETS; b++)
+		while (file->bitmaps[b])
+		{
+			AnnIndexBitmap *bitmap = file->bitmaps[b];
+
+			file->bitmaps[b] = bitmap->next;
+			FreeBitmap(bitmap);
+		}
+	(void) pthread_mutex_destroy(&file->bitmapMutex);
 	free(file);
 }
 
