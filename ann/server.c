@@ -1105,7 +1105,11 @@ Reader(void *argument)
 int
 AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *options)
 {
-	Service		service = {0};
+	/*
+	 * Process lifetime: detached readers and RDMA progress threads hold a
+	 * pointer to it, and readers can outlive this function.
+	 */
+	static Service service;
 	struct sockaddr_un address = {0};
 	struct sigaction action = {0};
 	pthread_t  *lanes;
@@ -1270,7 +1274,6 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 	(void) close(listener);
 	if (network >= 0)
 		(void) close(network);
-	AnnRdmaClose(service.rdma);
 	(void) unlink(path);
 	(void) pthread_mutex_lock(&service.mutex);
 	service.stopping = 1;
@@ -1279,5 +1282,13 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 	for (uint32_t i = 0; i < options->lanes; i++)
 		(void) pthread_join(lanes[i], NULL);
 	free(lanes);
+
+	/*
+	 * Stop RDMA progress threads so no new frames are handled; the rest of
+	 * the RDMA state is left for process exit to release, because detached
+	 * readers may still drop connections, and with them queue pairs.
+	 */
+	if (service.rdma)
+		AnnRdmaStop(service.rdma);
 	return 0;
 }

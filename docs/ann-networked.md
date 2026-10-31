@@ -143,8 +143,10 @@ The "before" column is the previous extension, against the same gather-scan work
 Search frames can bypass the kernel network stack over RDMA. The transport uses InfiniBand verbs from rdma-core directly, so it runs on any InfiniBand or RoCE adapter (tested with ConnectX-7):
 
 - **Connection setup:** each PostgreSQL backend keeps its TCP connection for authentication, heartbeats, loads, and frames too large for RDMA. After authenticating, it sends its queue pair address (LID, queue pair number, starting packet sequence number, GID) in operation 16. The worker connects a reliable-connected queue pair back and replies with its own address. No IP-over-InfiniBand addresses are needed. RoCE ports route by GID.
-- **Data path:** each request is one RDMA send of up to 256 KB, enough for packed filters of about 100k keys. The worker receives every client's frames on one shared receive queue, with all buffers registered once at startup. Replies go back on the client's queue pair.
-- **Completions:** the worker's progress thread and each backend poll their completion queues from user space, so a search needs no system call or interrupt. `--rdma-poll wait` uses a completion channel instead, which sleeps between bursts at the cost of an interrupt per wakeup.
+- **Data path:** each request is one RDMA send of up to 256 KB, enough for packed filters of about 100k keys. Replies go back on the client's queue pair.
+- **Lanes:** `--rdma-lanes N` gives the worker N progress threads. Each has its own completion queue, shared receive queue (256 buffers) and send buffers (256), and clients are spread across lanes at hello. A lane decodes and queues the requests it receives, so ingress scales with lanes. All buffers are registered once at startup.
+- **Completions:** worker lanes busy-poll their completion queues from user space; `--rdma-poll wait` sleeps on a completion channel instead, at the cost of an interrupt per wakeup. A backend busy-polls for at most `ann.worker_rdma_spin_us` (default 50 µs), then arms its queue and sleeps in `poll()` on the completion channel and its TCP socket. Hundreds of waiting backends therefore don't each hold a spinning core.
+- **Back-pressure:** sending a reply never blocks. If the client's lane has no free send buffer, the reply goes over TCP, which the backend watches while it waits, and the worker counts it in `rdma_fallbacks`.
 - **Security:** the worker accepts RDMA frames only on queue pairs it connected for authenticated TCP connections. A queue pair is destroyed when its connection's last in-flight reply is done.
 - **Fallback:** frames that don't fit go over TCP. If the device can't be opened, the backend stays on TCP and logs at DEBUG1.
 
@@ -152,7 +154,7 @@ Search frames can bypass the kernel network stack over RDMA. The transport uses 
 # GPU node (an active port; check with ibv_devinfo)
 make -C ann USE_CUVS=1 USE_RDMA=1 CUVS_PREFIX=...
 ann/ann-worker-cuvs --backend cuvs --listen /run/ann.sock --listen-tcp 0.0.0.0:7700 \
-    --auth-token-file /etc/ann/token --rdma mlx5_0:1 [--rdma-poll spin|wait]
+    --auth-token-file /etc/ann/token --rdma mlx5_0:1 --rdma-lanes 16 [--rdma-poll spin|wait]
 
 # PostgreSQL hosts
 make USE_RDMA=1 && make install USE_RDMA=1
@@ -163,10 +165,40 @@ ALTER SYSTEM SET ann.worker_rdma = 'mlx5_0';   -- local device[:port], empty for
 SELECT pg_reload_conf();
 ```
 
-The worker's statistics (operation 8) count `rdma_frames`. Each backend uses one queue pair, and a worker accepts up to 32,768.
+The worker's statistics (operation 8) report `rdma_frames`, `rdma_fallbacks`, and `rdma_lanes`, next to `jobs` and `batches` for GPU batch occupancy. Each backend uses one queue pair, and a worker accepts up to 32,768.
+
+**Measured.**
+
+Setup:
+- **Hardware:** one host with 8× B200 and a ConnectX-7 InfiniBand port (`mlx5_0`); client and worker share the HCA, so the traffic never crosses a switch.
+- **Data:** 10M × 128 dimensions, 8 FP32 shards, `--lanes 96 --itopk 64`.
+- **Worker:** cores 0–95.
+- **PostgreSQL cluster and `pgbench`:** cores 96–159.
+- **Runs:** 12 s per cell.
+
+Jobs per batch is the GPU batching occupancy, computed from the worker's statistics.
+
+| Transport | ANN QPS at 64 / 256 / 1,024 clients | Jobs per batch at 1,024 | 1% hybrid QPS at 256 / 1,024 |
+| --- | --- | --- | --- |
+| TCP | 73,028 / 174,701 / 318,675 | 4.85 | 5,538 / 5,381 |
+| RDMA, 1 lane | 67,709 / 90,122 / 95,092 | 1.06 | 3,663 / 3,839 |
+| RDMA, 4 lanes | 71,465 / 115,099 / 159,464 | 1.97 | 6,206 / 5,830 |
+| RDMA, 8 lanes | 72,177 / 137,738 / 223,263 | 3.03 | 6,225 / 5,959 |
+| RDMA, 16 lanes | — / 124,569 / 234,473 | 3.49 | 5,549 / 5,556 |
+| RDMA, 32 lanes | — / 119,576 / 227,318 | 4.16 | 5,162 / 5,184 |
+
+Repeated runs varied by about ±10% (16 lanes: 224k and 234k at 1,024 clients).
+
+What the measurements show:
+
+- **The stall is gone.** Before lanes and non-blocking sends, RDMA collapsed above 64 clients (ANN 14,549 QPS at 256 and 21,891 at 1,024) and left about 536 MB of admitted work stuck in the worker. Now every cell ends with nothing pending and nothing rejected. With one lane at 1,024 clients, about 56,000 replies took the TCP fallback; with four or more lanes, none did.
+- **Lanes scale ingress up to about 16.** One lane handles every receive, decode and buffer recycle, and saturates near 95k QPS.
+- **TCP still leads for unfiltered ANN at high concurrency.** At 1,024 clients, 16 lanes reach about 73% of TCP. Its reader threads (one per connection) decode requests on ~1,000 threads, against 16 lanes. RDMA requests also arrive less clustered, so GPU batches are smaller (3.5 against 4.85 jobs).
+- **RDMA wins where frames are large and concurrency moderate.** For the 1% hybrid filter (about 100k packed keys per request), 4–8 lanes beat TCP by 3–12% at 128–256 clients across runs. At 64 clients both transports tie.
+- **These numbers don't include a network.** Client and worker share one host and one HCA, so TCP pays only loopback costs. Across a real network, TCP adds a kernel round trip and interrupts on both hosts, which this setup can't show. Measure on two hosts before choosing a transport.
 
 **Limits.**
-- Spin polling dedicates a core to the worker's progress thread, and each waiting backend spins on its own completion queue.
+- Worker lanes spin by default, one core each. Use `--rdma-poll wait` when cores are scarce.
 - AWS EFA isn't supported: it needs the SRD transport through libfabric or `efadv`, not reliable-connected queue pairs.
 - The test host's IP-over-InfiniBand interfaces have no addresses, so libfabric's `verbs;ofi_rxm` provider can't be used there. Native verbs addressing by LID works without them.
 

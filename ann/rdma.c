@@ -29,6 +29,12 @@ AnnRdmaClose(AnnRdma *rdma)
 	(void) rdma;
 }
 
+void
+AnnRdmaStop(AnnRdma *rdma)
+{
+	(void) rdma;
+}
+
 const char *
 AnnRdmaDevice(AnnRdma *rdma)
 {
@@ -324,14 +330,23 @@ Progress(void *argument)
 }
 
 void
+AnnRdmaStop(AnnRdma *rdma)
+{
+	rdma->running = 0;
+	for (int l = 0; l < rdma->nlanes; l++)
+		if (rdma->lanes[l].started)
+		{
+			(void) pthread_join(rdma->lanes[l].progress, NULL);
+			rdma->lanes[l].started = 0;
+		}
+}
+
+void
 AnnRdmaClose(AnnRdma *rdma)
 {
 	if (rdma == NULL)
 		return;
-	rdma->running = 0;
-	for (int l = 0; l < rdma->nlanes; l++)
-		if (rdma->lanes[l].started)
-			(void) pthread_join(rdma->lanes[l].progress, NULL);
+	AnnRdmaStop(rdma);
 	for (uint64_t i = 0; i < rdma->npeers; i++)
 		if (rdma->peers[i].qp)
 			(void) ibv_destroy_qp(rdma->peers[i].qp);

@@ -33,6 +33,9 @@ typedef void (*AnnRdmaFrame) (void *context, uint64_t peer, unsigned char *frame
 AnnRdma    *AnnRdmaOpen(const char *device, int lanes, int spin, AnnRdmaFrame onFrame, void *context,
 						char *error, size_t errorSize);
 void		AnnRdmaClose(AnnRdma *rdma);
+
+/* Stop and join the progress threads, keeping every other resource. */
+void		AnnRdmaStop(AnnRdma *rdma);
 const char *AnnRdmaDevice(AnnRdma *rdma);
 size_t		AnnRdmaMaxFrame(AnnRdma *rdma);
 
