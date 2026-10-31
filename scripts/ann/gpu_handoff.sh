@@ -43,6 +43,7 @@ set -u
 : "${ANN_HANDOFF_WORKER_CORES:=0-95}"
 : "${ANN_HANDOFF_CLIENT_CORES:=96-223}"
 : "${ANN_HANDOFF_RDMA_DEVICE:=mlx5_0}"
+: "${ANN_HANDOFF_RDMA_LANES:=16}"
 : "${ANN_HANDOFF_WAIT_PORTS:=}"
 : "${ANN_HANDOFF_WAIT_HOURS:=12}"
 : "${ANN_HANDOFF_BENCH_PORT:=7820}"
@@ -141,7 +142,7 @@ for suite in index pipeline remote; do
 	done
 done
 for t in $(list_tests test/ann/test_remote.py); do
-	run "test_remote_rdma.${t}" 300 "ANN_TEST_RDMA=$RDMA_DEVICE $T python -W ignore test/ann/test_remote.py $t -v"
+	run "test_remote_rdma.${t}" 300 "ANN_TEST_RDMA=$RDMA_DEVICE ANN_TEST_RDMA_LANES=$ANN_HANDOFF_RDMA_LANES $T python -W ignore test/ann/test_remote.py $t -v"
 done
 
 # 4. GPU work waits until other GPU workloads (ANN_HANDOFF_WAIT_PORTS) stop
@@ -166,8 +167,8 @@ else
 		for mode in tcp rdma-spin rdma-wait; do
 			extra=""; opts="-c ann.worker_address=127.0.0.1:$BENCH_PORT -c ann.worker_auth_token=$TOKEN"
 			case $mode in
-				rdma-spin) extra="--rdma $RDMA_DEVICE --rdma-poll spin"; opts="$opts -c ann.worker_rdma=$RDMA_DEVICE" ;;
-				rdma-wait) extra="--rdma $RDMA_DEVICE --rdma-poll wait"; opts="$opts -c ann.worker_rdma=$RDMA_DEVICE" ;;
+				rdma-spin) extra="--rdma $RDMA_DEVICE --rdma-lanes $ANN_HANDOFF_RDMA_LANES --rdma-poll spin"; opts="$opts -c ann.worker_rdma=$RDMA_DEVICE" ;;
+				rdma-wait) extra="--rdma $RDMA_DEVICE --rdma-lanes $ANN_HANDOFF_RDMA_LANES --rdma-poll wait"; opts="$opts -c ann.worker_rdma=$RDMA_DEVICE" ;;
 			esac
 			setsid taskset -c $ANN_HANDOFF_WORKER_CORES ann/ann-worker-cuvs --backend cuvs --listen "$H/ann.sock" \
 				--listen-tcp 127.0.0.1:$BENCH_PORT --auth-token-file "$TOKEN_FILE" --lanes 96 --itopk 64 $extra \
