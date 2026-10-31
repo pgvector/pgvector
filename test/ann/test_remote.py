@@ -5,7 +5,8 @@ networked workers); ANN_PSQL overrides psql. Uses the CPU worker, so it runs
 without a GPU; ANN_INDEX_WORKER/ANN_INDEX_BACKEND select the cuVS build.
 ANN_TEST_RDMA=<device[:port]> (an active InfiniBand/RoCE port, such as
 mlx5_0) runs everything with search frames over RDMA; it needs USE_RDMA=1
-builds of the worker and extension.
+builds of the worker and extension. ANN_TEST_RDMA_LANES sets the worker's
+RDMA lane count.
 """
 
 import os
@@ -26,6 +27,7 @@ DSN = os.environ.get('ANN_PG_DSN')
 PSQL = os.environ.get('ANN_PSQL', 'psql')
 TOKEN = 'test-token-' + uuid.uuid4().hex
 RDMA = os.environ.get('ANN_TEST_RDMA', '')
+RDMA_LANES = os.environ.get('ANN_TEST_RDMA_LANES', '1')
 
 
 def free_port():
@@ -40,7 +42,7 @@ class Node:
         token = os.path.join(directory, f'token-{self.port}')
         with open(token, 'w') as out:
             out.write(TOKEN + '\n')
-        rdma = ['--rdma', RDMA] if RDMA else []
+        rdma = ['--rdma', RDMA, '--rdma-lanes', RDMA_LANES] if RDMA else []
         self.server = Server('--backend', IndexWorkerTests.backend, '--listen-tcp', f'127.0.0.1:{self.port}',
                              '--auth-token-file', token, *rdma, executable=IndexWorkerTests.worker)
         deadline = time.monotonic() + 5

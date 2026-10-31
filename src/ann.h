@@ -59,6 +59,7 @@ extern int	ann_gpu_min_eligible;
 extern int	ann_worker_heartbeat_ms;
 extern int	ann_worker_retry_ms;
 extern char *ann_worker_rdma;
+extern int	ann_worker_rdma_spin_us;
 void		AnnRemoteInit(void);
 bool		AnnRemoteConfigured(void);
 bool		AnnRemoteCall(uint16 operation, const char *payload, size_t length, int timeoutMs,

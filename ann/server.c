@@ -97,6 +97,7 @@ AnnServeDefaultOptions(AnnServeOptions *options)
 	options->tcp = NULL;
 	options->token = NULL;
 	options->rdma = NULL;
+	options->rdma_lanes = 1;
 	options->rdma_spin = 1;
 }
 
@@ -1014,6 +1015,13 @@ Reader(void *argument)
 			char		message[512];
 			int			size;
 
+			uint64_t	rdmaFrames = 0,
+						rdmaFallbacks = 0;
+			int			rdmaLanes = 0;
+
+			if (service->rdma)
+				AnnRdmaStats(service->rdma, &rdmaFrames, &rdmaFallbacks, &rdmaLanes);
+			(void) rdmaFrames;
 			(void) pthread_mutex_lock(&service->mutex);
 			if (operation == 0)
 				size = snprintf(message, sizeof(message),
@@ -1027,14 +1035,15 @@ Reader(void *argument)
 				size = snprintf(message, sizeof(message),
 								"{\"jobs\":%llu,\"batches\":%llu,\"max_batch\":%llu,\"rows\":%llu,"
 								"\"rejected\":%llu,\"failed\":%llu,\"pending_bytes\":%llu,\"device_jobs\":%llu,"
-								"\"rdma_frames\":%llu}",
+								"\"rdma_frames\":%llu,\"rdma_fallbacks\":%llu,\"rdma_lanes\":%d}",
 								(unsigned long long) service->jobs, (unsigned long long) service->batches,
 								(unsigned long long) service->max_batch, (unsigned long long) service->rows,
 								(unsigned long long) service->rejected, (unsigned long long) service->failed,
 								(unsigned long long) service->pending_bytes,
 								(unsigned long long) (service->backend->device_jobs ?
 													  service->backend->device_jobs() : 0),
-								(unsigned long long) service->rdma_frames);
+								(unsigned long long) service->rdma_frames, (unsigned long long) rdmaFallbacks,
+								rdmaLanes);
 			(void) pthread_mutex_unlock(&service->mutex);
 			Reply(connection, operation, request, ANN_OK, (unsigned char *) message,
 				  size > 0 && (size_t) size < sizeof(message) ? (size_t) size : 0);
@@ -1167,15 +1176,15 @@ AnnServe(const char *path, const AnnBackend *backend, const AnnServeOptions *opt
 	{
 		char		error[512];
 
-		service.rdma = AnnRdmaOpen(options->rdma, options->rdma_spin, RdmaFrame, &service,
+		service.rdma = AnnRdmaOpen(options->rdma, (int) options->rdma_lanes, options->rdma_spin, RdmaFrame, &service,
 								   error, sizeof(error));
 		if (service.rdma == NULL)
 		{
 			fprintf(stderr, "ann-worker: %s\n", error);
 			return 1;
 		}
-		fprintf(stderr, "ann-worker: RDMA on %s, frames up to %zu bytes, %s completions\n",
-				AnnRdmaDevice(service.rdma), AnnRdmaMaxFrame(service.rdma),
+		fprintf(stderr, "ann-worker: RDMA on %s, %u lane(s), frames up to %zu bytes, %s completions\n",
+				AnnRdmaDevice(service.rdma), options->rdma_lanes, AnnRdmaMaxFrame(service.rdma),
 				options->rdma_spin ? "spin-polled" : "interrupt-driven");
 	}
 	fprintf(stderr, "ann-worker: backend %s listening on %s%s%s\n", backend->name, path,

@@ -24,15 +24,20 @@ typedef struct AnnRdma AnnRdma;
 typedef void (*AnnRdmaFrame) (void *context, uint64_t peer, unsigned char *frame, size_t size);
 
 /*
- * Open "device" or "device:port" (port 1 by default). spin busy-polls the
- * completion queue; otherwise the progress thread sleeps on a completion
- * channel, which costs an interrupt per wakeup.
+ * Open "device" or "device:port" (port 1 by default) with lanes progress
+ * threads, each owning a completion queue, a shared receive queue and send
+ * buffers; clients are spread across lanes. spin busy-polls completion
+ * queues; otherwise progress threads sleep on completion channels, which
+ * costs an interrupt per wakeup.
  */
-AnnRdma    *AnnRdmaOpen(const char *device, int spin, AnnRdmaFrame onFrame, void *context,
+AnnRdma    *AnnRdmaOpen(const char *device, int lanes, int spin, AnnRdmaFrame onFrame, void *context,
 						char *error, size_t errorSize);
 void		AnnRdmaClose(AnnRdma *rdma);
 const char *AnnRdmaDevice(AnnRdma *rdma);
 size_t		AnnRdmaMaxFrame(AnnRdma *rdma);
+
+/* Frames received, replies that fell back to TCP, and the lane count. */
+void		AnnRdmaStats(AnnRdma *rdma, uint64_t *frames, uint64_t *fallbacks, int *lanes);
 
 /*
  * Connect a queue pair to the client's address; writes this side's address
@@ -43,7 +48,11 @@ int			AnnRdmaAddPeer(AnnRdma *rdma, const unsigned char *client, unsigned char *
 /* Destroys the queue pair: call only when no thread can still send to peer. */
 void		AnnRdmaRemovePeer(AnnRdma *rdma, uint64_t peer);
 
-/* Send header and payload as one frame; copies, so callers keep their buffers. */
+/*
+ * Send header and payload as one frame; copies, so callers keep their
+ * buffers. Never blocks: returns 0 when the peer's lane has no free send
+ * buffer, and the caller should use TCP.
+ */
 int			AnnRdmaSend(AnnRdma *rdma, uint64_t peer, const unsigned char *header, size_t headerSize,
 						const unsigned char *payload, size_t payloadSize);
 

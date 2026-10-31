@@ -25,6 +25,8 @@ typedef struct AnnServeOptions
 	const char *token;			/* shared secret network clients must send */
 	const char *rdma;			/* InfiniBand/RoCE device[:port] for search
 								 * frames */
+	uint32_t	rdma_lanes;		/* RDMA progress threads, each with its own
+								 * queues */
 	int			rdma_spin;		/* busy-poll completions instead of interrupts */
 } AnnServeOptions;
 

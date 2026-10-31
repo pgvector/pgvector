@@ -12,6 +12,7 @@ int			ann_gpu_min_eligible = 1000;
 int			ann_worker_heartbeat_ms = 5000;
 int			ann_worker_retry_ms = 10000;
 char	   *ann_worker_rdma = NULL;
+int			ann_worker_rdma_spin_us = 50;
 
 #if defined(WIN32) || defined(WORDS_BIGENDIAN)
 
@@ -90,6 +91,8 @@ typedef struct RdmaClient
 {
 	struct ibv_context *context;
 	struct ibv_pd *pd;
+	struct ibv_comp_channel *channel;	/* wakes a backend that stopped
+										 * spinning */
 	struct ibv_cq *cq;
 	struct ibv_qp *qp;
 	struct ibv_mr *mr;
@@ -114,6 +117,8 @@ CloseRdma(void)
 		(void) ibv_dereg_mr(client->mr);
 	if (client->cq)
 		(void) ibv_destroy_cq(client->cq);
+	if (client->channel)
+		(void) ibv_destroy_comp_channel(client->channel);
 	if (client->pd)
 		(void) ibv_dealloc_pd(client->pd);
 	if (client->context)
@@ -189,7 +194,9 @@ OpenRdma(int fd, int timeoutMs)
 	init.cap.max_recv_sge = 1;
 	init.qp_type = IBV_QPT_RC;
 	if ((client->pd = ibv_alloc_pd(client->context)) == NULL ||
-		(client->cq = ibv_create_cq(client->context, 16, NULL, NULL, 0)) == NULL)
+		(client->channel = ibv_create_comp_channel(client->context)) == NULL ||
+		fcntl(client->channel->fd, F_SETFL, fcntl(client->channel->fd, F_GETFL) | O_NONBLOCK) != 0 ||
+		(client->cq = ibv_create_cq(client->context, 16, NULL, client->channel, 0)) == NULL)
 		goto fail;
 	init.send_cq = client->cq;
 	init.recv_cq = client->cq;
@@ -330,9 +337,11 @@ RdmaExchange(int fd, uint16 operation, const char *payload, size_t length, int t
 	struct ibv_send_wr wr = {0};
 	struct ibv_send_wr *bad;
 	instr_time	start;
-	uint32		spins = 0;
+	instr_time	spinStart;
+	bool		armed = false;
 
 	INSTR_TIME_SET_CURRENT(start);
+	spinStart = start;
 	if (!ReapRdmaSend(client))
 		return false;
 	PutHeader(buffer, operation, request, (uint32) length);
@@ -370,16 +379,44 @@ RdmaExchange(int fd, uint16 operation, const char *payload, size_t length, int t
 				return false;
 			return ReapRdmaSend(client);
 		}
-		if (++spins % 4096 == 0)
+
+		/*
+		 * Spin briefly for latency, then sleep: hundreds of backends spinning
+		 * on their own completion queues would starve the CPUs serving them.
+		 * Arming the queue makes the adapter signal the channel; a completion
+		 * that raced the arm is caught by polling the queue again first.
+		 */
+		if (!armed && ElapsedMs(spinStart) * 1000.0 < ann_worker_rdma_spin_us)
+			continue;
+		if (!armed)
 		{
-			struct pollfd poller = {fd, POLLIN, 0};
+			if (ibv_req_notify_cq(client->cq, 0) != 0)
+				return false;
+			armed = true;
+			continue;
+		}
+		{
+			struct pollfd pollers[2] = {{client->channel->fd, POLLIN, 0}, {fd, POLLIN, 0}};
 
 			CHECK_FOR_INTERRUPTS();
 			if (ElapsedMs(start) > timeoutMs)
 				return false;
+			if (poll(pollers, 2, 10) < 0 && errno != EINTR)
+				return false;
+			if (pollers[0].revents & POLLIN)
+			{
+				struct ibv_cq *eventCq;
+				void	   *ignored;
 
-			/* A reply too large for the RDMA frame arrives on TCP instead. */
-			if (poll(&poller, 1, 0) > 0)
+				if (ibv_get_cq_event(client->channel, &eventCq, &ignored) == 0)
+					ibv_ack_cq_events(eventCq, 1);
+				armed = false;
+				INSTR_TIME_SET_CURRENT(spinStart);
+				continue;
+			}
+
+			/* A reply that did not fit an RDMA send arrives on TCP instead. */
+			if (pollers[1].revents & POLLIN)
 			{
 				char		header[ANN_HEADER_SIZE];
 				uint64		replyRequest;
@@ -403,7 +440,6 @@ RdmaExchange(int fd, uint16 operation, const char *payload, size_t length, int t
 		}
 	}
 }
-
 #endif
 
 static void
@@ -837,6 +873,10 @@ AnnRemoteInit(void)
 							   "InfiniBand/RoCE device[:port] for RDMA search frames to GPU nodes.",
 							   "Empty uses TCP only. Requires a build with USE_RDMA=1.",
 							   &ann_worker_rdma, "", PGC_SUSET, 0, NULL, NULL, NULL);
+	DefineCustomIntVariable("ann.worker_rdma_spin_us",
+							"Time a backend busy-polls for an RDMA reply before sleeping.",
+							"After this the backend waits on a completion channel and its TCP socket.",
+							&ann_worker_rdma_spin_us, 50, 0, 1000000, PGC_USERSET, 0, NULL, NULL, NULL);
 	DefineCustomIntVariable("ann.gpu_min_eligible",
 							"Filters with fewer eligible rows are scored exactly on this host.",
 							"Filtered loaded-index searches below this count never leave the host.",

@@ -113,7 +113,7 @@ Build(const AnnBackend *backend, AnnIndex *index, uint64_t generation, Cursor *i
 }
 
 static AnnStatus
-Search(const AnnBackend *backend, const AnnIndex *index, AnnBatcher *batcher,
+Search(const AnnBackend *backend, const AnnIndex *index, AnnBatcher * batcher,
 	   Cursor *input, Cursor *output)
 {
 	uint32_t	queries = (uint32_t) ReadInteger(input, 4);
@@ -281,6 +281,8 @@ main(int argc, char **argv)
 			serveOptions.tcp = value;
 		else if (strcmp(argv[i], "--rdma") == 0)
 			serveOptions.rdma = value;
+		else if (strcmp(argv[i], "--rdma-lanes") == 0)
+			serveOptions.rdma_lanes = (uint32_t) strtoul(value, NULL, 10);
 		else if (strcmp(argv[i], "--rdma-poll") == 0)
 			serveOptions.rdma_spin = strcmp(value, "wait") != 0;
 		else if (strcmp(argv[i], "--auth-token-file") == 0)
@@ -493,12 +495,12 @@ main(int argc, char **argv)
 
 usage:
 #ifdef ANN_USE_CUVS
-	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-poll spin|wait]]] "
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
 			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
-	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-poll spin|wait]]] "
+	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
 			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS]]\n"
 			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");
