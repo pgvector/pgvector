@@ -23,6 +23,11 @@ typedef struct AnnServeOptions
 {
 	uint32_t	lanes;			/* concurrent backend submissions */
 	uint32_t	max_batch_jobs; /* gathered jobs per submission */
+	uint32_t	filter_lanes;	/* lanes that may work on one filter at once,
+								 * per index copy, while active_lanes lanes
+								 * are busy with cached filters */
+	uint32_t	active_lanes;	/* lanes on cached filters before that limit
+								 * applies; 0 for three quarters of lanes */
 	uint64_t	max_batch_bytes;	/* vector bytes per submission */
 	uint64_t	max_pending_bytes;	/* queued and running payload bytes */
 	uint64_t	delay_us;		/* wait for more jobs before a partial batch */

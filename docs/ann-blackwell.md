@@ -44,10 +44,17 @@ At load, each shard's slice of the quantized copy goes to the GPU holding that s
 
 Small lists get 128-row blocks, so enough warps hide the scattered row loads; larger ones 512-row blocks, up to four per SM, so the final merge stays short. The path serves k ≤ 24 (at least 8 extra candidates); larger k uses the earlier path with `cuvsSelectK` and `--quant-slack` extra candidates (default 256).
 
-| Worker option | Effect |
-| --- | --- |
-| `--quantized-scan on\|off` | Use an index's quantized copy on Blackwell GPUs (default on). |
-| `--quant-slack N` | Extra candidates re-scored in FP32 when k is too large for the fused kernel (default 256). |
+**Grouped search on the tensor cores.** When several queued searches share a cached filter ([same-filter grouping](ann-gpu-filters.md#same-filter-grouping)), the module scores the filter's rows for up to 16 queries at once with `mma.sync` (m16n8k16, FP16 inputs, FP32 accumulation). Each warp takes 16 rows at a time and loads their quantized bytes and block scales up front. The FP4 and FP8 conversion instructions produce the A fragments directly: a `cvt.rn.f16x2.e2m1x2` result is two neighbouring dimensions of one row, which is exactly how the fragment lays out k. Block scales are folded into the fragments with `mul.rn.f16x2`; the B fragments are two 32-bit loads of the half-precision queries from shared memory, where the earlier scalar kernel needed 64 `LDS.128` per 16 dimensions. Distances come from ‖x‖² + ‖q‖² − 2x·q, with ‖x‖² summed from the same half values, and go to a [queries × rows] matrix. A batched top-32 kernel then scans each query's row of the matrix in about 37 slices (one query per block, one score per lane, a register list per warp merged only when a score beats the warp's 32nd best or the block's bound), and a merge kernel folds the slices. All candidates are re-scored in FP32.
+
+| Rows | 1 query (fused kernel) | 2 queries | 8 | 16 |
+| --- | --- | --- | --- | --- |
+| 10k | 17 µs | 23 µs (12 per query) | 23 (2.9) | 23 (1.4) |
+| 100k | 41 µs | 41 (21) | 46 (5.8) | 50 (3.1) |
+| 1M | 156 µs | 189 (95) | 237 (30) | 250 (16) |
+
+The score kernel itself takes 136 µs for 16 queries over 1M rows (8.5 µs per query) and 21 µs over 100k, about the time the single-query kernel spends gathering one query's rows: the multiply is free, the gather is the cost. The selection takes most of the rest at 1M rows.
+
+**How it got there.** The first multi-query kernel (one thread per row, FP32 FMAs against queries in shared memory, per-warp best-32 lists with warp shuffles) plateaued at 55–60 µs per query at 1M rows whatever the group size. Its SASS showed 1,300 `WARPSYNC.COLLECTIVE` pairs (shuffles and ballots the compiler could not prove convergent), and ablations split its 928 µs at 16 queries into 524 µs of compute (bound by the 64 `LDS.128` feeding 256 multiply-adds per chunk) and 392 µs of selection. The selection was structural: 4,736 warps each saw only 211 rows, so no warp's list ever filled and the sort-and-merge path ran on almost every tile. Moving the multiply to tensor cores removed the compute term; moving selection out of the scoring kernel into long slices (37 instead of 4,736 lists per query) removed the other. An intermediate design with insertion into shared-memory lists was 3× slower still: sixteen lanes' lists 32 words apart hit one bank.
 
 ## Measurements
 
@@ -72,7 +79,7 @@ FP8 runs within 2% of NVFP4: the scan is bound by scattered row loads and latenc
 
 **Recall**, measured straight against the worker (key lists from 40 queries per filter size, exact SQL ground truth): 1.000 for FP32, FP8 and NVFP4 at 0.1%, 1% and 10%, with the fused path's 22 extra candidates and also with only 16 on the earlier path.
 
-**End to end** (cached bitmaps, `ann_bitmap_search`, 512 clients per PostgreSQL host, QPS):
+**End to end, single queries** (cached bitmaps, `ann_bitmap_search`, 512 clients per PostgreSQL host, QPS; before same-filter grouping, which the next section and [the grouping guide](ann-gpu-filters.md#same-filter-grouping) measure):
 
 | Workload | 1 GPU, FP32 | 1 GPU, FP8 | 1 GPU, NVFP4 | 8 GPUs replicated, FP32 | 8 GPUs, FP8 | 8 GPUs, NVFP4 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -87,10 +94,12 @@ The 1-GPU runs (28 worker cores) are driven by one 64-core PostgreSQL host; the 
 
 Sending key lists straight to the worker (`ann_index_search` with keys) showed no gain: those requests carry 0.8–8 MB of keys each, and moving them over TCP, not the GPU, is the limit there.
 
+**End to end, grouped** (same-filter grouping on, defaults; one GPU and one host, or 8 GPUs with the index replicated and two hosts; QPS): 10% filters 82,058 on one GPU (FP32 index on batched CAGRA: 47,112) and 320,528 on eight; 1% filters 284,012 and 312,812; skewed 1% traffic (10 hot filters) 339,541 and 327,887. All exact in the concurrent checks (4.6M answers).
+
 ## Not used, and why
 
-- **Tensor cores for FP4/FP8 math.** A filtered query scores one query against its own rows: matrix-vector work, bound by scattered loads (the NVFP4 scan of 1M rows reads about 72 MB in 80 µs, 0.9 TB/s). Tensor cores pay off when many queries share rows, for example concurrent queries with the same cached filter grouped into a queries × rows block. Worker batches hold about 2–6 jobs today, so that grouping is unmeasured. Blackwell's tensor-core instructions also need CUTLASS-level kernels.
-- **Triton.** It could prototype the fused kernel and a grouped tensor-core kernel (it has scaled low-precision matrix multiplies for Blackwell). It would have to ship as an ahead-of-time CUBIN loaded by the C worker, since the query path stays C. Not tried.
+- **Blackwell's new tensor-core instructions (`tcgen05`, block-scaled FP4/FP8 MMA).** The grouped search uses the warp-level `mma.sync` with FP16 inputs, which Blackwell still supports, after converting FP4/FP8 to half. The multiply is already free at that point (136 µs of 250 at 1M rows × 16 queries is the row gather), so the native FP4 MMA would save the conversions but not change the bound. A single filtered query stays matrix-vector work on the scalar kernel.
+- **Triton.** It could have prototyped these kernels; it would have to ship as an ahead-of-time CUBIN loaded by the C worker, since the query path stays C. Not needed in the end: the kernels are about 300 lines of CUDA compiled at run time with NVRTC.
 - **TMA, thread-block clusters, the 228 KB shared memory, NVLink 5.** Nothing measured here is limited by what they address.
 - **cuVS graph search on quantized data.** cuVS 26.10 has no FP4 or FP8 CAGRA path, so broad filters (above `--bitset-gather-limit`) still run filtered CAGRA on the FP32 or FP16 dataset.
 

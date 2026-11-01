@@ -7,6 +7,7 @@ ANN_INDEX_BACKEND=cuvs runs the same checks against CAGRA files built by
 scripts/ann/build_cuvs_index.py (see test/ann/test_cuvs_index.py).
 """
 
+import json
 import math
 import os
 import random
@@ -261,6 +262,48 @@ class IndexWorkerTests(unittest.TestCase):
             # A bitmap of the wrong size, or for an unloaded index, is rejected.
             self.assertEqual(self.call(connection, search_bitmap_frame(30, 'docs', [0] * 5, 3, b'\0' * 4))[2], 1)
             self.assertEqual(self.call(connection, bitmap_frame(31, 'other', [1]))[2], 3)
+
+    def test_same_filter_searches_share_a_batch(self):
+        # Cached-bitmap searches over one filter, pipelined from several
+        # connections to a one-lane worker: the lane groups them (stats show
+        # groups and grouped_jobs) and every answer stays exact.
+        import threading
+        path, keys, vectors = self.fixture(shards=3)
+        self.server.close()
+        self.server = Server('--backend', self.backend, '--lanes', '1', executable=self.worker)
+        rng = random.Random(11)
+        allowed = rng.sample(keys, 200)
+        queries = [[rng.uniform(-3, 3) for _ in range(5)] for _ in range(8)]
+        with self.server.connect() as connection:
+            self.assertEqual(self.call(connection, load_frame(1, 'docs', path))[2], 0)
+            reply = self.call(connection, bitmap_frame(2, 'docs', allowed))[3]
+            self.assertEqual(self.call(connection, put_bitmap_frame(3, 'docs', 9, reply[8:]))[2], 0)
+        failures = []
+
+        def client(index):
+            try:
+                with self.server.connect() as c:
+                    for request in range(40):
+                        c.sendall(search_cached_frame(request + 1, 'docs', queries[(index + request) % 8], 10, 9))
+                    for request in range(40):
+                        _, got, status, payload = receive(c)
+                        self.assertEqual(status, 0)
+                        want = exact(keys, vectors, queries[(index + got - 1) % 8], 10, set(allowed))
+                        self.assertEqual([key for key, _ in decode_hits(payload)[1]], [key for _, key in want])
+            except Exception as error:  # noqa: BLE001
+                failures.append(error)
+        threads = [threading.Thread(target=client, args=(i,)) for i in range(6)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(failures, [])
+        with self.server.connect() as connection:
+            stats = json.loads(self.call(connection, frame(STATS, 50))[3])
+        self.assertEqual(stats['jobs'], 240)
+        self.assertGreater(stats['groups'], 0)
+        self.assertGreater(stats['grouped_jobs'], stats['groups'])
+        self.assertIn('held', stats)
 
     def test_bitmap_search_without_gather_limit(self):
         # Workers without CAGRA state expand every bitmap, however broad.

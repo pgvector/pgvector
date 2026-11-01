@@ -49,6 +49,9 @@ WORKLOADS = {
     'bitmap-1pct': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'category = ' || :c);",
     'bitmap-0.1pct': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'tenant = ' || :t);",
     'bitmap-10pct': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'category / 10 = ' || :d);",
+    # Skewed traffic: a few hot filters, as broad filters tend to be.
+    'bitmap-10pct-hot3': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'category / 10 = ' || :h);",
+    'bitmap-1pct-hot10': "SELECT id FROM ann_bitmap_search(:idx, :v::vector, 10, 'category = ' || :c10);",
 }
 
 
@@ -142,9 +145,10 @@ def recall(args, workload):
              'sql-1pct': 't.category = q.c', 'sql-0.1pct': 't.tenant = q.t', 'sql-10pct': 't.category / 10 = q.d',
              'attr-1pct': 't.category = q.c', 'attr-0.1pct': 't.tenant = q.t',
              'attr-10pct': 't.category / 10 = q.d', 'bitmap-1pct': 't.category = q.c',
-             'bitmap-0.1pct': 't.tenant = q.t', 'bitmap-10pct': 't.category / 10 = q.d'}[workload]
-    queries = (f"SELECT v::vector AS v, q % 100 AS c, q % 1000 AS t, q % 10 AS d FROM {args.table}_queries "
-               f"WHERE q <= {args.recall_queries} OFFSET 0")
+             'bitmap-0.1pct': 't.tenant = q.t', 'bitmap-10pct': 't.category / 10 = q.d',
+             'bitmap-10pct-hot3': 't.category / 10 = q.h', 'bitmap-1pct-hot10': 't.category = q.c10'}[workload]
+    queries = (f"SELECT v::vector AS v, q % 100 AS c, q % 1000 AS t, q % 10 AS d, q % 3 AS h, q % 10 AS c10 "
+               f"FROM {args.table}_queries WHERE q <= {args.recall_queries} OFFSET 0")
     if workload.startswith('attr-'):
         column, values = {'attr-1pct': ('category', 'ARRAY[q.c]'), 'attr-0.1pct': ('tenant', 'ARRAY[q.t]'),
                           'attr-10pct': ('category', 'ARRAY(SELECT generate_series(q.d * 10, q.d * 10 + 9))')}[workload]
@@ -157,9 +161,10 @@ def recall(args, workload):
     fltr = {'ann': '', 'hybrid-1pct': f', ARRAY(SELECT id FROM {args.table} t WHERE {where})',
             'hybrid-0.1pct': f', ARRAY(SELECT id FROM {args.table} t WHERE {where})'}.get(workload)
     if workload.startswith('sql-') or workload.startswith('bitmap-'):
-        kind, size = workload.split('-')
+        kind, size = workload.split('-', 1)
         predicate = {'1pct': "'category = ' || q.c", '0.1pct': "'tenant = ' || q.t",
-                     '10pct': "'category / 10 = ' || q.d"}[size]
+                     '10pct': "'category / 10 = ' || q.d", '10pct-hot3': "'category / 10 = ' || q.h",
+                     '1pct-hot10': "'category = ' || q.c10"}[size]
         function = 'ann_hybrid_search' if kind == 'sql' else 'ann_bitmap_search'
         return float(psql(args, f"""
         SELECT round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3) FROM (
@@ -187,7 +192,7 @@ def bench(args):
             script = os.path.join(directory, f'{workload}.sql')
             with open(script, 'w') as out:
                 out.write('\\set q random(1, 1000)\n\\set c random(0, 99)\n\\set t random(0, 999)\n'
-                          '\\set d random(0, 9)\n')
+                          '\\set d random(0, 9)\n\\set h random(0, 2)\n\\set c10 random(0, 9)\n')
                 out.write(f'SELECT v FROM {args.table}_queries WHERE q = :q \\gset\n')
                 out.write(WORKLOADS[workload].format(table=args.table) + '\n')
             for clients in [int(c) for c in args.clients.split(',')]:

@@ -113,7 +113,7 @@ Build(const AnnBackend *backend, AnnIndex *index, uint64_t generation, Cursor *i
 }
 
 static AnnStatus
-Search(const AnnBackend *backend, const AnnIndex *index, AnnBatcher * batcher,
+Search(const AnnBackend *backend, const AnnIndex *index, AnnBatcher *batcher,
 	   Cursor *input, Cursor *output)
 {
 	uint32_t	queries = (uint32_t) ReadInteger(input, 4);
@@ -303,6 +303,10 @@ main(int argc, char **argv)
 		}
 		else if (strcmp(argv[i], "--lanes") == 0)
 			serveOptions.lanes = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--active-lanes") == 0)
+			serveOptions.active_lanes = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--filter-lanes") == 0)
+			serveOptions.filter_lanes = (uint32_t) strtoul(value, NULL, 10);
 		else if (strcmp(argv[i], "--max-batch") == 0)
 			serveOptions.max_batch_jobs = (uint32_t) strtoul(value, NULL, 10);
 		else if (strcmp(argv[i], "--delay-us") == 0)
@@ -336,6 +340,8 @@ main(int argc, char **argv)
 			AnnIndexConfig.filtered_algo = strcmp(value, "single") == 0 ? 1 : strcmp(value, "multi") == 0 ? 2 : 0;
 		else if (strcmp(argv[i], "--filtered-width") == 0)
 			AnnIndexConfig.filtered_width = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--group-gather-limit") == 0)
+			AnnIndexConfig.group_gather_limit = (uint32_t) strtoul(value, NULL, 10);
 		else if (strcmp(argv[i], "--quantized-scan") == 0)
 			AnnIndexConfig.quantized_scan = strcmp(value, "off") != 0;
 		else if (strcmp(argv[i], "--quant-slack") == 0)
@@ -514,14 +520,14 @@ main(int argc, char **argv)
 usage:
 #ifdef ANN_USE_CUVS
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "
-			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
+			"[--lanes N] [--filter-lanes N] [--active-lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
 			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS] [--bitset-min ROWS]\n"
-			"  [--filtered-algo auto|single|multi] [--filtered-width N] [--filtered-iterations N] [--device-bitmaps on|off] [--memory-pool PERCENT] [--bitset-gather-limit ROWS]\n"
+			"  [--filtered-algo auto|single|multi] [--filtered-width N] [--filtered-iterations N] [--device-bitmaps on|off] [--memory-pool PERCENT] [--bitset-gather-limit ROWS] [--group-gather-limit ROWS]\n"
 			"  [--quantized-scan on|off] [--quant-slack N]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "
-			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
+			"[--lanes N] [--filter-lanes N] [--active-lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
 			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS] [--bitset-min ROWS]\n"
 			"  [--filtered-algo auto|single|multi] [--filtered-width N] [--filtered-iterations N] [--device-bitmaps on|off] [--memory-pool PERCENT] [--bitset-gather-limit ROWS]]\n"
 			"cuvs, hipvs, and fused-nvfp4 require vendor adapters\n");

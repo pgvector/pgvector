@@ -86,6 +86,9 @@ typedef struct AnnIndexBitmap
 	int64_t    *keys;			/* NULL for filters only the graph route takes */
 	uint64_t   *ordinals;
 	void	  **device;			/* backend copies of the bitsets, or NULL */
+	void	  **deviceRows;		/* backend copies of each shard's rows, or
+								 * NULL */
+	uint64_t	deviceBytes;	/* device memory those copies hold */
 	int			references;
 	struct AnnIndexBitmap *next;
 } AnnIndexBitmap;
@@ -135,6 +138,7 @@ struct AnnIndexFile
 	AnnIndexBitmap *bitmaps[ANN_INDEX_BITMAP_BUCKETS];
 	uint64_t	nbitmaps;
 	uint64_t	bitmapBytes;
+	uint64_t	bitmapDeviceBytes;
 	const int64_t *keys;		/* mapped */
 	const float *vectors;		/* mapped */
 	size_t		keysBytes;		/* mapped or reserved bytes, for munmap */
@@ -162,6 +166,11 @@ typedef struct AnnIndexOptions
 								 * stream-ordered allocation */
 	uint32_t	bitset_gather_limit;	/* gather limit for filters with a
 										 * ready bitset */
+	uint32_t	group_gather_limit; /* largest filter a group of same-filter
+									 * queries scans together; cached bitmaps
+									 * up to it keep their rows */
+	uint32_t	index_copies;	/* most GPU copies any loaded index has; set
+								 * by the backend, read by the scheduler */
 	int			quantized_scan; /* scan quantized copies on Blackwell GPUs */
 	uint32_t	quant_slack;	/* extra candidates re-scored in FP32 */
 } AnnIndexOptions;

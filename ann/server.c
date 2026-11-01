@@ -61,8 +61,33 @@ typedef struct Job
 	uint64_t	request;
 	unsigned char *payload;
 	uint64_t	charge;
+	struct Job *prev;			/* the queue, oldest first */
 	struct Job *next;
+	struct Job *fnext;			/* the same filter's jobs, or the plain jobs
+								 * of this kind, oldest first */
+	struct FilterEntry *filter; /* NULL for a job that cannot share a scan */
 } Job;
+
+/*
+ * A filter the worker already holds (a cached bitmap's rows, an attribute
+ * value's rows), by its shared row arrays: its queued jobs, oldest first,
+ * and the lanes working on it. Entries live for the process; a reused
+ * pointer means the old filter's jobs are all done, so the entry then
+ * stands for the new one.
+ */
+typedef struct FilterEntry
+{
+	const void *ordinals;
+	const void *bitsets;
+	uint32_t	nfilter;
+	uint32_t	queued;
+	uint32_t	active;
+	Job		   *head;
+	Job		   *tail;
+	struct FilterEntry *next;	/* hash chain */
+} FilterEntry;
+
+#define ANN_FILTER_BUCKETS 4096
 
 typedef struct Service
 {
@@ -82,6 +107,15 @@ typedef struct Service
 	uint64_t	batches;
 	uint64_t	max_batch;
 	uint64_t	rows;
+	uint64_t	groups;			/* batches that pulled same-filter jobs */
+	uint64_t	grouped_jobs;	/* jobs in those groups */
+	uint64_t	held;			/* pickups that found only jobs whose filter
+								 * enough lanes were already on */
+	uint32_t	blockedWaiters; /* lanes waiting for a filter to free up */
+	uint32_t	activeLanes;	/* lanes working on cached filters */
+	FilterEntry *filters[ANN_FILTER_BUCKETS];
+	Job		   *plainHead[2];	/* jobs that cannot share a scan, by kind */
+	Job		   *plainTail[2];
 	AnnRdma    *rdma;
 	Connection **peers;			/* by RDMA peer id, under mutex */
 	uint64_t	npeers;
@@ -97,6 +131,7 @@ AnnServeDefaultOptions(AnnServeOptions *options)
 
 	options->lanes = cpus > 0 ? (uint32_t) cpus : 2;
 	options->max_batch_jobs = 64;
+	options->filter_lanes = 2;
 	options->max_batch_bytes = 32U * 1024U * 1024U;
 	options->max_pending_bytes = 512U * 1024U * 1024U;
 	options->delay_us = 0;
@@ -323,6 +358,149 @@ Finish(Service *service, Job *job)
 }
 
 /*
+ * Index searches over a filter the worker already holds (a cached bitmap's
+ * rows, an attribute value's rows) can share one scan: their row lists are
+ * the same arrays. Pointer equality is exact because every queued job holds
+ * a reference to its entry, so no entry is reused within a batch.
+ */
+static int
+Shareable(const Job *job)
+{
+	return job->kind == JOB_INDEX && job->index.filtered &&
+		(job->index.ordinals != NULL || job->index.bitsets != NULL);
+}
+
+#define ANN_GROUP_SCAN 4096		/* queued jobs examined for an eligible one */
+
+static uint64_t
+JobBytes(const Job *job)
+{
+	return (uint64_t) job->job.rows * job->job.dimensions * 4;
+}
+
+/* The entry for a shareable job's filter, created on first sight. */
+static FilterEntry *
+FilterFor(Service *service, const Job *job)
+{
+	uintptr_t	hash = ((uintptr_t) job->index.ordinals >> 4) * 0x9E3779B1u ^
+		((uintptr_t) job->index.bitsets >> 4) * 0x85EBCA77u ^ job->index.nfilter;
+	FilterEntry **bucket = &service->filters[hash & (ANN_FILTER_BUCKETS - 1)];
+	FilterEntry *entry;
+
+	for (entry = *bucket; entry; entry = entry->next)
+		if (entry->ordinals == job->index.ordinals && entry->bitsets == job->index.bitsets &&
+			entry->nfilter == job->index.nfilter)
+			return entry;
+	if ((entry = calloc(1, sizeof(*entry))) == NULL)
+		return NULL;
+	entry->ordinals = job->index.ordinals;
+	entry->bitsets = job->index.bitsets;
+	entry->nfilter = job->index.nfilter;
+	entry->next = *bucket;
+	*bucket = entry;
+	return entry;
+}
+
+/* Take a queued job: out of the queue and out of its filter's or kind's list. */
+static void
+Take(Service *service, Job *job)
+{
+	Job		  **head = job->filter ? &job->filter->head : &service->plainHead[job->kind];
+	Job		  **tail = job->filter ? &job->filter->tail : &service->plainTail[job->kind];
+
+	if (job->prev)
+		job->prev->next = job->next;
+	else
+		service->head = job->next;
+	if (job->next)
+		job->next->prev = job->prev;
+	else
+		service->tail = job->prev;
+	service->queued--;
+	if (job->filter)
+		job->filter->queued--;
+	if (*head == job)
+	{
+		*head = job->fnext;
+		if (*head == NULL)
+			*tail = NULL;
+	}
+	else
+	{
+		Job		   *before = *head;
+
+		while (before && before->fnext != job)
+			before = before->fnext;
+		if (before)
+		{
+			before->fnext = job->fnext;
+			if (*tail == job)
+				*tail = before;
+		}
+	}
+	job->prev = job->next = job->fnext = NULL;
+}
+
+/* Queue a job: last in the queue and in its filter's or kind's list. */
+static void
+Append		(Service *service, Job *job)
+{
+	job->prev = service->tail;
+	job->next = NULL;
+	job->fnext = NULL;
+	if (service->tail)
+		service->tail->next = job;
+	else
+		service->head = job;
+	service->tail = job;
+	service->queued++;
+	job->filter = Shareable(job) ? FilterFor(service, job) : NULL;
+	if (job->filter)
+	{
+		FilterEntry *entry = job->filter;
+
+		entry->queued++;
+		if (entry->tail)
+			entry->tail->fnext = job;
+		else
+			entry->head = job;
+		entry->tail = job;
+	}
+	else
+	{
+		if (service->plainTail[job->kind])
+			service->plainTail[job->kind]->fnext = job;
+		else
+			service->plainHead[job->kind] = job;
+		service->plainTail[job->kind] = job;
+	}
+}
+
+/*
+ * The oldest queued job a lane may start on. Once active_lanes lanes work on
+ * cached filters, a filter takes no more than filter_lanes lanes per index
+ * copy: searches over it arriving meanwhile wait and form one group behind
+ * them, so the group size follows the load. Below that, lanes start on any
+ * filter, so a few hot filters still keep the GPUs busy (on one GPU, 3 hot
+ * filters ran 2x faster with 8 lanes each than with 2, while 10 filters
+ * ran fastest with 2 each; 21 of 28 lanes active suits both).
+ */
+static Job *
+Eligible(Service *service)
+{
+	uint32_t	limit = service->options.filter_lanes ? service->options.filter_lanes : 1;
+	uint32_t	target = service->options.active_lanes ? service->options.active_lanes :
+		service->options.lanes * 3 / 4 ? service->options.lanes * 3 / 4 : 1;
+	uint32_t	scanned = 0;
+
+	limit *= AnnIndexConfig.index_copies ? AnnIndexConfig.index_copies : 1;
+	for (Job *job = service->head; job && scanned < ANN_GROUP_SCAN; job = job->next, scanned++)
+		if (job->filter == NULL || job->filter->active < limit || service->activeLanes < target)
+			return job;
+	return NULL;
+}
+
+/*
  * A lane takes the oldest job and every queued job that fits the batch
  * limits, optionally waiting delay_us for more, then makes one submission.
  */
@@ -342,13 +520,25 @@ Lane(void *argument)
 		uint32_t	limit;
 		uint64_t	bytes = 0;
 		uint64_t	deadline;
+		Job		   *job = NULL;
+		FilterEntry *owns = NULL;
 
 		(void) pthread_mutex_lock(&service->mutex);
 		service->idle++;
-		while (service->head == NULL && !service->stopping)
-			(void) pthread_cond_wait(&service->condition, &service->mutex);
+		while (!service->stopping && (job = Eligible(service)) == NULL)
+		{
+			if (service->head)
+			{
+				service->held++;
+				service->blockedWaiters++;
+				(void) pthread_cond_wait(&service->condition, &service->mutex);
+				service->blockedWaiters--;
+			}
+			else
+				(void) pthread_cond_wait(&service->condition, &service->mutex);
+		}
 		service->idle--;
-		if (service->head == NULL)
+		if (job == NULL)
 		{
 			(void) pthread_mutex_unlock(&service->mutex);
 			break;
@@ -362,30 +552,54 @@ Lane(void *argument)
 		limit = (uint32_t) ((service->queued + service->idle) / (service->idle + 1));
 		if (limit > service->options.max_batch_jobs)
 			limit = service->options.max_batch_jobs;
+		if (limit < 1)
+			limit = 1;
+		Take(service, job);
+		batch[count++] = job;
+		bytes += JobBytes(job);
+		if (job->filter)
+		{
+			uint32_t	pulled = 0;
+
+			/*
+			 * This lane now works on the filter: it takes the filter's other
+			 * queued jobs too, and the backend scores their rows once.
+			 */
+			owns = job->filter;
+			owns->active++;
+			service->activeLanes++;
+			while (count < limit && owns->head)
+			{
+				Job		   *same = owns->head;
+
+				Take(service, same);
+				batch[count++] = same;
+				pulled++;
+			}
+			if (pulled)
+			{
+				service->groups++;
+				service->grouped_jobs += pulled + 1;
+			}
+		}
+
+		/*
+		 * Fill with jobs of the same kind that cannot share a filter; other
+		 * filters stay queued for other lanes. Optionally hold a short batch
+		 * while no lane is idle.
+		 */
 		for (;;)
 		{
-			Job		   *job = service->head;
+			Job		   *plain;
 
-			if (job && count < limit)
+			while (count < limit && (plain = service->plainHead[batch[0]->kind]) != NULL &&
+				   bytes + JobBytes(plain) <= service->options.max_batch_bytes)
 			{
-				uint64_t	size = (uint64_t) job->job.rows * job->job.dimensions * 4;
-
-				/* One submission serves one kind of job. */
-				if (count && (job->kind != batch[0]->kind ||
-							  bytes + size > service->options.max_batch_bytes))
-					break;
-				service->head = job->next;
-				service->queued--;
-				if (service->head == NULL)
-					service->tail = NULL;
-				batch[count++] = job;
-				bytes += size;
-				continue;
+				Take(service, plain);
+				batch[count++] = plain;
+				bytes += JobBytes(plain);
 			}
-
-			/* Optionally hold a partial batch only while no lane is idle. */
-			if (job || count >= service->options.max_batch_jobs || service->idle ||
-				service->stopping || Now() >= deadline)
+			if (count >= limit || service->idle || service->stopping || Now() >= deadline)
 				break;
 			{
 				struct timespec ts = {(time_t) (deadline / 1000000000),
@@ -420,6 +634,16 @@ Lane(void *argument)
 		}
 		for (uint32_t i = 0; i < count; i++)
 			Finish(service, batch[i]);
+		if (owns)
+		{
+			/* The filter is free again: one waiting lane may take its queue. */
+			(void) pthread_mutex_lock(&service->mutex);
+			owns->active--;
+			service->activeLanes--;
+			if (service->blockedWaiters)
+				(void) pthread_cond_signal(&service->condition);
+			(void) pthread_mutex_unlock(&service->mutex);
+		}
 	}
 	free(batch);
 	free(jobs);
@@ -510,12 +734,8 @@ Submit(Service *service, Connection *connection, int rdma, uint16_t operation,
 	(void) pthread_mutex_lock(&connection->mutex);
 	connection->references++;
 	(void) pthread_mutex_unlock(&connection->mutex);
-	if (service->tail)
-		service->tail->next = job;
-	else
-		service->head = job;
-	service->tail = job;
-	service->queued++;
+	Append		(service, job);
+
 	(void) pthread_cond_signal(&service->condition);
 	(void) pthread_mutex_unlock(&service->mutex);
 	return ANN_PENDING;
@@ -569,12 +789,8 @@ Enqueue(Service *service, Connection *connection, Job *job)
 	(void) pthread_mutex_lock(&connection->mutex);
 	connection->references++;
 	(void) pthread_mutex_unlock(&connection->mutex);
-	if (service->tail)
-		service->tail->next = job;
-	else
-		service->head = job;
-	service->tail = job;
-	service->queued++;
+	Append		(service, job);
+
 	(void) pthread_cond_signal(&service->condition);
 	(void) pthread_mutex_unlock(&service->mutex);
 	return 1;
@@ -1123,9 +1339,10 @@ PutBitmap(const unsigned char *payload, uint32_t size)
 		return ANN_STALE;
 	}
 
-	/* Expand filters the exact routes take; see SubmitBitmap. */
-	status = AnnIndexBitmapPut(file, id, bitmap, words,
-							   file->device == NULL ? UINT64_MAX : AnnIndexConfig.bitset_gather_limit);
+	/* Keep rows for every filter a scan may take; see SubmitCached. */
+	status = AnnIndexBitmapPut(file, id, bitmap, words, file->device == NULL ? UINT64_MAX :
+							   AnnIndexConfig.group_gather_limit > AnnIndexConfig.bitset_gather_limit ?
+							   AnnIndexConfig.group_gather_limit : AnnIndexConfig.bitset_gather_limit);
 	AnnIndexPut(file);
 	free(bitmap);
 	return status;
@@ -1197,12 +1414,12 @@ SubmitCached(Service *service, Connection *connection, int rdma, uint64_t reques
 	}
 
 	/*
-	 * Filters within the bitset gather limit carry ordinals and keys for the
-	 * exact routes; broader ones only bitsets, which send them to filtered
-	 * CAGRA.
+	 * The job carries every form the cache has: rows (ordinals and keys) for
+	 * the scans, bitsets for filtered CAGRA. The backend routes by the
+	 * filter's size and by how many queued jobs share it.
 	 */
 	job->index.nfilter = (uint32_t) (bitmap->count < UINT32_MAX ? bitmap->count : UINT32_MAX - 1);
-	if (bitmap->keys && (bitmap->count <= AnnIndexConfig.bitset_gather_limit || file->device == NULL))
+	if (bitmap->keys)
 	{
 		job->index.filter = bitmap->keys;
 		job->index.ordinals = bitmap->ordinals;
@@ -1211,6 +1428,7 @@ SubmitCached(Service *service, Connection *connection, int rdma, uint64_t reques
 	{
 		job->index.bitsets = bitmap->bitsets;
 		job->index.deviceBitsets = bitmap->device;
+		job->index.deviceRows = bitmap->deviceRows;
 	}
 	if (job->index.filter == NULL && job->index.bitsets == NULL)
 	{
@@ -1296,12 +1514,13 @@ DescribeIndex(const unsigned char *payload, uint32_t size, char *reply, size_t r
 		return ANN_STALE;
 	(void) pthread_mutex_lock(&file->bitmapMutex);
 	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s "
-					   "quant %s quant_scan %s bitmaps %llu bitmap_bytes %llu",
+					   "quant %s quant_scan %s bitmaps %llu bitmap_bytes %llu bitmap_device_bytes %llu",
 					   (unsigned long long) file->rows, file->dimensions, file->nshards,
 					   file->dtype, file->source[0] ? file->source : "-",
 					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-",
 					   AnnIndexQuantName(file->quant), file->quantActive ? "on" : "off",
-					   (unsigned long long) file->nbitmaps, (unsigned long long) file->bitmapBytes);
+					   (unsigned long long) file->nbitmaps, (unsigned long long) file->bitmapBytes,
+					   (unsigned long long) file->bitmapDeviceBytes);
 	(void) pthread_mutex_unlock(&file->bitmapMutex);
 	AnnIndexPut(file);
 	*replyLength = written > 0 && (size_t) written < replySize ? (size_t) written : 0;
@@ -1552,7 +1771,8 @@ Reader(void *argument)
 				size = snprintf(message, sizeof(message),
 								"{\"jobs\":%llu,\"batches\":%llu,\"max_batch\":%llu,\"rows\":%llu,"
 								"\"rejected\":%llu,\"failed\":%llu,\"pending_bytes\":%llu,\"device_jobs\":%llu,"
-								"\"rdma_frames\":%llu,\"rdma_fallbacks\":%llu,\"rdma_lanes\":%d}",
+								"\"rdma_frames\":%llu,\"rdma_fallbacks\":%llu,\"rdma_lanes\":%d,"
+								"\"groups\":%llu,\"grouped_jobs\":%llu,\"held\":%llu}",
 								(unsigned long long) service->jobs, (unsigned long long) service->batches,
 								(unsigned long long) service->max_batch, (unsigned long long) service->rows,
 								(unsigned long long) service->rejected, (unsigned long long) service->failed,
@@ -1560,7 +1780,8 @@ Reader(void *argument)
 								(unsigned long long) (service->backend->device_jobs ?
 													  service->backend->device_jobs() : 0),
 								(unsigned long long) service->rdma_frames, (unsigned long long) rdmaFallbacks,
-								rdmaLanes);
+								rdmaLanes, (unsigned long long) service->groups,
+								(unsigned long long) service->grouped_jobs, (unsigned long long) service->held);
 			(void) pthread_mutex_unlock(&service->mutex);
 			Reply(connection, operation, request, ANN_OK, (unsigned char *) message,
 				  size > 0 && (size_t) size < sizeof(message) ? (size_t) size : 0);

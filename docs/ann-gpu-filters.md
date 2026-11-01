@@ -28,15 +28,17 @@ Resolving filters on the GPU node takes the per-query filter work off the Postgr
 | Route split (`--bitset-gather-limit`) | Filters with a ready bitset switch from the exact GPU scan to filtered CAGRA above 500k rows; key lists keep `--gather-limit` (4M). |
 | Overload retry (`ann.worker_overload_wait_ms`) | PostgreSQL backs off and retries when the worker's admission budget is full, instead of failing the query. |
 | Gather-scan guard | A shard whose top-k selection repeats a candidate is scored again exactly on the CPU. |
+| Same-filter grouping (`--filter-lanes`, `--active-lanes`, `--group-gather-limit`) | Queued searches over one cached filter are scanned together: on quantized indexes with a tensor-core kernel (exact), otherwise with one batched filtered CAGRA search. The scheduler forms the groups and lanes grow buffers only rarely, so warm-up stalls are gone. |
 
 **Performance** (10M × 128, k = 10, QPS; PostgreSQL hosts of 64 cores; everything on one machine over loopback TCP):
 
-| Workload | `ann_hybrid_search`, one host | Cached bitmap, 1 GPU | Cached bitmap, 8 GPUs (index replicated), two hosts |
+| Workload | `ann_hybrid_search`, one host | Cached bitmap, 1 GPU (NVFP4, grouped) | Cached bitmap, 8 GPUs (index replicated), two hosts |
 | --- | --- | --- | --- |
-| 0.1% filter | 31.8k | 75k | **258k** |
-| 1% filter | 6.9k | 35k | **140k** |
-| 10% filter | 74 | 16k | **108k** |
-| Unfiltered ANN | 158k–318k | 355k | **374k** |
+| 0.1% filter | 31.8k | 143k | **257k** |
+| 1% filter | 6.9k | 284k | **313k** |
+| 1% filter, 10 hot filters | — | 340k | **328k** |
+| 10% filter | 74 | 82k | **321k** |
+| Unfiltered ANN | 158k–318k | 366k | **369k** |
 
 | Change | Measured gain |
 | --- | --- |
@@ -150,6 +152,50 @@ The "bitmap sent with each query" column is the earlier version of the bitmap ta
   So the limit is split by route. `--bitset-gather-limit` (default 500,000) applies to filters that arrive with a ready bitset: cached bitmaps, sent bitmaps, and attribute values with prebuilt bitsets. `--gather-limit` (default 4,000,000) applies to key lists.
 
 **Which to use.** Use the bitmap table for filters that recur, whatever their SQL: tenants, categories, ACL groups, saved searches. Use attributes when the values are integer columns known at build time and you'd rather not build a bitmap per value. Use `ann_hybrid_search` for ad-hoc filters, and for selective ones (it scores filters under `ann.gpu_min_eligible` rows on the PostgreSQL host).
+
+## Same-filter grouping
+
+Broad filters mean few distinct filters, so at high QPS many queued queries share the same cached bitmap or attribute value. The worker scans such a group's rows once for all of them instead of once per query.
+
+**Scheduler.** A lane that picks up a search over a cached filter takes the filter's other queued searches with it (the queue keeps a list per filter, so this costs nothing per queued job). Once `--active-lanes` lanes (default three quarters of the lanes) are working on cached filters, a filter gets at most `--filter-lanes` lanes per GPU copy of the index (default 2): further searches over it wait in the queue and form the next group, so group size follows the load, with no delay added when the queue is short. Below that, lanes start on any filter, so a few hot filters still keep the GPUs busy. Measured on one GPU with 28 lanes at 10%: 3 hot filters ran at 22k, 27k, 34k and 50k QPS with 1, 2, 4 and 8 lanes per filter, while 10 filters ran at 30k, 58k, 40k and 47k; the total-active rule gives each case its better setting. Searches that cannot share a scan (unfiltered, key lists, per-query bitmaps) are batched as before. The stats report `groups`, `grouped_jobs` and `held` (pickups that waited for a filter's lanes). Lane count no longer sets batch size: before this scheduler, 28 lanes gave batches of ~10 jobs and groups of ~3, while 4 lanes gave batches of 105 and groups of 12; now 28 lanes form groups of 5–20 under load.
+
+**Backend.** In one batch, the cuVS backend groups filtered jobs by filter identity and routes the group once:
+- Up to `--group-gather-limit` rows (default 4,000,000) on a quantized index: the Blackwell module scores the filter's rows for up to 16 queries at once on the tensor cores and selects each query's best 32 with a batched top-k ([details](ann-blackwell.md#in-the-worker)). Groups larger than 16 go in turns. Candidates are re-scored in FP32 as always, so results stay exact. GPU time per query: 3.1 µs at 100k rows and 16 µs at 1M rows in groups of 16, against 41 and 156 µs alone.
+- Broader filters with prebuilt bitsets, and groups on FP32/FP16 indexes above `--bitset-gather-limit`: one filtered CAGRA search of the whole group. CAGRA batches queries sharing a bitset, which single queries could not use. Measured exact on 352k 10% answers at groups of ~20.
+- Everything else (FP32 indexes within the gather limit, filters without bitsets): one search per job as before.
+
+Cached bitmaps also keep each shard's eligible rows in GPU memory (4 bytes a row per copy), so no gather scan uploads rows per query.
+
+**One GPU** (10M × 128, 512 clients from one 64-core host, default settings, a 4-second warm-up before each measurement, QPS):
+
+| Workload | Distinct filters | FP32 index | NVFP4 index | Before grouping (FP32 / NVFP4) |
+| --- | --- | --- | --- | --- |
+| 10% filters | 10 | 47,112 | **82,058** | 16,054 / 15,941 |
+| 10% filters, skewed | 3 | 52,727 | **80,998** | — |
+| 1% filters | 100 | 54,115 | **284,012** | 35,782 / 51,438 |
+| 1% filters, skewed | 10 | 55,755 | **339,541** | — |
+| 0.1% filters | 1,000 | 130,027 | 143,133 | 76,894 / 107,788 |
+| Unfiltered ANN | — | 358,846 | 365,738 | unchanged |
+
+On the NVFP4 index every grouped filter takes the tensor-core scan: 10% filters run 5.1× faster than before grouping and 1.7× faster than the FP32 index's batched CAGRA, exactly; 1% filters 5.5× faster, and skewed 1% traffic at 340k QPS, where one GPU answers a query in 3 µs of GPU time. The FP32 index gains from batched CAGRA at 10% (3×) and little at 1%, since its gather scan has no multi-query kernel. 0.1% filters (groups rare) vary between runs from 143k to 182k on the NVFP4 index.
+
+**Exactness.** Concurrent verification runs (512 clients, every answer compared with exact SQL) over the final kernels: 1,913,463 grouped 1% answers, 2,069,712 0.1% answers and 617,125 10% answers through the tensor-core scan, all exact; 282,750 and 314,796 answers through batched CAGRA on the FP32 index at 10% and 1%, all exact. An earlier multi-query kernel (one thread per row, FP32 FMAs, per-warp lists) had lost one neighbour in 1,427,107 answers: that row ranked 11th by quantized distance, so it should have been among the 32 candidates, and the kernel itself returned identical candidates over 32,000 repeated launches under contention; it was replaced before the cause was found, and the new path has shown no miss.
+
+**8 GPUs, index replicated, two 64-core PostgreSQL hosts** (sum of both hosts, 512 clients each, QPS):
+
+| Workload | FP32 index | NVFP4 index | Before grouping |
+| --- | --- | --- | --- |
+| 10% filters | 287,494 | **320,528** | 107,875 |
+| 10% filters, skewed (3) | 308,456 | **327,385** | — |
+| 1% filters | 290,808 | 312,812 | 142,191 |
+| 1% filters, skewed (10) | 311,606 | 327,887 | — |
+| 0.1% filters | 256,579 | 256,704 | 255,008 |
+| Unfiltered ANN | 371,564 | 369,333 | 373,948 |
+
+Every filtered workload now lands between 257k and 330k QPS on the 8-GPU node, and 1% filters on one GPU alone reach 284k, so the node's limit on these routes has moved from the GPUs to the two PostgreSQL hosts and the worker's 96 cores. More PostgreSQL hosts per GPU node would raise it; an earlier measurement found the GPUs the limit at 140k.
+
+**Warm-up.** Lane buffers used to grow stepwise under load, and each `cudaFree`/`cudaFreeHost` synchronizes the whole device: an nsys profile showed 99 ms per `cudaFree` on average and 1.7 s at worst, 70 s of blocking across 28 lanes in a 20-second run, and the first run after a worker start could stay at a tenth of its throughput for its whole 12 seconds. Buffers now grow to twice the need with floors (1 MB of queries, 64k results, 256k gather rows), device buffers through stream-ordered `cudaMallocAsync`/`cudaFreeAsync`, so growth is rare and never stalls other lanes.
+
 
 ## Scaling across GPUs and hosts
 

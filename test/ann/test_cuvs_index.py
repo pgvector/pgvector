@@ -145,6 +145,54 @@ class CuvsIndexTests(unittest.TestCase):
             self.assertLess(float(stats[1]), 1e-4, quant)
             self.assertEqual(stats[2], '0', quant)
 
+    def test_same_filter_searches_group_exactly(self):
+        # Searches over one cached bitmap, pipelined from several connections
+        # so they queue up, are grouped into shared scans on the quantized
+        # index (tensor cores) and batched filtered CAGRA on the FP32 one;
+        # every answer must equal exact SQL, and the stats must show groups.
+        import json
+        import struct
+        import threading
+        from test_index import search_cached_frame, decode_hits
+        rows = self.psql(f"SELECT id, emb::text FROM {self.table} WHERE id % 997 = 0 ORDER BY id LIMIT 8").split('\n')
+        queries = [(int(line.split('|')[0]), [float(x) for x in line.split('|')[1].strip('[]').split(',')]) for line in rows]
+        for quant in ['nvfp4', 'float32']:
+            index = f'{self.table}_{quant}'
+            self.psql(f"SELECT ann_filter_bitmap_build('{index}', 'tenant = 7')")
+            filter_id = int(self.psql(f"SELECT id FROM ann_filter_bitmap WHERE index_name = '{index}' AND filter = 'tenant = 7'"))
+            exact = {}
+            for qid, _ in queries:
+                exact[qid] = [int(x) for x in self.psql(f"""
+                    SELECT t.id FROM {self.table} t, {self.table} q WHERE q.id = {qid} AND t.tenant = 7
+                    ORDER BY t.emb <-> q.emb, t.id LIMIT 10""").split()]
+            failures = []
+
+            def client(offset):
+                try:
+                    with self.server.connect() as connection:
+                        for request in range(40):
+                            qid, vector = queries[(offset + request) % 8]
+                            connection.sendall(search_cached_frame(request + 1, index, vector, 10, filter_id))
+                        for request in range(40):
+                            _, got, status, payload = receive(connection)
+                            self.assertEqual(status, 0)
+                            qid = queries[(offset + got - 1) % 8][0]
+                            ids = [key for key, _ in decode_hits(payload)[1]]
+                            self.assertEqual(ids, exact[qid], (quant, qid))
+                except Exception as error:  # noqa: BLE001
+                    failures.append(error)
+            threads = [threading.Thread(target=client, args=(i,)) for i in range(6)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            self.assertEqual(failures, [], quant)
+            with self.server.connect() as connection:
+                connection.sendall(frame(8, 1))
+                stats = json.loads(receive(connection)[3])
+            self.assertGreater(stats['groups'], 0, quant)
+            self.psql(f"DELETE FROM ann_filter_bitmap WHERE index_name = '{index}' AND filter = 'tenant = 7'")
+
     def test_ann_recall(self):
         for dtype in ['float32', 'float16']:
             self.assertGreaterEqual(self.recall(f'{self.table}_{dtype}', False), 0.9, dtype)

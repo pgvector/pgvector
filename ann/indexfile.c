@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0, 1, 80, 500000, 1, 256};
+AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0, 1, 80, 500000, 4000000, 1, 1, 256};
 AnnIndexBitmapHooks AnnIndexBitmapDevice = {NULL, NULL};
 
 typedef struct Entry
@@ -419,12 +419,14 @@ AnnIndexBitmapPut(AnnIndexFile *file, uint64_t id, const uint32_t *words, size_t
 			*link = old->next;
 			file->nbitmaps--;
 			file->bitmapBytes -= BitmapBytes(file, old);
+			file->bitmapDeviceBytes -= old->deviceBytes;
 			break;
 		}
 	bitmap->next = file->bitmaps[id % ANN_INDEX_BITMAP_BUCKETS];
 	file->bitmaps[id % ANN_INDEX_BITMAP_BUCKETS] = bitmap;
 	file->nbitmaps++;
 	file->bitmapBytes += BitmapBytes(file, bitmap);
+	file->bitmapDeviceBytes += bitmap->deviceBytes;
 	(void) pthread_mutex_unlock(&file->bitmapMutex);
 	if (old)
 		AnnIndexBitmapRelease(file, old);

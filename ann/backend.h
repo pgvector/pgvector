@@ -86,6 +86,9 @@ typedef struct AnnIndexJob
 	uint32_t   *const *bitsets; /* filter's per-shard bitsets, if prebuilt */
 	void	   *const *deviceBitsets;	/* the same bitsets in device memory,
 										 * per shard copy, if uploaded */
+	void	   *const *deviceRows;	/* each shard's eligible rows (u32) in
+									 * device memory, per shard copy, if
+									 * uploaded */
 	AnnIndexHit *results;
 	uint32_t	nresults;
 	uint32_t	route;

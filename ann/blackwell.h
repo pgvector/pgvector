@@ -40,16 +40,22 @@ int			AnnBlackwellScore(const AnnBlackwellShard *shard, int device, const uint32
 							  const float *query, int dims, float *out, void *stream);
 
 /*
- * Fused search: score the listed rows and select the best ANN_BLACKWELL_TOP
- * in one launch, then copy them to pinned host memory, all on the stream.
- * Slot separates concurrent searches of one caller thread on a device (one
- * per shard). After the stream completes, AnnBlackwellResults gives the
- * positions in the row list (UINT32_MAX past the end) and their quantized
- * distances, ascending.
+ * Fused search: score the listed rows for nq queries (contiguous FP32 on
+ * the device) and select each query's best ANN_BLACKWELL_TOP in one launch,
+ * then copy them to pinned host memory, all on the stream. A single query
+ * uses eight threads a row; several use one thread a row, so every row is
+ * read once for all of them. nq is at most AnnBlackwellGroupLimit(dims),
+ * never above ANN_BLACKWELL_GROUP_MAX. Slot separates concurrent searches
+ * of one caller thread on a device (one per shard). After the stream
+ * completes, AnnBlackwellResults gives query q's positions in the row list
+ * (UINT32_MAX past the end) and their quantized distances, ascending.
  */
 #define ANN_BLACKWELL_TOP 32
-int			AnnBlackwellSearch(const AnnBlackwellShard *shard, int device, unsigned slot, unsigned slots,
-							   const uint32_t *rows, unsigned n, const float *query, int dims, void *stream);
-void		AnnBlackwellResults(int device, unsigned slot, const uint32_t **positions, const float **distances);
+#define ANN_BLACKWELL_GROUP_MAX 16
+int			AnnBlackwellGroupLimit(int dims);
+int			AnnBlackwellSearch(const AnnBlackwellShard *shard, int device, unsigned slot, const uint32_t *rows,
+							   unsigned n, const float *queries, unsigned nq, int dims, void *stream);
+void		AnnBlackwellResults(int device, unsigned slot, unsigned q, const uint32_t **positions,
+								const float **distances);
 
 #endif
