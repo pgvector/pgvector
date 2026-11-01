@@ -45,6 +45,7 @@ extern char *ann_worker_socket;
 extern int	ann_worker_chunk_rows;
 extern int	ann_worker_pipeline_depth;
 extern int	ann_worker_timeout_ms;
+extern int	ann_worker_overload_wait_ms;
 extern int	ann_worker_shared_memory_mb;
 void		AnnWorkerInit(void);
 bool		AnnWorkerBegin(void);

@@ -460,6 +460,29 @@ class IndexSqlTests(unittest.TestCase):
             other.close()
         self.psql(f"DELETE FROM ann_filter_bitmap WHERE index_name = '{self.name}'")
 
+    def test_overloaded_worker_is_retried_for_a_bounded_time(self):
+        # A worker whose admission budget refuses every search: the search
+        # retries for ann.worker_overload_wait_ms, then reports overload.
+        import time
+        busy = Server('--backend', os.environ.get('ANN_INDEX_BACKEND', 'cpu-exact'), '--max-pending-mb', '0',
+                      executable=IndexWorkerTests.worker)
+        try:
+            with busy.connect() as connection:
+                connection.sendall(load_frame(1, self.name, self.path))
+                self.assertEqual(receive(connection)[2], 0)
+            for wait, low, high in [(0, 0, 0.5), (400, 0.25, 2.0)]:
+                started = time.monotonic()
+                result = subprocess.run([PSQL, DSN, '-X', '-q', '-At'], capture_output=True, text=True, timeout=60,
+                                        input=f"SET ann.worker_socket = '{busy.path}';\n"
+                                        f"SET ann.worker_overload_wait_ms = {wait};\n"
+                                        f"SELECT * FROM ann_index_search('{self.name}', '[1,1,1,1]', 3);")
+                elapsed = time.monotonic() - started
+                self.assertIn('overloaded', result.stderr)
+                self.assertGreaterEqual(elapsed, low, wait)
+                self.assertLess(elapsed, high, wait)
+        finally:
+            busy.close()
+
     def test_join_returns_rows_and_edge_cases(self):
         output = self.psql(f"""
             SELECT count(*) FROM ann_index_search('{self.name}', '[1,1,1,1]', 3) s JOIN {self.table} USING (id);

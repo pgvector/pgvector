@@ -67,6 +67,7 @@ The filter is a SQL boolean expression over the source table. It is prepared as 
 | `ann.worker_retry_ms` (10 s) | How long a down node is skipped; it is tried again only after this, or when every node is down. |
 | `ann.worker_heartbeat_ms` (5 s) | A connection idle this long is probed (operation 5) before reuse, so a node that died while idle costs one short probe instead of a request timeout. The same value sets TCP keepalive timing on the client. |
 | `ann.worker_timeout_ms` (30 s) | Upper bound on any request. |
+| `ann.worker_overload_wait_ms` (1 s) | A loaded-index search refused by the worker's admission budget (`--max-pending-mb`) is retried with jittered backoff (0.5–16 ms) for this long before reporting "ann worker is overloaded". Bursts are absorbed: 1,024 clients starting at once against a 512 MB budget used to abort 439 clients, and now abort none. `0` reports overload at once. |
 | Worker keepalive | The worker enables TCP keepalive (10 s idle, 3 probes) on network connections, so readers belonging to PostgreSQL hosts that crashed or were partitioned are released. |
 | Auth deadline | An unauthenticated connection must send the token within 10 s, or it is closed. |
 | Cancellation | Waits service interrupts; a cancelled request leaves the connection to be reopened rather than reused mid-reply. |

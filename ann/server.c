@@ -932,9 +932,9 @@ BuildBitmap(const unsigned char *payload, uint32_t size, unsigned char **reply, 
  * Bitmap search payload: u32 name length, name, u32 dimensions, k, bitmap
  * words; FP32 query; the bitmap as built by BuildBitmap, without its count.
  * Broad filters go straight to CAGRA with per-shard slices of the bitmap as
- * cuVS bitsets; filters within the gather limit, and all filters on
- * indexes without device state (CPU backends, files without CAGRA shards),
- * are expanded to ordinals and keys and routed as usual.
+ * cuVS bitsets; filters within the bitset gather limit, and all filters
+ * on indexes without device state (CPU backends, files without CAGRA
+ * shards), are expanded to ordinals and keys and routed as usual.
  */
 static AnnStatus
 SubmitBitmap(Service *service, Connection *connection, int rdma, uint64_t request,
@@ -1013,7 +1013,7 @@ SubmitBitmap(Service *service, Connection *connection, int rdma, uint64_t reques
 	job->index.k = k;
 	job->index.filtered = 1;
 	job->index.nfilter = (uint32_t) (n < UINT32_MAX ? n : UINT32_MAX - 1);
-	if (n <= AnnIndexConfig.gather_limit || file->device == NULL)
+	if (n <= AnnIndexConfig.bitset_gather_limit || file->device == NULL)
 	{
 		/* Expand to ordinals and keys; loaded indexes are never freed. */
 		uint64_t	i = 0;
@@ -1125,7 +1125,7 @@ PutBitmap(const unsigned char *payload, uint32_t size)
 
 	/* Expand filters the exact routes take; see SubmitBitmap. */
 	status = AnnIndexBitmapPut(file, id, bitmap, words,
-							   file->device == NULL ? UINT64_MAX : AnnIndexConfig.gather_limit);
+							   file->device == NULL ? UINT64_MAX : AnnIndexConfig.bitset_gather_limit);
 	AnnIndexPut(file);
 	free(bitmap);
 	return status;
@@ -1197,11 +1197,12 @@ SubmitCached(Service *service, Connection *connection, int rdma, uint64_t reques
 	}
 
 	/*
-	 * Filters within the gather limit carry ordinals and keys for the exact
-	 * routes; broader ones only bitsets, which send them to filtered CAGRA.
+	 * Filters within the bitset gather limit carry ordinals and keys for the
+	 * exact routes; broader ones only bitsets, which send them to filtered
+	 * CAGRA.
 	 */
 	job->index.nfilter = (uint32_t) (bitmap->count < UINT32_MAX ? bitmap->count : UINT32_MAX - 1);
-	if (bitmap->keys && (bitmap->count <= AnnIndexConfig.gather_limit || file->device == NULL))
+	if (bitmap->keys && (bitmap->count <= AnnIndexConfig.bitset_gather_limit || file->device == NULL))
 	{
 		job->index.filter = bitmap->keys;
 		job->index.ordinals = bitmap->ordinals;

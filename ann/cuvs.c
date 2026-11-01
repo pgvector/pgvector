@@ -1420,6 +1420,19 @@ GatherBuffers(AnnCuvsDevice *lane, size_t rows, size_t top)
 	return 1;
 }
 
+static atomic_ullong gatherRepairs;
+
+/* Whether n selected positions are all different; n is at most k + slack. */
+static int
+DistinctPositions(const int64_t *positions, uint32_t n)
+{
+	for (uint32_t i = 1; i < n; i++)
+		for (uint32_t j = 0; j < i; j++)
+			if (positions[i] == positions[j] && positions[i] >= 0)
+				return 0;
+	return 1;
+}
+
 /*
  * Exact top k of one filtered query by gather scan. Keys are sorted and
  * unique; each shard's slice goes to its device, where a lookup kernel finds
@@ -1583,6 +1596,32 @@ SearchGather(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		AnnIndexHit *hits = lists + (size_t) s * (k + slack);
 		uint64_t	first = file->shards[s].first;
 
+		/*
+		 * Under heavy load, rare hybrid results have lost one true neighbour
+		 * of a close pair, as if the selection returned a candidate twice.
+		 * Distinct selected positions are cheap to check; a shard that fails
+		 * is scored again exactly on the CPU.
+		 */
+		if (!DistinctPositions(found, wanted[s]))
+		{
+			uint64_t   *ordinals = malloc(sizeof(uint64_t) * (eligible[s] ? eligible[s] : 1));
+			AnnIndexJob part = *job;
+
+			if (atomic_fetch_add(&gatherRepairs, 1) < 100)
+				fprintf(stderr, "cuVS gather scan: repeated candidates in shard %u; scoring it exactly\n", s);
+			if (ordinals == NULL)
+			{
+				ok = 0;
+				break;
+			}
+			part.results = hits;
+			part.k = k;
+			AnnIndexExact(file, &part, ordinals,
+						  AnnIndexOrdinals(file, keys + start[s], (uint32_t) eligible[s], ordinals));
+			counts[s] = part.nresults;
+			free(ordinals);
+			continue;
+		}
 		for (uint32_t i = 0; i < wanted[s]; i++)
 		{
 			int64_t		key;
@@ -1681,9 +1720,12 @@ SearchFiltered(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 
 	/*
 	 * Mid-sized filters go to the GPU gather scan, which maps keys to rows on
-	 * the device, so no per-key work happens here.
+	 * the device, so no per-key work happens here. With a ready bitset,
+	 * filtered CAGRA overtakes the gather scan at a smaller filter than when
+	 * the bitset must be built per query.
 	 */
-	if (job->nfilter > AnnIndexConfig.exact_limit && job->nfilter <= AnnIndexConfig.gather_limit)
+	if (job->nfilter > AnnIndexConfig.exact_limit &&
+		job->nfilter <= (job->bitsets ? AnnIndexConfig.bitset_gather_limit : AnnIndexConfig.gather_limit))
 	{
 		if (SearchGather(file, state, job))
 			return;

@@ -58,11 +58,11 @@ SELECT ann_filter_bitmap_push('docs');
 
 **When GPU nodes start.** A restarted worker has no bitmaps. `ann_index_load` pushes every stored bitmap of the index to every node right after loading it. 1,110 bitmaps (1.4 GB) took 4.5 s. `ann_filter_bitmap_push(name)` does the same on demand. If a node still lacks a bitmap, for example because another host loaded the index, it answers the search with a "missing" status. PostgreSQL then pushes that bitmap from the table to every node and retries once. Measured: 59 ms for the first search after a restart, 2.3 ms for the next.
 
-**On the GPU node.** Each cached bitmap holds the bitmap, one cuVS bitset per shard (pointing into the bitmap when the shard starts on a 32-row boundary, otherwise a shifted copy), and, for filters within `--gather-limit` rows (all filters on indexes without CAGRA shards), its ordinals and keys. The cuVS worker also copies each shard's bitset into the memory of every GPU holding that shard (`--device-bitmaps`, default on), so filtered CAGRA reads it in place. That raised 10% filters on one GPU from 8.5k to 15.3k QPS, and costs rows / 8 bytes per bitmap per GPU (1.4 GB per GPU for the 1,110 benchmark bitmaps with the index replicated). Searches take a reference, so replacing a bitmap never frees one in use. The 1,110 benchmark bitmaps took 1.87 GB of host memory. `bitmaps N bitmap_bytes B` in the index-info reply (operation 15) shows the cache.
+**On the GPU node.** Each cached bitmap holds the bitmap, one cuVS bitset per shard (pointing into the bitmap when the shard starts on a 32-row boundary, otherwise a shifted copy), and, for filters within `--bitset-gather-limit` rows (all filters on indexes without CAGRA shards), its ordinals and keys. The cuVS worker also copies each shard's bitset into the memory of every GPU holding that shard (`--device-bitmaps`, default on), so filtered CAGRA reads it in place. That raised 10% filters on one GPU from 8.5k to 15.3k QPS, and costs rows / 8 bytes per bitmap per GPU (1.4 GB per GPU for the 1,110 benchmark bitmaps with the index replicated). Searches take a reference, so replacing a bitmap never frees one in use. The 1,110 benchmark bitmaps took 1.87 GB of host memory. `bitmaps N bitmap_bytes B` in the index-info reply (operation 15) shows the cache.
 
 **Validity.** Indexes are immutable, so a bitmap stays valid for the index it was built for. Bitmaps belong to an index name: after loading different files under a name, rebuild that name's bitmaps. A node refuses a bitmap whose size doesn't match the loaded index, and a search with a filter that has no row is an error.
 
-On the worker, filters within `--gather-limit` rows take the exact routes. Broader ones go straight to filtered CAGRA with their per-shard bitsets.
+On the worker, filters within `--bitset-gather-limit` rows (default 500,000) take the exact routes. Broader ones go straight to filtered CAGRA with their per-shard bitsets.
 
 ## Filtered CAGRA settings
 
@@ -97,13 +97,22 @@ cuVS's default single-CTA search loses most of its recall when a bitset masks ou
 The "bitmap sent with each query" column is the earlier version of the bitmap table, which read the 1.25 MB bitmap and sent it over TCP for every query. With the cache, only the id travels.
 
 - **Cached bitmaps make the GPU node the limit.** The PostgreSQL host does one index lookup per query. 1% filters ran 5.1× faster than with SQL keys, at the worker's gather-scan capacity (about 35k QPS per B200), and 0.1% filters 2.3× faster. The attribute route reaches the same rates for equality filters on stored columns, but its IN lists are merged per query (1M ordinals sorted on the CPU at 10%).
-- **The gather scan beats filtered CAGRA up to a few percent.** Filtered CAGRA runs one query per cuVS call (a bitset is shared by a whole batch), so its cost hardly depends on the filter: about 7.5–8.8k QPS. The gather scan's cost grows with the filter: 35k at 1%, 5k at 10%. The default `--gather-limit` of 4,000,000 rows sends 10% filters to the gather scan. `--gather-limit 500000` sent them to filtered CAGRA, at 8.8k QPS (1.75×), with no loss at 0.1% or 1%. Use it when broad filters are common.
+- **The gather scan beats filtered CAGRA up to a few percent.** Filtered CAGRA runs one query per cuVS call (a bitset is shared by a whole batch), so its cost hardly depends on the filter: about 7.5–8.8k QPS. The gather scan's cost grows with the filter: 35k at 1%, 5k at 10%. With a single limit of 4,000,000 rows, 10% filters went to the gather scan; at 500,000 they went to filtered CAGRA, at 8.8k QPS (1.75×), with no loss at 0.1% or 1%.
+
+  That holds only when the bitset is ready. Key-list filters (`ann_index_search` with keys, `ann_hybrid_search`) need their bitset built on the CPU for every query, and the gather scan stays ahead at 10%. Measured straight against the worker with 1M-key requests from 32 client processes, same results:
+
+  | Key-list filter, QPS | 1 GPU, `--gather-limit` 4M | 1 GPU, 500k | 8 GPUs replicated, 4M | 8 GPUs replicated, 500k |
+  | --- | --- | --- | --- | --- |
+  | 1% (100k keys) | 33,049 | 32,298 | 50,723 | 50,552 |
+  | 10% (1M keys) | **1,715** | 1,420 | **3,005** | 1,908 |
+
+  So the limit is split by route. `--bitset-gather-limit` (default 500,000) applies to filters that arrive with a ready bitset: cached bitmaps, sent bitmaps, and attribute values with prebuilt bitsets. `--gather-limit` (default 4,000,000) applies to key lists.
 
 **Which to use.** Use the bitmap table for filters that recur, whatever their SQL: tenants, categories, ACL groups, saved searches. Use attributes when the values are integer columns known at build time and you'd rather not build a bitmap per value. Use `ann_hybrid_search` for ad-hoc filters, and for selective ones (it scores filters under `ann.gpu_min_eligible` rows on the PostgreSQL host).
 
 ## Scaling across GPUs and hosts
 
-The same 10M-row data, now with cached bitsets in GPU memory and `--gather-limit 500000`. Host A and host B are two 64-core PostgreSQL clusters, with pgbench on the same cores, 512 clients each. GPU-node layouts:
+The same 10M-row data, now with cached bitsets in GPU memory and filtered CAGRA above 500,000 rows (now the default for cached bitmaps). Host A and host B are two 64-core PostgreSQL clusters, with pgbench on the same cores, 512 clients each. GPU-node layouts:
 - **1 GPU:** one worker on one B200 with 28 cores.
 - **8 GPUs, replicated:** the 1-shard index on every GPU (`--replicate on`), with 96 cores and 96 lanes.
 - **8 GPUs, 8 shards:** one shard per GPU, same cores and lanes.
@@ -132,7 +141,9 @@ Results in QPS:
 
 Results stayed identical to exact SQL (50 queries per filter size, all routes). The pool also holds the index data, so its cap must leave room for the index plus cuVS temporaries. 80% of a B200 is 144 GB.
 
-**Not measured yet:** more than two PostgreSQL hosts (two already saturate the 8-GPU node on the cached routes), and GPU nodes over a real network.
+**What limits the 8-GPU node.** Moving the worker from 96 to 128 cores changed totals by only −2% to +7% (two hosts, replicated index: 0.1% 262k → 256k, 1% 140k → 144k, 10% 108k → 115k, ANN 374k → 369k). Giving the two PostgreSQL hosts 48 cores each instead of 64 left the totals unchanged too. During these runs the GPUs were busy 90–94% of the time at 1% and 100% at 10% (`nvidia-smi` utilization: the share of time a kernel runs). For filtered search, the eight B200s themselves are the ceiling: about 140k QPS of 1% filters and 110k of 10% filters on this data. More PostgreSQL hosts per node would add nothing on the cached routes; more GPU nodes would.
+
+**Not measured yet:** GPU nodes and PostgreSQL hosts on separate machines over a real network. Every number here comes from one machine split into a worker and two PostgreSQL clusters over loopback TCP.
 
 ## Protocol additions
 

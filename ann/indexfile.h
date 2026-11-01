@@ -134,6 +134,8 @@ typedef struct AnnIndexOptions
 	int			device_bitmaps; /* keep cached bitmaps' bitsets on the GPUs */
 	uint32_t	memory_pool;	/* RMM pool per GPU, max % of memory; 0 for
 								 * stream-ordered allocation */
+	uint32_t	bitset_gather_limit;	/* gather limit for filters with a
+										 * ready bitset */
 } AnnIndexOptions;
 
 extern AnnIndexOptions AnnIndexConfig;

@@ -13,6 +13,7 @@ int			ann_worker_heartbeat_ms = 5000;
 int			ann_worker_retry_ms = 10000;
 char	   *ann_worker_rdma = NULL;
 int			ann_worker_rdma_spin_us = 50;
+int			ann_worker_overload_wait_ms = 1000;
 
 #if defined(WIN32) || defined(WORDS_BIGENDIAN)
 
@@ -930,6 +931,10 @@ AnnRemoteInit(void)
 							"Time a backend busy-polls for an RDMA reply before sleeping.",
 							"After this the backend waits on a completion channel and its TCP socket.",
 							&ann_worker_rdma_spin_us, 50, 0, 1000000, PGC_USERSET, 0, NULL, NULL, NULL);
+	DefineCustomIntVariable("ann.worker_overload_wait_ms",
+							"Time a loaded-index search retries while the GPU node is overloaded.",
+							"Retries back off from 0.5 to 16 ms; 0 reports overload at once.",
+							&ann_worker_overload_wait_ms, 1000, 0, INT_MAX, PGC_USERSET, 0, NULL, NULL, NULL);
 	DefineCustomIntVariable("ann.gpu_min_eligible",
 							"Filters with fewer eligible rows are scored exactly on this host.",
 							"Filtered loaded-index searches below this count never leave the host.",

@@ -7,6 +7,7 @@
 #include "executor/spi.h"
 #include "fmgr.h"
 #include "funcapi.h"
+#include "portability/instr_time.h"
 #include "miscadmin.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
@@ -78,9 +79,37 @@ static bool
 IndexCall(uint16 operation, const char *payload, size_t length, int timeoutMs,
 		  uint32 *status, char **reply, uint32 *replyLength)
 {
-	if (AnnRemoteConfigured())
-		return AnnRemoteCall(operation, payload, length, timeoutMs, status, reply, replyLength);
-	return AnnWorkerCall(operation, payload, length, timeoutMs, status, reply, replyLength);
+	instr_time	start;
+	long		delayUs = 500;
+
+	INSTR_TIME_SET_CURRENT(start);
+	for (;;)
+	{
+		instr_time	now;
+		bool		ok;
+
+		if (AnnRemoteConfigured())
+			ok = AnnRemoteCall(operation, payload, length, timeoutMs, status, reply, replyLength);
+		else
+			ok = AnnWorkerCall(operation, payload, length, timeoutMs, status, reply, replyLength);
+
+		/*
+		 * A full admission queue is back-pressure: wait with jittered
+		 * exponential backoff (0.5 to 16 ms) and retry, for up to
+		 * ann.worker_overload_wait_ms. A request too large for the worker's
+		 * whole budget still fails once that time is up.
+		 */
+		if (!ok || *status != ANN_STATUS_OVERLOADED)
+			return ok;
+		INSTR_TIME_SET_CURRENT(now);
+		INSTR_TIME_SUBTRACT(now, start);
+		if (INSTR_TIME_GET_MILLISEC(now) + delayUs / 1000.0 >= ann_worker_overload_wait_ms)
+			return ok;
+		pg_usleep(delayUs / 2 + random() % (delayUs / 2 + 1));
+		CHECK_FOR_INTERRUPTS();
+		if (delayUs < 16000)
+			delayUs *= 2;
+	}
 }
 
 static void

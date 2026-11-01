@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0, 1, 80};
+AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0, 1, 80, 500000};
 AnnIndexBitmapHooks AnnIndexBitmapDevice = {NULL, NULL};
 
 typedef struct Entry

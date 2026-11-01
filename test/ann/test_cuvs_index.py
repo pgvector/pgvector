@@ -30,7 +30,8 @@ class CuvsIndexTests(unittest.TestCase):
                             executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
         # Attribute values all get prebuilt bitsets on the graph worker.
         cls.graph = Server('--backend', 'cuvs', '--lanes', '8', '--exact-limit', '500', '--gather-limit', '0',
-                           '--bitset-min', '0', executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
+                           '--bitset-gather-limit', '0', '--bitset-min', '0',
+                           executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
         cls.table = 'ann_cuvs_' + uuid.uuid4().hex[:10]
         cls.psql(f"""
             CREATE TABLE {cls.table} (id bigint PRIMARY KEY, tenant int, emb vector(32));
