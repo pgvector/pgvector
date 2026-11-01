@@ -313,6 +313,39 @@ class IndexWorkerTests(unittest.TestCase):
             # The connection survives errors and still serves stats.
             self.assertEqual(self.call(connection, frame(STATS, 7))[2], 0)
 
+    def test_quantized_copy_is_validated_and_exact_on_cpu(self):
+        # The CPU worker maps a quantized copy (for Blackwell scans on cuVS
+        # workers) but keeps answering exactly from vectors.f32.
+        path, keys, vectors = self.fixture(shards=3)
+        blocks = (5 + 15) // 16
+        files = {'nvfp4': {'vectors.nvfp4': 600 * blocks * 8, 'scales.e4m3': 600 * blocks, 'rowscale.f32': 600 * 4},
+                 'fp8': {'vectors.e4m3': 600 * blocks * 16, 'rowscale.f32': 600 * 4}}
+        with open(os.path.join(path, 'manifest')) as manifest:
+            base = manifest.read()
+        for request, (kind, sizes) in enumerate(files.items(), 1):
+            for name, size in sizes.items():
+                with open(os.path.join(path, name), 'wb') as out:
+                    out.write(b'\x11' * size)
+            with open(os.path.join(path, 'manifest'), 'w') as manifest:
+                manifest.write(base + f'quant {kind}\n')
+            with self.server.connect() as connection:
+                _, _, status, info = self.call(connection, load_frame(request * 10, kind, path))
+                self.assertEqual(status, 0, info)
+                self.assertIn(f'quant {kind} quant_scan off'.encode(), info)
+                query = [0.5] * 5
+                _, _, status, payload = self.call(connection, search_frame(request * 10 + 1, kind, query, 10))
+                want = exact(keys, vectors, query, 10)
+                self.assertEqual([key for key, _ in decode_hits(payload)[1]], [key for _, key in want])
+                # A truncated quantized file, or an unknown kind, is refused.
+                first = next(iter(sizes))
+                with open(os.path.join(path, first), 'r+b') as out:
+                    out.truncate(sizes[first] - 1)
+                self.assertEqual(self.call(connection, load_frame(request * 10 + 2, kind + '-short', path))[2], 1)
+        with open(os.path.join(path, 'manifest'), 'w') as manifest:
+            manifest.write(base + 'quant int3\n')
+        with self.server.connect() as connection:
+            self.assertEqual(self.call(connection, load_frame(40, 'int3', path))[2], 1)
+
     def test_corrupt_files_are_rejected(self):
         path, _, _ = self.fixture()
         with open(os.path.join(path, 'keys.i64'), 'r+b') as out:

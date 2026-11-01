@@ -336,6 +336,10 @@ main(int argc, char **argv)
 			AnnIndexConfig.filtered_algo = strcmp(value, "single") == 0 ? 1 : strcmp(value, "multi") == 0 ? 2 : 0;
 		else if (strcmp(argv[i], "--filtered-width") == 0)
 			AnnIndexConfig.filtered_width = (uint32_t) strtoul(value, NULL, 10);
+		else if (strcmp(argv[i], "--quantized-scan") == 0)
+			AnnIndexConfig.quantized_scan = strcmp(value, "off") != 0;
+		else if (strcmp(argv[i], "--quant-slack") == 0)
+			AnnIndexConfig.quant_slack = (uint32_t) strtoul(value, NULL, 10);
 		else if (strcmp(argv[i], "--bitset-gather-limit") == 0)
 			AnnIndexConfig.bitset_gather_limit = (uint32_t) strtoul(value, NULL, 10);
 		else if (strcmp(argv[i], "--memory-pool") == 0)
@@ -512,7 +516,8 @@ usage:
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu|cuvs] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "
 			"[--lanes N] [--max-batch N] [--delay-us N] [--max-pending-mb N]\n"
 			"  [--itopk N] [--filtered-itopk N] [--exact-limit ROWS] [--cagra-persistent on|off] [--replicate on|off] [--gather-limit ROWS] [--bitset-min ROWS]\n"
-			"  [--filtered-algo auto|single|multi] [--filtered-width N] [--filtered-iterations N] [--device-bitmaps on|off] [--memory-pool PERCENT] [--bitset-gather-limit ROWS]]\n"
+			"  [--filtered-algo auto|single|multi] [--filtered-width N] [--filtered-iterations N] [--device-bitmaps on|off] [--memory-pool PERCENT] [--bitset-gather-limit ROWS]\n"
+			"  [--quantized-scan on|off] [--quant-slack N]]\n"
 			"hipvs and fused-nvfp4 require vendor adapters\n");
 #else
 	fprintf(stderr, "usage: ann-worker [--backend cpu-exact|mock-gpu] [--listen PATH [--listen-tcp HOST:PORT --auth-token-file FILE [--rdma DEVICE[:PORT] [--rdma-lanes N] [--rdma-poll spin|wait]]] "

@@ -83,6 +83,7 @@ The C worker uses version 1, 32-byte little-endian headers: magic `PVAN`, u16 ve
 | 11 load index | u32 name length, name, directory path | Text `rows N dimensions D shards S dtype T source NAME` |
 | 12 index search | u32 name length, name, u32 dimensions, k, filter count (UINT32_MAX = none); FP32 query; i64 keys | u32 count, u32 route (0 graph, 1 filtered graph, 2 exact), then `(i64 key, f32 distance)` per hit |
 | 13–15 | Network auth, packed-filter index search, index info ([networked guide](../docs/ann-networked.md)) | |
+| — | Indexes built with `--quantize nvfp4\|fp8` report `quant KIND quant_scan on\|off` in load and index-info replies ([Blackwell module](../docs/ann-blackwell.md)) | |
 | 17–21 | Attribute search, bitmap build, bitmap search, bitmap cache put, cached bitmap search ([GPU-side filters](../docs/ann-gpu-filters.md)) | |
 
 Metric values: 0 L2, 1 negative inner product, 2 cosine. Filter values: 0 none, 1 shared IDs, 2 IDs per query. Allowlists are u32 count followed by strictly increasing unique u32 ordinals; an empty list differs from no filter. Capability masks use `1 << enum_value`. The CPU backend uses FP32 input and double accumulation.

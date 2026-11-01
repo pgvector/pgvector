@@ -21,6 +21,22 @@
 #define ANN_INDEX_MAX_ATTRIBUTES 8
 #define ANN_INDEX_MAX_VALUES 64
 
+/*
+ * Optional quantized copy of the vectors for Blackwell scans (manifest line
+ * "quant nvfp4" or "quant fp8"), next to the exact vectors.f32:
+ *
+ *   nvfp4: vectors.nvfp4  rows x blocks x 8 bytes, two E2M1 values per byte
+ *                         (even dimension in the low nibble), blocks = dims/16
+ *                         rounded up; scales.e4m3 rows x blocks E4M3 block
+ *                         scales; value = e2m1 * block scale * row scale
+ *   fp8:   vectors.e4m3   rows x dims (rounded up to 16) E4M3 bytes;
+ *                         value = e4m3 * row scale
+ *   both:  rowscale.f32   rows FP32 row scales
+ */
+#define ANN_QUANT_NONE 0
+#define ANN_QUANT_NVFP4 1
+#define ANN_QUANT_FP8 2
+
 typedef struct AnnIndexShard
 {
 	uint64_t	first;			/* first global ordinal */
@@ -105,6 +121,16 @@ struct AnnIndexFile
 	AnnIndexShard shards[ANN_INDEX_MAX_SHARDS];
 	uint32_t	nattributes;
 	AnnIndexAttribute attributes[ANN_INDEX_MAX_ATTRIBUTES];
+	int			quant;			/* ANN_QUANT_* */
+	uint32_t	quantRowBytes;
+	uint32_t	quantBlocks;	/* NVFP4 scale blocks per row */
+	const uint8_t *quantData;	/* mapped */
+	const uint8_t *quantScales;
+	const float *rowScales;
+	size_t		quantDataBytes;
+	size_t		quantScalesBytes;
+	size_t		rowScalesBytes;
+	int			quantActive;	/* set by a backend scanning the copy */
 	pthread_mutex_t bitmapMutex;
 	AnnIndexBitmap *bitmaps[ANN_INDEX_BITMAP_BUCKETS];
 	uint64_t	nbitmaps;
@@ -136,9 +162,13 @@ typedef struct AnnIndexOptions
 								 * stream-ordered allocation */
 	uint32_t	bitset_gather_limit;	/* gather limit for filters with a
 										 * ready bitset */
+	int			quantized_scan; /* scan quantized copies on Blackwell GPUs */
+	uint32_t	quant_slack;	/* extra candidates re-scored in FP32 */
 } AnnIndexOptions;
 
 extern AnnIndexOptions AnnIndexConfig;
+
+const char *AnnIndexQuantName(int quant);
 
 AnnStatus	AnnIndexFileOpen(const char *name, const char *directory, AnnIndexFile **result);
 void		AnnIndexFileClose(AnnIndexFile *file);

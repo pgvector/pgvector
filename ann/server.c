@@ -1269,10 +1269,12 @@ LoadIndex(Service *service, const unsigned char *payload, uint32_t size,
 	file = AnnIndexGet(name);
 	if (file == NULL)
 		return ANN_BACKEND_ERROR;
-	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s",
+	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s "
+					   "quant %s quant_scan %s",
 					   (unsigned long long) file->rows, file->dimensions, file->nshards,
 					   file->dtype, file->source[0] ? file->source : "-",
-					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-");
+					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-",
+					   AnnIndexQuantName(file->quant), file->quantActive ? "on" : "off");
 	AnnIndexPut(file);
 	*replyLength = written > 0 && (size_t) written < replySize ? (size_t) written : 0;
 	return ANN_OK;
@@ -1294,10 +1296,11 @@ DescribeIndex(const unsigned char *payload, uint32_t size, char *reply, size_t r
 		return ANN_STALE;
 	(void) pthread_mutex_lock(&file->bitmapMutex);
 	written = snprintf(reply, replySize, "rows %llu dimensions %u shards %u dtype %s source %s key %s vector %s "
-					   "bitmaps %llu bitmap_bytes %llu",
+					   "quant %s quant_scan %s bitmaps %llu bitmap_bytes %llu",
 					   (unsigned long long) file->rows, file->dimensions, file->nshards,
 					   file->dtype, file->source[0] ? file->source : "-",
 					   file->key[0] ? file->key : "-", file->vector[0] ? file->vector : "-",
+					   AnnIndexQuantName(file->quant), file->quantActive ? "on" : "off",
 					   (unsigned long long) file->nbitmaps, (unsigned long long) file->bitmapBytes);
 	(void) pthread_mutex_unlock(&file->bitmapMutex);
 	AnnIndexPut(file);

@@ -49,9 +49,9 @@ ann-worker: $(WORKER_DEPS)
 
 # Requires the cuVS 26.10 C SDK (libcuvs_c), DLPack, and CUDA runtime headers.
 # A different executable keeps the dependency-free CPU build reproducible.
-ann-worker-cuvs: $(WORKER_DEPS) cuvs.c
+ann-worker-cuvs: $(WORKER_DEPS) cuvs.c nvrtc.c nvrtc.h blackwell.c blackwell.h
 	@test -n "$(CUVS_PREFIX)" || { echo 'Set CUVS_PREFIX to the cuVS 26.10 installation' >&2; exit 1; }
-	$(CC) $(CFLAGS) -pthread -DANN_USE_CUVS -I"$(CUVS_PREFIX)/include" -I"$(CUDA_HOME)/include" $(CPPFLAGS) $(WORKER_SRCS) cuvs.c -L"$(CUVS_PREFIX)/lib" -L"$(CUVS_PREFIX)/lib64" -L"$(CUDA_HOME)/lib64" $(LDFLAGS) $(WORKER_LIBS) -lcuvs_c -lcudart -lcuda -ldl -lm -o $@
+	$(CC) $(CFLAGS) -pthread -DANN_USE_CUVS -I"$(CUVS_PREFIX)/include" -I"$(CUDA_HOME)/include" $(CPPFLAGS) $(WORKER_SRCS) cuvs.c nvrtc.c blackwell.c -L"$(CUVS_PREFIX)/lib" -L"$(CUVS_PREFIX)/lib64" -L"$(CUDA_HOME)/lib64" $(LDFLAGS) $(WORKER_LIBS) -lcuvs_c -lcudart -lcuda -ldl -lm -o $@
 
 check: ann-worker ann-batch-tests
 	python3 ../test/ann/test_worker.py

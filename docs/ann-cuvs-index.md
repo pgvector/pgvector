@@ -34,6 +34,7 @@ JOIN docs d USING (id) ORDER BY s.distance;
 | File | Content |
 | --- | --- |
 | `manifest` | Text `key value` lines: `pgvector-ann-index 1`, `dimensions`, `rows`, `metric l2`, `dtype float32\|float16`, `source schema.table`, `shards N`, then `shard i first rows file` per shard. Written last, so partial builds are never loadable. |
+| `vectors.nvfp4`, `scales.e4m3`, `vectors.e4m3`, `rowscale.f32` | Optional (`--quantize nvfp4\|fp8`): a 4-bit or 8-bit copy of the vectors for the [Blackwell module](ann-blackwell.md), listed in the manifest as `quant nvfp4` or `quant fp8`. |
 | `attr-COLUMN.i32` | Optional (`--attribute COLUMN`): one little-endian int32 per row in key order, listed in the manifest as `attribute COLUMN file`. See [filters resolved on the GPU node](ann-gpu-filters.md). |
 | `keys.i64` | `rows` strictly increasing little-endian int64 table keys. Global ordinal *i* is the *i*-th smallest key. |
 | `vectors.f32` | `rows × dimensions` little-endian FP32 vectors in key order. They're memory-mapped for the exact route and for re-scoring. |
@@ -89,6 +90,7 @@ flowchart LR
 | `--bitset-min ROWS` | Attribute values with more rows get prebuilt per-shard bitsets (default 4,000,000). |
 | `--memory-pool PERCENT` | Serve cuVS's temporary allocations from an RMM pool on each GPU, growing up to this share of its memory (default 80; index data is allocated from it too). `0` uses stream-ordered `cudaMallocAsync` instead, whose process-wide driver locks serialized concurrent searches: on 8 GPUs with 96 lanes the pool raised unfiltered ANN from 158k to 370k QPS and 10% filtered CAGRA from 6.6k to 102k ([details](ann-gpu-filters.md#scaling-across-gpus-and-hosts)). |
 | `--bitset-gather-limit ROWS` | Largest filter that arrives with a ready bitset (a cached bitmap, a sent bitmap, an attribute value with prebuilt bitsets) still sent to the gather scan (default 500,000); broader ones run filtered CAGRA. Key-list filters use `--gather-limit`, because their bitset would be built per query. |
+| `--quantized-scan on\|off`, `--quant-slack N` | On compute capability 10.x GPUs, gather scans of indexes built with `--quantize` run the [Blackwell module](ann-blackwell.md)'s fused NVFP4/FP8 search (default on); slack applies when k is too large for it. |
 | `--device-bitmaps on\|off` | Keep cached filter bitmaps' per-shard bitsets in GPU memory (default on), instead of copying them per filtered search. |
 | `--max-batch N`, `--delay-us N` | Queries per CAGRA submission, and an optional wait to fill a batch. |
 | `--lanes N` | Concurrent submissions across all GPUs. |

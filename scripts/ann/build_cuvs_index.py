@@ -18,6 +18,14 @@ manifest, keys and vectors only, for CPU-only testing.
 row in key order, so the worker can resolve "COLUMN IN (values)" filters
 itself (ann_attribute_search) instead of receiving key lists. NULL is stored
 as -2147483648, which therefore never matches.
+
+--quantize nvfp4|fp8 also writes a quantized copy of the vectors for the
+worker's Blackwell module, which scores filtered rows from it on compute
+capability 10.x GPUs and re-scores candidates from vectors.f32:
+  nvfp4  vectors.nvfp4 (two E2M1 per byte, even dimension in the low
+         nibble), scales.e4m3 (one E4M3 scale per 16 dimensions) and
+         rowscale.f32 (one FP32 scale per row): value = e2m1 * scale * row
+  fp8    vectors.e4m3 (dims rounded up to 16, zero padded) and rowscale.f32
 """
 
 import argparse
@@ -103,6 +111,80 @@ def export_attribute(dsn, table, key, vector, column, keys):
     return np.asarray([row[1] for row in rows], dtype='<i4')
 
 
+def _e4m3_table(xp):
+    """Non-negative E4M3 values for codes 0..126 (127 is NaN), increasing."""
+    codes = np.arange(127)
+    exponent, mantissa = codes >> 3, codes & 7
+    values = np.where(exponent == 0, mantissa / 8 * 2.0 ** -6, (1 + mantissa / 8) * 2.0 ** (exponent - 7))
+    return xp.asarray(values, dtype=xp.float32)
+
+
+E2M1 = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0]
+
+
+def _nearest(xp, table, x):
+    """Index of the nearest table value to each element of x (table increasing)."""
+    index = xp.clip(xp.searchsorted(table, x), 1, table.size - 1)
+    below, above = table[index - 1], table[index]
+    return xp.where(x - below <= above - x, index - 1, index)
+
+
+def quantize_fp8(vectors, xp=np):
+    """E4M3 codes (rows x dims rounded up to 16, for 16-byte loads) and FP32 row scales."""
+    v = xp.asarray(vectors, dtype=xp.float32)
+    if v.shape[1] % 16:
+        v = xp.concatenate([v, xp.zeros((v.shape[0], 16 - v.shape[1] % 16), dtype=xp.float32)], axis=1)
+    amax = xp.abs(v).max(axis=1)
+    scale = xp.where(amax > 0, amax / 448, 1).astype(xp.float32)
+    x = v / scale[:, None]
+    codes = _nearest(xp, _e4m3_table(xp), xp.abs(x)).astype(xp.uint8) | ((x < 0).astype(xp.uint8) << 7)
+    return codes, scale
+
+
+def quantize_nvfp4(vectors, xp=np):
+    """Packed E2M1 (rows x blocks x 8 bytes), E4M3 block scales and FP32 row scales.
+
+    Two-level NVFP4 scaling: each 16-dimension block's E4M3 scale is rounded
+    up so no value clips, and the row scale keeps block scales within E4M3.
+    """
+    v = xp.asarray(vectors, dtype=xp.float32)
+    rows, dims = v.shape
+    blocks = (dims + 15) // 16
+    if blocks * 16 != dims:
+        v = xp.concatenate([v, xp.zeros((rows, blocks * 16 - dims), dtype=xp.float32)], axis=1)
+    v = v.reshape(rows, blocks, 16)
+    table = _e4m3_table(xp)
+    amax = xp.abs(v).max(axis=(1, 2))
+    row = xp.where(amax > 0, amax / (6 * 448), 1).astype(xp.float32)
+    target = xp.abs(v).max(axis=2) / (6 * row[:, None])
+    scale_codes = xp.clip(xp.searchsorted(table, target), 0, 126)
+    scale = table[scale_codes] * row[:, None]
+    x = xp.where(scale[:, :, None] > 0, v / xp.where(scale > 0, scale, 1)[:, :, None], 0)
+    nibbles = _nearest(xp, xp.asarray(E2M1, dtype=xp.float32), xp.minimum(xp.abs(x), 6)).astype(xp.uint8)
+    nibbles |= (x < 0).astype(xp.uint8) << 3
+    packed = (nibbles[:, :, 0::2] | (nibbles[:, :, 1::2] << 4)).reshape(rows, blocks * 8)
+    return packed, scale_codes.astype(xp.uint8), row
+
+
+def write_quantized(directory, vectors, kind, chunk=1 << 18):
+    """Write the --quantize files for vectors (FP32, key order), chunk by chunk."""
+    try:
+        import cupy as xp
+    except ImportError:
+        xp = np
+    names = {'nvfp4': ['vectors.nvfp4', 'scales.e4m3', 'rowscale.f32'], 'fp8': ['vectors.e4m3', 'rowscale.f32']}[kind]
+    outputs = [open(os.path.join(directory, name), 'wb') for name in names]
+    try:
+        for first in range(0, len(vectors), chunk):
+            part = (quantize_nvfp4 if kind == 'nvfp4' else quantize_fp8)(vectors[first:first + chunk], xp)
+            for out, array in zip(outputs, part):
+                array = array.get() if hasattr(array, 'get') else array
+                out.write(np.ascontiguousarray(array).tobytes())
+    finally:
+        for out in outputs:
+            out.close()
+
+
 def build_shard(index, first, vectors, out, dtype, graph_degree, intermediate_degree, devices):
     import cupy
     from cuvs.neighbors import cagra
@@ -134,6 +216,8 @@ def main():
     parser.add_argument('--limit', type=int, help='export at most this many rows (testing)')
     parser.add_argument('--attribute', action='append', default=[],
                         help='integer column the worker can filter on (repeatable)')
+    parser.add_argument('--quantize', choices=['nvfp4', 'fp8'],
+                        help='also write a quantized copy for the worker\'s Blackwell scans')
     parser.add_argument('--no-cagra', action='store_true', help='write keys/vectors only (CPU tests)')
     args = parser.parse_args()
 
@@ -146,6 +230,9 @@ def main():
     log(f'exported {rows} rows x {dimensions} dims in {time.time() - started:.1f}s')
     keys.astype('<i8').tofile(os.path.join(args.out, 'keys.i64'))
     vectors.tofile(os.path.join(args.out, 'vectors.f32'))
+    if args.quantize:
+        write_quantized(args.out, vectors, args.quantize)
+        log(f'wrote the {args.quantize} copy')
     for column in args.attribute:
         export_attribute(args.dsn, args.table, args.key, args.vector, column, keys).tofile(
             os.path.join(args.out, f'attr-{column}.i32'))
@@ -171,6 +258,8 @@ def main():
              f'shards {len(shards)}']
     lines += [f'shard {i} {first} {n} shard-{i}.cagra' for i, first, n in shards]
     lines += [f'attribute {column} attr-{column}.i32' for column in args.attribute]
+    if args.quantize:
+        lines.append(f'quant {args.quantize}')
     with open(os.path.join(args.out, 'manifest.tmp'), 'w') as manifest:
         manifest.write('\n'.join(lines) + '\n')
     os.replace(os.path.join(args.out, 'manifest.tmp'), os.path.join(args.out, 'manifest'))

@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0, 1, 80, 500000};
+AnnIndexOptions AnnIndexConfig = {128, 512, 2000, 0, 0, 4000000, 4000000, 2, 4, 0, 1, 80, 500000, 1, 256};
 AnnIndexBitmapHooks AnnIndexBitmapDevice = {NULL, NULL};
 
 typedef struct Entry
@@ -509,6 +509,9 @@ ParseManifest(AnnIndexFile *file)
 				 sscanf(line, "%*s %63s %255s", file->attributes[file->nattributes].name, text) == 2 &&
 				 !strchr(text, '/'))
 			strcpy(file->attributes[file->nattributes++].file, text);
+		else if (strcmp(key, "quant") == 0 && sscanf(line, "%*s %15s", text) == 1 &&
+				 (strcmp(text, "nvfp4") == 0 || strcmp(text, "fp8") == 0))
+			file->quant = strcmp(text, "nvfp4") == 0 ? ANN_QUANT_NVFP4 : ANN_QUANT_FP8;
 		else if (strcmp(key, "shards") == 0 && sscanf(line, "%*s %llu", &a) == 1 && a <= ANN_INDEX_MAX_SHARDS)
 			continue;
 		else if (strcmp(key, "shard") == 0 &&
@@ -538,6 +541,12 @@ ParseManifest(AnnIndexFile *file)
 		return ANN_INVALID;
 	}
 	return ANN_OK;
+}
+
+const char *
+AnnIndexQuantName(int quant)
+{
+	return quant == ANN_QUANT_NVFP4 ? "nvfp4" : quant == ANN_QUANT_FP8 ? "fp8" : "none";
 }
 
 AnnStatus
@@ -572,6 +581,23 @@ AnnIndexFileOpen(const char *name, const char *directory, AnnIndexFile **result)
 			fprintf(stderr, "ann index: keys.i64 is not strictly increasing\n");
 			status = ANN_INVALID;
 		}
+	if (status == ANN_OK && file->quant != ANN_QUANT_NONE)
+	{
+		const void *scales = NULL;
+		const void *rows = NULL;
+
+		file->quantBlocks = (file->dimensions + 15) / 16;
+		file->quantRowBytes = file->quantBlocks * (file->quant == ANN_QUANT_NVFP4 ? 8 : 16);
+		if (!MapFile(directory, file->quant == ANN_QUANT_NVFP4 ? "vectors.nvfp4" : "vectors.e4m3",
+					 file->rows * file->quantRowBytes, &data, &file->quantDataBytes) ||
+			!(file->quantData = data, 1) ||
+			(file->quant == ANN_QUANT_NVFP4 &&
+			 (!MapFile(directory, "scales.e4m3", file->rows * file->quantBlocks, &scales, &file->quantScalesBytes) ||
+			  !(file->quantScales = scales, 1))) ||
+			!MapFile(directory, "rowscale.f32", file->rows * sizeof(float), &rows, &file->rowScalesBytes) ||
+			!(file->rowScales = rows, 1))
+			status = ANN_INVALID;
+	}
 	for (uint32_t a = 0; status == ANN_OK && a < file->nattributes; a++)
 		if (!LoadAttribute(file, &file->attributes[a]))
 		{
@@ -596,6 +622,12 @@ AnnIndexFileClose(AnnIndexFile *file)
 		(void) munmap((void *) file->keys, file->keysBytes);
 	if (file->vectors)
 		(void) munmap((void *) file->vectors, file->vectorsBytes);
+	if (file->quantData)
+		(void) munmap((void *) file->quantData, file->quantDataBytes);
+	if (file->quantScales)
+		(void) munmap((void *) file->quantScales, file->quantScalesBytes);
+	if (file->rowScales)
+		(void) munmap((void *) file->rowScales, file->rowScalesBytes);
 	for (uint32_t a = 0; a < file->nattributes; a++)
 	{
 		AnnIndexAttribute *attribute = &file->attributes[a];

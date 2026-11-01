@@ -12,7 +12,7 @@ import unittest
 import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_server import ROOT, Server  # noqa: E402
+from test_server import ROOT, Server, frame, receive  # noqa: E402
 
 DSN = os.environ.get('ANN_PG_DSN')
 PSQL = os.environ.get('ANN_PSQL', 'psql')
@@ -33,6 +33,7 @@ class CuvsIndexTests(unittest.TestCase):
                            '--bitset-gather-limit', '0', '--bitset-min', '0',
                            executable=os.path.join(ROOT, 'ann', 'ann-worker-cuvs'))
         cls.table = 'ann_cuvs_' + uuid.uuid4().hex[:10]
+        cls.loaded = {}
         cls.psql(f"""
             CREATE TABLE {cls.table} (id bigint PRIMARY KEY, tenant int, emb vector(32));
             SELECT setseed(0.1);
@@ -50,6 +51,13 @@ class CuvsIndexTests(unittest.TestCase):
                 cls.psql(f"SELECT ann_index_load('{cls.table}_{dtype}', '{path}')", server)
         cls.psql(f"""SELECT ann_filter_bitmap_build('{cls.table}_float32', 'tenant = ' || t)
                      FROM generate_series(0, 49) t""")
+        # Quantized copies for the Blackwell module's gather scan.
+        for quant in ['nvfp4', 'fp8']:
+            path = os.path.join(cls.directory.name, quant)
+            subprocess.run([sys.executable, BUILD, '--dsn', DSN, '--table', f'public.{cls.table}', '--key', 'id',
+                            '--vector', 'emb', '--out', path, '--shards', '4', '--quantize', quant],
+                           check=True, capture_output=True)
+            cls.loaded[quant] = cls.psql(f"SELECT ann_index_load('{cls.table}_{quant}', '{path}')")
 
     @classmethod
     def tearDownClass(cls):
@@ -105,6 +113,37 @@ class CuvsIndexTests(unittest.TestCase):
             _, recall, outside = self.filtered(function, self.graph)
             self.assertGreaterEqual(float(recall), 0.9, function)
             self.assertEqual(outside, '0', function)
+
+    def test_blackwell_quantized_gather(self):
+        # On compute capability 10.x GPUs the gather scan scores the NVFP4 or
+        # FP8 copy and re-scores candidates in FP32: rows stay within the
+        # filter, distances stay exact, and recall holds.
+        import ctypes
+        major = ctypes.c_int()
+        ctypes.CDLL('libcudart.so').cudaDeviceGetAttribute(ctypes.byref(major), 75, 0)
+        for quant in ['nvfp4', 'fp8']:
+            index = f'{self.table}_{quant}'
+            with self.server.connect() as connection:
+                connection.sendall(frame(15, 1, index.encode()))
+                info = receive(connection)[3]
+            expected = b'quant_scan on' if major.value == 10 else b'quant_scan off'
+            self.assertIn(f'quant {quant} '.encode() + expected, info)
+            stats = self.psql(f"""
+                SELECT round(avg(cardinality(ARRAY(SELECT unnest(a) INTERSECT SELECT unnest(b)))) / 10, 3),
+                       max(e), sum(o) FROM (
+                  SELECT ARRAY(SELECT s.id FROM ann_index_search('{index}', q.emb, 10,
+                            ARRAY(SELECT id FROM {self.table} WHERE tenant = q.tenant)) s) a,
+                         ARRAY(SELECT t.id FROM {self.table} t WHERE t.tenant = q.tenant
+                               ORDER BY t.emb <-> q.emb LIMIT 10) b,
+                         (SELECT max(abs(s.distance - (t.emb <-> q.emb))) FROM ann_index_search('{index}', q.emb, 10,
+                            ARRAY(SELECT id FROM {self.table} WHERE tenant = q.tenant)) s JOIN {self.table} t USING (id)) e,
+                         (SELECT count(*) FROM ann_index_search('{index}', q.emb, 10,
+                            ARRAY(SELECT id FROM {self.table} WHERE tenant = q.tenant)) s JOIN {self.table} t USING (id)
+                          WHERE t.tenant <> q.tenant) o
+                  FROM {self.table} q WHERE q.id % 1200 = 0) x""").split('|')
+            self.assertGreaterEqual(float(stats[0]), 0.99, quant)
+            self.assertLess(float(stats[1]), 1e-4, quant)
+            self.assertEqual(stats[2], '0', quant)
 
     def test_ann_recall(self):
         for dtype in ['float32', 'float16']:

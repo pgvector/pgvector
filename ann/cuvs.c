@@ -4,6 +4,8 @@
  */
 #include "backend.h"
 #include "indexfile.h"
+#include "nvrtc.h"
+#include "blackwell.h"
 
 /* The driver API header has enumerators that are not strict ISO C. */
 #pragma GCC diagnostic push
@@ -14,8 +16,6 @@
 #include <cuvs/neighbors/brute_force.h>
 #include <cuvs/neighbors/cagra.h>
 #include <cuvs/selection/select_k.h>
-#include <nvrtc.h>
-#include <dlfcn.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -567,6 +567,7 @@ typedef struct AnnCuvsShard
 	const void *rows;			/* device view of the CAGRA dataset */
 	int64_t    *keys;			/* device copy of the shard's sorted keys */
 	int64_t		stride;			/* elements between rows */
+	AnnBlackwellShard quant;	/* quantized rows for Blackwell scans */
 } AnnCuvsShard;
 
 /*
@@ -579,6 +580,7 @@ typedef struct AnnCuvsIndex
 	uint32_t	nshards;
 	uint32_t	copies;
 	int			fp16;
+	int			quantized;		/* every shard copy has its quantized rows */
 	AnnCuvsShard *shards;
 } AnnCuvsIndex;
 
@@ -786,6 +788,13 @@ LoadShard(void *argument)
 			(void) cudaFree(shard->keys);
 		shard->keys = NULL;
 	}
+
+	/*
+	 * On Blackwell GPUs the gather scan reads the quantized copy instead: 4
+	 * or 8 bits per dimension rather than 16 or 32.
+	 */
+	if (args->file->quant != ANN_QUANT_NONE && AnnIndexConfig.quantized_scan)
+		(void) AnnBlackwellUpload(args->file, args->shard, shard->device, &shard->quant);
 	args->status = ANN_OK;
 	return NULL;
 }
@@ -800,6 +809,8 @@ DestroyIndexState(AnnCuvsIndex *state)
 		AnnCuvsShard *shard = &state->shards[s];
 
 		(void) cudaSetDevice(shard->device);
+		if (shard->quant.quant != ANN_QUANT_NONE)
+			AnnBlackwellFree(&shard->quant);
 		if (shard->keys)
 			(void) cudaFree(shard->keys);
 		if (shard->index)
@@ -955,6 +966,21 @@ LoadIndex(const char *name, const char *directory)
 	}
 	free(args);
 	free(threads);
+	if (status == ANN_OK && file->quant != ANN_QUANT_NONE && AnnIndexConfig.quantized_scan)
+	{
+		size_t		bytes = 0;
+
+		state->quantized = 1;
+		for (uint32_t s = 0; s < total; s++)
+		{
+			state->quantized &= state->shards[s].quant.quant != ANN_QUANT_NONE;
+			bytes += state->shards[s].quant.bytes;
+		}
+		file->quantActive = state->quantized;
+		fprintf(stderr, "Blackwell module: %s gather scan for index %s %s (%.1f MB of quantized rows on the GPUs)\n",
+				AnnIndexQuantName(file->quant), name, state->quantized ? "on" : "off: not every GPU is ready",
+				(double) bytes / 1048576.0);
+	}
 	file->device = state;
 	if (status == ANN_OK)
 		status = AnnIndexRegister(file);
@@ -1266,58 +1292,12 @@ typedef struct GatherModule
 static GatherModule gatherModules[ANN_CUVS_MAX_DEVICES];
 static pthread_mutex_t gatherMutex = PTHREAD_MUTEX_INITIALIZER;
 
-/*
- * NVRTC is opened at run time: it is needed once per device, and the worker
- * still serves (with CAGRA for filtered queries) on hosts without it.
- */
-static struct
-{
-	nvrtcResult (*create) (nvrtcProgram *, const char *, const char *, int, const char *const *,
-						   const char *const *);
-	nvrtcResult (*compile) (nvrtcProgram, int, const char *const *);
-	nvrtcResult (*cubinSize) (nvrtcProgram, size_t *);
-	nvrtcResult (*cubin) (nvrtcProgram, char *);
-	nvrtcResult (*logSize) (nvrtcProgram, size_t *);
-	nvrtcResult (*log) (nvrtcProgram, char *);
-	nvrtcResult (*destroy) (nvrtcProgram *);
-}			nvrtc;
-
-static int
-OpenNvrtc(void)
-{
-	static const char *names[] = {"libnvrtc.so", "libnvrtc.so.13", "libnvrtc.so.12"};
-	void	   *library = NULL;
-
-	if (nvrtc.destroy)
-		return 1;
-	for (size_t i = 0; library == NULL && i < sizeof(names) / sizeof(names[0]); i++)
-		library = dlopen(names[i], RTLD_NOW | RTLD_LOCAL);
-	if (library == NULL)
-		return 0;
-	/* Assigning through void ** keeps ISO C object/function casts out. */
-	*(void **) &nvrtc.create = dlsym(library, "nvrtcCreateProgram");
-	*(void **) &nvrtc.compile = dlsym(library, "nvrtcCompileProgram");
-	*(void **) &nvrtc.cubinSize = dlsym(library, "nvrtcGetCUBINSize");
-	*(void **) &nvrtc.cubin = dlsym(library, "nvrtcGetCUBIN");
-	*(void **) &nvrtc.logSize = dlsym(library, "nvrtcGetProgramLogSize");
-	*(void **) &nvrtc.log = dlsym(library, "nvrtcGetProgramLog");
-	*(void **) &nvrtc.destroy = dlsym(library, "nvrtcDestroyProgram");
-	if (!nvrtc.create || !nvrtc.compile || !nvrtc.cubinSize || !nvrtc.cubin || !nvrtc.logSize ||
-		!nvrtc.log || !nvrtc.destroy)
-	{
-		nvrtc.destroy = NULL;
-		return 0;
-	}
-	return 1;
-}
-
 /* Compile and load the gather kernels on a device once; NULL if unavailable. */
 static GatherModule *
 GatherKernels(int device)
 {
 	GatherModule *module = &gatherModules[device];
-	nvrtcProgram program = NULL;
-	char		arch[64];
+	char		arch[32];
 	char	   *image = NULL;
 	size_t		size = 0;
 	int			major = 0,
@@ -1330,23 +1310,15 @@ GatherKernels(int device)
 	if (module->state != 0)
 		goto unlock;
 	module->state = -1;
-	if (!OpenNvrtc() || cuInit(0) != CUDA_SUCCESS || cuDeviceGet(&handle, device) != CUDA_SUCCESS ||
+	if (cuInit(0) != CUDA_SUCCESS || cuDeviceGet(&handle, device) != CUDA_SUCCESS ||
 		cuDevicePrimaryCtxRetain(&module->context, handle) != CUDA_SUCCESS ||
 		cuCtxSetCurrent(module->context) != CUDA_SUCCESS ||
 		cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device) != cudaSuccess ||
 		cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device) != cudaSuccess)
 		goto fail;
-	snprintf(arch, sizeof(arch), "--gpu-architecture=sm_%d%d", major, minor);
-	{
-		const char *options[] = {arch, "--std=c++17", "-default-device"};
-
-		if (nvrtc.create(&program, GatherSource, "gather.cu", 0, NULL, NULL) != NVRTC_SUCCESS ||
-			nvrtc.compile(program, 3, options) != NVRTC_SUCCESS ||
-			nvrtc.cubinSize(program, &size) != NVRTC_SUCCESS || size == 0 ||
-			(image = malloc(size)) == NULL || nvrtc.cubin(program, image) != NVRTC_SUCCESS)
-			goto fail;
-	}
-	if (cuModuleLoadData(&module->module, image) != CUDA_SUCCESS ||
+	snprintf(arch, sizeof(arch), "sm_%d%d", major, minor);
+	if ((image = AnnNvrtcCompile(GatherSource, "cuVS gather kernel", arch, &size)) == NULL ||
+		cuModuleLoadData(&module->module, image) != CUDA_SUCCESS ||
 		cuModuleGetFunction(&module->lookup, module->module, "lookup") != CUDA_SUCCESS ||
 		cuModuleGetFunction(&module->f32, module->module, "gather_f32") != CUDA_SUCCESS ||
 		cuModuleGetFunction(&module->f16, module->module, "gather_f16") != CUDA_SUCCESS)
@@ -1354,23 +1326,8 @@ GatherKernels(int device)
 	module->state = 1;
 	goto unlock;
 fail:
-	if (program)
-	{
-		size_t		logSize = 0;
-		char	   *log;
-
-		if (nvrtc.logSize(program, &logSize) == NVRTC_SUCCESS && logSize > 1 &&
-			(log = malloc(logSize)) != NULL)
-		{
-			if (nvrtc.log(program, log) == NVRTC_SUCCESS)
-				fprintf(stderr, "cuVS gather kernel: %s\n", log);
-			free(log);
-		}
-	}
 	fprintf(stderr, "cuVS: gather scan unavailable on device %d; filtered queries use CAGRA\n", device);
 unlock:
-	if (program)
-		(void) nvrtc.destroy(&program);
 	free(image);
 	(void) pthread_mutex_unlock(&gatherMutex);
 	return module->state > 0 ? module : NULL;
@@ -1446,7 +1403,20 @@ SearchGather(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 {
 	uint32_t	dims = file->dimensions;
 	uint32_t	k = job->k;
-	uint32_t	slack = state->fp16 ? ANN_GATHER_SLACK : 0;
+
+	/*
+	 * Quantized and FP16 scores rank approximately: take extra candidates and
+	 * let the FP32 re-score below decide.
+	 */
+	uint32_t	slack = state->quantized ? AnnIndexConfig.quant_slack : state->fp16 ? ANN_GATHER_SLACK : 0;
+
+	/*
+	 * On Blackwell the module's fused kernel scores and selects in one
+	 * launch, returning its best ANN_BLACKWELL_TOP; all of them are
+	 * re-scored, so small k gets that many candidates.
+	 */
+	int			fused = state->quantized && k + 8 <= ANN_BLACKWELL_TOP;
+	int64_t		fusedFound[ANN_BLACKWELL_TOP];
 	const int64_t *keys = job->filter;
 	uint64_t	start[ANN_INDEX_MAX_SHARDS + 1];
 	uint64_t	eligible[ANN_INDEX_MAX_SHARDS];
@@ -1461,6 +1431,8 @@ SearchGather(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 	AnnCuvsShard *shards;
 	int			ok = 1;
 
+	if (fused)
+		slack = ANN_BLACKWELL_TOP - k;
 	if (laneHome < 0)
 		laneHome = (int) (atomic_fetch_add(&nextHome, 1) % ANN_CUVS_MAX_DEVICES);
 	shards = state->shards + (size_t) (laneHome % state->copies) * state->nshards;
@@ -1546,7 +1518,6 @@ SearchGather(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		rows = lane->gatherRows + keySlot[s];
 		queries = lane->queries;
 		out = lane->gatherScores + keySlot[s];
-		memcpy(lane->hostKeys + keySlot[s], keys + start[s], eligible[s] * sizeof(int64_t));
 		lookup[0] = &shard->keys;
 		lookup[1] = &shardRows;
 		lookup[2] = &wantedKeys;
@@ -1565,12 +1536,49 @@ SearchGather(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		best = Tensor(lane->gatherBest + topSlot[s], kDLCUDA, shard->device, kDLFloat, 2, topShape);
 		index = Tensor(lane->gatherIndex + topSlot[s], kDLCUDA, shard->device, kDLInt, 2, topShape);
 		index.dl_tensor.dtype.bits = 64;
+		if (fused)
+		{
+			int			ready;
+
+			/*
+			 * Known ordinals (cached bitmaps, attributes) become shard rows
+			 * here: 4 bytes a row, and no key lookup on the device.
+			 */
+			if (job->ordinals)
+			{
+				uint32_t   *staged = (uint32_t *) (void *) (lane->hostKeys + keySlot[s]);
+				uint64_t	first = file->shards[s].first;
+
+				for (uint64_t i = 0; i < eligible[s]; i++)
+					staged[i] = (uint32_t) (job->ordinals[start[s] + i] - first);
+				ready = cudaMemcpyAsync(rows, staged, eligible[s] * sizeof(uint32_t), cudaMemcpyHostToDevice,
+										stream) == cudaSuccess;
+			}
+			else
+			{
+				memcpy(lane->hostKeys + keySlot[s], keys + start[s], eligible[s] * sizeof(int64_t));
+				ready = cudaMemcpyAsync(wantedKeys, lane->hostKeys + keySlot[s], eligible[s] * sizeof(int64_t),
+										cudaMemcpyHostToDevice, stream) == cudaSuccess &&
+					cuLaunchKernel(module->lookup, lookupBlocks, 1, 1, ANN_GATHER_BLOCK, 1, 1, 0,
+								   (CUstream) stream, lookup, NULL) == CUDA_SUCCESS;
+			}
+			if (!ready || !AnnBlackwellSearch(&shard->quant, shard->device, s, state->nshards, rows, count,
+											  queries, dimensions, stream))
+			{
+				fprintf(stderr, "Blackwell module: fused search failed on device %d\n", shard->device);
+				ok = 0;
+			}
+			continue;
+		}
+		memcpy(lane->hostKeys + keySlot[s], keys + start[s], eligible[s] * sizeof(int64_t));
 		if (cudaMemcpyAsync(wantedKeys, lane->hostKeys + keySlot[s], eligible[s] * sizeof(int64_t),
 							cudaMemcpyHostToDevice, stream) != cudaSuccess ||
 			cuLaunchKernel(module->lookup, lookupBlocks, 1, 1, ANN_GATHER_BLOCK, 1, 1, 0,
 						   (CUstream) stream, lookup, NULL) != CUDA_SUCCESS ||
-			cuLaunchKernel(state->fp16 ? module->f16 : module->f32, gatherBlocks, 1, 1,
-						   ANN_GATHER_BLOCK, 1, 1, 0, (CUstream) stream, gather, NULL) != CUDA_SUCCESS ||
+			(state->quantized ?
+			 !AnnBlackwellScore(&shard->quant, shard->device, rows, count, queries, dimensions, out, stream) :
+			 cuLaunchKernel(state->fp16 ? module->f16 : module->f32, gatherBlocks, 1, 1,
+							ANN_GATHER_BLOCK, 1, 1, 0, (CUstream) stream, gather, NULL) != CUDA_SUCCESS) ||
 			cuvsSelectK(lane->resources, &scores, &best, &index) != CUVS_SUCCESS ||
 			cudaMemcpyAsync(lane->hostIndex + topSlot[s], lane->gatherIndex + topSlot[s],
 							wanted[s] * sizeof(int64_t), cudaMemcpyDeviceToHost, stream) != cudaSuccess)
@@ -1595,6 +1603,17 @@ SearchGather(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob *job)
 		const int64_t *found = laneDevices[shards[s].device].hostIndex + topSlot[s];
 		AnnIndexHit *hits = lists + (size_t) s * (k + slack);
 		uint64_t	first = file->shards[s].first;
+
+		if (fused && eligible[s])
+		{
+			const uint32_t *positions;
+			const float *unused;
+
+			AnnBlackwellResults(shards[s].device, s, &positions, &unused);
+			for (uint32_t i = 0; i < ANN_BLACKWELL_TOP; i++)
+				fusedFound[i] = positions[i] == UINT32_MAX ? -1 : (int64_t) positions[i];
+			found = fusedFound;
+		}
 
 		/*
 		 * Under heavy load, rare hybrid results have lost one true neighbour
