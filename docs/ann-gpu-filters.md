@@ -10,6 +10,47 @@
 
 All three return `(id bigint, distance real)` with exact distances, and on the default routes they return exactly what SQL returns.
 
+## Summary
+
+Resolving filters on the GPU node takes the per-query filter work off the PostgreSQL host. On one machine with 8× B200, filtered search went from about 7k QPS (1% filters) and 74 QPS (10%) to 140k and 108k QPS. Results still match exact SQL.
+
+**Changes**
+
+| Change | What it does |
+| --- | --- |
+| Attribute columns (`--attribute`, `ann_attribute_search`) | The index stores integer columns. PostgreSQL sends only the condition, and the GPU node looks up the matching rows. |
+| Bitmap table (`ann_filter_bitmap`, `ann_filter_bitmap_build`, `ann_bitmap_search`) | A filter is evaluated once into a bitmap over the index's rows. |
+| Bitmap cache on GPU nodes | Bitmaps are pushed to every GPU node at build time and when an index loads (`ann_filter_bitmap_push` on demand). A search sends an 8-byte filter id; a node missing a bitmap says so, and PostgreSQL pushes it and retries once. |
+| Filter ids shared across hosts | An id is a hash of the index name and filter text, so PostgreSQL hosts sharing GPU nodes share one cached copy. |
+| Multi-CTA filtered CAGRA (`--filtered-algo`, `--filtered-width`) | Recall with a bitset filter rose from 0.09–0.94 to 0.99–1.0, at half the latency. |
+| Bitsets kept in GPU memory (`--device-bitmaps`) | Cached bitmaps aren't copied to the GPU per query. |
+| Memory pool per GPU (`--memory-pool`) | cuVS's per-search temporaries no longer go through the CUDA driver's allocator, which serialized them across threads and GPUs. |
+| Route split (`--bitset-gather-limit`) | Filters with a ready bitset switch from the exact GPU scan to filtered CAGRA above 500k rows; key lists keep `--gather-limit` (4M). |
+| Overload retry (`ann.worker_overload_wait_ms`) | PostgreSQL backs off and retries when the worker's admission budget is full, instead of failing the query. |
+| Gather-scan guard | A shard whose top-k selection repeats a candidate is scored again exactly on the CPU. |
+
+**Performance** (10M × 128, k = 10, QPS; PostgreSQL hosts of 64 cores; everything on one machine over loopback TCP):
+
+| Workload | `ann_hybrid_search`, one host | Cached bitmap, 1 GPU | Cached bitmap, 8 GPUs (index replicated), two hosts |
+| --- | --- | --- | --- |
+| 0.1% filter | 31.8k | 75k | **258k** |
+| 1% filter | 6.9k | 35k | **140k** |
+| 10% filter | 74 | 16k | **108k** |
+| Unfiltered ANN | 158k–318k | 355k | **374k** |
+
+| Change | Measured gain |
+| --- | --- |
+| Memory pool per GPU | 10% filter on 8 GPUs: 6.6k → 102k QPS; unfiltered ANN: 158k → 370k |
+| Sending a filter id instead of the bitmap | 1% filter on 1 GPU: 10.7k → 35k |
+| Bitsets in GPU memory | 10% filter on 1 GPU: 8.5k → 15.3k |
+
+- **Hosts per GPU node:** one 64-core PostgreSQL host gets 90–98% of an 8-GPU node's capacity on the cached-bitmap route. The SQL-filter route would need about 20 hosts to fill it.
+- **Index layout:** with the whole index on every GPU (`--replicate on`), filtered search is 4–8× faster than with 8 shards.
+- **The ceiling is the GPUs:** they were busy 90–100% of the time. More GPU-node cores or PostgreSQL cores barely changed the totals.
+- **Not measured yet:** GPU nodes and PostgreSQL hosts on separate machines over a real network.
+
+The sections below give the details.
+
 ## Worker-side attributes
 
 Build the index with one or more integer columns stored per row:
