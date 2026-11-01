@@ -14,10 +14,16 @@
  * k + slack candidates from those scores and re-score them in FP32, so
  * returned distances stay exact; graph search stays with cuVS CAGRA.
  */
+/* Row formats the module scores, besides the quantized copies. */
+#define ANN_BLACKWELL_HALF 3	/* a CAGRA FP16 dataset, read in place */
+#define ANN_BLACKWELL_FLOAT 4	/* a CAGRA FP32 dataset, read in place */
+
 typedef struct AnnBlackwellShard
 {
-	int			quant;			/* ANN_QUANT_*, NONE when not uploaded */
-	uint8_t    *data;			/* device copies of the shard's rows */
+	int			quant;			/* ANN_QUANT_* or ANN_BLACKWELL_*, NONE when
+								 * not available */
+	int			owned;			/* data is the module's own copy */
+	uint8_t    *data;			/* the shard's rows on the device */
 	uint8_t    *scales;
 	float	   *rowScales;
 	uint32_t	rowBytes;
@@ -30,6 +36,14 @@ int			AnnBlackwellReady(int device);
 
 /* Copy a shard's quantized rows to the current device; 0 on failure. */
 int			AnnBlackwellUpload(const AnnIndexFile *file, uint32_t shard, int device, AnnBlackwellShard *out);
+
+/*
+ * Score a shard's CAGRA dataset in place (FP16 or FP32 rows of dims
+ * elements, stride elements apart) for grouped searches; 0 when the module
+ * is not available on the device.
+ */
+int			AnnBlackwellView(const void *dataset, int64_t stride, int half, uint32_t dims, int device,
+							 AnnBlackwellShard *out);
 void		AnnBlackwellFree(AnnBlackwellShard *shard);
 
 /*

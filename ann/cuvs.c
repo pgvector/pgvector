@@ -581,6 +581,7 @@ typedef struct AnnCuvsIndex
 	uint32_t	copies;
 	int			fp16;
 	int			quantized;		/* every shard copy has its quantized rows */
+	int			grouped;		/* every shard copy can be scored in groups */
 	AnnCuvsShard *shards;
 } AnnCuvsIndex;
 
@@ -830,6 +831,12 @@ LoadShard(void *argument)
 	 */
 	if (args->file->quant != ANN_QUANT_NONE && AnnIndexConfig.quantized_scan)
 		(void) AnnBlackwellUpload(args->file, args->shard, shard->device, &shard->quant);
+	else if (AnnIndexConfig.quantized_scan && shard->rows)
+	{
+		/* Grouped searches can read the FP16 or FP32 dataset in place. */
+		(void) AnnBlackwellView(shard->rows, shard->stride, strcmp(args->file->dtype, "float16") == 0,
+								args->file->dimensions, shard->device, &shard->quant);
+	}
 	args->status = ANN_OK;
 	return NULL;
 }
@@ -1066,6 +1073,15 @@ LoadIndex(const char *name, const char *directory)
 	}
 	free(args);
 	free(threads);
+	if (status == ANN_OK && AnnIndexConfig.quantized_scan)
+	{
+		state->grouped = 1;
+		for (uint32_t s = 0; s < total; s++)
+			state->grouped &= state->shards[s].quant.quant != ANN_QUANT_NONE;
+		if (state->grouped && file->quant == ANN_QUANT_NONE)
+			fprintf(stderr, "Blackwell module: grouped %s searches for index %s read the dataset in place\n",
+					file->dtype, name);
+	}
 	if (status == ANN_OK && file->quant != ANN_QUANT_NONE && AnnIndexConfig.quantized_scan)
 	{
 		size_t		bytes = 0;
@@ -2090,7 +2106,7 @@ SearchGatherGroup(const AnnIndexFile *file, AnnCuvsIndex *state, AnnIndexJob **j
 	float	   *hostQueries;
 	int			ok = 1;
 
-	if (!state->quantized || ordinals == NULL || limit < 2)
+	if (!state->grouped || ordinals == NULL || limit < 2)
 		return 0;
 	for (uint32_t j = 0; j < m; j++)
 		if (jobs[j]->k + 8 > ANN_BLACKWELL_TOP)

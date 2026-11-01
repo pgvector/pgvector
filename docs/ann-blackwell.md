@@ -54,6 +54,8 @@ Small lists get 128-row blocks, so enough warps hide the scattered row loads; la
 
 The score kernel itself takes 136 µs for 16 queries over 1M rows (8.5 µs per query) and 21 µs over 100k, about the time the single-query kernel spends gathering one query's rows: the multiply is free, the gather is the cost. The selection takes most of the rest at 1M rows.
 
+The same kernel reads FP16 and FP32 CAGRA datasets in place (`score_mma_half`, `score_mma_float`), so grouped searches on indexes without a quantized copy take the tensor-core route too: an FP16 pair is already an A fragment, and an FP32 pair becomes one with `cvt.rn.f16x2.f32`. Dimensions past `dims` (a dataset row's padding) are masked. Single queries on those indexes keep the FP32/FP16 gather scan.
+
 **How it got there.** The first multi-query kernel (one thread per row, FP32 FMAs against queries in shared memory, per-warp best-32 lists with warp shuffles) plateaued at 55–60 µs per query at 1M rows whatever the group size. Its SASS showed 1,300 `WARPSYNC.COLLECTIVE` pairs (shuffles and ballots the compiler could not prove convergent), and ablations split its 928 µs at 16 queries into 524 µs of compute (bound by the 64 `LDS.128` feeding 256 multiply-adds per chunk) and 392 µs of selection. The selection was structural: 4,736 warps each saw only 211 rows, so no warp's list ever filled and the sort-and-merge path ran on almost every tile. Moving the multiply to tensor cores removed the compute term; moving selection out of the scoring kernel into long slices (37 instead of 4,736 lists per query) removed the other. An intermediate design with insertion into shared-memory lists was 3× slower still: sixteen lanes' lists 32 words apart hit one bank.
 
 ## Measurements

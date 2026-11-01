@@ -252,6 +252,8 @@ static const char *const BlackwellSource[] = {
 	"/* An E4M3 block scale as a half2 holding it twice. */\n"
 	"__device__ __forceinline__ unsigned scale2(unsigned byte)\n"
 	"{ unsigned h2 = e4m3pair(byte & 0xffu); return (h2 & 0xffffu) | (h2 << 16); }\n"
+	"__device__ __forceinline__ unsigned f32x2(float lo, float hi)\n"
+	"{ unsigned r; asm(\"cvt.rn.f16x2.f32 %0, %1, %2;\" : \"=r\"(r) : \"f\"(hi), \"f\"(lo)); return r; }\n"
 	"__device__ __forceinline__ float sumsq2(unsigned h2)\n"
 	"{ float lo = half_bits((unsigned short) (h2 & 0xffffu)), hi = half_bits((unsigned short) (h2 >> 16)); return lo * lo + hi * hi; }\n"
 	"/* D += A (16 rows x 16 k, FP16) * B (16 k x 8 queries, FP16), FP32 accumulate. */\n"
@@ -311,7 +313,33 @@ static const char *const BlackwellSource[] = {
 	"    for (unsigned seg = 0; seg < blocks; seg += KSEG)\n",
 	"    {\n"
 	"      uint2 w0[KSEG], w1[KSEG]; uint2 e0 = {0, 0}, e1 = {0, 0};\n"
-	"      if (QUANT == 1)\n"
+	"      if (QUANT == 3)\n"
+	"      {\n"
+	"        /* FP16 dataset: this lane's two pairs of a k-step are 32-bit words at k = 2t and 2t + 8. */\n"
+	"        const unsigned short *p0 = (const unsigned short *) (data + (unsigned long long) r0 * rowBytes) + seg * 16 + 2 * t;\n"
+	"        const unsigned short *p1 = (const unsigned short *) (data + (unsigned long long) r1 * rowBytes) + seg * 16 + 2 * t;\n"
+	"#pragma unroll\n"
+	"        for (int k = 0; k < KSEG; k++)\n"
+	"          if (seg + k < blocks)\n"
+	"          {\n"
+	"            w0[k].x = *(const unsigned *) (p0 + k * 16); w0[k].y = *(const unsigned *) (p0 + k * 16 + 8);\n"
+	"            w1[k].x = *(const unsigned *) (p1 + k * 16); w1[k].y = *(const unsigned *) (p1 + k * 16 + 8);\n"
+	"          }\n"
+	"      }\n"
+	"      else if (QUANT == 4)\n"
+	"      {\n"
+	"        /* FP32 dataset: float pairs, converted to half2 at use. */\n"
+	"        const float2 *p0 = (const float2 *) (data + (unsigned long long) r0 * rowBytes) + seg * 8 + t;\n"
+	"        const float2 *p1 = (const float2 *) (data + (unsigned long long) r1 * rowBytes) + seg * 8 + t;\n"
+	"#pragma unroll\n"
+	"        for (int k = 0; k < KSEG; k++)\n"
+	"          if (seg + k < blocks)\n"
+	"          {\n"
+	"            float2 a = p0[k * 8], b = p0[k * 8 + 4], c = p1[k * 8], d = p1[k * 8 + 4];\n"
+	"            w0[k].x = f32x2(a.x, a.y); w0[k].y = f32x2(b.x, b.y); w1[k].x = f32x2(c.x, c.y); w1[k].y = f32x2(d.x, d.y);\n"
+	"          }\n"
+	"      }\n"
+	"      else if (QUANT == 1)\n",
 	"      {\n"
 	"        const uint2 *p0 = (const uint2 *) (data + (unsigned long long) r0 * rowBytes) + seg;\n"
 	"        const uint2 *p1 = (const uint2 *) (data + (unsigned long long) r1 * rowBytes) + seg;\n"
@@ -360,10 +388,20 @@ static const char *const BlackwellSource[] = {
 	"          a0 = hmul2(e2m1pair(w0[k].x >> (8 * t)), sc0); a2 = hmul2(e2m1pair(w0[k].y >> (8 * t)), sc0);\n"
 	"          a1 = hmul2(e2m1pair(w1[k].x >> (8 * t)), sc1); a3 = hmul2(e2m1pair(w1[k].y >> (8 * t)), sc1);\n"
 	"        }\n"
-	"        else\n"
+	"        else if (QUANT == 2)\n"
 	"        {\n"
 	"          a0 = e4m3pair(w0[k].x >> (16 * (t & 1))); a2 = e4m3pair(w0[k].y >> (16 * (t & 1)));\n"
 	"          a1 = e4m3pair(w1[k].x >> (16 * (t & 1))); a3 = e4m3pair(w1[k].y >> (16 * (t & 1)));\n"
+	"        }\n"
+	"        else\n"
+	"        { a0 = w0[k].x; a2 = w0[k].y; a1 = w1[k].x; a3 = w1[k].y; }\n"
+	"        /* Dimensions past dims (a dataset's padding) count for nothing. */\n"
+	"        if ((seg + k) * 16 + 16 > dims)\n"
+	"        {\n"
+	"          int d0 = (seg + k) * 16 + 2 * t, d2 = d0 + 8;\n"
+	"          unsigned m0 = d0 + 1 < dims ? 0xffffffffu : d0 < dims ? 0x0000ffffu : 0u;\n"
+	"          unsigned m2 = d2 + 1 < dims ? 0xffffffffu : d2 < dims ? 0x0000ffffu : 0u;\n"
+	"          a0 &= m0; a1 &= m0; a2 &= m2; a3 &= m2;\n"
 	"        }\n"
 	"        nx0 += sumsq2(a0) + sumsq2(a2); nx1 += sumsq2(a1) + sumsq2(a3);\n"
 	"        const unsigned short *qk = qh + (seg + k) * 16 + 2 * t;\n"
@@ -375,7 +413,7 @@ static const char *const BlackwellSource[] = {
 	"    }\n",
 	"    nx0 += __shfl_xor_sync(0xffffffffu, nx0, 1); nx0 += __shfl_xor_sync(0xffffffffu, nx0, 2);\n"
 	"    nx1 += __shfl_xor_sync(0xffffffffu, nx1, 1); nx1 += __shfl_xor_sync(0xffffffffu, nx1, 2);\n"
-	"    float rs0 = rowScales[r0], rs1 = rowScales[r1];\n"
+	"    float rs0 = rowScales ? rowScales[r0] : 1.0f, rs1 = rowScales ? rowScales[r1] : 1.0f;\n"
 	"    /* acc[nt * 4 + c]: c0 (row g, query nt*8 + 2t), c1 (g, +1), c2 (row g + 8, 2t), c3 (g + 8, +1) */\n"
 	"#pragma unroll\n"
 	"    for (int j = 0; j < 8; j++)\n"
@@ -393,7 +431,9 @@ static const char *const BlackwellSource[] = {
 	"    const unsigned *rows, unsigned n, const float *queries, int nq, int dims, float *out) \\\n"
 	"{ score_mma<QUANT>(data, scales, rowScales, rowBytes, blocks, rows, n, queries, nq, dims, out); }\n"
 	"MMA(score_mma_nvfp4, 1)\n"
-	"MMA(score_mma_fp8, 2)\n",
+	"MMA(score_mma_fp8, 2)\n"
+	"MMA(score_mma_half, 3)\n"
+	"MMA(score_mma_float, 4)\n",
 	"/*\n"
 	" * Batched top-32 over a [queries][rows] score matrix. Block (slice, q)\n"
 	" * scans its slice of query q's scores: each warp takes 32 scores a step,\n"
@@ -459,8 +499,8 @@ typedef struct BlackwellModule
 	CUfunction	fp8;
 	CUfunction	searchNvfp4;
 	CUfunction	searchFp8;
-	CUfunction	mma[2];			/* [quant - 1]: score matrix of up to 16
-								 * queries */
+	CUfunction	mma[4];			/* [format - 1]: score matrix of up to 16
+								 * queries from NVFP4, FP8, FP16, FP32 rows */
 	CUfunction	select32;		/* batched top-32 over a score matrix */
 	CUfunction	merge32;
 	int			sms;			/* streaming multiprocessors */
@@ -543,6 +583,8 @@ AnnBlackwellReady(int device)
 		cuModuleGetFunction(&module->searchFp8, module->module, "search_fp8") != CUDA_SUCCESS ||
 		cuModuleGetFunction(&module->mma[0], module->module, "score_mma_nvfp4") != CUDA_SUCCESS ||
 		cuModuleGetFunction(&module->mma[1], module->module, "score_mma_fp8") != CUDA_SUCCESS ||
+		cuModuleGetFunction(&module->mma[2], module->module, "score_mma_half") != CUDA_SUCCESS ||
+		cuModuleGetFunction(&module->mma[3], module->module, "score_mma_float") != CUDA_SUCCESS ||
 		cuModuleGetFunction(&module->select32, module->module, "select32") != CUDA_SUCCESS ||
 		cuModuleGetFunction(&module->merge32, module->module, "merge32") != CUDA_SUCCESS ||
 		cudaDeviceGetAttribute(&module->sms, cudaDevAttrMultiProcessorCount, device) != cudaSuccess)
@@ -578,10 +620,26 @@ unlock:
 void
 AnnBlackwellFree(AnnBlackwellShard *shard)
 {
-	(void) cudaFree(shard->data);
-	(void) cudaFree(shard->scales);
-	(void) cudaFree(shard->rowScales);
+	if (shard->owned)
+	{
+		(void) cudaFree(shard->data);
+		(void) cudaFree(shard->scales);
+		(void) cudaFree(shard->rowScales);
+	}
 	memset(shard, 0, sizeof(*shard));
+}
+
+int
+AnnBlackwellView(const void *dataset, int64_t stride, int half, uint32_t dims, int device, AnnBlackwellShard *out)
+{
+	memset(out, 0, sizeof(*out));
+	if (dataset == NULL || stride < (int64_t) dims || !AnnBlackwellReady(device))
+		return 0;
+	out->quant = half ? ANN_BLACKWELL_HALF : ANN_BLACKWELL_FLOAT;
+	out->data = (uint8_t *) (uintptr_t) dataset;
+	out->rowBytes = (uint32_t) (stride * (half ? 2 : 4));
+	out->blocks = (dims + 15) / 16;
+	return 1;
 }
 
 int
@@ -611,6 +669,7 @@ AnnBlackwellUpload(const AnnIndexFile *file, uint32_t s, int device, AnnBlackwel
 		return 0;
 	}
 	out->quant = file->quant;
+	out->owned = 1;
 	out->rowBytes = file->quantRowBytes;
 	out->blocks = file->quantBlocks;
 	out->bytes = dataBytes + scaleBytes + rows * sizeof(float);
@@ -628,7 +687,8 @@ AnnBlackwellScore(const AnnBlackwellShard *shard, int device, const uint32_t *ro
 
 	if (n == 0)
 		return 1;
-	if (shard->quant == ANN_QUANT_NONE || module->state <= 0 || cuCtxSetCurrent(module->context) != CUDA_SUCCESS)
+	if (shard->quant == ANN_QUANT_NONE || shard->quant >= ANN_BLACKWELL_HALF || module->state <= 0 ||
+		cuCtxSetCurrent(module->context) != CUDA_SUCCESS)
 		return 0;
 	if (shard->quant == ANN_QUANT_NVFP4)
 	{
@@ -729,7 +789,7 @@ AnnBlackwellSearch(const AnnBlackwellShard *shard, int device, unsigned slot, co
 	perBlock = (n + grid - 1) / grid;
 	if ((sc = GetSlot(device, slot, maxBlocks)) == NULL || cuCtxSetCurrent(module->context) != CUDA_SUCCESS)
 		return 0;
-	if (nq == 1)
+	if (nq == 1 && shard->quant < ANN_BLACKWELL_HALF)
 	{
 		function = shard->quant == ANN_QUANT_NVFP4 ? module->searchNvfp4 : module->searchFp8;
 		if (shard->quant == ANN_QUANT_NVFP4)
@@ -754,12 +814,13 @@ AnnBlackwellSearch(const AnnBlackwellShard *shard, int device, unsigned slot, co
 	else
 	{
 		/*
-		 * Several queries: the tensor-core kernel writes every distance to a
-		 * [queries][rows] matrix, select32 keeps each query's best 32 per
-		 * slice of rows, and merge32 folds the slices. About a quarter of the
-		 * SMs' worth of slices was fastest on B200 (1M rows x 16 queries: 113
-		 * us against 165 with one slice per SM): long slices let a warp's
-		 * list fill early and then rarely change, and the merge stays short.
+		 * Several queries (or a lone one over a dataset read in place): the
+		 * tensor-core kernel writes every distance to a [queries][rows]
+		 * matrix, select32 keeps each query's best 32 per slice of rows, and
+		 * merge32 folds the slices. About a quarter of the SMs' worth of
+		 * slices was fastest on B200 (1M rows x 16 queries: 113 us against
+		 * 165 with one slice per SM): long slices let a warp's list fill
+		 * early and then rarely change, and the merge stays short.
 		 */
 		size_t		needed = (size_t) nq * n;
 		unsigned	sgrid = (n + 127) / 128 < maxBlocks ? (n + 127) / 128 : maxBlocks;
@@ -773,6 +834,8 @@ AnnBlackwellSearch(const AnnBlackwellShard *shard, int device, unsigned slot, co
 		perSlice = (n + slices - 1) / slices;
 		if (shard->quant == ANN_QUANT_FP8)
 			blocks = rowBytes / 16;
+		else if (shard->quant >= ANN_BLACKWELL_HALF)
+			blocks = ((unsigned) dims + 15) / 16;
 		if (needed > sc->scoreCapacity)
 		{
 			(void) cudaFree(sc->scores);

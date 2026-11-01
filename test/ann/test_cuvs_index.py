@@ -147,8 +147,8 @@ class CuvsIndexTests(unittest.TestCase):
 
     def test_same_filter_searches_group_exactly(self):
         # Searches over one cached bitmap, pipelined from several connections
-        # so they queue up, are grouped into shared scans on the quantized
-        # index (tensor cores) and batched filtered CAGRA on the FP32 one;
+        # so they queue up, are grouped into shared tensor-core scans (of
+        # the quantized copy, or of the FP32 and FP16 datasets in place);
         # every answer must equal exact SQL, and the stats must show groups.
         import json
         import struct
@@ -156,7 +156,7 @@ class CuvsIndexTests(unittest.TestCase):
         from test_index import search_cached_frame, decode_hits
         rows = self.psql(f"SELECT id, emb::text FROM {self.table} WHERE id % 997 = 0 ORDER BY id LIMIT 8").split('\n')
         queries = [(int(line.split('|')[0]), [float(x) for x in line.split('|')[1].strip('[]').split(',')]) for line in rows]
-        for quant in ['nvfp4', 'float32']:
+        for quant in ['nvfp4', 'float32', 'float16']:
             index = f'{self.table}_{quant}'
             self.psql(f"SELECT ann_filter_bitmap_build('{index}', 'tenant = 7')")
             filter_id = int(self.psql(f"SELECT id FROM ann_filter_bitmap WHERE index_name = '{index}' AND filter = 'tenant = 7'"))
