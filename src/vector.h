@@ -24,7 +24,6 @@ typedef struct Vector
 }			Vector;
 
 Vector	   *InitVector(int dim);
-int			vector_cmp_internal(Vector * a, Vector * b);
 
 /* TODO Move to better place */
 #if PG_VERSION_NUM >= 160000

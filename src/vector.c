@@ -1015,7 +1015,7 @@ subvector(PG_FUNCTION_ARGS)
 /*
  * Internal helper to compare vectors
  */
-int
+static int
 vector_cmp_internal(Vector * a, Vector * b)
 {
 	int			dim = Min(a->dim, b->dim);
