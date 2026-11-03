@@ -98,6 +98,18 @@ SELECT jaccard_distance('1100', '1000');
               0.5
 (1 row)
 
+SELECT jaccard_distance('1000', '0000');
+ jaccard_distance 
+------------------
+                1
+(1 row)
+
+SELECT jaccard_distance('0000', '0000');
+ jaccard_distance 
+------------------
+                1
+(1 row)
+
 SELECT jaccard_distance('10101010101010101010', '01010101010101010101');
  jaccard_distance 
 ------------------
