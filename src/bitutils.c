@@ -124,8 +124,17 @@ BitJaccardDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 		bb += pg_number_of_ones[bx[i]];
 	}
 
+	/*
+	 * An empty intersection means distance 1, unless both vectors are empty:
+	 * two empty sets are identical, so their distance is 0.
+	 */
 	if (ab == 0)
-		return 1;
+	{
+		if (aa == 0 && bb == 0)
+			return 0;
+		else
+			return 1;
+	}
 	else
 		return 1 - (ab / ((double) (aa + bb - ab)));
 }
