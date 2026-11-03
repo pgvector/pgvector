@@ -157,13 +157,13 @@ DROP TABLE t;
 SHOW ivfflat.probes;
  ivfflat.probes 
 ----------------
- 0
+ -1
 (1 row)
 
-SET ivfflat.probes = -1;
-ERROR:  -1 is outside the valid range for parameter "ivfflat.probes" (0 .. 32768)
+SET ivfflat.probes = -2;
+ERROR:  -2 is outside the valid range for parameter "ivfflat.probes" (-1 .. 32768)
 SET ivfflat.probes = 32769;
-ERROR:  32769 is outside the valid range for parameter "ivfflat.probes" (0 .. 32768)
+ERROR:  32769 is outside the valid range for parameter "ivfflat.probes" (-1 .. 32768)
 SHOW ivfflat.iterative_scan;
  ivfflat.iterative_scan 
 ------------------------

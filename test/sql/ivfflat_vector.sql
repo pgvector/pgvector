@@ -87,7 +87,7 @@ CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 32769);
 DROP TABLE t;
 
 SHOW ivfflat.probes;
-SET ivfflat.probes = -1;
+SET ivfflat.probes = -2;
 SET ivfflat.probes = 32769;
 
 SHOW ivfflat.iterative_scan;

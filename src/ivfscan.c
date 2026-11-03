@@ -270,6 +270,9 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	probes = IvfflatGetProbes(lists);
 
+	if (probes == 0)
+		elog(ERROR, "No probes");
+
 	if (ivfflat_iterative_scan != IVFFLAT_ITERATIVE_SCAN_OFF)
 		maxProbes = Max(ivfflat_max_probes, probes);
 	else

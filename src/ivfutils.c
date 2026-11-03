@@ -74,7 +74,7 @@ IvfflatGetProbes(int lists)
 {
 	int			probes = ivfflat_probes;
 
-	if (probes == 0)
+	if (probes == -1)
 		return round(sqrt(lists));
 
 	return probes;

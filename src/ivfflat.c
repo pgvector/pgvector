@@ -52,8 +52,8 @@ IvfflatInit(void)
 					  IVFFLAT_DEFAULT_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, AccessExclusiveLock);
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
-							"Valid range is 0..lists.", &ivfflat_probes,
-							IVFFLAT_DEFAULT_PROBES, 0, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+							"Valid range is -1..lists.", &ivfflat_probes,
+							IVFFLAT_DEFAULT_PROBES, -1, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	DefineCustomEnumVariable("ivfflat.iterative_scan", "Sets the mode for iterative scans",
 							 NULL, &ivfflat_iterative_scan,
@@ -106,7 +106,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	double		spc_seq_page_cost;
 
 	/* Never use index without order */
-	if (path->indexorderbys == NIL)
+	if (path->indexorderbys == NIL || ivfflat_probes == 0)
 	{
 		*indexStartupCost = get_float8_infinity();
 		*indexTotalCost = get_float8_infinity();
