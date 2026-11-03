@@ -53,7 +53,7 @@ typedef Pointer Item;
 #define IVFFLAT_DEFAULT_LISTS	100
 #define IVFFLAT_MIN_LISTS		1
 #define IVFFLAT_MAX_LISTS		32768
-#define IVFFLAT_DEFAULT_PROBES	1
+#define IVFFLAT_DEFAULT_PROBES	0
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
@@ -339,6 +339,7 @@ bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
 void		IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray arr, MemoryContext tmpCtx);
 void		IvfflatCheckMemoryUsage(Size totalSize);
 int			IvfflatGetLists(Relation index);
+int			IvfflatGetProbes(int lists);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);
 void		IvfflatUpdateList(Relation index, ListInfo listInfo, BlockNumber insertPage, BlockNumber originalInsertPage, BlockNumber startPage, ForkNumber forkNum);
 void		IvfflatCommitBuffer(Buffer buf, GenericXLogState *state);

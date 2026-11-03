@@ -52,8 +52,8 @@ IvfflatInit(void)
 					  IVFFLAT_DEFAULT_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, AccessExclusiveLock);
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
-							"Valid range is 1..lists.", &ivfflat_probes,
-							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+							"Valid range is 0..lists.", &ivfflat_probes,
+							IVFFLAT_DEFAULT_PROBES, 0, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	DefineCustomEnumVariable("ivfflat.iterative_scan", "Sets the mode for iterative scans",
 							 NULL, &ivfflat_iterative_scan,
@@ -135,7 +135,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 		lists = IVFFLAT_DEFAULT_LISTS;
 
 	/* Get the ratio of lists that we need to visit */
-	ratio = ((double) ivfflat_probes) / lists;
+	ratio = (double) IvfflatGetProbes(lists) / lists;
 	if (ratio > 1.0)
 		ratio = 1.0;
 

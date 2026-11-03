@@ -67,6 +67,20 @@ IvfflatGetLists(Relation index)
 }
 
 /*
+ * Get the number of probes
+ */
+int
+IvfflatGetProbes(int lists)
+{
+	int			probes = ivfflat_probes;
+
+	if (probes == 0)
+		return round(sqrt(lists));
+
+	return probes;
+}
+
+/*
  * Get proc
  */
 FmgrInfo *

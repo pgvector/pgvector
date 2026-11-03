@@ -259,7 +259,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	IvfflatScanOpaque so;
 	int			lists;
 	int			dimensions;
-	int			probes = ivfflat_probes;
+	int			probes;
 	int			maxProbes;
 	MemoryContext oldCtx;
 
@@ -267,6 +267,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	/* Get lists and dimensions from metapage */
 	IvfflatGetMetaPageInfo(index, &lists, &dimensions);
+
+	probes = IvfflatGetProbes(lists);
 
 	if (ivfflat_iterative_scan != IVFFLAT_ITERATIVE_SCAN_OFF)
 		maxProbes = Max(ivfflat_max_probes, probes);
