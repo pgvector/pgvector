@@ -326,18 +326,6 @@ vector_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * Print vector - useful for debugging
- */
-void
-PrintVector(char *msg, Vector * vector)
-{
-	char	   *out = DatumGetPointer(DirectFunctionCall1(vector_out, PointerGetDatum(vector)));
-
-	elog(INFO, "%s = %s", msg, out);
-	pfree(out);
-}
-
-/*
  * Convert type modifier
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(vector_typmod_in);

@@ -24,7 +24,6 @@ typedef struct Vector
 }			Vector;
 
 Vector	   *InitVector(int dim);
-void		PrintVector(char *msg, Vector * vector);
 int			vector_cmp_internal(Vector * a, Vector * b);
 
 /* TODO Move to better place */
