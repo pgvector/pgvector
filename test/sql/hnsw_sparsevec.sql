@@ -66,3 +66,9 @@ TRUNCATE t;
 CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
 INSERT INTO t (val) VALUES (array_fill(1, ARRAY[1001])::vector::sparsevec);
 DROP TABLE t;
+
+CREATE TABLE t (val sparsevec(16000));
+CREATE INDEX ON t USING hnsw (val sparsevec_l2_ops);
+INSERT INTO t (val) VALUES ('{}/16000'), ('{1:1}/16000');
+SELECT * FROM t ORDER BY val <-> array_fill(1, ARRAY[16000])::vector::sparsevec;
+DROP TABLE t;
