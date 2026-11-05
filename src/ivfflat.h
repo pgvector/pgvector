@@ -271,6 +271,12 @@ typedef struct IvfflatScanList
 	double		distance;
 }			IvfflatScanList;
 
+typedef struct IvfflatScanItem
+{
+	double		distance;
+	ItemPointerData heaptid;
+}			IvfflatScanItem;
+
 typedef struct IvfflatScanOpaqueData
 {
 	const		IvfflatTypeInfo *typeInfo;
@@ -280,6 +286,13 @@ typedef struct IvfflatScanOpaqueData
 	bool		first;
 	Datum		value;
 	MemoryContext tmpCtx;
+
+	/* Heap of items (used instead of sorting when it fits in work_mem) */
+	IvfflatScanItem *items;
+	int			itemsLength;
+	int			itemsCapacity;
+	int			itemsLimit;
+	bool		useSort;
 
 	/* Sorting */
 	Tuplesortstate *sortstate;

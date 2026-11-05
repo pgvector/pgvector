@@ -14,6 +14,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
+#include "utils/float.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/snapmgr.h"
@@ -117,6 +118,98 @@ GetScanLists(IndexScanDesc scan, Datum value)
 	Assert(pairingheap_is_empty(so->listQueue));
 }
 
+/* Initial number of items to allocate */
+#define IVFFLAT_INITIAL_ITEMS 1024
+
+/*
+ * Move an item down the heap to restore heap order
+ */
+static void
+SiftDownItem(IvfflatScanItem * items, int length, int i)
+{
+	IvfflatScanItem item = items[i];
+
+	for (;;)
+	{
+		int			child = 2 * i + 1;
+
+		if (child >= length)
+			break;
+
+		if (child + 1 < length && float8_lt(items[child + 1].distance, items[child].distance))
+			child++;
+
+		if (!float8_lt(items[child].distance, item.distance))
+			break;
+
+		items[i] = items[child];
+		i = child;
+	}
+
+	items[i] = item;
+}
+
+/*
+ * Add an item to the sort state
+ */
+static void
+SortItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
+{
+	TupleTableSlot *slot = so->vslot;
+
+	ExecClearTuple(slot);
+	slot->tts_values[0] = Float8GetDatum(distance);
+	slot->tts_isnull[0] = false;
+	slot->tts_values[1] = PointerGetDatum(heaptid);
+	slot->tts_isnull[1] = false;
+	ExecStoreVirtualTuple(slot);
+
+	tuplesort_puttupleslot(so->sortstate, slot);
+}
+
+/*
+ * Add an item
+ *
+ * Items are kept in an array that is turned into a heap (only the closest
+ * items are typically needed), unless they do not fit in work_mem
+ */
+static inline void
+AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
+{
+	if (!so->useSort && so->itemsLength == so->itemsCapacity)
+	{
+		if (so->itemsCapacity < so->itemsLimit)
+		{
+			so->itemsCapacity = Min(so->itemsCapacity * 2, so->itemsLimit);
+			so->items = repalloc(so->items, sizeof(IvfflatScanItem) * so->itemsCapacity);
+		}
+		else
+		{
+			/* Sort instead, which can spill to disk */
+			for (int i = 0; i < so->itemsLength; i++)
+				SortItem(so, so->items[i].distance, &so->items[i].heaptid);
+
+			so->itemsLength = 0;
+			so->useSort = true;
+
+			/* Free memory used by items */
+			pfree(so->items);
+			so->itemsCapacity = Min(so->itemsLimit, IVFFLAT_INITIAL_ITEMS);
+			so->items = palloc_array_checked(IvfflatScanItem, so->itemsCapacity);
+		}
+	}
+
+	if (so->useSort)
+		SortItem(so, distance, heaptid);
+	else
+	{
+		IvfflatScanItem *item = &so->items[so->itemsLength++];
+
+		item->distance = distance;
+		item->heaptid = *heaptid;
+	}
+}
+
 /*
  * Get items
  */
@@ -125,10 +218,11 @@ GetScanItems(IndexScanDesc scan, Datum value)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
-	TupleTableSlot *slot = so->vslot;
 	int			batchProbes = 0;
 
 	tuplesort_reset(so->sortstate);
+	so->itemsLength = 0;
+	so->useSort = false;
 
 	/* Search closest probes lists */
 	while (so->listIndex < so->maxProbes && (++batchProbes) <= so->probes)
@@ -158,19 +252,10 @@ GetScanItems(IndexScanDesc scan, Datum value)
 				datum = index_getattr(itup, 1, tupdesc, &isnull);
 
 				/*
-				 * Add virtual tuple
-				 *
 				 * Use procinfo from the index instead of scan key for
 				 * performance
 				 */
-				ExecClearTuple(slot);
-				slot->tts_values[0] = so->distfunc(so->procinfo, so->collation, datum, value);
-				slot->tts_isnull[0] = false;
-				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
-				slot->tts_isnull[1] = false;
-				ExecStoreVirtualTuple(slot);
-
-				tuplesort_puttupleslot(so->sortstate, slot);
+				AddScanItem(so, DatumGetFloat8(so->distfunc(so->procinfo, so->collation, datum, value)), &itup->t_tid);
 			}
 
 			searchPage = IvfflatPageGetOpaque(page)->nextblkno;
@@ -179,7 +264,14 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		}
 	}
 
-	tuplesort_performsort(so->sortstate);
+	if (so->useSort)
+		tuplesort_performsort(so->sortstate);
+	else
+	{
+		/* Build heap */
+		for (int i = so->itemsLength / 2 - 1; i >= 0; i--)
+			SiftDownItem(so->items, so->itemsLength, i);
+	}
 
 #if defined(IVFFLAT_MEMORY)
 	elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
@@ -320,6 +412,17 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	 */
 	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
+	/*
+	 * Items that fit in half of work_mem, so memory stays within 1.5 times
+	 * work_mem when moving items to the sort
+	 */
+	so->itemsLimit = (int) Min((double) work_mem * 1024 / 2 / sizeof(IvfflatScanItem), MaxAllocSize / sizeof(IvfflatScanItem));
+	so->itemsLimit = Max(so->itemsLimit, 1);
+	so->itemsCapacity = Min(so->itemsLimit, IVFFLAT_INITIAL_ITEMS);
+	so->items = palloc_array_checked(IvfflatScanItem, so->itemsCapacity);
+	so->itemsLength = 0;
+	so->useSort = false;
+
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
 	so->listPages = palloc_array_checked(BlockNumber, maxProbes);
 	so->listIndex = 0;
@@ -400,17 +503,32 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->value = value;
 	}
 
-	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
+	for (;;)
 	{
+		if (so->useSort)
+		{
+			if (tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
+			{
+				heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
+				scan->xs_heaptid = *heaptid;
+				break;
+			}
+		}
+		else if (so->itemsLength > 0)
+		{
+			/* Remove closest item from heap */
+			scan->xs_heaptid = so->items[0].heaptid;
+			so->items[0] = so->items[--so->itemsLength];
+			SiftDownItem(so->items, so->itemsLength, 0);
+			break;
+		}
+
 		if (so->listIndex == so->maxProbes)
 			return false;
 
 		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
 	}
 
-	heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
-
-	scan->xs_heaptid = *heaptid;
 	scan->xs_recheck = false;
 	scan->xs_recheckorderby = false;
 	return true;
