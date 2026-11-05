@@ -140,3 +140,27 @@ SELECT l2_normalize('{}/2'::sparsevec);
 SELECT l2_normalize('{1:3e38}/1'::sparsevec);
 SELECT l2_normalize('{1:3e38,2:1e-37}/2'::sparsevec);
 SELECT l2_normalize('{2:3e37,4:3e-37,6:4e37,8:4e-37}/9'::sparsevec);
+
+-- inner product with many non-zero elements (values are small integers, so the sums are exact)
+CREATE TABLE sparse_cases (id int, a int[], b int[]);
+INSERT INTO sparse_cases VALUES
+	(1, ARRAY(SELECT generate_series(1, 39, 2)), ARRAY(SELECT generate_series(2, 40, 2))),
+	(2, ARRAY(SELECT generate_series(1, 8)), ARRAY(SELECT generate_series(1, 8))),
+	(3, ARRAY(SELECT generate_series(1, 9)), ARRAY(SELECT generate_series(1, 9))),
+	(4, ARRAY(SELECT generate_series(2, 200, 2)), ARRAY(SELECT generate_series(3, 300, 3))),
+	(5, ARRAY(SELECT generate_series(1, 8)), ARRAY(SELECT generate_series(8, 15))),
+	(6, ARRAY(SELECT generate_series(1, 120, 3)), ARRAY(SELECT generate_series(1, 120, 5))),
+	(7, ARRAY(SELECT generate_series(1, 500)), ARRAY(SELECT generate_series(250, 750))),
+	(8, ARRAY[]::int[], ARRAY(SELECT generate_series(1, 10)));
+
+WITH v AS (
+	SELECT id, a, b,
+		('{' || coalesce((SELECT string_agg(i || ':' || (i % 5 + 1), ',' ORDER BY i) FROM unnest(a) i), '') || '}/1000')::sparsevec AS sa,
+		('{' || coalesce((SELECT string_agg(i || ':' || (i % 5 + 1), ',' ORDER BY i) FROM unnest(b) i), '') || '}/1000')::sparsevec AS sb
+	FROM sparse_cases
+)
+SELECT id, -(sa <#> sb) AS inner_product,
+	sa <#> sb = -(SELECT coalesce(sum((i % 5 + 1) * (i % 5 + 1)), 0) FROM unnest(a) i WHERE i = ANY(b)) AS ok
+FROM v ORDER BY id;
+
+DROP TABLE sparse_cases;
