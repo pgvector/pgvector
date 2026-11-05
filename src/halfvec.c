@@ -737,7 +737,11 @@ halfvec_l2_normalize(PG_FUNCTION_ARGS)
 
 	/* Auto-vectorized */
 	for (int i = 0; i < a->dim; i++)
-		norm += (double) HalfToFloat4(ax[i]) * (double) HalfToFloat4(ax[i]);
+	{
+		double		axi = (double) HalfToFloat4(ax[i]);
+
+		norm += axi * axi;
+	}
 
 	norm = sqrt(norm);
 
