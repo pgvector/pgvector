@@ -8,6 +8,11 @@
 #include "storage/bufmgr.h"
 #include "utils/relcache.h"
 
+#if PG_VERSION_NUM >= 200000
+#include "commands/progress.h"
+#include "utils/backend_progress.h"
+#endif
+
 #if PG_VERSION_NUM >= 180000
 #define vacuum_delay_point() vacuum_delay_point(false)
 #endif
@@ -22,9 +27,24 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	Relation	index = info->index;
 	BlockNumber blkno = IVFFLAT_HEAD_BLKNO;
 	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
+	BlockNumber totalBlocks = InvalidBlockNumber;	/* avoid compiler warning */
+	int64		scannedBlocks = IVFFLAT_HEAD_BLKNO;
+#if PG_VERSION_NUM >= 200000
+	bool		reportProgress = info->report_progress;
+#else
+	bool		reportProgress = message_level_is_interesting(DEBUG1);
+#endif
 
 	if (stats == NULL)
 		stats = palloc0_object(IndexBulkDeleteResult);
+
+	if (reportProgress)
+	{
+		totalBlocks = RelationGetNumberOfBlocks(index);
+#if PG_VERSION_NUM >= 200000
+		pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_TOTAL, totalBlocks);
+#endif
+	}
 
 	/* Iterate over list pages */
 	while (BlockNumberIsValid(blkno))
@@ -54,6 +74,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		blkno = IvfflatPageGetOpaque(cpage)->nextblkno;
 
 		UnlockReleaseBuffer(cbuf);
+
+		scannedBlocks++;
 
 		for (coffno = FirstOffsetNumber; coffno <= cmaxoffno; coffno = OffsetNumberNext(coffno))
 		{
@@ -121,6 +143,20 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 					GenericXLogAbort(state);
 
 				UnlockReleaseBuffer(buf);
+
+				/* Update progress */
+				/* No need to update total blocks since new blocks are quick */
+				if (reportProgress)
+				{
+					scannedBlocks++;
+
+#if PG_VERSION_NUM >= 200000
+					pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_DONE, Min(scannedBlocks, totalBlocks));
+#else
+					if (scannedBlocks == totalBlocks || (scannedBlocks % 1000000 == 0 && scannedBlocks < totalBlocks))
+						elog(DEBUG1, "ivfflat vacuum progress: %.1f%%", 100.0 * Min(scannedBlocks, totalBlocks) / totalBlocks);
+#endif
+				}
 			}
 
 			/*
