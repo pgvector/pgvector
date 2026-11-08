@@ -18,6 +18,20 @@
 #endif
 
 /*
+ * Update progress
+ */
+static inline void
+UpdateProgress(int64 scannedBlocks, BlockNumber totalBlocks)
+{
+#if PG_VERSION_NUM >= 200000
+	pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_DONE, Min(scannedBlocks, totalBlocks));
+#else
+	if (scannedBlocks == totalBlocks || (scannedBlocks % 1000000 == 0 && scannedBlocks < totalBlocks))
+		elog(DEBUG1, "ivfflat vacuum progress: %.1f%%", 100.0 * Min(scannedBlocks, totalBlocks) / totalBlocks);
+#endif
+}
+
+/*
  * Bulk delete tuples from the index
  */
 IndexBulkDeleteResult *
@@ -75,7 +89,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 		UnlockReleaseBuffer(cbuf);
 
-		scannedBlocks++;
+		if (reportProgress)
+			UpdateProgress(++scannedBlocks, totalBlocks);
 
 		for (coffno = FirstOffsetNumber; coffno <= cmaxoffno; coffno = OffsetNumberNext(coffno))
 		{
@@ -144,19 +159,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 				UnlockReleaseBuffer(buf);
 
-				/* Update progress */
-				/* No need to update total blocks since new blocks are quick */
 				if (reportProgress)
-				{
-					scannedBlocks++;
-
-#if PG_VERSION_NUM >= 200000
-					pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_DONE, Min(scannedBlocks, totalBlocks));
-#else
-					if (scannedBlocks == totalBlocks || (scannedBlocks % 1000000 == 0 && scannedBlocks < totalBlocks))
-						elog(DEBUG1, "ivfflat vacuum progress: %.1f%%", 100.0 * Min(scannedBlocks, totalBlocks) / totalBlocks);
-#endif
-				}
+					UpdateProgress(++scannedBlocks, totalBlocks);
 			}
 
 			/*
