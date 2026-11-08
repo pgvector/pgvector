@@ -387,7 +387,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
-	BlockNumber totalBlocks;
+	BlockNumber totalBlocks = InvalidBlockNumber;	/* avoid compiler warning */
 #if PG_VERSION_NUM >= 200000
 	bool		reportProgress = vacuumstate->info->report_progress;
 #else
