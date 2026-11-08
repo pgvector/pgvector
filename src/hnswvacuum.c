@@ -15,6 +15,11 @@
 #include "varatt.h"
 #endif
 
+#if PG_VERSION_NUM >= 200000
+#include "commands/progress.h"
+#include "utils/backend_progress.h"
+#endif
+
 #if PG_VERSION_NUM >= 180000
 #define vacuum_delay_point() vacuum_delay_point(false)
 #endif
@@ -382,6 +387,12 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
+	BlockNumber totalBlocks;
+#if PG_VERSION_NUM >= 200000
+	bool		reportProgress = vacuumstate->info->report_progress;
+#else
+	bool		reportProgress = message_level_is_interesting(DEBUG1);
+#endif
 
 	/*
 	 * Wait for inserts to complete. Inserts before this point may have
@@ -392,6 +403,14 @@ RepairGraph(HnswVacuumState * vacuumstate)
 
 	/* Repair entry point first */
 	RepairGraphEntryPoint(vacuumstate);
+
+	if (reportProgress)
+	{
+		totalBlocks = RelationGetNumberOfBlocks(index);
+#if PG_VERSION_NUM >= 200000
+		pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_TOTAL, totalBlocks);
+#endif
+	}
 
 	while (BlockNumberIsValid(blkno))
 	{
@@ -490,15 +509,20 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		MemoryContextSwitchTo(oldCtx);
 		MemoryContextReset(vacuumstate->tmpCtx);
 
-#ifdef HNSW_VACUUM_PROGRESS
-		if (!BlockNumberIsValid(blkno) || (blkno - HNSW_HEAD_BLKNO) % 1000 == 0)
+		/* Update progress */
+		/* No need to update total blocks since new blocks are quick */
+		if (reportProgress)
 		{
-			BlockNumber totalBlocks = RelationGetNumberOfBlocks(index);
-			BlockNumber currentBlocks = BlockNumberIsValid(blkno) ? blkno : totalBlocks;
+			BlockNumber currentBlocks = BlockNumberIsValid(blkno) && blkno < totalBlocks ? blkno : totalBlocks;
 
-			elog(INFO, "hnsw vacuum progress: %.1f%%", 100.0 * currentBlocks / totalBlocks);
-		}
+#if PG_VERSION_NUM >= 200000
+			pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_DONE, currentBlocks);
+#else
+			/* Check blkno instead of currentBlocks to avoid extra logging */
+			if (!BlockNumberIsValid(blkno) || (blkno % 1000 == 0 && blkno < totalBlocks))
+				elog(DEBUG1, "hnsw vacuum progress: %.1f%%", 100.0 * currentBlocks / totalBlocks);
 #endif
+		}
 	}
 }
 
@@ -851,6 +875,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 		stats = palloc0_object(IndexBulkDeleteResult);
 
 	vacuumstate->index = index;
+	vacuumstate->info = info;
 	vacuumstate->stats = stats;
 	vacuumstate->callback = callback;
 	vacuumstate->callback_state = callback_state;
