@@ -290,6 +290,12 @@ typedef struct IvfflatScanOpaqueData
 	Datum		value;
 	MemoryContext tmpCtx;
 
+	/* Stream */
+#ifdef IVFFLAT_USE_READ_STREAM
+	ReadStream *stream;
+	BlockRangeReadStreamPrivate streamData;
+#endif
+
 	/* Sorting */
 	Tuplesortstate *sortstate;
 	TupleDesc	tupdesc;
@@ -306,10 +312,6 @@ typedef struct IvfflatScanOpaqueData
 	pairingheap *listQueue;
 	int			listIndex;
 	IvfflatScanList *lists;
-#ifdef IVFFLAT_USE_READ_STREAM
-	ReadStream *stream;
-	BlockRangeReadStreamPrivate streamData;
-#endif
 }			IvfflatScanOpaqueData;
 
 typedef IvfflatScanOpaqueData * IvfflatScanOpaque;
