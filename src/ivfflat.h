@@ -15,6 +15,14 @@
 #include "utils/tuplesort.h"
 #include "vector.h"
 
+#if PG_VERSION_NUM >= 180000
+#define IVFFLAT_USE_READ_STREAM
+#endif
+
+#ifdef IVFFLAT_USE_READ_STREAM
+#include "storage/read_stream.h"
+#endif
+
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
 #endif
@@ -268,6 +276,7 @@ typedef struct IvfflatScanList
 {
 	pairingheap_node ph_node;
 	BlockNumber startPage;
+	BlockNumber lastContiguousPage;
 	double		distance;
 }			IvfflatScanList;
 
@@ -295,9 +304,12 @@ typedef struct IvfflatScanOpaqueData
 
 	/* Lists */
 	pairingheap *listQueue;
-	BlockNumber *listPages;
 	int			listIndex;
 	IvfflatScanList *lists;
+#ifdef IVFFLAT_USE_READ_STREAM
+	ReadStream *stream;
+	BlockRangeReadStreamPrivate streamData;
+#endif
 }			IvfflatScanOpaqueData;
 
 typedef IvfflatScanOpaqueData * IvfflatScanOpaque;

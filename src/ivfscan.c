@@ -19,6 +19,10 @@
 #include "utils/snapmgr.h"
 #include "utils/tuplesort.h"
 
+#ifdef IVFFLAT_USE_READ_STREAM
+#include "storage/read_stream.h"
+#endif
+
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
 #endif
@@ -42,6 +46,21 @@ CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 }
 
 /*
+ * Compare list distances for sort
+ */
+static int
+CompareListsSort(const void *a, const void *b)
+{
+	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
+		return -1;
+
+	if (((const IvfflatScanList *) a)->distance > ((const IvfflatScanList *) b)->distance)
+		return 1;
+
+	return 0;
+}
+
+/*
  * Get lists and sort by distance
  */
 static void
@@ -51,6 +70,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 	BlockNumber nextblkno = IVFFLAT_HEAD_BLKNO;
 	int			listCount = 0;
 	double		maxDistance = DBL_MAX;
+	IvfflatScanList *prevscanlist = NULL;
 
 	/* Search all list pages */
 	while (BlockNumberIsValid(nextblkno))
@@ -68,17 +88,20 @@ GetScanLists(IndexScanDesc scan, Datum value)
 		for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
 		{
 			IvfflatList list = (IvfflatList) PageGetItem(cpage, PageGetItemId(cpage, offno));
+			IvfflatScanList *scanlist = NULL;
 			double		distance;
 
 			/* Use procinfo from the index instead of scan key for performance */
 			distance = DatumGetFloat8(so->distfunc(so->procinfo, so->collation, PointerGetDatum(&list->center), value));
 
+			if (prevscanlist != NULL)
+				prevscanlist->lastContiguousPage = list->startPage - 1;
+
 			if (listCount < so->maxProbes)
 			{
-				IvfflatScanList *scanlist;
-
 				scanlist = &so->lists[listCount];
 				scanlist->startPage = list->startPage;
+				scanlist->lastContiguousPage = list->startPage;
 				scanlist->distance = distance;
 				listCount++;
 
@@ -91,19 +114,20 @@ GetScanLists(IndexScanDesc scan, Datum value)
 			}
 			else if (distance < maxDistance)
 			{
-				IvfflatScanList *scanlist;
-
 				/* Remove */
 				scanlist = GetScanList(pairingheap_remove_first(so->listQueue));
 
 				/* Reuse */
 				scanlist->startPage = list->startPage;
+				scanlist->lastContiguousPage = list->startPage;
 				scanlist->distance = distance;
 				pairingheap_add(so->listQueue, &scanlist->ph_node);
 
 				/* Update max distance */
 				maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
 			}
+
+			prevscanlist = scanlist;
 		}
 
 		nextblkno = IvfflatPageGetOpaque(cpage)->nextblkno;
@@ -111,10 +135,45 @@ GetScanLists(IndexScanDesc scan, Datum value)
 		UnlockReleaseBuffer(cbuf);
 	}
 
-	for (int i = listCount - 1; i >= 0; i--)
-		so->listPages[i] = GetScanList(pairingheap_remove_first(so->listQueue))->startPage;
+	qsort(so->lists, listCount, sizeof(IvfflatScanList), CompareListsSort);
+}
 
-	Assert(pairingheap_is_empty(so->listQueue));
+/*
+ * Get page items
+ */
+static void
+GetScanPageItems(IndexScanDesc scan, Datum value, Page page)
+{
+	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
+	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
+	TupleTableSlot *slot = so->vslot;
+	OffsetNumber maxoffno;
+
+	maxoffno = PageGetMaxOffsetNumber(page);
+
+	for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
+	{
+		IndexTuple	itup;
+		Datum		datum;
+		bool		isnull;
+
+		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
+		datum = index_getattr(itup, 1, tupdesc, &isnull);
+
+		/*
+		 * Add virtual tuple
+		 *
+		 * Use procinfo from the index instead of scan key for performance
+		 */
+		ExecClearTuple(slot);
+		slot->tts_values[0] = so->distfunc(so->procinfo, so->collation, datum, value);
+		slot->tts_isnull[0] = false;
+		slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
+		slot->tts_isnull[1] = false;
+		ExecStoreVirtualTuple(slot);
+
+		tuplesort_puttupleslot(so->sortstate, slot);
+	}
 }
 
 /*
@@ -124,8 +183,6 @@ static void
 GetScanItems(IndexScanDesc scan, Datum value)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
-	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
-	TupleTableSlot *slot = so->vslot;
 	int			batchProbes = 0;
 
 	tuplesort_reset(so->sortstate);
@@ -133,45 +190,50 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	/* Search closest probes lists */
 	while (so->listIndex < so->maxProbes && (++batchProbes) <= so->probes)
 	{
-		BlockNumber searchPage = so->listPages[so->listIndex++];
+		IvfflatScanList *scanlist = &so->lists[so->listIndex++];
+		BlockNumber searchPage;
 
-		/* Search all entry pages for list */
+#ifdef IVFFLAT_USE_READ_STREAM
+		searchPage = InvalidBlockNumber;
+		so->streamData.current_blocknum = scanlist->startPage;
+		so->streamData.last_exclusive = scanlist->lastContiguousPage + 1;
+		read_stream_reset(so->stream);
+
+		/* Search contiguous entry pages for list */
+		for (;;)
+		{
+			Buffer		buf;
+			Page		page;
+
+			buf = read_stream_next_buffer(so->stream, NULL);
+			if (!BufferIsValid(buf))
+				break;
+
+			LockBuffer(buf, BUFFER_LOCK_SHARE);
+			page = BufferGetPage(buf);
+
+			GetScanPageItems(scan, value, page);
+
+			if (BufferGetBlockNumber(buf) == scanlist->lastContiguousPage)
+				searchPage = IvfflatPageGetOpaque(page)->nextblkno;
+
+			UnlockReleaseBuffer(buf);
+		}
+#else
+		searchPage = scanlist->startPage;
+#endif
+
+		/* Search remaining entry pages for list */
 		while (BlockNumberIsValid(searchPage))
 		{
 			Buffer		buf;
 			Page		page;
-			OffsetNumber maxoffno;
 
 			buf = ReadBuffer(scan->indexRelation, searchPage);
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
-			maxoffno = PageGetMaxOffsetNumber(page);
 
-			for (OffsetNumber offno = FirstOffsetNumber; offno <= maxoffno; offno = OffsetNumberNext(offno))
-			{
-				IndexTuple	itup;
-				Datum		datum;
-				bool		isnull;
-				ItemId		itemid = PageGetItemId(page, offno);
-
-				itup = (IndexTuple) PageGetItem(page, itemid);
-				datum = index_getattr(itup, 1, tupdesc, &isnull);
-
-				/*
-				 * Add virtual tuple
-				 *
-				 * Use procinfo from the index instead of scan key for
-				 * performance
-				 */
-				ExecClearTuple(slot);
-				slot->tts_values[0] = so->distfunc(so->procinfo, so->collation, datum, value);
-				slot->tts_isnull[0] = false;
-				slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
-				slot->tts_isnull[1] = false;
-				ExecStoreVirtualTuple(slot);
-
-				tuplesort_puttupleslot(so->sortstate, slot);
-			}
+			GetScanPageItems(scan, value, page);
 
 			searchPage = IvfflatPageGetOpaque(page)->nextblkno;
 
@@ -314,9 +376,12 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
-	so->listPages = palloc_array_checked(BlockNumber, maxProbes);
 	so->listIndex = 0;
 	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
+
+#ifdef IVFFLAT_USE_READ_STREAM
+	so->stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, block_range_read_stream_cb, &so->streamData, 0);
+#endif
 
 	MemoryContextSwitchTo(oldCtx);
 
@@ -419,6 +484,10 @@ ivfflatendscan(IndexScanDesc scan)
 
 	/* Free any temporary files */
 	tuplesort_end(so->sortstate);
+
+#ifdef IVFFLAT_USE_READ_STREAM
+	read_stream_end(so->stream);
+#endif
 
 	MemoryContextDelete(so->tmpCtx);
 
