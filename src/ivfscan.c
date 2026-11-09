@@ -142,7 +142,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 			Page		page;
 			OffsetNumber maxoffno;
 
-			buf = ReadBufferExtended(scan->indexRelation, MAIN_FORKNUM, searchPage, RBM_NORMAL, so->bas);
+			buf = ReadBuffer(scan->indexRelation, searchPage);
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 			page = BufferGetPage(buf);
 			maxoffno = PageGetMaxOffsetNumber(page);
@@ -312,13 +312,6 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	/* Need separate slots for puttuple and gettuple */
 	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
 	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
-
-	/*
-	 * Reuse same set of shared buffers for scan
-	 *
-	 * See postgres/src/backend/storage/buffer/README for description
-	 */
-	so->bas = GetAccessStrategy(BAS_BULKREAD);
 
 	so->listQueue = pairingheap_allocate(CompareLists, scan);
 	so->listPages = palloc_array_checked(BlockNumber, maxProbes);

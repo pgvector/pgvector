@@ -286,7 +286,6 @@ typedef struct IvfflatScanOpaqueData
 	TupleDesc	tupdesc;
 	TupleTableSlot *vslot;
 	TupleTableSlot *mslot;
-	BufferAccessStrategy bas;
 
 	/* Support functions */
 	FmgrInfo   *procinfo;
