@@ -379,6 +379,22 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 }
 
 /*
+ * Update progress
+ *
+ * No need to update total blocks since new blocks are quick
+ */
+static inline void
+UpdateProgress(int64 scannedBlocks, BlockNumber totalBlocks)
+{
+#if PG_VERSION_NUM >= 200000
+	pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_DONE, Min(scannedBlocks, totalBlocks));
+#else
+	if (scannedBlocks == totalBlocks || (scannedBlocks % 1000 == 0 && scannedBlocks < totalBlocks))
+		elog(DEBUG1, "hnsw vacuum progress: %.1f%%", 100.0 * Min(scannedBlocks, totalBlocks) / totalBlocks);
+#endif
+}
+
+/*
  * Repair graph for all elements
  */
 static void
@@ -388,6 +404,7 @@ RepairGraph(HnswVacuumState * vacuumstate)
 	BufferAccessStrategy bas = vacuumstate->bas;
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 	BlockNumber totalBlocks = InvalidBlockNumber;	/* avoid compiler warning */
+	int64		scannedBlocks = HNSW_HEAD_BLKNO;
 #if PG_VERSION_NUM >= 200000
 	bool		reportProgress = vacuumstate->info->report_progress;
 #else
@@ -510,19 +527,8 @@ RepairGraph(HnswVacuumState * vacuumstate)
 		MemoryContextReset(vacuumstate->tmpCtx);
 
 		/* Update progress */
-		/* No need to update total blocks since new blocks are quick */
 		if (reportProgress)
-		{
-			BlockNumber currentBlocks = BlockNumberIsValid(blkno) && blkno < totalBlocks ? blkno : totalBlocks;
-
-#if PG_VERSION_NUM >= 200000
-			pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_DONE, currentBlocks);
-#else
-			/* Check blkno instead of currentBlocks to avoid extra logging */
-			if (!BlockNumberIsValid(blkno) || (blkno % 1000 == 0 && blkno < totalBlocks))
-				elog(DEBUG1, "hnsw vacuum progress: %.1f%%", 100.0 * currentBlocks / totalBlocks);
-#endif
-		}
+			UpdateProgress(++scannedBlocks, totalBlocks);
 	}
 }
 
