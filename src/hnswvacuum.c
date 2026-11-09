@@ -886,7 +886,7 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 	vacuumstate->callback = callback;
 	vacuumstate->callback_state = callback_state;
 	vacuumstate->efConstruction = HnswGetEfConstruction(index);
-	vacuumstate->bas = GetAccessStrategy(BAS_BULKREAD);
+	vacuumstate->bas = info->strategy;
 	vacuumstate->ntup = palloc0(HNSW_TUPLE_ALLOC_SIZE);
 	vacuumstate->tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 												"Hnsw vacuum temporary context",
@@ -908,7 +908,6 @@ static void
 FreeVacuumState(HnswVacuumState * vacuumstate)
 {
 	tidhash_destroy(vacuumstate->deleting);
-	FreeAccessStrategy(vacuumstate->bas);
 	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);
 }

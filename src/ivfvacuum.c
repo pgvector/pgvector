@@ -40,7 +40,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 {
 	Relation	index = info->index;
 	BlockNumber blkno = IVFFLAT_HEAD_BLKNO;
-	BufferAccessStrategy bas = GetAccessStrategy(BAS_BULKREAD);
+	BufferAccessStrategy bas = info->strategy;
 	BlockNumber totalBlocks = InvalidBlockNumber;	/* avoid compiler warning */
 	int64		scannedBlocks = IVFFLAT_HEAD_BLKNO;
 #if PG_VERSION_NUM >= 200000
@@ -176,8 +176,6 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			}
 		}
 	}
-
-	FreeAccessStrategy(bas);
 
 	return stats;
 }
