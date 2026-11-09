@@ -106,7 +106,8 @@ jobs:
         run: cat regression.diffs
   i386:
     if: ${{ !startsWith(github.ref_name, 'mac') && !startsWith(github.ref_name, 'windows') }}
-    runs-on: ubuntu-latest
+    # https://github.com/actions/runner-images/issues/14790
+    runs-on: ubuntu-24.04
     container:
       image: debian:12
       options: --platform linux/386
