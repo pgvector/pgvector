@@ -2,6 +2,7 @@
 
 - Added asynchronous I/O for indexes
 - Added vacuuming progress for indexes
+- Added search parameters to `EXPLAIN` settings
 - Added `vector_dims` function for `sparsevec`
 - Improved performance of HNSW inserts with `sparsevec`
 - Improved `amvalidate` for indexes

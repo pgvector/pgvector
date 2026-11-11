@@ -1,0 +1,47 @@
+SET enable_seqscan = off;
+CREATE TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]');
+-- hnsw
+CREATE INDEX ON t USING hnsw (val vector_l2_ops);
+SET hnsw.ef_search = 100;
+SET hnsw.iterative_scan = relaxed_order;
+SET hnsw.max_scan_tuples = 10000;
+SET hnsw.scan_mem_multiplier = 2;
+EXPLAIN (COSTS OFF, SETTINGS) SELECT * FROM t ORDER BY val <-> '[3,3,3]' LIMIT 5;
+                                                                           QUERY PLAN                                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit
+   ->  Index Scan using t_val_idx on t
+         Order By: (val <-> '[3,3,3]'::vector)
+ Settings: enable_seqscan = 'off', hnsw.ef_search = '100', hnsw.iterative_scan = 'relaxed_order', hnsw.max_scan_tuples = '10000', hnsw.scan_mem_multiplier = '2'
+(4 rows)
+
+RESET hnsw.ef_search;
+RESET hnsw.iterative_scan;
+RESET hnsw.max_scan_tuples;
+RESET hnsw.scan_mem_multiplier;
+-- values at their defaults are not shown
+EXPLAIN (COSTS OFF, SETTINGS) SELECT * FROM t ORDER BY val <-> '[3,3,3]' LIMIT 5;
+                  QUERY PLAN                   
+-----------------------------------------------
+ Limit
+   ->  Index Scan using t_val_idx on t
+         Order By: (val <-> '[3,3,3]'::vector)
+ Settings: enable_seqscan = 'off'
+(4 rows)
+
+DROP INDEX t_val_idx;
+-- ivfflat
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 1);
+SET ivfflat.iterative_scan = relaxed_order;
+SET ivfflat.max_probes = 1;
+EXPLAIN (COSTS OFF, SETTINGS) SELECT * FROM t ORDER BY val <-> '[3,3,3]' LIMIT 5;
+                                              QUERY PLAN                                              
+------------------------------------------------------------------------------------------------------
+ Limit
+   ->  Index Scan using t_val_idx on t
+         Order By: (val <-> '[3,3,3]'::vector)
+ Settings: enable_seqscan = 'off', ivfflat.iterative_scan = 'relaxed_order', ivfflat.max_probes = '1'
+(4 rows)
+
+DROP TABLE t;
