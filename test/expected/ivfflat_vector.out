@@ -108,7 +108,8 @@ SELECT * FROM t ORDER BY val <-> '[3,3,3]';
    val   
 ---------
  [1,2,3]
-(1 row)
+ [1,1,1]
+(2 rows)
 
 SET ivfflat.max_probes = 2;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
@@ -155,13 +156,12 @@ DROP TABLE t;
 SHOW ivfflat.probes;
  ivfflat.probes 
 ----------------
- 1
+ 0
 (1 row)
 
 SET ivfflat.probes = 0;
-ERROR:  0 is outside the valid range for parameter "ivfflat.probes" (1 .. 32768)
 SET ivfflat.probes = 32769;
-ERROR:  32769 is outside the valid range for parameter "ivfflat.probes" (1 .. 32768)
+ERROR:  32769 is outside the valid range for parameter "ivfflat.probes" (0 .. 32768)
 SHOW ivfflat.iterative_scan;
  ivfflat.iterative_scan 
 ------------------------

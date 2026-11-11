@@ -35,11 +35,13 @@ for my $dim (@dims)
 	my $query = "[" . join(",", @r) . "]";
 
 	my $explain = $node->safe_psql("postgres", qq(
+		SET ivfflat.probes = 1;
 		EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v <-> '$query' LIMIT $limit;
 	));
 	like($explain, qr/Index Scan using idx/);
 
 	$explain = $node->safe_psql("postgres", qq(
+		SET ivfflat.probes = 1;
 		EXPLAIN ANALYZE SELECT i FROM tst WHERE v <-> '$query' < 1 ORDER BY v <-> '$query' LIMIT $limit;
 	));
 	like($explain, qr/Index Scan using idx/);

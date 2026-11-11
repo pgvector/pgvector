@@ -5,6 +5,7 @@
 - Added `vector_dims` function for `sparsevec`
 - Improved performance of HNSW inserts with `sparsevec`
 - Improved `amvalidate` for indexes
+- Changed default for `ivfflat.probes` to `sqrt(lists)`
 - Improved property testing for indexes
 - Fixed possible error with iterative index scans during HNSW vacuuming
 - Dropped support for Postgres 13 and 14

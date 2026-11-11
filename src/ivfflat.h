@@ -3,6 +3,8 @@
 
 #include "postgres.h"
 
+#include <math.h>
+
 #include "access/genam.h"
 #include "access/generic_xlog.h"
 #include "access/parallel.h"
@@ -61,7 +63,8 @@ typedef Pointer Item;
 #define IVFFLAT_DEFAULT_LISTS	100
 #define IVFFLAT_MIN_LISTS		1
 #define IVFFLAT_MAX_LISTS		32768
-#define IVFFLAT_DEFAULT_PROBES	1
+#define IVFFLAT_DEFAULT_PROBES	0
+#define IVFFLAT_MIN_PROBES		0
 
 /* Build phases */
 /* PROGRESS_CREATEIDX_SUBPHASE_INITIALIZE is 1 */
@@ -105,6 +108,23 @@ typedef Pointer Item;
 extern int	ivfflat_probes;
 extern int	ivfflat_iterative_scan;
 extern int	ivfflat_max_probes;
+
+/*
+ * Get the number of probes
+ *
+ * A value of 0 uses sqrt(lists), which scales the number of probes with the
+ * index size instead of requiring a fixed value for every index.
+ */
+static inline int
+IvfflatGetProbes(int lists)
+{
+	int			probes = ivfflat_probes;
+
+	if (probes == 0)
+		probes = (int) ceil(sqrt((double) lists));
+
+	return Max(probes, 1);
+}
 
 typedef enum IvfflatIterativeScanMode
 {

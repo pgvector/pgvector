@@ -377,13 +377,15 @@ Supported types are:
 
 ### Query Options
 
-Specify the number of probes (1 by default)
+Specify the number of probes (defaults to `sqrt(lists)`)
 
 ```sql
 SET ivfflat.probes = 10;
 ```
 
 A higher value provides better recall at the cost of speed, and it can be set to the number of lists for exact nearest neighbor search (at which point the planner won’t use the index)
+
+The default value of `0` uses `sqrt(lists)`, so the number of probes scales with the index size. Set a positive value to use a fixed number of probes.
 
 Use `SET LOCAL` inside a transaction to set it for a single query
 

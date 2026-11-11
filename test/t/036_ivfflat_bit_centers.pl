@@ -29,6 +29,7 @@ for my $row (@rows)
 
 	my $actual = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
+		SET ivfflat.probes = 1;
 		SELECT i FROM tst ORDER BY v <~> '$v' LIMIT 100;
 	));
 	my @actual_ids = split("\n", $actual);
