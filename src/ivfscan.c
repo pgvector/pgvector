@@ -197,7 +197,11 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		searchPage = InvalidBlockNumber;
 		so->searchPage = scanlist->startPage;
 		so->lastContiguousPage = scanlist->lastContiguousPage;
+#if PG_VERSION_NUM >= 190000
+		read_stream_resume(so->stream);
+#else
 		read_stream_reset(so->stream);
+#endif
 
 		/* Search contiguous entry pages for list */
 		for (;;)
@@ -321,7 +325,13 @@ IvfflatReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void
 	IvfflatScanOpaque so = (IvfflatScanOpaque) callback_private_data;
 
 	if (so->searchPage > so->lastContiguousPage)
+	{
+#if PG_VERSION_NUM >= 190000
+		return read_stream_pause(stream);
+#else
 		return InvalidBlockNumber;
+#endif
+	}
 
 	return so->searchPage++;
 }
