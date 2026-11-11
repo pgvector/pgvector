@@ -15,7 +15,7 @@
 #include "utils/tuplesort.h"
 #include "vector.h"
 
-#if PG_VERSION_NUM >= 180000
+#if PG_VERSION_NUM >= 170000
 #define IVFFLAT_USE_READ_STREAM
 #endif
 
@@ -293,7 +293,8 @@ typedef struct IvfflatScanOpaqueData
 	/* Stream */
 #ifdef IVFFLAT_USE_READ_STREAM
 	ReadStream *stream;
-	BlockRangeReadStreamPrivate streamData;
+	BlockNumber searchPage;
+	BlockNumber lastContiguousPage;
 #endif
 
 	/* Sorting */

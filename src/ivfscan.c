@@ -195,8 +195,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 #ifdef IVFFLAT_USE_READ_STREAM
 		searchPage = InvalidBlockNumber;
-		so->streamData.current_blocknum = scanlist->startPage;
-		so->streamData.last_exclusive = scanlist->lastContiguousPage + 1;
+		so->searchPage = scanlist->startPage;
+		so->lastContiguousPage = scanlist->lastContiguousPage;
 		read_stream_reset(so->stream);
 
 		/* Search contiguous entry pages for list */
@@ -311,6 +311,22 @@ InitScanSortState(TupleDesc tupdesc)
 	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
 }
 
+#ifdef IVFFLAT_USE_READ_STREAM
+/*
+ * Get next block number for read stream
+ */
+static BlockNumber
+IvfflatReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void *per_buffer_data)
+{
+	IvfflatScanOpaque so = (IvfflatScanOpaque) callback_private_data;
+
+	if (so->searchPage > so->lastContiguousPage)
+		return InvalidBlockNumber;
+
+	return so->searchPage++;
+}
+#endif
+
 /*
  * Prepare for an index scan
  */
@@ -380,7 +396,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 
 #ifdef IVFFLAT_USE_READ_STREAM
-	so->stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, block_range_read_stream_cb, &so->streamData, 0);
+	so->stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, IvfflatReadStreamNextBlock, so, 0);
 #endif
 
 	MemoryContextSwitchTo(oldCtx);
