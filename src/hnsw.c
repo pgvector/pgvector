@@ -490,7 +490,7 @@ hnswhandler(PG_FUNCTION_ARGS)
 		.amcanparallel = false,
 		.amcanbuildparallel = true,
 		.amcaninclude = false,
-		.amusemaintenanceworkmem = false,
+		.amusemaintenanceworkmem = true,
 		.amsummarizing = false,
 		.amparallelvacuumoptions = VACUUM_OPTION_PARALLEL_BULKDEL,
 		.amkeytype = InvalidOid,
@@ -551,7 +551,11 @@ hnswhandler(PG_FUNCTION_ARGS)
 	amroutine->amcanbuildparallel = true;
 #endif
 	amroutine->amcaninclude = false;
+#if PG_VERSION_NUM >= 170000
+	amroutine->amusemaintenanceworkmem = true;	/* for the TidStore deletion list */
+#else
 	amroutine->amusemaintenanceworkmem = false; /* not used during VACUUM */
+#endif
 #if PG_VERSION_NUM >= 160000
 	amroutine->amsummarizing = false;
 #endif

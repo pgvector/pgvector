@@ -32,6 +32,18 @@
 #include "storage/shmem.h"		/* for add_size()/mul_size() in some versions */
 #endif
 
+#if PG_VERSION_NUM >= 170000
+#include "access/tidstore.h"
+
+/*
+ * Minimum number of element tuples per page for a TidStore deletion list to
+ * use less memory than a hash table. TidStore uses a bitmap for each page
+ * with deleted elements, which costs about as much as a few hash entries, so
+ * it only pays off when pages hold many elements.
+ */
+#define HNSW_TIDSTORE_MIN_ELEMS 4
+#endif
+
 #ifdef HNSW_BENCH
 #include "portability/instr_time.h"
 #endif
@@ -466,6 +478,9 @@ typedef struct HnswVacuumState
 
 	/* Variables */
 	struct tidhash_hash *deleting;
+#if PG_VERSION_NUM >= 170000
+	TidStore   *tidstore;
+#endif
 	BufferAccessStrategy bas;
 	HnswNeighborTuple ntup;
 	HnswElementData highestPoint;

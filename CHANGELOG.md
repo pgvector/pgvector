@@ -6,6 +6,7 @@
 - Improved performance of HNSW inserts with `sparsevec`
 - Improved `amvalidate` for indexes
 - Improved property testing for indexes
+- Reduced memory usage for HNSW vacuuming for Postgres 17
 - Fixed possible error with iterative index scans during HNSW vacuuming
 - Dropped support for Postgres 13 and 14
 

@@ -15,6 +15,11 @@
 #include "varatt.h"
 #endif
 
+#if PG_VERSION_NUM >= 170000
+#include "miscadmin.h"
+#include "postmaster/autovacuum.h"
+#endif
+
 #if PG_VERSION_NUM >= 200000
 #include "commands/progress.h"
 #include "utils/backend_progress.h"
@@ -24,13 +29,58 @@
 #define vacuum_delay_point() vacuum_delay_point(false)
 #endif
 
+#if PG_VERSION_NUM >= 170000
+/*
+ * Determine whether a TidStore deletion list uses less memory than a hash
+ * table for this index. TidStore stores a bitmap for each page with deleted
+ * elements, so it regresses when pages hold too few elements (e.g.
+ * high-dimensional vectors). Estimate the element size from the entry point.
+ */
+static bool
+CanUseTidStore(Relation index, HnswElement entryPoint)
+{
+	Buffer		buf;
+	Page		page;
+	ItemId		itemid;
+	Size		tupleSize;
+	bool		result = false;
+
+	if (entryPoint == NULL || !BlockNumberIsValid(entryPoint->blkno))
+		return false;
+
+	buf = ReadBuffer(index, entryPoint->blkno);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+
+	if (entryPoint->offno >= FirstOffsetNumber &&
+		entryPoint->offno <= PageGetMaxOffsetNumber(page))
+	{
+		itemid = PageGetItemId(page, entryPoint->offno);
+
+		if (ItemIdIsNormal(itemid))
+		{
+			tupleSize = MAXALIGN(ItemIdGetLength(itemid) + sizeof(ItemIdData));
+			result = tupleSize <= HNSW_MAX_SIZE / HNSW_TIDSTORE_MIN_ELEMS;
+		}
+	}
+
+	UnlockReleaseBuffer(buf);
+
+	return result;
+}
+#endif
+
 /*
  * Check if deletion list contains an element
  */
 static bool
-DeletingElement(tidhash_hash * deleting, ItemPointer indextid)
+DeletingElement(HnswVacuumState * vacuumstate, ItemPointer indextid)
 {
-	return tidhash_lookup(deleting, *indextid) != NULL;
+#if PG_VERSION_NUM >= 170000
+	if (vacuumstate->tidstore != NULL)
+		return TidStoreIsMember(vacuumstate->tidstore, indextid);
+#endif
+	return tidhash_lookup(vacuumstate->deleting, *indextid) != NULL;
 }
 
 /*
@@ -66,6 +116,8 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 		OffsetNumber offno;
 		OffsetNumber maxoffno;
 		bool		updated = false;
+		OffsetNumber deletedoffs[MaxOffsetNumber];
+		int			ndeletedoffs = 0;
 
 		vacuum_delay_point();
 
@@ -127,14 +179,8 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 			if (!ItemPointerIsValid(&etup->heaptids[0]))
 			{
-				ItemPointerData indextid;
-				bool		found;
-
 				/* Add to deletion list */
-				ItemPointerSet(&indextid, blkno, offno);
-
-				tidhash_insert(vacuumstate->deleting, indextid, &found);
-				Assert(!found);
+				deletedoffs[ndeletedoffs++] = offno;
 			}
 			else if (etup->level > highestLevel)
 			{
@@ -163,6 +209,29 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 			}
 		}
 
+#if PG_VERSION_NUM >= 170000
+		if (vacuumstate->tidstore != NULL)
+		{
+			/* Add to deletion list (offsets are in ascending order) */
+			if (ndeletedoffs > 0)
+				TidStoreSetBlockOffsets(vacuumstate->tidstore, blkno, deletedoffs, ndeletedoffs);
+		}
+		else
+#endif
+		{
+			for (int i = 0; i < ndeletedoffs; i++)
+			{
+				ItemPointerData indextid;
+				bool		found;
+
+				/* Add to deletion list */
+				ItemPointerSet(&indextid, blkno, deletedoffs[i]);
+
+				tidhash_insert(vacuumstate->deleting, indextid, &found);
+				Assert(!found);
+			}
+		}
+
 		blkno = HnswPageGetOpaque(page)->nextblkno;
 
 		if (updated)
@@ -175,6 +244,10 @@ RemoveHeapTids(HnswVacuumState * vacuumstate)
 
 #ifdef HNSW_MEMORY
 	elog(INFO, "memory: %zu KB", MemoryContextMemAllocated(CurrentMemoryContext, true) / 1024);
+#if PG_VERSION_NUM >= 170000
+	if (vacuumstate->tidstore != NULL)
+		elog(INFO, "deleting memory: %zu KB", TidStoreMemoryUsage(vacuumstate->tidstore) / 1024);
+#endif
 #endif
 }
 
@@ -207,7 +280,7 @@ NeedsUpdated(HnswVacuumState * vacuumstate, HnswElement element)
 			continue;
 
 		/* Check if in deletion list */
-		if (DeletingElement(vacuumstate->deleting, indextid))
+		if (DeletingElement(vacuumstate, indextid))
 		{
 			needsUpdated = true;
 			break;
@@ -341,7 +414,7 @@ RepairGraphEntryPoint(HnswVacuumState * vacuumstate)
 
 		ItemPointerSet(&epData, entryPoint->blkno, entryPoint->offno);
 
-		if (DeletingElement(vacuumstate->deleting, &epData))
+		if (DeletingElement(vacuumstate, &epData))
 		{
 			/*
 			 * Replace the entry point with the highest point. If highest
@@ -710,7 +783,7 @@ ConfirmRepaired(HnswVacuumState * vacuumstate)
 					continue;
 
 				/* Check if in deletion list */
-				if (DeletingElement(vacuumstate->deleting, indextid))
+				if (DeletingElement(vacuumstate, indextid))
 					elog(ERROR, "hnsw graph not repaired");
 			}
 
@@ -876,6 +949,9 @@ static void
 InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkDeleteResult *stats, IndexBulkDeleteCallback callback, void *callback_state)
 {
 	Relation	index = info->index;
+#if PG_VERSION_NUM >= 170000
+	HnswElement entryPoint;
+#endif
 
 	if (stats == NULL)
 		stats = palloc0_object(IndexBulkDeleteResult);
@@ -894,11 +970,35 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 
 	HnswInitSupport(&vacuumstate->support, index);
 
-	/* Get m from metapage */
+	/* Get m and entry point from metapage */
+#if PG_VERSION_NUM >= 170000
+	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL, &entryPoint);
+#else
 	HnswGetMetaPageInfo(index, &vacuumstate->m, NULL, NULL);
+#endif
 
-	/* Create hash table */
+	/* Create deletion list */
+#if PG_VERSION_NUM >= 170000
+	vacuumstate->deleting = NULL;
+	vacuumstate->tidstore = NULL;
+
+	if (CanUseTidStore(index, entryPoint))
+	{
+		int			workMem;
+
+		/* Like other index types, use autovacuum_work_mem if set */
+		if (AmAutoVacuumWorkerProcess() && autovacuum_work_mem != -1)
+			workMem = autovacuum_work_mem;
+		else
+			workMem = maintenance_work_mem;
+
+		vacuumstate->tidstore = TidStoreCreateLocal((Size) workMem * 1024, true);
+	}
+	else
+		vacuumstate->deleting = tidhash_create(CurrentMemoryContext, 256, NULL);
+#else
 	vacuumstate->deleting = tidhash_create(CurrentMemoryContext, 256, NULL);
+#endif
 }
 
 /*
@@ -907,7 +1007,14 @@ InitVacuumState(HnswVacuumState * vacuumstate, IndexVacuumInfo *info, IndexBulkD
 static void
 FreeVacuumState(HnswVacuumState * vacuumstate)
 {
+#if PG_VERSION_NUM >= 170000
+	if (vacuumstate->tidstore != NULL)
+		TidStoreDestroy(vacuumstate->tidstore);
+	else
+		tidhash_destroy(vacuumstate->deleting);
+#else
 	tidhash_destroy(vacuumstate->deleting);
+#endif
 	pfree(vacuumstate->ntup);
 	MemoryContextDelete(vacuumstate->tmpCtx);
 }
