@@ -40,7 +40,7 @@ CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);
 DROP TABLE t;
 RESET maintenance_work_mem;
 
-SET maintenance_work_mem = '29MB';
+SET maintenance_work_mem = '52MB';
 CREATE TABLE t (val bit(64000));
 INSERT INTO t (val) VALUES (B'0'::bit(64000));
 CREATE INDEX ON t USING ivfflat (val bit_hamming_ops);

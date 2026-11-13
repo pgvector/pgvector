@@ -1293,6 +1293,7 @@ Thanks to:
 - [k-means++: The Advantage of Careful Seeding](https://theory.stanford.edu/~sergei/papers/kMeansPP-soda.pdf)
 - [Concept Decompositions for Large Sparse Text Data using Clustering](https://www.cs.utexas.edu/users/inderjit/public_papers/concept_mlj.pdf)
 - [Efficient and Robust Approximate Nearest Neighbor Search using Hierarchical Navigable Small World Graphs](https://arxiv.org/pdf/1603.09320)
+- [e-means: outperforming k-means (in one-tenth the epochs)](https://arxiv.org/pdf/2611.09501)
 
 ## History
 

@@ -25,9 +25,10 @@ like($res, qr/lists100/);
 unlike($res, qr/lists50/);
 
 # Test errors with too much memory
-my ($ret, $stdout, $stderr) = $node->psql("postgres",
-	"CREATE INDEX lists10000 ON tst USING ivfflat (v vector_l2_ops) WITH (lists = 10000);"
-);
+my ($ret, $stdout, $stderr) = $node->psql("postgres", qq(
+	SET maintenance_work_mem = '4MB';
+	CREATE INDEX lists10000 ON tst USING ivfflat (v vector_l2_ops) WITH (lists = 10000);
+));
 like($stderr, qr/(memory required is)|(invalid memory allocation request size)/);
 
 done_testing();
