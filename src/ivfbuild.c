@@ -68,10 +68,7 @@ AddSample(Datum *values, IvfflatBuildState * buildstate)
 	}
 
 	if (samples->length < targsamples)
-	{
-		VectorArraySet(samples, samples->length, DatumGetPointer(value));
-		samples->length++;
-	}
+		VectorArrayAdd(samples, DatumGetPointer(value));
 	else
 	{
 		if (buildstate->rowstoskip < 0)

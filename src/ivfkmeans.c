@@ -33,8 +33,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	collation = index->rd_indcollation[0];
 
 	/* Choose an initial center uniformly at random */
-	VectorArraySet(centers, 0, VectorArrayGet(samples, RandomInt() % samples->length));
-	centers->length++;
+	VectorArrayAdd(centers, VectorArrayGet(samples, RandomInt() % samples->length));
 
 	for (int i = 0; i < numSamples; i++)
 		weight[i] = FLT_MAX;
@@ -83,8 +82,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 				break;
 		}
 
-		VectorArraySet(centers, i + 1, VectorArrayGet(samples, j));
-		centers->length++;
+		VectorArrayAdd(centers, VectorArrayGet(samples, j));
 	}
 
 	pfree(weight);
@@ -117,14 +115,12 @@ RandomCenters(Relation index, VectorArray centers, int dimensions, const Ivfflat
 	/* Fill with random data */
 	while (centers->length < centers->maxlen)
 	{
-		Pointer		center = VectorArrayGet(centers, centers->length);
+		Pointer		center = VectorArrayGet(centers, centers->length++);
 
 		for (int i = 0; i < dimensions; i++)
 			x[i] = (float) RandomDouble();
 
 		typeInfo->updateCenter(center, dimensions, x);
-
-		centers->length++;
 	}
 
 	if (normprocinfo != NULL)
