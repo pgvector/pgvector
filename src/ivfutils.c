@@ -22,12 +22,12 @@
  * Allocate a vector array
  */
 VectorArray
-VectorArrayInit(int maxlen, int dimensions, Size itemsize)
+VectorArrayInit(int maxlen, Size itemsize)
 {
 	VectorArray res;
 
 	/* Safety check */
-	if (maxlen < 1 || dimensions < 1 || itemsize == 0)
+	if (maxlen < 1 || itemsize == 0)
 		elog(ERROR, "cannot create vector array");
 
 	/* Ensure items are aligned to prevent UB */
@@ -36,7 +36,6 @@ VectorArrayInit(int maxlen, int dimensions, Size itemsize)
 	res = palloc_object(VectorArrayData);
 	res->length = 0;
 	res->maxlen = maxlen;
-	res->dim = dimensions;
 	res->itemsize = itemsize;
 	res->items = palloc_extended(mul_size(maxlen, itemsize), MCXT_ALLOC_ZERO | MCXT_ALLOC_HUGE);
 	return res;
@@ -100,7 +99,7 @@ IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value)
  * Normalize vectors
  */
 void
-IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray arr, MemoryContext tmpCtx)
+IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray arr, int dimensions, MemoryContext tmpCtx)
 {
 	MemoryContext oldCtx = MemoryContextSwitchTo(tmpCtx);
 
@@ -110,7 +109,7 @@ IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray 
 		Datum		newValue = IvfflatNormValue(typeInfo, collation, value);
 
 		/* Safety check */
-		IvfflatCheckDim(arr->dim, typeInfo, collation, newValue);
+		IvfflatCheckDim(dimensions, typeInfo, collation, newValue);
 
 		VectorArraySet(arr, i, DatumGetPointer(newValue));
 		MemoryContextReset(tmpCtx);

@@ -143,7 +143,7 @@ SampleRows(IvfflatBuildState * buildstate)
 
 	/* Normalize if needed */
 	if (buildstate->kmeansnormprocinfo != NULL)
-		IvfflatNormVectors(buildstate->typeInfo, buildstate->collation, buildstate->samples, buildstate->tmpCtx);
+		IvfflatNormVectors(buildstate->typeInfo, buildstate->collation, buildstate->samples, buildstate->dimensions, buildstate->tmpCtx);
 }
 
 /*
@@ -387,7 +387,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 
 	buildstate->memoryUsed = add_size(buildstate->memoryUsed, VECTOR_ARRAY_SIZE(buildstate->lists, buildstate->itemsize));
 	IvfflatCheckMemoryUsage(buildstate->memoryUsed);
-	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->dimensions, buildstate->itemsize);
+	buildstate->centers = VectorArrayInit(buildstate->lists, buildstate->itemsize);
 
 	/* TODO Move allocation to page creation */
 	buildstate->listInfo = palloc_array_checked(ListInfo, buildstate->lists);
@@ -452,7 +452,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	/* Sample rows */
 	buildstate->memoryUsed = add_size(buildstate->memoryUsed, VECTOR_ARRAY_SIZE(numSamples, buildstate->itemsize));
 	IvfflatCheckMemoryUsage(buildstate->memoryUsed);
-	buildstate->samples = VectorArrayInit(numSamples, buildstate->dimensions, buildstate->itemsize);
+	buildstate->samples = VectorArrayInit(numSamples, buildstate->itemsize);
 	if (buildstate->heap != NULL)
 	{
 		IvfflatBench("sample rows", SampleRows(buildstate));
@@ -467,7 +467,7 @@ ComputeCenters(IvfflatBuildState * buildstate)
 	}
 
 	/* Calculate centers */
-	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers, buildstate->typeInfo, buildstate->memoryUsed));
+	IvfflatBench("k-means", IvfflatKmeans(buildstate->index, buildstate->samples, buildstate->centers, buildstate->dimensions, buildstate->typeInfo, buildstate->memoryUsed));
 
 	/* Free samples before we allocate more memory */
 	VectorArrayFree(buildstate->samples);

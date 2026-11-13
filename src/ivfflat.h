@@ -116,7 +116,6 @@ typedef struct VectorArrayData
 {
 	int			length;
 	int			maxlen;
-	int			dim;
 	Size		itemsize;
 	char	   *items;
 }			VectorArrayData;
@@ -344,13 +343,13 @@ VectorArraySet(VectorArray arr, int offset, Pointer val)
 }
 
 /* Methods */
-VectorArray VectorArrayInit(int maxlen, int dimensions, Size itemsize);
+VectorArray VectorArrayInit(int maxlen, Size itemsize);
 void		VectorArrayFree(VectorArray arr);
-void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, const IvfflatTypeInfo * typeInfo, Size memoryUsed);
+void		IvfflatKmeans(Relation index, VectorArray samples, VectorArray centers, int dimensions, const IvfflatTypeInfo * typeInfo, Size memoryUsed);
 FmgrInfo   *IvfflatOptionalProcInfo(Relation index, uint16 procnum);
 Datum		IvfflatNormValue(const IvfflatTypeInfo * typeInfo, Oid collation, Datum value);
 bool		IvfflatCheckNorm(FmgrInfo *procinfo, Oid collation, Datum value);
-void		IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray arr, MemoryContext tmpCtx);
+void		IvfflatNormVectors(const IvfflatTypeInfo * typeInfo, Oid collation, VectorArray arr, int dimensions, MemoryContext tmpCtx);
 void		IvfflatCheckMemoryUsage(Size totalSize);
 int			IvfflatGetLists(Relation index);
 void		IvfflatGetMetaPageInfo(Relation index, int *lists, int *dimensions);
