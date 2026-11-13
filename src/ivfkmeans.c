@@ -96,7 +96,6 @@ RandomChoice(VectorArray samples, VectorArray centers)
 {
 	VectorArrayShuffle(samples);
 
-	/* TODO Handle less samples than centers */
 	for (int i = 0; i < centers->maxlen; i++)
 		VectorArrayAdd(centers, VectorArrayGet(samples, i < samples->length ? i : 0));
 }
