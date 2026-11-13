@@ -145,34 +145,6 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
 #endif
 
 /*
- * Sum centers
- */
-static void
-SumCenters(VectorArray samples, float *agg, int dimensions, int *closestCenters, const IvfflatTypeInfo * typeInfo)
-{
-	for (int i = 0; i < samples->length; i++)
-	{
-		float	   *x = agg + ((Size) closestCenters[i] * dimensions);
-
-		typeInfo->sumCenter(VectorArrayGet(samples, i), dimensions, x);
-	}
-}
-
-/*
- * Update centers
- */
-static void
-UpdateCenters(float *agg, int dimensions, VectorArray centers, const IvfflatTypeInfo * typeInfo)
-{
-	for (int i = 0; i < centers->length; i++)
-	{
-		float	   *x = agg + ((Size) i * dimensions);
-
-		typeInfo->updateCenter(VectorArrayGet(centers, i), dimensions, x);
-	}
-}
-
-/*
  * Compute new centers
  */
 static void
@@ -192,14 +164,17 @@ ComputeNewCenters(VectorArray samples, int dimensions, float *agg, VectorArray n
 		centerCounts[i] = 0;
 	}
 
-	/* Increment sum of closest center */
-	SumCenters(samples, agg, dimensions, closestCenters, typeInfo);
-
-	/* Increment count of closest center */
+	/* Increment sum and count of closest center */
 	for (int i = 0; i < numSamples; i++)
-		centerCounts[closestCenters[i]] += 1;
+	{
+		int			closestCenter = closestCenters[i];
+		float	   *x = agg + ((Size) closestCenter * dimensions);
 
-	/* Divide sum by count */
+		typeInfo->sumCenter(VectorArrayGet(samples, i), dimensions, x);
+		centerCounts[closestCenter]++;
+	}
+
+	/* Set new centers */
 	for (int i = 0; i < numCenters; i++)
 	{
 		float	   *x = agg + ((Size) i * dimensions);
@@ -223,10 +198,9 @@ ComputeNewCenters(VectorArray samples, int dimensions, float *agg, VectorArray n
 			for (int j = 0; j < dimensions; j++)
 				x[j] = RandomDouble();
 		}
-	}
 
-	/* Set new centers */
-	UpdateCenters(agg, dimensions, newCenters, typeInfo);
+		typeInfo->updateCenter(VectorArrayGet(newCenters, i), dimensions, x);
+	}
 
 	/* Normalize if needed */
 	if (normprocinfo != NULL)
