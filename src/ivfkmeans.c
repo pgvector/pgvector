@@ -42,14 +42,12 @@ RandomCenters(Relation index, VectorArray centers, int dimensions, const Ivfflat
 	/* Fill with random data */
 	while (centers->length < centers->maxlen)
 	{
-		Pointer		center = VectorArrayGet(centers, centers->length);
+		Pointer		center = VectorArrayGet(centers, centers->length++);
 
 		for (int i = 0; i < dimensions; i++)
 			x[i] = (float) RandomDouble();
 
 		typeInfo->updateCenter(center, dimensions, x);
-
-		centers->length++;
 	}
 
 	if (normprocinfo != NULL)
@@ -100,9 +98,7 @@ RandomChoice(VectorArray samples, VectorArray centers)
 
 	/* TODO Handle less samples than centers */
 	for (int i = 0; i < centers->maxlen; i++)
-		VectorArraySet(centers, i, VectorArrayGet(samples, i < samples->length ? i : 0));
-
-	centers->length = centers->maxlen;
+		VectorArrayAdd(centers, VectorArrayGet(samples, i < samples->length ? i : 0));
 }
 
 /*

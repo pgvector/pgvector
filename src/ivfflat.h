@@ -324,22 +324,43 @@ static inline Pointer
 VectorArrayGet(VectorArray arr, int offset)
 {
 	/* Safety check */
-	if (offset < 0 || offset >= arr->maxlen)
+	if (offset < 0 || offset >= arr->length)
 		elog(ERROR, "index out of bounds");
 
 	return ((char *) arr->items) + (offset * arr->itemsize);
 }
 
 static inline void
-VectorArraySet(VectorArray arr, int offset, Pointer val)
+VectorArraySetUncheckedLength(VectorArray arr, int offset, Pointer val)
 {
 	Size		size = VARSIZE_ANY(val);
+
+	/* Safety check */
+	if (offset < 0 || offset >= arr->maxlen)
+		elog(ERROR, "index out of bounds");
 
 	/* Safety check */
 	if (size > arr->itemsize)
 		elog(ERROR, "item too large");
 
-	memcpy(VectorArrayGet(arr, offset), val, size);
+	memcpy(((char *) arr->items) + (offset * arr->itemsize), val, size);
+}
+
+static inline void
+VectorArraySet(VectorArray arr, int offset, Pointer val)
+{
+	/* Safety check */
+	if (offset >= arr->length)
+		elog(ERROR, "index out of bounds");
+
+	VectorArraySetUncheckedLength(arr, offset, val);
+}
+
+static inline void
+VectorArrayAdd(VectorArray arr, Pointer val)
+{
+	VectorArraySetUncheckedLength(arr, arr->length, val);
+	arr->length++;
 }
 
 /* Methods */
