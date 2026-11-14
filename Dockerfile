@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
-ARG PG_MAJOR=17
-ARG DEBIAN_CODENAME=bookworm
+ARG PG_MAJOR=18
+ARG DEBIAN_CODENAME=trixie
 FROM postgres:$PG_MAJOR-$DEBIAN_CODENAME
 ARG PG_MAJOR
 
