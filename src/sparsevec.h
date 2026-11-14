@@ -47,5 +47,6 @@ SPARSEVEC_VALUES(SparseVector * x)
 }
 
 SparseVector *InitSparseVector(int dim, int nnz);
+void		SparsevecInit(void);
 
 #endif
