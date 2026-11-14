@@ -343,7 +343,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 				 errmsg("type not supported for ivfflat index")));
 
 	/* Require column to have dimensions to be indexed */
-	if (buildstate->dimensions < 0)
+	if (buildstate->dimensions < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("column does not have dimensions")));
