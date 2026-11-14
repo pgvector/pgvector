@@ -258,7 +258,7 @@ HnswInitElement(char *base, ItemPointer heaptid, int m, double ml, int maxLevel,
 {
 	HnswElement element = HnswAlloc(allocator, sizeof(HnswElementData));
 
-	double		uniform = RandomDouble();
+	double		uniform = pg_prng_double(&pg_global_prng_state);
 	int			level = uniform == 0.0 ? maxLevel : (int) (-log(uniform) * ml);
 
 	/* Cap level */

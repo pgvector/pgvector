@@ -89,10 +89,6 @@ typedef Pointer Item;
 #define IvfflatBench(name, code) (code)
 #endif
 
-#define RandomDouble() pg_prng_double(&pg_global_prng_state)
-#define RandomInt() pg_prng_uint32(&pg_global_prng_state)
-#define SeedRandom(seed) pg_prng_seed(&pg_global_prng_state, seed)
-
 #if PG_VERSION_NUM >= 190000
 #define palloc_array_checked(type, count) palloc_array(type, count)
 #define palloc0_array_checked(type, count) palloc0_array(type, count)

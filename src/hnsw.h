@@ -112,9 +112,6 @@ typedef Pointer Item;
 #define HnswBench(name, code) (code)
 #endif
 
-#define RandomDouble() pg_prng_double(&pg_global_prng_state)
-#define SeedRandom(seed) pg_prng_seed(&pg_global_prng_state, seed)
-
 #if PG_VERSION_NUM >= 190000
 #define palloc_array_checked(type, count) palloc_array(type, count)
 #else

@@ -33,7 +33,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 	collation = index->rd_indcollation[0];
 
 	/* Choose an initial center uniformly at random */
-	VectorArrayAdd(centers, VectorArrayGet(samples, RandomInt() % samples->length));
+	VectorArrayAdd(centers, VectorArrayGet(samples, pg_prng_uint32(&pg_global_prng_state) % samples->length));
 
 	for (int i = 0; i < numSamples; i++)
 		weight[i] = FLT_MAX;
@@ -74,7 +74,7 @@ InitCenters(Relation index, VectorArray samples, VectorArray centers, float *low
 			break;
 
 		/* Choose new center using weighted probability distribution. */
-		choice = sum * RandomDouble();
+		choice = sum * pg_prng_double(&pg_global_prng_state);
 		for (j = 0; j < numSamples - 1; j++)
 		{
 			choice -= weight[j];
@@ -118,7 +118,7 @@ RandomCenters(Relation index, VectorArray centers, int dimensions, const Ivfflat
 		Pointer		center = VectorArrayGet(centers, centers->length++);
 
 		for (int i = 0; i < dimensions; i++)
-			x[i] = (float) RandomDouble();
+			x[i] = (float) pg_prng_double(&pg_global_prng_state);
 
 		typeInfo->updateCenter(center, dimensions, x);
 	}
@@ -192,7 +192,7 @@ ComputeNewCenters(VectorArray samples, int dimensions, float *agg, VectorArray n
 		{
 			/* TODO Handle empty centers properly */
 			for (int j = 0; j < dimensions; j++)
-				x[j] = RandomDouble();
+				x[j] = pg_prng_double(&pg_global_prng_state);
 		}
 
 		typeInfo->updateCenter(VectorArrayGet(newCenters, i), dimensions, x);

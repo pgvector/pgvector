@@ -126,7 +126,7 @@ SampleRows(IvfflatBuildState * buildstate)
 	buildstate->samplerows = 0;
 	buildstate->rowstoskip = -1;
 
-	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, RandomInt());
+	BlockSampler_Init(&buildstate->bs, totalblocks, targsamples, pg_prng_uint32(&pg_global_prng_state));
 
 	reservoir_init_selection_state(&buildstate->rstate, targsamples);
 	while (BlockSampler_HasMore(&buildstate->bs))
@@ -1058,7 +1058,7 @@ ivfflatbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	IvfflatBuildState buildstate;
 
 #ifdef IVFFLAT_BENCH
-	SeedRandom(42);
+	pg_prng_seed(&pg_global_prng_state, 42);
 #endif
 
 	BuildIndex(heap, index, indexInfo, &buildstate, MAIN_FORKNUM);

@@ -1143,7 +1143,7 @@ BuildIndex(Relation heap, Relation index, IndexInfo *indexInfo,
 		   HnswBuildState * buildstate, ForkNumber forkNum)
 {
 #ifdef HNSW_MEMORY
-	SeedRandom(42);
+	pg_prng_seed(&pg_global_prng_state, 42);
 #endif
 
 	InitBuildState(buildstate, heap, index, indexInfo, forkNum);
