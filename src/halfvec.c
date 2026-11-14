@@ -212,7 +212,7 @@ halfvec_in(PG_FUNCTION_ARGS)
 		float		val;
 		char	   *stringEnd;
 
-		if (dim == HALFVEC_MAX_DIM)
+		if (dim >= HALFVEC_MAX_DIM)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 					 errmsg("halfvec cannot have more than %d dimensions", HALFVEC_MAX_DIM)));

@@ -208,7 +208,7 @@ vector_in(PG_FUNCTION_ARGS)
 		float		val;
 		char	   *stringEnd;
 
-		if (dim == VECTOR_MAX_DIM)
+		if (dim >= VECTOR_MAX_DIM)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 					 errmsg("vector cannot have more than %d dimensions", VECTOR_MAX_DIM)));
