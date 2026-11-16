@@ -49,6 +49,7 @@
 #include "catalog/index.h"
 #include "catalog/pg_type_d.h"
 #include "commands/progress.h"
+#include "executor/instrument.h"
 #include "hnsw.h"
 #include "miscadmin.h"
 #include "nodes/execnodes.h"
@@ -72,6 +73,8 @@
 #define PARALLEL_KEY_HNSW_SHARED		UINT64CONST(0xA000000000000001)
 #define PARALLEL_KEY_HNSW_AREA			UINT64CONST(0xA000000000000002)
 #define PARALLEL_KEY_QUERY_TEXT			UINT64CONST(0xA000000000000003)
+#define PARALLEL_KEY_WAL_USAGE			UINT64CONST(0xA000000000000004)
+#define PARALLEL_KEY_BUFFER_USAGE		UINT64CONST(0xA000000000000005)
 
 #define HNSW_MAX_GRAPH_MEMORY (SIZE_MAX / 2)
 
@@ -839,6 +842,8 @@ HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 	Relation	indexRel;
 	LOCKMODE	heapLockmode;
 	LOCKMODE	indexLockmode;
+	WalUsage   *walusage;
+	BufferUsage *bufferusage;
 
 	/* Set debug_query_string for individual workers first */
 	sharedquery = shm_toc_lookup(toc, PARALLEL_KEY_QUERY_TEXT, true);
@@ -868,8 +873,16 @@ HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 
 	hnswarea = shm_toc_lookup(toc, PARALLEL_KEY_HNSW_AREA, false);
 
+	/* Prepare to track buffer usage during parallel execution */
+	InstrStartParallelQuery();
+
 	/* Perform inserts */
 	HnswParallelScanAndInsert(heapRel, indexRel, hnswshared, hnswarea, false);
+
+	/* Report WAL/buffer usage during parallel execution */
+	bufferusage = shm_toc_lookup(toc, PARALLEL_KEY_BUFFER_USAGE, false);
+	walusage = shm_toc_lookup(toc, PARALLEL_KEY_WAL_USAGE, false);
+	InstrEndParallelQuery(&bufferusage[ParallelWorkerNumber], &walusage[ParallelWorkerNumber]);
 
 	/* Close relations within worker */
 	index_close(indexRel, indexLockmode);
@@ -884,6 +897,10 @@ HnswEndParallel(HnswLeader * hnswleader)
 {
 	/* Shutdown worker processes */
 	WaitForParallelWorkersToFinish(hnswleader->pcxt);
+
+	/* Accumulate WAL/buffer usage */
+	for (int i = 0; i < hnswleader->pcxt->nworkers_launched; i++)
+		InstrAccumParallelQuery(&hnswleader->bufferusage[i], &hnswleader->walusage[i]);
 
 	/* Free last reference to MVCC snapshot, if one was used */
 	if (IsMVCCSnapshot(hnswleader->snapshot))
@@ -927,6 +944,8 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	HnswShared *hnswshared;
 	char	   *hnswarea;
 	HnswLeader *hnswleader = palloc0_object(HnswLeader);
+	WalUsage   *walusage;
+	BufferUsage *bufferusage;
 	bool		leaderparticipates = true;
 	Size		querylen;
 
@@ -961,6 +980,12 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 
 	shm_toc_estimate_chunk(&pcxt->estimator, esthnswarea);
 	shm_toc_estimate_keys(&pcxt->estimator, 2);
+
+	/* Estimate space for WalUsage and BufferUsage */
+	shm_toc_estimate_chunk(&pcxt->estimator, mul_size(sizeof(WalUsage), pcxt->nworkers));
+	shm_toc_estimate_keys(&pcxt->estimator, 1);
+	shm_toc_estimate_chunk(&pcxt->estimator, mul_size(sizeof(BufferUsage), pcxt->nworkers));
+	shm_toc_estimate_keys(&pcxt->estimator, 1);
 
 	/* Finally, estimate PARALLEL_KEY_QUERY_TEXT space */
 	if (debug_query_string)
@@ -1016,6 +1041,12 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 		shm_toc_insert(pcxt->toc, PARALLEL_KEY_QUERY_TEXT, sharedquery);
 	}
 
+	/* Allocate space for each worker's WalUsage and BufferUsage */
+	walusage = shm_toc_allocate(pcxt->toc, mul_size(sizeof(WalUsage), pcxt->nworkers));
+	shm_toc_insert(pcxt->toc, PARALLEL_KEY_WAL_USAGE, walusage);
+	bufferusage = shm_toc_allocate(pcxt->toc, mul_size(sizeof(BufferUsage), pcxt->nworkers));
+	shm_toc_insert(pcxt->toc, PARALLEL_KEY_BUFFER_USAGE, bufferusage);
+
 	/* Launch workers, saving status for leader/caller */
 	LaunchParallelWorkers(pcxt);
 	hnswleader->pcxt = pcxt;
@@ -1025,6 +1056,8 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	hnswleader->hnswshared = hnswshared;
 	hnswleader->snapshot = snapshot;
 	hnswleader->hnswarea = hnswarea;
+	hnswleader->walusage = walusage;
+	hnswleader->bufferusage = bufferusage;
 
 	/* If no workers were successfully launched, back out (do serial build) */
 	if (pcxt->nworkers_launched == 0)

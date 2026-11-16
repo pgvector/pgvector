@@ -173,6 +173,8 @@ typedef struct IvfflatLeader
 	Sharedsort *sharedsort;
 	Snapshot	snapshot;
 	char	   *ivfcenters;
+	WalUsage   *walusage;
+	BufferUsage *bufferusage;
 }			IvfflatLeader;
 
 typedef struct IvfflatTypeInfo
