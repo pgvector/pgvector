@@ -754,7 +754,7 @@ FreeBuildState(HnswBuildState * buildstate)
  * Within leader, wait for end of heap scan
  */
 static double
-ParallelHeapScan(HnswBuildState * buildstate)
+ParallelHeapScan(HnswBuildState * buildstate, bool *brokenhotchain)
 {
 	HnswShared *hnswshared = buildstate->hnswleader->hnswshared;
 	int			nparticipanttuplesorts;
@@ -769,6 +769,7 @@ ParallelHeapScan(HnswBuildState * buildstate)
 			buildstate->graph = &hnswshared->graphData;
 			buildstate->hnswarea = buildstate->hnswleader->hnswarea;
 			reltuples = hnswshared->reltuples;
+			*brokenhotchain = hnswshared->brokenhotchain;
 			SpinLockRelease(&hnswshared->mutex);
 			break;
 		}
@@ -815,6 +816,8 @@ HnswParallelScanAndInsert(Relation heapRel, Relation indexRel, HnswShared * hnsw
 	SpinLockAcquire(&hnswshared->mutex);
 	hnswshared->nparticipantsdone++;
 	hnswshared->reltuples += reltuples;
+	if (indexInfo->ii_BrokenHotChain)
+		hnswshared->brokenhotchain = true;
 	SpinLockRelease(&hnswshared->mutex);
 
 	/* Log statistics */
@@ -1025,6 +1028,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	/* Initialize mutable state */
 	hnswshared->nparticipantsdone = 0;
 	hnswshared->reltuples = 0;
+	hnswshared->brokenhotchain = false;
 	table_parallelscan_initialize(buildstate->heap,
 								  ParallelTableScanFromHnswShared(hnswshared),
 								  snapshot);
@@ -1127,7 +1131,7 @@ BuildGraph(HnswBuildState * buildstate)
 	if (buildstate->heap != NULL)
 	{
 		if (buildstate->hnswleader)
-			buildstate->reltuples = ParallelHeapScan(buildstate);
+			buildstate->reltuples = ParallelHeapScan(buildstate, &buildstate->indexInfo->ii_BrokenHotChain);
 		else
 			buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
 														   true, true, BuildCallback, (void *) buildstate, NULL);

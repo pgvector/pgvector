@@ -161,6 +161,7 @@ typedef struct IvfflatShared
 	int			nparticipantsdone;
 	double		reltuples;
 	double		indtuples;
+	bool		brokenhotchain;
 
 #ifdef IVFFLAT_KMEANS_DEBUG
 	double		inertia;

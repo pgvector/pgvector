@@ -266,6 +266,7 @@ typedef struct HnswShared
 	/* Mutable state */
 	int			nparticipantsdone;
 	double		reltuples;
+	bool		brokenhotchain;
 	HnswGraph	graphData;
 }			HnswShared;
 

@@ -612,7 +612,7 @@ InitBuildSortState(TupleDesc tupdesc, int memory, SortCoordinate coordinate)
  * Within leader, wait for end of heap scan
  */
 static double
-ParallelHeapScan(IvfflatBuildState * buildstate)
+ParallelHeapScan(IvfflatBuildState * buildstate, bool *brokenhotchain)
 {
 	IvfflatShared *ivfshared = buildstate->ivfleader->ivfshared;
 	int			nparticipanttuplesorts;
@@ -626,6 +626,7 @@ ParallelHeapScan(IvfflatBuildState * buildstate)
 		{
 			buildstate->indtuples = ivfshared->indtuples;
 			reltuples = ivfshared->reltuples;
+			*brokenhotchain = ivfshared->brokenhotchain;
 #ifdef IVFFLAT_KMEANS_DEBUG
 			buildstate->inertia = ivfshared->inertia;
 #endif
@@ -687,6 +688,8 @@ IvfflatParallelScanAndSort(IvfflatSpool * ivfspool, IvfflatShared * ivfshared, S
 	ivfshared->nparticipantsdone++;
 	ivfshared->reltuples += reltuples;
 	ivfshared->indtuples += buildstate.indtuples;
+	if (indexInfo->ii_BrokenHotChain)
+		ivfshared->brokenhotchain = true;
 #ifdef IVFFLAT_KMEANS_DEBUG
 	ivfshared->inertia += buildstate.inertia;
 #endif
@@ -924,6 +927,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	ivfshared->nparticipantsdone = 0;
 	ivfshared->reltuples = 0;
 	ivfshared->indtuples = 0;
+	ivfshared->brokenhotchain = false;
 #ifdef IVFFLAT_KMEANS_DEBUG
 	ivfshared->inertia = 0;
 #endif
@@ -1028,7 +1032,7 @@ AssignTuples(IvfflatBuildState * buildstate)
 	if (buildstate->heap != NULL)
 	{
 		if (buildstate->ivfleader)
-			buildstate->reltuples = ParallelHeapScan(buildstate);
+			buildstate->reltuples = ParallelHeapScan(buildstate, &buildstate->indexInfo->ii_BrokenHotChain);
 		else
 			buildstate->reltuples = table_index_build_scan(buildstate->heap, buildstate->index, buildstate->indexInfo,
 														   true, true, BuildCallback, (void *) buildstate, NULL);
