@@ -135,6 +135,8 @@ GetScanLists(IndexScanDesc scan, Datum value)
 		UnlockReleaseBuffer(cbuf);
 	}
 
+	Assert(so->listsCount == so->maxProbes);
+
 	qsort(so->lists, so->listsCount, sizeof(IvfflatScanList), CompareListsSort);
 }
 
