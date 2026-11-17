@@ -293,6 +293,12 @@ typedef struct IvfflatScanOpaqueData
 	Datum		value;
 	MemoryContext tmpCtx;
 
+	/* Support functions */
+	FmgrInfo   *procinfo;
+	FmgrInfo   *normprocinfo;
+	Oid			collation;
+	Datum		(*distfunc) (FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2);
+
 	/* Stream */
 #ifdef IVFFLAT_USE_READ_STREAM
 	ReadStream *stream;
@@ -300,22 +306,16 @@ typedef struct IvfflatScanOpaqueData
 	BlockNumber lastContiguousPage;
 #endif
 
-	/* Sorting */
+	/* Lists */
+	IvfflatScanList *lists;
+	int			listsVisited;
+	pairingheap *listsHeap;
+
+	/* Items */
 	Tuplesortstate *sortstate;
 	TupleDesc	tupdesc;
 	TupleTableSlot *vslot;
 	TupleTableSlot *mslot;
-
-	/* Support functions */
-	FmgrInfo   *procinfo;
-	FmgrInfo   *normprocinfo;
-	Oid			collation;
-	Datum		(*distfunc) (FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2);
-
-	/* Lists */
-	pairingheap *listsHeap;
-	int			listsVisited;
-	IvfflatScanList *lists;
 }			IvfflatScanOpaqueData;
 
 typedef IvfflatScanOpaqueData * IvfflatScanOpaque;

@@ -386,6 +386,10 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	oldCtx = MemoryContextSwitchTo(so->tmpCtx);
 
+	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
+	so->listsVisited = 0;
+	so->listsHeap = pairingheap_allocate(CompareLists, scan);
+
 	/* Create tuple description for sorting */
 	so->tupdesc = CreateTemplateTupleDesc(2);
 	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
@@ -400,10 +404,6 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	/* Need separate slots for puttuple and gettuple */
 	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
 	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
-
-	so->listsHeap = pairingheap_allocate(CompareLists, scan);
-	so->listsVisited = 0;
-	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 
 #ifdef IVFFLAT_USE_READ_STREAM
 	so->stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, IvfflatReadStreamNextBlock, so, 0);
