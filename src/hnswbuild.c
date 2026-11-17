@@ -867,6 +867,9 @@ HnswParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 		indexLockmode = RowExclusiveLock;
 	}
 
+	/* Track query ID */
+	pgstat_report_query_id(hnswshared->queryid, false);
+
 	/* Open relations within worker */
 	heapRel = table_open(hnswshared->heaprelid, heapLockmode);
 	indexRel = index_open(hnswshared->indexrelid, indexLockmode);
@@ -1016,6 +1019,7 @@ HnswBeginParallel(HnswBuildState * buildstate, bool isconcurrent, int request)
 	hnswshared->heaprelid = RelationGetRelid(buildstate->heap);
 	hnswshared->indexrelid = RelationGetRelid(buildstate->index);
 	hnswshared->isconcurrent = isconcurrent;
+	hnswshared->queryid = pgstat_get_my_query_id();
 	ConditionVariableInit(&hnswshared->workersdonecv);
 	SpinLockInit(&hnswshared->mutex);
 	/* Initialize mutable state */

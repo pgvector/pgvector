@@ -251,6 +251,11 @@ typedef struct HnswShared
 	Oid			heaprelid;
 	Oid			indexrelid;
 	bool		isconcurrent;
+#if PG_VERSION_NUM >= 180000
+	int64		queryid;
+#else
+	uint64		queryid;
+#endif
 
 	/* Worker progress */
 	ConditionVariable workersdonecv;

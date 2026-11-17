@@ -748,6 +748,9 @@ IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 		indexLockmode = RowExclusiveLock;
 	}
 
+	/* Track query ID */
+	pgstat_report_query_id(ivfshared->queryid, false);
+
 	/* Open relations within worker */
 	heapRel = table_open(ivfshared->heaprelid, heapLockmode);
 	indexRel = index_open(ivfshared->indexrelid, indexLockmode);
@@ -914,6 +917,7 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	ivfshared->indexrelid = RelationGetRelid(buildstate->index);
 	ivfshared->isconcurrent = isconcurrent;
 	ivfshared->scantuplesortstates = scantuplesortstates;
+	ivfshared->queryid = pgstat_get_my_query_id();
 	ConditionVariableInit(&ivfshared->workersdonecv);
 	SpinLockInit(&ivfshared->mutex);
 	/* Initialize mutable state */

@@ -145,6 +145,11 @@ typedef struct IvfflatShared
 	Oid			indexrelid;
 	bool		isconcurrent;
 	int			scantuplesortstates;
+#if PG_VERSION_NUM >= 180000
+	int64		queryid;
+#else
+	uint64		queryid;
+#endif
 
 	/* Worker progress */
 	ConditionVariable workersdonecv;
