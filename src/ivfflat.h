@@ -313,8 +313,8 @@ typedef struct IvfflatScanOpaqueData
 	Datum		(*distfunc) (FmgrInfo *flinfo, Oid collation, Datum arg1, Datum arg2);
 
 	/* Lists */
-	pairingheap *listQueue;
-	int			listIndex;
+	pairingheap *listsHeap;
+	int			listsVisited;
 	IvfflatScanList *lists;
 }			IvfflatScanOpaqueData;
 

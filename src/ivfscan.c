@@ -106,25 +106,25 @@ GetScanLists(IndexScanDesc scan, Datum value)
 				listCount++;
 
 				/* Add to heap */
-				pairingheap_add(so->listQueue, &scanlist->ph_node);
+				pairingheap_add(so->listsHeap, &scanlist->ph_node);
 
 				/* Calculate max distance */
 				if (listCount == so->maxProbes)
-					maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
+					maxDistance = GetScanList(pairingheap_first(so->listsHeap))->distance;
 			}
 			else if (distance < maxDistance)
 			{
 				/* Remove */
-				scanlist = GetScanList(pairingheap_remove_first(so->listQueue));
+				scanlist = GetScanList(pairingheap_remove_first(so->listsHeap));
 
 				/* Reuse */
 				scanlist->startPage = list->startPage;
 				scanlist->lastContiguousPage = list->startPage;
 				scanlist->distance = distance;
-				pairingheap_add(so->listQueue, &scanlist->ph_node);
+				pairingheap_add(so->listsHeap, &scanlist->ph_node);
 
 				/* Update max distance */
-				maxDistance = GetScanList(pairingheap_first(so->listQueue))->distance;
+				maxDistance = GetScanList(pairingheap_first(so->listsHeap))->distance;
 			}
 
 			prevscanlist = scanlist;
@@ -188,9 +188,9 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	tuplesort_reset(so->sortstate);
 
 	/* Search closest probes lists */
-	while (so->listIndex < so->maxProbes && (++batchProbes) <= so->probes)
+	while (so->listsVisited < so->maxProbes && (++batchProbes) <= so->probes)
 	{
-		IvfflatScanList *scanlist = &so->lists[so->listIndex++];
+		IvfflatScanList *scanlist = &so->lists[so->listsVisited++];
 		BlockNumber searchPage;
 
 #ifdef IVFFLAT_USE_READ_STREAM
@@ -401,8 +401,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
 	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
 
-	so->listQueue = pairingheap_allocate(CompareLists, scan);
-	so->listIndex = 0;
+	so->listsHeap = pairingheap_allocate(CompareLists, scan);
+	so->listsVisited = 0;
 	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 
 #ifdef IVFFLAT_USE_READ_STREAM
@@ -425,8 +425,8 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
 	so->first = true;
-	pairingheap_reset(so->listQueue);
-	so->listIndex = 0;
+	pairingheap_reset(so->listsHeap);
+	so->listsVisited = 0;
 
 	if (so->normprocinfo != NULL && DatumGetPointer(so->value) != NULL)
 	{
@@ -486,7 +486,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 
 	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
 	{
-		if (so->listIndex == so->maxProbes)
+		if (so->listsVisited == so->maxProbes)
 			return false;
 
 		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
