@@ -388,7 +388,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 
 	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 	so->listsVisited = 0;
-	so->listsHeap = pairingheap_allocate(CompareLists, scan);
+	so->listsHeap = pairingheap_allocate(CompareLists, NULL);
 
 	/* Create tuple description for sorting */
 	so->tupdesc = CreateTemplateTupleDesc(2);
