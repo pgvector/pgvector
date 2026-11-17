@@ -429,6 +429,7 @@ ivfflatrescan(IndexScanDesc scan, ScanKey keys, int nkeys, ScanKey orderbys, int
 
 	so->first = true;
 	pairingheap_reset(so->listsHeap);
+	so->listsCount = 0;
 	so->listsVisited = 0;
 
 	if (so->normprocinfo != NULL && DatumGetPointer(so->value) != NULL)
