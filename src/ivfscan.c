@@ -188,7 +188,7 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	tuplesort_reset(so->sortstate);
 
 	/* Search closest probes lists */
-	while (so->listsVisited < so->listsCount && (++batchProbes) <= so->probes)
+	while (so->listsVisited < so->listsCount && batchProbes++ < so->probes)
 	{
 		IvfflatScanList *scanlist = &so->lists[so->listsVisited++];
 		BlockNumber searchPage;
