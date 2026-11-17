@@ -16,6 +16,7 @@
 #include "catalog/pg_operator_d.h"
 #include "catalog/pg_type_d.h"
 #include "commands/progress.h"
+#include "executor/instrument.h"
 #include "fmgr.h"
 #include "ivfflat.h"
 #include "miscadmin.h"
@@ -41,6 +42,8 @@
 #define PARALLEL_KEY_TUPLESORT			UINT64CONST(0xA000000000000002)
 #define PARALLEL_KEY_IVFFLAT_CENTERS	UINT64CONST(0xA000000000000003)
 #define PARALLEL_KEY_QUERY_TEXT			UINT64CONST(0xA000000000000004)
+#define PARALLEL_KEY_WAL_USAGE			UINT64CONST(0xA000000000000005)
+#define PARALLEL_KEY_BUFFER_USAGE		UINT64CONST(0xA000000000000006)
 
 /*
  * Add sample
@@ -720,6 +723,8 @@ IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 	LOCKMODE	heapLockmode;
 	LOCKMODE	indexLockmode;
 	int			sortmem;
+	WalUsage   *walusage;
+	BufferUsage *bufferusage;
 
 	/* Set debug_query_string for individual workers first */
 	sharedquery = shm_toc_lookup(toc, PARALLEL_KEY_QUERY_TEXT, true);
@@ -758,9 +763,17 @@ IvfflatParallelBuildMain(dsm_segment *seg, shm_toc *toc)
 
 	ivfcenters = shm_toc_lookup(toc, PARALLEL_KEY_IVFFLAT_CENTERS, false);
 
+	/* Prepare to track buffer usage during parallel execution */
+	InstrStartParallelQuery();
+
 	/* Perform sorting */
 	sortmem = maintenance_work_mem / ivfshared->scantuplesortstates;
 	IvfflatParallelScanAndSort(ivfspool, ivfshared, sharedsort, ivfcenters, sortmem, false);
+
+	/* Report WAL/buffer usage during parallel execution */
+	bufferusage = shm_toc_lookup(toc, PARALLEL_KEY_BUFFER_USAGE, false);
+	walusage = shm_toc_lookup(toc, PARALLEL_KEY_WAL_USAGE, false);
+	InstrEndParallelQuery(&bufferusage[ParallelWorkerNumber], &walusage[ParallelWorkerNumber]);
 
 	/* Close relations within worker */
 	index_close(indexRel, indexLockmode);
@@ -775,6 +788,10 @@ IvfflatEndParallel(IvfflatLeader * ivfleader)
 {
 	/* Shutdown worker processes */
 	WaitForParallelWorkersToFinish(ivfleader->pcxt);
+
+	/* Accumulate WAL/buffer usage */
+	for (int i = 0; i < ivfleader->pcxt->nworkers_launched; i++)
+		InstrAccumParallelQuery(&ivfleader->bufferusage[i], &ivfleader->walusage[i]);
 
 	/* Free last reference to MVCC snapshot, if one was used */
 	if (IsMVCCSnapshot(ivfleader->snapshot))
@@ -830,6 +847,8 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	Sharedsort *sharedsort;
 	char	   *ivfcenters;
 	IvfflatLeader *ivfleader = palloc0_object(IvfflatLeader);
+	WalUsage   *walusage;
+	BufferUsage *bufferusage;
 	bool		leaderparticipates = true;
 	Size		querylen;
 
@@ -858,6 +877,12 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	estcenters = mul_size(buildstate->centers->itemsize, buildstate->centers->maxlen);
 	shm_toc_estimate_chunk(&pcxt->estimator, estcenters);
 	shm_toc_estimate_keys(&pcxt->estimator, 3);
+
+	/* Estimate space for WalUsage and BufferUsage */
+	shm_toc_estimate_chunk(&pcxt->estimator, mul_size(sizeof(WalUsage), pcxt->nworkers));
+	shm_toc_estimate_keys(&pcxt->estimator, 1);
+	shm_toc_estimate_chunk(&pcxt->estimator, mul_size(sizeof(BufferUsage), pcxt->nworkers));
+	shm_toc_estimate_keys(&pcxt->estimator, 1);
 
 	/* Finally, estimate PARALLEL_KEY_QUERY_TEXT space */
 	if (debug_query_string)
@@ -924,6 +949,12 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 		shm_toc_insert(pcxt->toc, PARALLEL_KEY_QUERY_TEXT, sharedquery);
 	}
 
+	/* Allocate space for each worker's WalUsage and BufferUsage */
+	walusage = shm_toc_allocate(pcxt->toc, mul_size(sizeof(WalUsage), pcxt->nworkers));
+	shm_toc_insert(pcxt->toc, PARALLEL_KEY_WAL_USAGE, walusage);
+	bufferusage = shm_toc_allocate(pcxt->toc, mul_size(sizeof(BufferUsage), pcxt->nworkers));
+	shm_toc_insert(pcxt->toc, PARALLEL_KEY_BUFFER_USAGE, bufferusage);
+
 	/* Launch workers, saving status for leader/caller */
 	LaunchParallelWorkers(pcxt);
 	ivfleader->pcxt = pcxt;
@@ -934,6 +965,8 @@ IvfflatBeginParallel(IvfflatBuildState * buildstate, bool isconcurrent, int requ
 	ivfleader->sharedsort = sharedsort;
 	ivfleader->snapshot = snapshot;
 	ivfleader->ivfcenters = ivfcenters;
+	ivfleader->walusage = walusage;
+	ivfleader->bufferusage = bufferusage;
 
 	/* If no workers were successfully launched, back out (do serial build) */
 	if (pcxt->nworkers_launched == 0)

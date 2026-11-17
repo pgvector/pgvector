@@ -274,6 +274,8 @@ typedef struct HnswLeader
 	HnswShared *hnswshared;
 	Snapshot	snapshot;
 	char	   *hnswarea;
+	WalUsage   *walusage;
+	BufferUsage *bufferusage;
 }			HnswLeader;
 
 typedef struct HnswAllocator
