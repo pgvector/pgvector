@@ -312,7 +312,7 @@ InitScanSortState(TupleDesc tupdesc)
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
 
-	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, false);
+	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, TUPLESORT_NONE);
 }
 
 #ifdef IVFFLAT_USE_READ_STREAM

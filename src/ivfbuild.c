@@ -605,7 +605,7 @@ InitBuildSortState(TupleDesc tupdesc, int memory, SortCoordinate coordinate)
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
 
-	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, memory, coordinate, false);
+	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, memory, coordinate, TUPLESORT_NONE);
 }
 
 /*
