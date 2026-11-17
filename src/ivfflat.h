@@ -308,6 +308,7 @@ typedef struct IvfflatScanOpaqueData
 
 	/* Lists */
 	IvfflatScanList *lists;
+	int			listsCount;
 	int			listsVisited;
 	pairingheap *listsHeap;
 
