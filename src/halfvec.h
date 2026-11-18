@@ -22,6 +22,10 @@
 #define USE_DISPATCH
 #elif defined(_M_AMD64) && defined(_MSC_VER) && _MSC_VER >= 1920
 #define USE_DISPATCH
+#elif defined(__aarch64__) && defined(__GNUC__) && __GNUC__ >= 16
+#define USE_DISPATCH
+#elif defined(__aarch64__) && defined(__clang_major__) && __clang_major__ >= 16
+#define USE_DISPATCH
 #endif
 #endif
 
@@ -38,7 +42,7 @@
 #define USE__GET_CPUID
 #endif
 
-#if defined(USE_DISPATCH)
+#if defined(USE_DISPATCH) && defined(__x86_64__)
 #define HALFVEC_DISPATCH
 #endif
 

@@ -21,8 +21,7 @@
 #endif
 #endif
 
-/* TODO Check compiler versions */
-#if !defined(DISABLE_DISPATCH) && defined(__aarch64__) && !defined(__ARM_FEATURE_SVE2)
+#if defined(USE_DISPATCH) && defined(USE_TARGET_CLONES) && defined(__aarch64__) && !defined(__ARM_FEATURE_SVE2)
 #define HALFVEC_TARGET_CLONES __attribute__((target_clones("default", "sve2")))
 #else
 #define HALFVEC_TARGET_CLONES
