@@ -4,7 +4,7 @@
 #include "halfvec.h"			/* for USE_DISPATCH and USE_TARGET_CLONES */
 #include "port/pg_bitutils.h"
 
-#if defined(USE_DISPATCH) && defined(__x86_64__)
+#if defined(USE_DISPATCH) && (defined(__x86_64__) || defined(_M_AMD64))
 #define BIT_DISPATCH
 #endif
 

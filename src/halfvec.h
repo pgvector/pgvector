@@ -42,7 +42,7 @@
 #define USE__GET_CPUID
 #endif
 
-#if defined(USE_DISPATCH) && defined(__x86_64__)
+#if defined(USE_DISPATCH) && (defined(__x86_64__) || defined(_M_AMD64))
 #define HALFVEC_DISPATCH
 #endif
 
