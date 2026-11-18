@@ -21,12 +21,19 @@
 #endif
 #endif
 
+/* TODO Check compiler versions */
+#if !defined(DISABLE_DISPATCH) && defined(__aarch64__) && !defined(__ARM_FEATURE_SVE2)
+#define HALFVEC_TARGET_CLONES __attribute__((target_clones("default", "sve2")))
+#else
+#define HALFVEC_TARGET_CLONES
+#endif
+
 float		(*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
 float		(*HalfvecInnerProduct) (int dim, half * ax, half * bx);
 double		(*HalfvecCosineSimilarity) (int dim, half * ax, half * bx);
 float		(*HalfvecL1Distance) (int dim, half * ax, half * bx);
 
-static float
+HALFVEC_TARGET_CLONES static float
 HalfvecL2SquaredDistanceDefault(int dim, half * ax, half * bx)
 {
 	float		distance = 0.0;
@@ -78,7 +85,7 @@ HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 }
 #endif
 
-static float
+HALFVEC_TARGET_CLONES static float
 HalfvecInnerProductDefault(int dim, half * ax, half * bx)
 {
 	float		distance = 0.0;
@@ -121,7 +128,7 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 }
 #endif
 
-static double
+HALFVEC_TARGET_CLONES static double
 HalfvecCosineSimilarityDefault(int dim, half * ax, half * bx)
 {
 	float		similarity = 0.0;
@@ -194,7 +201,7 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 }
 #endif
 
-static float
+HALFVEC_TARGET_CLONES static float
 HalfvecL1DistanceDefault(int dim, half * ax, half * bx)
 {
 	float		distance = 0.0;
