@@ -140,9 +140,11 @@ SET work_mem = '64kB';
 CREATE TABLE t (val vector(3));
 INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]');
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 1);
+
 SET client_min_messages = DEBUG;
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 SELECT * FROM t CROSS JOIN LATERAL (SELECT * FROM t t2 ORDER BY val <-> t.val LIMIT 1) t2 WHERE t.val != '[0,0,0]' ORDER BY t.val;
 RESET client_min_messages;
+
 DROP TABLE t;
 RESET work_mem;
