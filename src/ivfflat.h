@@ -103,6 +103,7 @@ typedef Pointer Item;
 extern int	ivfflat_probes;
 extern int	ivfflat_iterative_scan;
 extern int	ivfflat_max_probes;
+extern double ivfflat_scan_mem_multiplier;
 
 typedef enum IvfflatIterativeScanMode
 {

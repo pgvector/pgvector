@@ -33,6 +33,7 @@
 int			ivfflat_probes;
 int			ivfflat_iterative_scan;
 int			ivfflat_max_probes;
+double		ivfflat_scan_mem_multiplier;
 static relopt_kind ivfflat_relopt_kind;
 
 static const struct config_enum_entry ivfflat_iterative_scan_options[] = {
@@ -63,6 +64,11 @@ IvfflatInit(void)
 	DefineCustomIntVariable("ivfflat.max_probes", "Sets the max number of probes for iterative scans",
 							NULL, &ivfflat_max_probes,
 							IVFFLAT_MAX_LISTS, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+
+	/* Same range as hash_mem_multiplier */
+	DefineCustomRealVariable("ivfflat.scan_mem_multiplier", "Sets the multiple of work_mem to use for scans",
+							 NULL, &ivfflat_scan_mem_multiplier,
+							 1, 1, 1000, PGC_USERSET, 0, NULL, NULL, NULL);
 
 	MarkGUCPrefixReserved("ivfflat");
 }

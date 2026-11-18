@@ -621,7 +621,8 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->listsHeap = pairingheap_allocate(CompareListsMaxHeap, NULL);
 
 	so->useHeap = true;
-	so->maxHeapItems = ComputeMaxHeapItems(mul_size(work_mem, 1024));
+	/* TODO Improve multiplier pattern */
+	so->maxHeapItems = ComputeMaxHeapItems(mul_size(work_mem, 1024 * ivfflat_scan_mem_multiplier));
 	BinaryHeapInit(&so->itemsHeap, Min(32 * 1024, so->maxHeapItems));
 	so->sortstate = NULL;
 

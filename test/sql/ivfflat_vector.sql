@@ -95,6 +95,10 @@ SHOW ivfflat.max_probes;
 SET ivfflat.max_probes = 0;
 SET ivfflat.max_probes = 32769;
 
+SHOW ivfflat.scan_mem_multiplier;
+SET ivfflat.scan_mem_multiplier = 0;
+SET ivfflat.scan_mem_multiplier = 1001;
+
 -- dimensions
 
 CREATE TABLE t (val vector(2000));
@@ -142,8 +146,14 @@ INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]');
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 1);
 
 SET client_min_messages = DEBUG;
+
 SELECT * FROM t ORDER BY val <-> '[3,3,3]';
 SELECT * FROM t CROSS JOIN LATERAL (SELECT * FROM t t2 ORDER BY val <-> t.val LIMIT 1) t2 ORDER BY t.val;
+
+SET ivfflat.scan_mem_multiplier = 2;
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+RESET ivfflat.scan_mem_multiplier;
+
 RESET client_min_messages;
 
 DROP TABLE t;
