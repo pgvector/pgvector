@@ -248,6 +248,38 @@ GetScanLists(IndexScanDesc scan, Datum value)
 }
 
 /*
+ * Initialize scan sort state
+ */
+static void
+InitScanSortState(IvfflatScanOpaque so)
+{
+	AttrNumber	attNums[] = {1};
+	Oid			sortOperators[] = {Float8LessOperator};
+	Oid			sortCollations[] = {InvalidOid};
+	bool		nullsFirstFlags[] = {false};
+	MemoryContext oldCtx;
+
+	oldCtx = MemoryContextSwitchTo(so->tmpCtx);
+
+	/* Create tuple description for sorting */
+	so->tupdesc = CreateTemplateTupleDesc(2);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
+#if PG_VERSION_NUM >= 190000
+	TupleDescFinalize(so->tupdesc);
+#endif
+
+	/* Prep sort */
+	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, IVFFLAT_SORT_MEMORY / 1024, NULL, TUPLESORT_NONE);
+
+	/* Need separate slots for puttuple and gettuple */
+	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
+	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+
+	MemoryContextSwitchTo(oldCtx);
+}
+
+/*
  * Add sort item
  */
 static inline void
@@ -294,6 +326,9 @@ AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
 		}
 		else
 		{
+			if (so->sortstate == NULL)
+				InitScanSortState(so);
+
 			/* Move items to sort */
 			for (int i = 0; i < heap->length; i++)
 				AddSortItem(so, heap->nodes[i].distance, &heap->nodes[i].heaptid);
@@ -346,7 +381,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 	so->useHeap = true;
 	BinaryHeapReset(&so->itemsHeap);
-	tuplesort_reset(so->sortstate);
+	if (so->sortstate != NULL)
+		tuplesort_reset(so->sortstate);
 
 	/* Search closest probes lists */
 	while (so->listsVisited < so->listsCount && batchProbes++ < so->probes)
@@ -463,33 +499,6 @@ GetScanValue(IndexScanDesc scan)
 	}
 
 	return value;
-}
-
-/*
- * Initialize scan sort state
- */
-static void
-InitScanSortState(IvfflatScanOpaque so)
-{
-	AttrNumber	attNums[] = {1};
-	Oid			sortOperators[] = {Float8LessOperator};
-	Oid			sortCollations[] = {InvalidOid};
-	bool		nullsFirstFlags[] = {false};
-
-	/* Create tuple description for sorting */
-	so->tupdesc = CreateTemplateTupleDesc(2);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
-#if PG_VERSION_NUM >= 190000
-	TupleDescFinalize(so->tupdesc);
-#endif
-
-	/* Prep sort */
-	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, IVFFLAT_SORT_MEMORY / 1024, NULL, TUPLESORT_NONE);
-
-	/* Need separate slots for puttuple and gettuple */
-	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
-	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
 }
 
 /*
@@ -618,7 +627,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->useHeap = true;
 	so->maxHeapItems = ComputeMaxHeapItems(mul_size(work_mem, 1024));
 	BinaryHeapInit(&so->itemsHeap, Min(32 * 1024, so->maxHeapItems));
-	InitScanSortState(so);
+	so->sortstate = NULL;
 
 #ifdef IVFFLAT_USE_READ_STREAM
 	so->stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, IvfflatReadStreamNextBlock, so, 0);
@@ -720,7 +729,8 @@ ivfflatendscan(IndexScanDesc scan)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
 	/* Free any temporary files */
-	tuplesort_end(so->sortstate);
+	if (so->sortstate != NULL)
+		tuplesort_end(so->sortstate);
 
 #ifdef IVFFLAT_USE_READ_STREAM
 	read_stream_end(so->stream);
