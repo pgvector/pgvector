@@ -37,21 +37,6 @@
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
 
 /*
- * Compare list distances
- */
-static int
-CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
-{
-	if (GetScanListConst(a)->distance > GetScanListConst(b)->distance)
-		return 1;
-
-	if (GetScanListConst(a)->distance < GetScanListConst(b)->distance)
-		return -1;
-
-	return 0;
-}
-
-/*
  * Compare list distances for sort
  */
 static int
@@ -64,6 +49,15 @@ CompareListsSort(const void *a, const void *b)
 		return 1;
 
 	return 0;
+}
+
+/*
+ * Compare list distances
+ */
+static int
+CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
+{
+	return CompareListsSort(GetScanListConst(a), GetScanListConst(b));
 }
 
 /*
