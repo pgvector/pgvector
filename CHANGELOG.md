@@ -2,7 +2,7 @@
 
 - Added asynchronous I/O for indexes
 - Added vacuuming progress for indexes
-- Added CPU dispatching for `halfvec` distance functions on Linux ARM
+- Added CPU dispatching for distance functions on Linux ARM
 - Added `vector_dims` function for `sparsevec`
 - Improved performance of IVFFlat index scans
 - Improved performance of HNSW inserts with `sparsevec`

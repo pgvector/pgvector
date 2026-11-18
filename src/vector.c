@@ -41,6 +41,8 @@
 
 #if defined(USE_TARGET_CLONES) && defined(__x86_64__) && !defined(__FMA__)
 #define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma")))
+#elif defined(USE_TARGET_CLONES) && defined(__aarch64__) && !defined(__ARM_FEATURE_SVE2)
+#define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "sve2")))
 #else
 #define VECTOR_TARGET_CLONES
 #endif
