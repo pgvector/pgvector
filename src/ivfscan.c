@@ -335,6 +335,8 @@ AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
 
 			AddSortItem(so, distance, heaptid);
 			so->useHeap = false;
+
+			elog(DEBUG1, "ivfflat scan no longer fits into work_mem after %d tuples", heap->length);
 		}
 	}
 	else
