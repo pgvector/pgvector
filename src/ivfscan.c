@@ -107,12 +107,16 @@ BinaryHeapSiftDown(IvfflatBinaryHeap * heap, int offset)
 
 	for (;;)
 	{
-		int			left = 2 * offset + 1;
-		int			right = 2 * offset + 2;
+		int			left = 4 * offset + 1;
 		int			swap = left;
 
-		if (right < heap->length && heap->nodes[left].distance >= heap->nodes[right].distance)
-			swap = right;
+		for (int i = 0; i < 3; i++)
+		{
+			int			right = 4 * offset + 2 + i;
+
+			if (right < heap->length && heap->nodes[swap].distance >= heap->nodes[right].distance)
+				swap = right;
+		}
 
 		if (left >= heap->length || node.distance < heap->nodes[swap].distance)
 			break;
@@ -130,7 +134,7 @@ BinaryHeapSiftDown(IvfflatBinaryHeap * heap, int offset)
 static void
 BinaryHeapBuild(IvfflatBinaryHeap * heap)
 {
-	for (int i = heap->length / 2 - 1; i >= 0; i--)
+	for (int i = (heap->length - 2) / 4; i >= 0; i--)
 		BinaryHeapSiftDown(heap, i);
 }
 
