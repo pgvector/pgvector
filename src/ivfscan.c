@@ -316,15 +316,28 @@ GetScanValue(IndexScanDesc scan)
 /*
  * Initialize scan sort state
  */
-static Tuplesortstate *
-InitScanSortState(TupleDesc tupdesc)
+static void
+InitScanSortState(IvfflatScanOpaque so)
 {
 	AttrNumber	attNums[] = {1};
 	Oid			sortOperators[] = {Float8LessOperator};
 	Oid			sortCollations[] = {InvalidOid};
 	bool		nullsFirstFlags[] = {false};
 
-	return tuplesort_begin_heap(tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, TUPLESORT_NONE);
+	/* Create tuple description for sorting */
+	so->tupdesc = CreateTemplateTupleDesc(2);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
+#if PG_VERSION_NUM >= 190000
+	TupleDescFinalize(so->tupdesc);
+#endif
+
+	/* Prep sort */
+	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, TUPLESORT_NONE);
+
+	/* Need separate slots for puttuple and gettuple */
+	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
+	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
 }
 
 #ifdef IVFFLAT_USE_READ_STREAM
@@ -418,20 +431,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->listsVisited = 0;
 	so->listsHeap = pairingheap_allocate(CompareLists, NULL);
 
-	/* Create tuple description for sorting */
-	so->tupdesc = CreateTemplateTupleDesc(2);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
-#if PG_VERSION_NUM >= 190000
-	TupleDescFinalize(so->tupdesc);
-#endif
-
-	/* Prep sort */
-	so->sortstate = InitScanSortState(so->tupdesc);
-
-	/* Need separate slots for puttuple and gettuple */
-	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
-	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+	InitScanSortState(so);
 
 #ifdef IVFFLAT_USE_READ_STREAM
 	so->stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, IvfflatReadStreamNextBlock, so, 0);
