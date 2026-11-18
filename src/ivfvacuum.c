@@ -27,7 +27,7 @@ UpdateProgress(int64 scannedBlocks, BlockNumber totalBlocks)
 	pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_DONE, Min(scannedBlocks, totalBlocks));
 #else
 	if (scannedBlocks == totalBlocks || (scannedBlocks % 1000000 == 0 && scannedBlocks < totalBlocks))
-		elog(DEBUG1, "ivfflat vacuum progress: %.1f%%", 100.0 * Min(scannedBlocks, totalBlocks) / totalBlocks);
+		ereport(DEBUG1, (errmsg("ivfflat vacuum progress: %.1f%%", 100.0 * Min(scannedBlocks, totalBlocks) / totalBlocks)));
 #endif
 }
 
