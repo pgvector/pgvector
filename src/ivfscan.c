@@ -328,8 +328,6 @@ AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
 		{
 			if (so->sortstate == NULL)
 				InitScanSortState(so);
-			else
-				tuplesort_reset(so->sortstate);
 
 			/* Move items to sort */
 			for (int i = 0; i < heap->length; i++)
@@ -383,6 +381,8 @@ GetScanItems(IndexScanDesc scan, Datum value)
 
 	so->useHeap = true;
 	BinaryHeapReset(&so->itemsHeap);
+	if (so->sortstate != NULL)
+		tuplesort_reset(so->sortstate);
 
 	/* Search closest probes lists */
 	while (so->listsVisited < so->listsCount && batchProbes++ < so->probes)
