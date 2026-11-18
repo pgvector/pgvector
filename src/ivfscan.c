@@ -37,10 +37,10 @@
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
 
 /*
- * Compare list distances for sort
+ * Compare list distances
  */
 static int
-CompareListsSort(const void *a, const void *b)
+CompareLists(const void *a, const void *b)
 {
 	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
 		return -1;
@@ -52,12 +52,12 @@ CompareListsSort(const void *a, const void *b)
 }
 
 /*
- * Compare list distances
+ * Compare list distances for max-heap
  */
 static int
-CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
+CompareListsMaxHeap(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	return CompareListsSort(GetScanListConst(a), GetScanListConst(b));
+	return CompareLists(GetScanListConst(a), GetScanListConst(b));
 }
 
 /*
@@ -238,7 +238,7 @@ GetScanLists(IndexScanDesc scan, Datum value)
 
 	Assert(so->listsCount == so->maxProbes);
 
-	qsort(so->lists, so->listsCount, sizeof(IvfflatScanList), CompareListsSort);
+	qsort(so->lists, so->listsCount, sizeof(IvfflatScanList), CompareLists);
 }
 
 /*
@@ -618,7 +618,7 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 	so->listsCount = 0;
 	so->listsVisited = 0;
-	so->listsHeap = pairingheap_allocate(CompareLists, NULL);
+	so->listsHeap = pairingheap_allocate(CompareListsMaxHeap, NULL);
 
 	so->useHeap = true;
 	so->maxHeapItems = ComputeMaxHeapItems(mul_size(work_mem, 1024));
