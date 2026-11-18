@@ -39,7 +39,7 @@
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc_array_checked(Datum, (dim) + 1)
 
-#if defined(USE_TARGET_CLONES) && !defined(__FMA__)
+#if defined(USE_TARGET_CLONES) && defined(__x86_64__) && !defined(__FMA__)
 #define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma")))
 #else
 #define VECTOR_TARGET_CLONES
