@@ -14,7 +14,7 @@ sub test_recall
 	my ($probes, $min, $operator) = @_;
 	my $correct = 0;
 	my $total = 0;
-	my $work_mem = int(rand(4 * 1024)) + 64;
+	my $work_mem = int(rand(512)) + 64;
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
