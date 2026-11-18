@@ -350,6 +350,21 @@ IvfflatReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void
 #endif
 
 /*
+ * Get next scan item
+ */
+static inline bool
+IvfflatNextScanItem(IvfflatScanOpaque so, ItemPointerData *heaptid)
+{
+	bool		isnull;
+
+	if (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
+		return false;
+
+	*heaptid = *((ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull)));
+	return true;
+}
+
+/*
  * Prepare for an index scan
  */
 IndexScanDesc
@@ -462,8 +477,6 @@ bool
 ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
-	ItemPointer heaptid;
-	bool		isnull;
 
 	/*
 	 * Index can be used to scan backward, but Postgres doesn't support
@@ -498,7 +511,7 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		so->value = value;
 	}
 
-	while (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
+	while (!IvfflatNextScanItem(so, &scan->xs_heaptid))
 	{
 		if (so->listsVisited == so->listsCount)
 			return false;
@@ -506,9 +519,6 @@ ivfflatgettuple(IndexScanDesc scan, ScanDirection dir)
 		IvfflatBench("GetScanItems", GetScanItems(scan, so->value));
 	}
 
-	heaptid = (ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull));
-
-	scan->xs_heaptid = *heaptid;
 	scan->xs_recheck = false;
 	scan->xs_recheckorderby = false;
 	return true;
