@@ -262,6 +262,15 @@ DEBUG:  ivfflat scan no longer fits into work_mem after 1 tuples
  [0,0,0]
 (3 rows)
 
+SELECT * FROM t CROSS JOIN LATERAL (SELECT * FROM t t2 ORDER BY val <-> t.val LIMIT 1) t2 WHERE t.val != '[0,0,0]' ORDER BY t.val;
+DEBUG:  ivfflat scan no longer fits into work_mem after 1 tuples
+DEBUG:  ivfflat scan no longer fits into work_mem after 1 tuples
+   val   |   val   
+---------+---------
+ [1,1,1] | [1,1,1]
+ [1,2,3] | [1,2,3]
+(2 rows)
+
 RESET client_min_messages;
 DROP TABLE t;
 RESET work_mem;
