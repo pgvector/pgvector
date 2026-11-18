@@ -92,9 +92,11 @@ typedef Pointer Item;
 #if PG_VERSION_NUM >= 190000
 #define palloc_array_checked(type, count) palloc_array(type, count)
 #define palloc0_array_checked(type, count) palloc0_array(type, count)
+#define repalloc_array_checked(pointer, type, count) repalloc_array(pointer, type, count)
 #else
 #define palloc_array_checked(type, count) ((type *) palloc(mul_size(sizeof(type), count)))
 #define palloc0_array_checked(type, count) ((type *) palloc0(mul_size(sizeof(type), count)))
+#define repalloc_array_checked(pointer, type, count) ((type *) repalloc(pointer, mul_size(sizeof(type), count)))
 #endif
 
 /* Variables */
@@ -283,6 +285,19 @@ typedef struct IvfflatScanList
 	double		distance;
 }			IvfflatScanList;
 
+typedef struct IvfflatBinaryNode
+{
+	ItemPointerData heaptid;
+	double		distance;
+}			IvfflatBinaryNode;
+
+typedef struct IvfflatBinaryHeap
+{
+	IvfflatBinaryNode *nodes;
+	int			length;
+	int			capacity;
+}			IvfflatBinaryHeap;
+
 typedef struct IvfflatScanOpaqueData
 {
 	const		IvfflatTypeInfo *typeInfo;
@@ -313,6 +328,9 @@ typedef struct IvfflatScanOpaqueData
 	pairingheap *listsHeap;
 
 	/* Items */
+	bool		useHeap;
+	int			maxHeapItems;
+	IvfflatBinaryHeap itemsHeap;
 	Tuplesortstate *sortstate;
 	TupleDesc	tupdesc;
 	TupleTableSlot *vslot;

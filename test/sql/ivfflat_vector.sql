@@ -133,3 +133,13 @@ SELECT pg_index_column_has_property('idx'::regclass, 2, 'distance_orderable');
 SELECT pg_index_column_has_property('idx'::regclass, 1, 'search_nulls');
 
 DROP TABLE t;
+
+-- work memory
+
+SET work_mem = '64kB';
+CREATE TABLE t (val vector(3));
+INSERT INTO t (val) VALUES ('[0,0,0]'), ('[1,2,3]'), ('[1,1,1]');
+CREATE INDEX ON t USING ivfflat (val vector_l2_ops) WITH (lists = 1);
+SELECT * FROM t ORDER BY val <-> '[3,3,3]';
+DROP TABLE t;
+RESET work_mem;
