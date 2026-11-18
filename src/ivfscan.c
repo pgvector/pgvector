@@ -141,6 +141,25 @@ GetScanLists(IndexScanDesc scan, Datum value)
 }
 
 /*
+ * Add scan item
+ */
+static inline void
+AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
+{
+	TupleTableSlot *slot = so->vslot;
+
+	/* Add virtual tuple */
+	ExecClearTuple(slot);
+	slot->tts_values[0] = Float8GetDatum(distance);
+	slot->tts_isnull[0] = false;
+	slot->tts_values[1] = PointerGetDatum(heaptid);
+	slot->tts_isnull[1] = false;
+	ExecStoreVirtualTuple(slot);
+
+	tuplesort_puttupleslot(so->sortstate, slot);
+}
+
+/*
  * Get page items
  */
 static void
@@ -148,7 +167,6 @@ GetScanPageItems(IndexScanDesc scan, Datum value, Page page)
 {
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
-	TupleTableSlot *slot = so->vslot;
 	OffsetNumber maxoffno;
 
 	maxoffno = PageGetMaxOffsetNumber(page);
@@ -158,23 +176,15 @@ GetScanPageItems(IndexScanDesc scan, Datum value, Page page)
 		IndexTuple	itup;
 		Datum		datum;
 		bool		isnull;
+		double		distance;
 
 		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offno));
 		datum = index_getattr(itup, 1, tupdesc, &isnull);
 
-		/*
-		 * Add virtual tuple
-		 *
-		 * Use procinfo from the index instead of scan key for performance
-		 */
-		ExecClearTuple(slot);
-		slot->tts_values[0] = so->distfunc(so->procinfo, so->collation, datum, value);
-		slot->tts_isnull[0] = false;
-		slot->tts_values[1] = PointerGetDatum(&itup->t_tid);
-		slot->tts_isnull[1] = false;
-		ExecStoreVirtualTuple(slot);
+		/* Use procinfo from the index instead of scan key for performance */
+		distance = DatumGetFloat8(so->distfunc(so->procinfo, so->collation, datum, value));
 
-		tuplesort_puttupleslot(so->sortstate, slot);
+		AddScanItem(so, distance, &itup->t_tid);
 	}
 }
 
