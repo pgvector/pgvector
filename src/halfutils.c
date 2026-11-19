@@ -333,6 +333,36 @@ HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
 
 	return distance;
 }
+#elif defined(HALFVEC_SVE_DISPATCH)
+TARGET_SVE2 static float
+HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
+{
+	int32_t		width = svcnth();
+	int32_t		count = dim;
+	svfloat32_t dist = svdup_f32(0);
+	svfloat32_t dist2 = svdup_f32(0);
+
+	for (int32_t i = 0; i < count; i += width)
+	{
+		svbool_t	pg = svwhilelt_b16_s32(i, count);
+		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
+		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
+
+		svfloat32_t axs = svcvt_f32_f16_x(svptrue_b32(), axi);
+		svfloat32_t bxs = svcvt_f32_f16_x(svptrue_b32(), bxi);
+		svfloat32_t diff = svsub_f32_x(svptrue_b32(), axs, bxs);
+
+		svfloat32_t axs2 = svcvtlt_f32_f16_x(svptrue_b32(), axi);
+		svfloat32_t bxs2 = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
+		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs2, bxs2);
+
+		/* Use separate accumulators for performance */
+		dist = svadd_f32_x(svptrue_b32(), dist, svabs_f32_x(svptrue_b32(), diff));
+		dist2 = svadd_f32_x(svptrue_b32(), dist2, svabs_f32_x(svptrue_b32(), diff2));
+	}
+
+	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2));
+}
 #endif
 
 #ifdef HALFVEC_DISPATCH
@@ -398,6 +428,7 @@ HalfvecInit(void)
 		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceSve2;
 		HalfvecInnerProduct = HalfvecInnerProductSve2;
 		HalfvecCosineSimilarity = HalfvecCosineSimilaritySve2;
+		HalfvecL1Distance = HalfvecL1DistanceSve2;
 	}
 #endif
 }
