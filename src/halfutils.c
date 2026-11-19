@@ -105,6 +105,7 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 		svfloat32_t bxs2 = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
 		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs2, bxs2);
 
+		/* Use separate accumulators for performance */
 		dist = svmla_f32_x(svptrue_b32(), dist, diff, diff);
 		dist2 = svmla_f32_x(svptrue_b32(), dist2, diff2, diff2);
 	}
@@ -169,6 +170,7 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
+		/* Use separate accumulators for performance */
 		dist = svmlalb_f32(dist, axi, bxi);
 		dist2 = svmlalt_f32(dist2, axi, bxi);
 	}
@@ -270,6 +272,7 @@ HalfvecCosineSimilaritySve2(int dim, half * ax, half * bx)
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
+		/* Use separate accumulators for performance */
 		sim = svmlalb_f32(sim, axi, bxi);
 		sim2 = svmlalt_f32(sim2, axi, bxi);
 		na = svmlalb_f32(na, axi, axi);
