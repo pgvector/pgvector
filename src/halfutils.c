@@ -387,7 +387,7 @@ HalfvecInit(void)
 		HalfvecL1Distance = HalfvecL1DistanceF16c;
 	}
 #elif defined(HALFVEC_SVE_DISPATCH)
-	if (getauxval(AT_HWCAP2) & HWCAP2_SVE2 != 0)
+	if ((getauxval(AT_HWCAP2) & HWCAP2_SVE2) == HWCAP2_SVE2)
 	{
 		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceSve2;
 		HalfvecInnerProduct = HalfvecInnerProductSve2;
