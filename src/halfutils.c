@@ -89,28 +89,27 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 	int32_t		width = svcnth();
 	int32_t		count = dim;
 	svfloat32_t dist = svdup_f32(0);
+	svfloat32_t dist2 = svdup_f32(0);
 
 	for (int32_t i = 0; i < count; i += width)
 	{
 		svbool_t	pg = svwhilelt_b16_s32(i, count);
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
-		svfloat32_t axs;
-		svfloat32_t bxs;
-		svfloat32_t diff;
 
-		axs = svcvt_f32_f16_x(svptrue_b32(), axi);
-		bxs = svcvt_f32_f16_x(svptrue_b32(), bxi);
-		diff = svsub_f32_x(svptrue_b32(), axs, bxs);
-		dist = svmla_f32_x(svptrue_b32(), dist, diff, diff);
+		svfloat32_t axs = svcvt_f32_f16_x(svptrue_b32(), axi);
+		svfloat32_t bxs = svcvt_f32_f16_x(svptrue_b32(), bxi);
+		svfloat32_t diff = svsub_f32_x(svptrue_b32(), axs, bxs);
 
-		axs = svcvtlt_f32_f16_x(svptrue_b32(), axi);
-		bxs = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
-		diff = svsub_f32_x(svptrue_b32(), axs, bxs);
+		svfloat32_t axs2 = svcvtlt_f32_f16_x(svptrue_b32(), axi);
+		svfloat32_t bxs2 = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
+		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs2, bxs2);
+
 		dist = svmla_f32_x(svptrue_b32(), dist, diff, diff);
+		dist2 = svmla_f32_x(svptrue_b32(), dist2, diff2, diff2);
 	}
 
-	return svaddv_f32(svptrue_b32(), dist);
+	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2));
 }
 #endif
 
@@ -162,6 +161,7 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 	int32_t		width = svcnth();
 	int32_t		count = dim;
 	svfloat32_t dist = svdup_f32(0);
+	svfloat32_t dist2 = svdup_f32(0);
 
 	for (int32_t i = 0; i < count; i += width)
 	{
@@ -170,10 +170,10 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
 		dist = svmlalb_f32(dist, axi, bxi);
-		dist = svmlalt_f32(dist, axi, bxi);
+		dist2 = svmlalt_f32(dist2, axi, bxi);
 	}
 
-	return svaddv_f32(svptrue_b32(), dist);
+	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2));
 }
 #endif
 
@@ -258,8 +258,11 @@ HalfvecCosineSimilaritySve2(int dim, half * ax, half * bx)
 	int32_t		width = svcnth();
 	int32_t		count = dim;
 	svfloat32_t sim = svdup_f32(0);
+	svfloat32_t sim2 = svdup_f32(0);
 	svfloat32_t na = svdup_f32(0);
+	svfloat32_t na2 = svdup_f32(0);
 	svfloat32_t nb = svdup_f32(0);
+	svfloat32_t nb2 = svdup_f32(0);
 
 	for (int32_t i = 0; i < count; i += width)
 	{
@@ -268,16 +271,16 @@ HalfvecCosineSimilaritySve2(int dim, half * ax, half * bx)
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
 		sim = svmlalb_f32(sim, axi, bxi);
-		sim = svmlalt_f32(sim, axi, bxi);
+		sim2 = svmlalt_f32(sim2, axi, bxi);
 		na = svmlalb_f32(na, axi, axi);
-		na = svmlalt_f32(na, axi, axi);
+		na2 = svmlalt_f32(na2, axi, axi);
 		nb = svmlalb_f32(nb, bxi, bxi);
-		nb = svmlalt_f32(nb, bxi, bxi);
+		nb2 = svmlalt_f32(nb2, bxi, bxi);
 	}
 
-	similarity = svaddv_f32(svptrue_b32(), sim);
-	norma = svaddv_f32(svptrue_b32(), na);
-	normb = svaddv_f32(svptrue_b32(), nb);
+	similarity = svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), sim, sim2));
+	norma = svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), na, na2));
+	normb = svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), nb, nb2));
 
 	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
 	return (double) similarity / sqrt((double) norma * (double) normb);
