@@ -22,6 +22,10 @@
 #define USE_DISPATCH
 #elif defined(_M_AMD64) && defined(_MSC_VER) && _MSC_VER >= 1920
 #define USE_DISPATCH
+#elif defined(__aarch64__) && defined(__gnu_linux__) && defined(__GNUC__) && __GNUC__ >= 10
+#define USE_SVE_DISPATCH
+#elif defined(__aarch64__) && defined(__gnu_linux__) && defined(__clang_major__) && __clang_major__ >= 11
+#define USE_SVE_DISPATCH
 #endif
 #endif
 
@@ -40,6 +44,10 @@
 
 #if defined(USE_DISPATCH)
 #define HALFVEC_DISPATCH
+#endif
+
+#if defined(USE_SVE_DISPATCH)
+#define HALFVEC_SVE_DISPATCH
 #endif
 
 /* F16C has better performance than _Float16 (on x86-64) */
