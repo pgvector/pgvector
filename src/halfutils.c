@@ -127,9 +127,9 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 		dist4 = svmla_f32_x(svptrue_b32(), dist4, diff4, diff4);
 	}
 
-	for (; i < count; i += width)
+	for (; i < dim; i += width)
 	{
-		svbool_t	pg = svwhilelt_b16_s32(i, count);
+		svbool_t	pg = svwhilelt_b16_s32(i, dim);
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
@@ -351,9 +351,9 @@ HalfvecCosineSimilaritySve2(int dim, half * ax, half * bx)
 		nb4 = svmlalt_f32(nb4, bxi2, bxi2);
 	}
 
-	for (; i < count; i += width)
+	for (; i < dim; i += width)
 	{
-		svbool_t	pg = svwhilelt_b16_s32(i, count);
+		svbool_t	pg = svwhilelt_b16_s32(i, dim);
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
@@ -461,9 +461,9 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 		dist4 = svadd_f32_x(svptrue_b32(), dist4, svabs_f32_x(svptrue_b32(), diff4));
 	}
 
-	for (; i < count; i += width)
+	for (; i < dim; i += width)
 	{
-		svbool_t	pg = svwhilelt_b16_s32(i, count);
+		svbool_t	pg = svwhilelt_b16_s32(i, dim);
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
