@@ -103,15 +103,15 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 
 	for (i = 0; i < count; i += width2)
 	{
-		svfloat16_t axi0 = svld1_f16(pt16, (float16_t *) (ax + i));
-		svfloat16_t axi1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
-		svfloat16_t bxi0 = svld1_f16(pt16, (float16_t *) (bx + i));
-		svfloat16_t bxi1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
+		svfloat16_t a0 = svld1_f16(pt16, (float16_t *) (ax + i));
+		svfloat16_t a1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
+		svfloat16_t b0 = svld1_f16(pt16, (float16_t *) (bx + i));
+		svfloat16_t b1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
 
-		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, axi0, one), bxi0, one);
-		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, axi0, one), bxi0, one);
-		svfloat32_t diff2 = svmlslb_f32(svmlalb_f32(zero, axi1, one), bxi1, one);
-		svfloat32_t diff3 = svmlslt_f32(svmlalt_f32(zero, axi1, one), bxi1, one);
+		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, a0, one), b0, one);
+		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, a0, one), b0, one);
+		svfloat32_t diff2 = svmlslb_f32(svmlalb_f32(zero, a1, one), b1, one);
+		svfloat32_t diff3 = svmlslt_f32(svmlalt_f32(zero, a1, one), b1, one);
 
 		/* Use separate accumulators for performance */
 		dist0 = svmla_f32_x(pt32, dist0, diff0, diff0);
@@ -123,11 +123,11 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 	for (; i < dim; i += width)
 	{
 		svbool_t	pg = svwhilelt_b16_s32(i, dim);
-		svfloat16_t axi0 = svld1_f16(pg, (float16_t *) (ax + i));
-		svfloat16_t bxi0 = svld1_f16(pg, (float16_t *) (bx + i));
+		svfloat16_t a0 = svld1_f16(pg, (float16_t *) (ax + i));
+		svfloat16_t b0 = svld1_f16(pg, (float16_t *) (bx + i));
 
-		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, axi0, one), bxi0, one);
-		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, axi0, one), bxi0, one);
+		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, a0, one), b0, one);
+		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, a0, one), b0, one);
 
 		/* Use separate accumulators for performance */
 		dist0 = svmla_f32_x(pt32, dist0, diff0, diff0);
@@ -196,27 +196,27 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 
 	for (i = 0; i < count; i += width2)
 	{
-		svfloat16_t axi0 = svld1_f16(pt16, (float16_t *) (ax + i));
-		svfloat16_t axi1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
-		svfloat16_t bxi0 = svld1_f16(pt16, (float16_t *) (bx + i));
-		svfloat16_t bxi1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
+		svfloat16_t a0 = svld1_f16(pt16, (float16_t *) (ax + i));
+		svfloat16_t a1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
+		svfloat16_t b0 = svld1_f16(pt16, (float16_t *) (bx + i));
+		svfloat16_t b1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
 
 		/* Use separate accumulators for performance */
-		dist0 = svmlalb_f32(dist0, axi0, bxi0);
-		dist1 = svmlalt_f32(dist1, axi0, bxi0);
-		dist2 = svmlalb_f32(dist2, axi1, bxi1);
-		dist3 = svmlalt_f32(dist3, axi1, bxi1);
+		dist0 = svmlalb_f32(dist0, a0, b0);
+		dist1 = svmlalt_f32(dist1, a0, b0);
+		dist2 = svmlalb_f32(dist2, a1, b1);
+		dist3 = svmlalt_f32(dist3, a1, b1);
 	}
 
 	for (; i < dim; i += width)
 	{
 		svbool_t	pg = svwhilelt_b16_s32(i, dim);
-		svfloat16_t axi0 = svld1_f16(pg, (float16_t *) (ax + i));
-		svfloat16_t bxi0 = svld1_f16(pg, (float16_t *) (bx + i));
+		svfloat16_t a0 = svld1_f16(pg, (float16_t *) (ax + i));
+		svfloat16_t b0 = svld1_f16(pg, (float16_t *) (bx + i));
 
 		/* Use separate accumulators for performance */
-		dist0 = svmlalb_f32(dist0, axi0, bxi0);
-		dist1 = svmlalt_f32(dist1, axi0, bxi0);
+		dist0 = svmlalb_f32(dist0, a0, b0);
+		dist1 = svmlalt_f32(dist1, a0, b0);
 	}
 
 	return SVE_SUM(dist0, dist1, dist2, dist3, pt32);
@@ -322,40 +322,40 @@ HalfvecCosineSimilaritySve2(int dim, half * ax, half * bx)
 
 	for (i = 0; i < count; i += width2)
 	{
-		svfloat16_t axi0 = svld1_f16(pt16, (float16_t *) (ax + i));
-		svfloat16_t axi1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
-		svfloat16_t bxi0 = svld1_f16(pt16, (float16_t *) (bx + i));
-		svfloat16_t bxi1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
+		svfloat16_t a0 = svld1_f16(pt16, (float16_t *) (ax + i));
+		svfloat16_t a1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
+		svfloat16_t b0 = svld1_f16(pt16, (float16_t *) (bx + i));
+		svfloat16_t b1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
 
 		/* Use separate accumulators for performance */
-		sim0 = svmlalb_f32(sim0, axi0, bxi0);
-		sim1 = svmlalt_f32(sim1, axi0, bxi0);
-		na0 = svmlalb_f32(na0, axi0, axi0);
-		na1 = svmlalt_f32(na1, axi0, axi0);
-		nb0 = svmlalb_f32(nb0, bxi0, bxi0);
-		nb1 = svmlalt_f32(nb1, bxi0, bxi0);
+		sim0 = svmlalb_f32(sim0, a0, b0);
+		sim1 = svmlalt_f32(sim1, a0, b0);
+		na0 = svmlalb_f32(na0, a0, a0);
+		na1 = svmlalt_f32(na1, a0, a0);
+		nb0 = svmlalb_f32(nb0, b0, b0);
+		nb1 = svmlalt_f32(nb1, b0, b0);
 
-		sim2 = svmlalb_f32(sim2, axi1, bxi1);
-		sim3 = svmlalt_f32(sim3, axi1, bxi1);
-		na2 = svmlalb_f32(na2, axi1, axi1);
-		na3 = svmlalt_f32(na3, axi1, axi1);
-		nb2 = svmlalb_f32(nb2, bxi1, bxi1);
-		nb3 = svmlalt_f32(nb3, bxi1, bxi1);
+		sim2 = svmlalb_f32(sim2, a1, b1);
+		sim3 = svmlalt_f32(sim3, a1, b1);
+		na2 = svmlalb_f32(na2, a1, a1);
+		na3 = svmlalt_f32(na3, a1, a1);
+		nb2 = svmlalb_f32(nb2, b1, b1);
+		nb3 = svmlalt_f32(nb3, b1, b1);
 	}
 
 	for (; i < dim; i += width)
 	{
 		svbool_t	pg = svwhilelt_b16_s32(i, dim);
-		svfloat16_t axi0 = svld1_f16(pg, (float16_t *) (ax + i));
-		svfloat16_t bxi0 = svld1_f16(pg, (float16_t *) (bx + i));
+		svfloat16_t a0 = svld1_f16(pg, (float16_t *) (ax + i));
+		svfloat16_t b0 = svld1_f16(pg, (float16_t *) (bx + i));
 
 		/* Use separate accumulators for performance */
-		sim0 = svmlalb_f32(sim0, axi0, bxi0);
-		sim1 = svmlalt_f32(sim1, axi0, bxi0);
-		na0 = svmlalb_f32(na0, axi0, axi0);
-		na1 = svmlalt_f32(na1, axi0, axi0);
-		nb0 = svmlalb_f32(nb0, bxi0, bxi0);
-		nb1 = svmlalt_f32(nb1, bxi0, bxi0);
+		sim0 = svmlalb_f32(sim0, a0, b0);
+		sim1 = svmlalt_f32(sim1, a0, b0);
+		na0 = svmlalb_f32(na0, a0, a0);
+		na1 = svmlalt_f32(na1, a0, a0);
+		nb0 = svmlalb_f32(nb0, b0, b0);
+		nb1 = svmlalt_f32(nb1, b0, b0);
 	}
 
 	similarity = SVE_SUM(sim0, sim1, sim2, sim3, pt32);
@@ -429,15 +429,15 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 
 	for (i = 0; i < count; i += width2)
 	{
-		svfloat16_t axi0 = svld1_f16(pt16, (float16_t *) (ax + i));
-		svfloat16_t axi1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
-		svfloat16_t bxi0 = svld1_f16(pt16, (float16_t *) (bx + i));
-		svfloat16_t bxi1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
+		svfloat16_t a0 = svld1_f16(pt16, (float16_t *) (ax + i));
+		svfloat16_t a1 = svld1_f16(pt16, (float16_t *) (ax + i + width));
+		svfloat16_t b0 = svld1_f16(pt16, (float16_t *) (bx + i));
+		svfloat16_t b1 = svld1_f16(pt16, (float16_t *) (bx + i + width));
 
-		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, axi0, one), bxi0, one);
-		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, axi0, one), bxi0, one);
-		svfloat32_t diff2 = svmlslb_f32(svmlalb_f32(zero, axi1, one), bxi1, one);
-		svfloat32_t diff3 = svmlslt_f32(svmlalt_f32(zero, axi1, one), bxi1, one);
+		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, a0, one), b0, one);
+		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, a0, one), b0, one);
+		svfloat32_t diff2 = svmlslb_f32(svmlalb_f32(zero, a1, one), b1, one);
+		svfloat32_t diff3 = svmlslt_f32(svmlalt_f32(zero, a1, one), b1, one);
 
 		/* Use separate accumulators for performance */
 		dist0 = svadd_f32_x(pt32, dist0, svabs_f32_x(pt32, diff0));
@@ -449,11 +449,11 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 	for (; i < dim; i += width)
 	{
 		svbool_t	pg = svwhilelt_b16_s32(i, dim);
-		svfloat16_t axi0 = svld1_f16(pg, (float16_t *) (ax + i));
-		svfloat16_t bxi0 = svld1_f16(pg, (float16_t *) (bx + i));
+		svfloat16_t a0 = svld1_f16(pg, (float16_t *) (ax + i));
+		svfloat16_t b0 = svld1_f16(pg, (float16_t *) (bx + i));
 
-		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, axi0, one), bxi0, one);
-		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, axi0, one), bxi0, one);
+		svfloat32_t diff0 = svmlslb_f32(svmlalb_f32(zero, a0, one), b0, one);
+		svfloat32_t diff1 = svmlslt_f32(svmlalt_f32(zero, a0, one), b0, one);
 
 		/* Use separate accumulators for performance */
 		dist0 = svadd_f32_x(pt32, dist0, svabs_f32_x(pt32, diff0));
