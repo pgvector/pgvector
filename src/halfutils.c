@@ -176,30 +176,64 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 	float		normb;
 	int			i;
 	float		s[8];
-	int			count = (dim / 8) * 8;
-	__m256		sim = _mm256_setzero_ps();
-	__m256		na = _mm256_setzero_ps();
-	__m256		nb = _mm256_setzero_ps();
+	int			count = (dim / 32) * 32;
+	__m256		sim0 = _mm256_setzero_ps();
+	__m256		sim1 = _mm256_setzero_ps();
+	__m256		sim2 = _mm256_setzero_ps();
+	__m256		sim3 = _mm256_setzero_ps();
+	__m256		na0 = _mm256_setzero_ps();
+	__m256		na1 = _mm256_setzero_ps();
+	__m256		na2 = _mm256_setzero_ps();
+	__m256		na3 = _mm256_setzero_ps();
+	__m256		nb0 = _mm256_setzero_ps();
+	__m256		nb1 = _mm256_setzero_ps();
+	__m256		nb2 = _mm256_setzero_ps();
+	__m256		nb3 = _mm256_setzero_ps();
 
-	for (i = 0; i < count; i += 8)
+	for (i = 0; i < count; i += 32)
 	{
-		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
-		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
-		__m256		axs = _mm256_cvtph_ps(axi);
-		__m256		bxs = _mm256_cvtph_ps(bxi);
+		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		axi1 = _mm_loadu_si128((__m128i *) (ax + i + 8));
+		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 16));
+		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 24));
+		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
+		__m128i		bxi1 = _mm_loadu_si128((__m128i *) (bx + i + 8));
+		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 16));
+		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 24));
 
-		sim = _mm256_fmadd_ps(axs, bxs, sim);
-		na = _mm256_fmadd_ps(axs, axs, na);
-		nb = _mm256_fmadd_ps(bxs, bxs, nb);
+		__m256		axs0 = _mm256_cvtph_ps(axi0);
+		__m256		bxs0 = _mm256_cvtph_ps(bxi0);
+		__m256		axs1 = _mm256_cvtph_ps(axi1);
+		__m256		bxs1 = _mm256_cvtph_ps(bxi1);
+		__m256		axs2 = _mm256_cvtph_ps(axi2);
+		__m256		bxs2 = _mm256_cvtph_ps(bxi2);
+		__m256		axs3 = _mm256_cvtph_ps(axi3);
+		__m256		bxs3 = _mm256_cvtph_ps(bxi3);
+
+		sim0 = _mm256_fmadd_ps(axs0, bxs0, sim0);
+		na0 = _mm256_fmadd_ps(axs0, axs0, na0);
+		nb0 = _mm256_fmadd_ps(bxs0, bxs0, nb0);
+
+		sim1 = _mm256_fmadd_ps(axs1, bxs1, sim1);
+		na1 = _mm256_fmadd_ps(axs1, axs1, na1);
+		nb1 = _mm256_fmadd_ps(bxs1, bxs1, nb1);
+
+		sim2 = _mm256_fmadd_ps(axs2, bxs2, sim2);
+		na2 = _mm256_fmadd_ps(axs2, axs2, na2);
+		nb2 = _mm256_fmadd_ps(bxs2, bxs2, nb2);
+
+		sim3 = _mm256_fmadd_ps(axs3, bxs3, sim3);
+		na3 = _mm256_fmadd_ps(axs3, axs3, na3);
+		nb3 = _mm256_fmadd_ps(bxs3, bxs3, nb3);
 	}
 
-	_mm256_storeu_ps(s, sim);
+	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(sim0, sim1), _mm256_add_ps(sim2, sim3)));
 	similarity = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
-	_mm256_storeu_ps(s, na);
+	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(na0, na1), _mm256_add_ps(na2, na3)));
 	norma = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
-	_mm256_storeu_ps(s, nb);
+	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(nb0, nb1), _mm256_add_ps(nb2, nb3)));
 	normb = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
 	/* Auto-vectorized */
@@ -238,21 +272,31 @@ HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
 	float		distance;
 	int			i;
 	float		s[8];
-	int			count = (dim / 8) * 8;
-	__m256		dist = _mm256_setzero_ps();
+	int			count = (dim / 32) * 32;
+	__m256		dist0 = _mm256_setzero_ps();
+	__m256		dist1 = _mm256_setzero_ps();
+	__m256		dist2 = _mm256_setzero_ps();
+	__m256		dist3 = _mm256_setzero_ps();
 	__m256		sign = _mm256_set1_ps(-0.0);
 
-	for (i = 0; i < count; i += 8)
+	for (i = 0; i < count; i += 32)
 	{
-		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
-		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
-		__m256		axs = _mm256_cvtph_ps(axi);
-		__m256		bxs = _mm256_cvtph_ps(bxi);
+		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		axi1 = _mm_loadu_si128((__m128i *) (ax + i + 8));
+		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 16));
+		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 24));
+		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
+		__m128i		bxi1 = _mm_loadu_si128((__m128i *) (bx + i + 8));
+		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 16));
+		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 24));
 
-		dist = _mm256_add_ps(dist, _mm256_andnot_ps(sign, _mm256_sub_ps(axs, bxs)));
+		dist0 = _mm256_add_ps(dist0, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi0), _mm256_cvtph_ps(bxi0))));
+		dist1 = _mm256_add_ps(dist1, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi1), _mm256_cvtph_ps(bxi1))));
+		dist2 = _mm256_add_ps(dist2, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi2), _mm256_cvtph_ps(bxi2))));
+		dist3 = _mm256_add_ps(dist3, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi3), _mm256_cvtph_ps(bxi3))));
 	}
 
-	_mm256_storeu_ps(s, dist);
+	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
