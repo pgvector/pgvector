@@ -1160,13 +1160,15 @@ If installation fails with `Access is denied`, re-run the installation instructi
 Get the [Docker image](https://hub.docker.com/r/pgvector/pgvector) with:
 
 ```sh
-docker pull pgvector/pgvector:pg18-trixie
+docker pull pgvector/pgvector:pg19-trixie
 ```
 
-This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `18` with your Postgres server version, and run it the same way).
+This adds pgvector to the [Postgres image](https://hub.docker.com/_/postgres) (replace `19` with your Postgres server version, and run it the same way).
 
 Supported tags are:
 
+- `pg19-trixie`, `0.8.7-pg19-trixie`
+- `pg19-bookworm`, `0.8.7-pg19-bookworm`, `pg19`, `0.8.7-pg19`
 - `pg18-trixie`, `0.8.7-pg18-trixie`
 - `pg18-bookworm`, `0.8.7-pg18-bookworm`, `pg18`, `0.8.7-pg18`
 - `pg17-trixie`, `0.8.7-pg17-trixie`
@@ -1181,7 +1183,7 @@ You can also build the image manually:
 ```sh
 git clone --branch v0.8.7 https://github.com/pgvector/pgvector.git
 cd pgvector
-docker build --pull --build-arg PG_MAJOR=18 -t myuser/pgvector .
+docker build --pull --build-arg PG_MAJOR=19 -t myuser/pgvector .
 ```
 
 If you increase `maintenance_work_mem`, make sure `--shm-size` is at least that size to avoid an error with parallel HNSW index builds.
