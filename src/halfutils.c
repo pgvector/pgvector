@@ -25,6 +25,8 @@
 #include <sys/auxv.h>
 
 #define TARGET_SVE2 __attribute__((target("+sve2")))
+
+#define SVE_SUM_F32(a, b, c, d) svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), a, b), svadd_f32_x(svptrue_b32(), c, d)));
 #endif
 
 float		(*HalfvecL2SquaredDistance) (int dim, half * ax, half * bx);
@@ -144,7 +146,7 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 		dist2 = svmla_f32_x(svptrue_b32(), dist2, diff2, diff2);
 	}
 
-	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4)));
+	return SVE_SUM_F32(dist, dist2, dist3, dist4);
 }
 #endif
 
@@ -227,7 +229,7 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 		dist2 = svmlalt_f32(dist2, axi, bxi);
 	}
 
-	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4)));
+	return SVE_SUM_F32(dist, dist2, dist3, dist4);
 }
 #endif
 
@@ -364,9 +366,9 @@ HalfvecCosineSimilaritySve2(int dim, half * ax, half * bx)
 		nb2 = svmlalt_f32(nb2, bxi, bxi);
 	}
 
-	similarity = svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), sim, sim2), svadd_f32_x(svptrue_b32(), sim3, sim4)));
-	norma = svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), na, na2), svadd_f32_x(svptrue_b32(), na3, na4)));
-	normb = svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), nb, nb2), svadd_f32_x(svptrue_b32(), nb3, nb4)));
+	similarity = SVE_SUM_F32(sim, sim2, sim3, sim4);
+	norma = SVE_SUM_F32(na, na2, na3, na4);
+	normb = SVE_SUM_F32(nb, nb2, nb3, nb4);
 
 	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
 	return (double) similarity / sqrt((double) norma * (double) normb);
@@ -478,7 +480,7 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 		dist2 = svadd_f32_x(svptrue_b32(), dist2, svabs_f32_x(svptrue_b32(), diff2));
 	}
 
-	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4)));
+	return SVE_SUM_F32(dist, dist2, dist3, dist4);
 }
 #endif
 
