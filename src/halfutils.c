@@ -106,13 +106,13 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 	for (i = 0; i < count; i += 32)
 	{
 		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
-		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 16));
-		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 24));
-		__m128i		axi4 = _mm_loadu_si128((__m128i *) (ax + i + 32));
+		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 8));
+		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 16));
+		__m128i		axi4 = _mm_loadu_si128((__m128i *) (ax + i + 24));
 		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
-		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 16));
-		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 24));
-		__m128i		bxi4 = _mm_loadu_si128((__m128i *) (bx + i + 32));
+		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 8));
+		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 16));
+		__m128i		bxi4 = _mm_loadu_si128((__m128i *) (bx + i + 24));
 
 		__m256		axs = _mm256_cvtph_ps(axi);
 		__m256		bxs = _mm256_cvtph_ps(bxi);
