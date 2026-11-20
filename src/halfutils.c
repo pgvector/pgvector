@@ -160,13 +160,31 @@ TARGET_SVE2 static float
 HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 {
 	int32_t		width = svcnth();
-	int32_t		count = dim;
+	int32_t		width2 = width * 2;
+	int32_t		i;
+	int32_t		count = (dim / width2) * width2;
 	svfloat32_t dist = svdup_n_f32(0.0);
 	svfloat32_t dist2 = svdup_n_f32(0.0);
+	svfloat32_t dist3 = svdup_n_f32(0.0);
+	svfloat32_t dist4 = svdup_n_f32(0.0);
 
-	for (int32_t i = 0; i < count; i += width)
+	for (i = 0; i < count; i += width2)
 	{
-		svbool_t	pg = svwhilelt_b16_s32(i, count);
+		svfloat16_t axi = svld1_f16(svptrue_b16(), (float16_t *) (ax + i));
+		svfloat16_t bxi = svld1_f16(svptrue_b16(), (float16_t *) (bx + i));
+		svfloat16_t axi2 = svld1_f16(svptrue_b16(), (float16_t *) (ax + i + width));
+		svfloat16_t bxi2 = svld1_f16(svptrue_b16(), (float16_t *) (bx + i + width));
+
+		/* Use separate accumulators for performance */
+		dist = svmlalb_f32(dist, axi, bxi);
+		dist2 = svmlalt_f32(dist2, axi, bxi);
+		dist3 = svmlalb_f32(dist3, axi2, bxi2);
+		dist4 = svmlalt_f32(dist4, axi2, bxi2);
+	}
+
+	for (; i < dim; i += width)
+	{
+		svbool_t	pg = svwhilelt_b16_s32(i, dim);
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
@@ -175,7 +193,11 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 		dist2 = svmlalt_f32(dist2, axi, bxi);
 	}
 
-	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2));
+	dist = svadd_f32_x(svptrue_b32(), dist, dist2);
+	dist3 = svadd_f32_x(svptrue_b32(), dist3, dist4);
+	dist = svadd_f32_x(svptrue_b32(), dist, dist3);
+
+	return svaddv_f32(svptrue_b32(), dist);
 }
 #endif
 
