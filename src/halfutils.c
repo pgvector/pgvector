@@ -171,8 +171,8 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 	for (i = 0; i < count; i += width2)
 	{
 		svfloat16_t axi = svld1_f16(svptrue_b16(), (float16_t *) (ax + i));
-		svfloat16_t bxi = svld1_f16(svptrue_b16(), (float16_t *) (bx + i));
 		svfloat16_t axi2 = svld1_f16(svptrue_b16(), (float16_t *) (ax + i + width));
+		svfloat16_t bxi = svld1_f16(svptrue_b16(), (float16_t *) (bx + i));
 		svfloat16_t bxi2 = svld1_f16(svptrue_b16(), (float16_t *) (bx + i + width));
 
 		/* Use separate accumulators for performance */
