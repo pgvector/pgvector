@@ -112,11 +112,11 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 
 		svfloat32_t axs3 = svcvt_f32_f16_x(svptrue_b32(), axi2);
 		svfloat32_t bxs3 = svcvt_f32_f16_x(svptrue_b32(), bxi2);
-		svfloat32_t diff = svsub_f32_x(svptrue_b32(), axs3, bxs3);
+		svfloat32_t diff3 = svsub_f32_x(svptrue_b32(), axs3, bxs3);
 
 		svfloat32_t axs4 = svcvtlt_f32_f16_x(svptrue_b32(), axi2);
 		svfloat32_t bxs4 = svcvtlt_f32_f16_x(svptrue_b32(), bxi2);
-		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs4, bxs4);
+		svfloat32_t diff4 = svsub_f32_x(svptrue_b32(), axs4, bxs4);
 
 		/* Use separate accumulators for performance */
 		dist = svmla_f32_x(svptrue_b32(), dist, diff, diff);
@@ -144,7 +144,7 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 		dist2 = svmla_f32_x(svptrue_b32(), dist2, diff2, diff2);
 	}
 
-	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4))));
+	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4)));
 }
 #endif
 
@@ -227,7 +227,7 @@ HalfvecInnerProductSve2(int dim, half * ax, half * bx)
 		dist2 = svmlalt_f32(dist2, axi, bxi);
 	}
 
-	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4))));
+	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4)));
 }
 #endif
 
@@ -478,7 +478,7 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 		dist2 = svadd_f32_x(svptrue_b32(), dist2, svabs_f32_x(svptrue_b32(), diff2));
 	}
 
-	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4))));
+	return svaddv_f32(svptrue_b32(), svadd_f32_x(svptrue_b32(), svadd_f32_x(svptrue_b32(), dist, dist2), svadd_f32_x(svptrue_b32(), dist3, dist4)));
 }
 #endif
 
