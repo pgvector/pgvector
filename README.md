@@ -685,6 +685,12 @@ Be sure to restart Postgres for changes to take effect.
 
 Use the `halfvec` type instead of `vector` for a smaller working set.
 
+Use `PLAIN` storage for maximum performance.
+
+```sql
+CREATE TABLE items (embedding halfvec(3) STORAGE PLAIN);
+```
+
 ### Loading
 
 Use `COPY` for bulk loading data ([example](https://github.com/pgvector/pgvector-python/blob/master/examples/loading/example.py)).
