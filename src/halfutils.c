@@ -96,6 +96,8 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 	svfloat32_t dist2 = svdup_n_f32(0.0);
 	svfloat32_t dist3 = svdup_n_f32(0.0);
 	svfloat32_t dist4 = svdup_n_f32(0.0);
+	svfloat32_t zero = svdup_n_f32(0.0);
+	svfloat16_t one = svdup_n_f16(1.0);
 
 	for (i = 0; i < count; i += width2)
 	{
@@ -104,21 +106,10 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 		svfloat16_t bxi = svld1_f16(svptrue_b16(), (float16_t *) (bx + i));
 		svfloat16_t bxi2 = svld1_f16(svptrue_b16(), (float16_t *) (bx + i + width));
 
-		svfloat32_t axs = svcvt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs = svcvt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff = svsub_f32_x(svptrue_b32(), axs, bxs);
-
-		svfloat32_t axs2 = svcvtlt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs2 = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs2, bxs2);
-
-		svfloat32_t axs3 = svcvt_f32_f16_x(svptrue_b32(), axi2);
-		svfloat32_t bxs3 = svcvt_f32_f16_x(svptrue_b32(), bxi2);
-		svfloat32_t diff3 = svsub_f32_x(svptrue_b32(), axs3, bxs3);
-
-		svfloat32_t axs4 = svcvtlt_f32_f16_x(svptrue_b32(), axi2);
-		svfloat32_t bxs4 = svcvtlt_f32_f16_x(svptrue_b32(), bxi2);
-		svfloat32_t diff4 = svsub_f32_x(svptrue_b32(), axs4, bxs4);
+		svfloat32_t diff = svmlslb_f32(svmlalb_f32(zero, axi, one), bxi, one);
+		svfloat32_t diff2 = svmlslt_f32(svmlalt_f32(zero, axi, one), bxi, one);
+		svfloat32_t diff3 = svmlslb_f32(svmlalb_f32(zero, axi2, one), bxi2, one);
+		svfloat32_t diff4 = svmlslt_f32(svmlalt_f32(zero, axi2, one), bxi2, one);
 
 		/* Use separate accumulators for performance */
 		dist = svmla_f32_x(svptrue_b32(), dist, diff, diff);
@@ -133,13 +124,8 @@ HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
-		svfloat32_t axs = svcvt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs = svcvt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff = svsub_f32_x(svptrue_b32(), axs, bxs);
-
-		svfloat32_t axs2 = svcvtlt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs2 = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs2, bxs2);
+		svfloat32_t diff = svmlslb_f32(svmlalb_f32(zero, axi, one), bxi, one);
+		svfloat32_t diff2 = svmlslt_f32(svmlalt_f32(zero, axi, one), bxi, one);
 
 		/* Use separate accumulators for performance */
 		dist = svmla_f32_x(svptrue_b32(), dist, diff, diff);
@@ -430,6 +416,8 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 	svfloat32_t dist2 = svdup_n_f32(0.0);
 	svfloat32_t dist3 = svdup_n_f32(0.0);
 	svfloat32_t dist4 = svdup_n_f32(0.0);
+	svfloat32_t zero = svdup_n_f32(0.0);
+	svfloat16_t one = svdup_n_f16(1.0);
 
 	for (i = 0; i < count; i += width2)
 	{
@@ -438,21 +426,10 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 		svfloat16_t bxi = svld1_f16(svptrue_b16(), (float16_t *) (bx + i));
 		svfloat16_t bxi2 = svld1_f16(svptrue_b16(), (float16_t *) (bx + i + width));
 
-		svfloat32_t axs = svcvt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs = svcvt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff = svsub_f32_x(svptrue_b32(), axs, bxs);
-
-		svfloat32_t axs2 = svcvtlt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs2 = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs2, bxs2);
-
-		svfloat32_t axs3 = svcvt_f32_f16_x(svptrue_b32(), axi2);
-		svfloat32_t bxs3 = svcvt_f32_f16_x(svptrue_b32(), bxi2);
-		svfloat32_t diff3 = svsub_f32_x(svptrue_b32(), axs3, bxs3);
-
-		svfloat32_t axs4 = svcvtlt_f32_f16_x(svptrue_b32(), axi2);
-		svfloat32_t bxs4 = svcvtlt_f32_f16_x(svptrue_b32(), bxi2);
-		svfloat32_t diff4 = svsub_f32_x(svptrue_b32(), axs4, bxs4);
+		svfloat32_t diff = svmlslb_f32(svmlalb_f32(zero, axi, one), bxi, one);
+		svfloat32_t diff2 = svmlslt_f32(svmlalt_f32(zero, axi, one), bxi, one);
+		svfloat32_t diff3 = svmlslb_f32(svmlalb_f32(zero, axi2, one), bxi2, one);
+		svfloat32_t diff4 = svmlslt_f32(svmlalt_f32(zero, axi2, one), bxi2, one);
 
 		/* Use separate accumulators for performance */
 		dist = svadd_f32_x(svptrue_b32(), dist, svabs_f32_x(svptrue_b32(), diff));
@@ -467,13 +444,8 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 		svfloat16_t axi = svld1_f16(pg, (float16_t *) (ax + i));
 		svfloat16_t bxi = svld1_f16(pg, (float16_t *) (bx + i));
 
-		svfloat32_t axs = svcvt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs = svcvt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff = svsub_f32_x(svptrue_b32(), axs, bxs);
-
-		svfloat32_t axs2 = svcvtlt_f32_f16_x(svptrue_b32(), axi);
-		svfloat32_t bxs2 = svcvtlt_f32_f16_x(svptrue_b32(), bxi);
-		svfloat32_t diff2 = svsub_f32_x(svptrue_b32(), axs2, bxs2);
+		svfloat32_t diff = svmlslb_f32(svmlalb_f32(zero, axi, one), bxi, one);
+		svfloat32_t diff2 = svmlslt_f32(svmlalt_f32(zero, axi, one), bxi, one);
 
 		/* Use separate accumulators for performance */
 		dist = svadd_f32_x(svptrue_b32(), dist, svabs_f32_x(svptrue_b32(), diff));
