@@ -240,31 +240,23 @@ HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
 	float		distance;
 	int			i;
 	float		s[8];
-	int			count = (dim / 32) * 32;
+	int			count = (dim / 16) * 16;
 	__m256		dist0 = _mm256_setzero_ps();
 	__m256		dist1 = _mm256_setzero_ps();
-	__m256		dist2 = _mm256_setzero_ps();
-	__m256		dist3 = _mm256_setzero_ps();
 	__m256		sign = _mm256_set1_ps(-0.0);
 
-	for (i = 0; i < count; i += 32)
+	for (i = 0; i < count; i += 16)
 	{
 		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
 		__m128i		axi1 = _mm_loadu_si128((__m128i *) (ax + i + 8));
-		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 16));
-		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 24));
 		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
 		__m128i		bxi1 = _mm_loadu_si128((__m128i *) (bx + i + 8));
-		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 16));
-		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 24));
 
 		dist0 = _mm256_add_ps(dist0, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi0), _mm256_cvtph_ps(bxi0))));
 		dist1 = _mm256_add_ps(dist1, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi1), _mm256_cvtph_ps(bxi1))));
-		dist2 = _mm256_add_ps(dist2, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi2), _mm256_cvtph_ps(bxi2))));
-		dist3 = _mm256_add_ps(dist3, _mm256_andnot_ps(sign, _mm256_sub_ps(_mm256_cvtph_ps(axi3), _mm256_cvtph_ps(bxi3))));
 	}
 
-	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
+	_mm256_storeu_ps(s, _mm256_add_ps(dist0, dist1));
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
