@@ -97,20 +97,27 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 	float		distance;
 	int			i;
 	float		s[8];
-	int			count = (dim / 8) * 8;
+	int			count = (dim / 16) * 16;
 	__m256		dist = _mm256_setzero_ps();
+	__m256		dist2 = _mm256_setzero_ps();
 
-	for (i = 0; i < count; i += 8)
+	for (i = 0; i < count; i += 16)
 	{
 		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 16));
 		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
+		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 16));
+
 		__m256		axs = _mm256_cvtph_ps(axi);
 		__m256		bxs = _mm256_cvtph_ps(bxi);
+		__m256		axs2 = _mm256_cvtph_ps(axi2);
+		__m256		bxs2 = _mm256_cvtph_ps(bxi2);
 
 		dist = _mm256_fmadd_ps(axs, bxs, dist);
+		dist2 = _mm256_fmadd_ps(axs2, bxs2, dist2);
 	}
 
-	_mm256_storeu_ps(s, dist);
+	_mm256_storeu_ps(s, _mm256_add_ps(dist, dist2));
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
