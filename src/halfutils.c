@@ -50,34 +50,34 @@ HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 	int			i;
 	float		s[8];
 	int			count = (dim / 32) * 32;
-	__m256		dist = _mm256_setzero_ps();
+	__m256		dist0 = _mm256_setzero_ps();
+	__m256		dist1 = _mm256_setzero_ps();
 	__m256		dist2 = _mm256_setzero_ps();
 	__m256		dist3 = _mm256_setzero_ps();
-	__m256		dist4 = _mm256_setzero_ps();
 
 	for (i = 0; i < count; i += 32)
 	{
-		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
-		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 8));
-		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 16));
-		__m128i		axi4 = _mm_loadu_si128((__m128i *) (ax + i + 24));
-		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
-		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 8));
-		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 16));
-		__m128i		bxi4 = _mm_loadu_si128((__m128i *) (bx + i + 24));
+		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		axi1 = _mm_loadu_si128((__m128i *) (ax + i + 8));
+		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 16));
+		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 24));
+		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
+		__m128i		bxi1 = _mm_loadu_si128((__m128i *) (bx + i + 8));
+		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 16));
+		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 24));
 
-		__m256		diff = _mm256_sub_ps(_mm256_cvtph_ps(axi), _mm256_cvtph_ps(bxi));
+		__m256		diff0 = _mm256_sub_ps(_mm256_cvtph_ps(axi0), _mm256_cvtph_ps(bxi0));
+		__m256		diff1 = _mm256_sub_ps(_mm256_cvtph_ps(axi1), _mm256_cvtph_ps(bxi1));
 		__m256		diff2 = _mm256_sub_ps(_mm256_cvtph_ps(axi2), _mm256_cvtph_ps(bxi2));
 		__m256		diff3 = _mm256_sub_ps(_mm256_cvtph_ps(axi3), _mm256_cvtph_ps(bxi3));
-		__m256		diff4 = _mm256_sub_ps(_mm256_cvtph_ps(axi4), _mm256_cvtph_ps(bxi4));
 
-		dist = _mm256_fmadd_ps(diff, diff, dist);
+		dist0 = _mm256_fmadd_ps(diff0, diff0, dist0);
+		dist1 = _mm256_fmadd_ps(diff1, diff1, dist1);
 		dist2 = _mm256_fmadd_ps(diff2, diff2, dist2);
 		dist3 = _mm256_fmadd_ps(diff3, diff3, dist3);
-		dist4 = _mm256_fmadd_ps(diff4, diff4, dist4);
 	}
 
-	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist, dist2), _mm256_add_ps(dist3, dist4)));
+	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
@@ -112,38 +112,29 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 	int			i;
 	float		s[8];
 	int			count = (dim / 32) * 32;
-	__m256		dist = _mm256_setzero_ps();
+	__m256		dist0 = _mm256_setzero_ps();
+	__m256		dist1 = _mm256_setzero_ps();
 	__m256		dist2 = _mm256_setzero_ps();
 	__m256		dist3 = _mm256_setzero_ps();
-	__m256		dist4 = _mm256_setzero_ps();
 
 	for (i = 0; i < count; i += 32)
 	{
-		__m128i		axi = _mm_loadu_si128((__m128i *) (ax + i));
-		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 8));
-		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 16));
-		__m128i		axi4 = _mm_loadu_si128((__m128i *) (ax + i + 24));
-		__m128i		bxi = _mm_loadu_si128((__m128i *) (bx + i));
-		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 8));
-		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 16));
-		__m128i		bxi4 = _mm_loadu_si128((__m128i *) (bx + i + 24));
+		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		axi1 = _mm_loadu_si128((__m128i *) (ax + i + 8));
+		__m128i		axi2 = _mm_loadu_si128((__m128i *) (ax + i + 16));
+		__m128i		axi3 = _mm_loadu_si128((__m128i *) (ax + i + 24));
+		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
+		__m128i		bxi1 = _mm_loadu_si128((__m128i *) (bx + i + 8));
+		__m128i		bxi2 = _mm_loadu_si128((__m128i *) (bx + i + 16));
+		__m128i		bxi3 = _mm_loadu_si128((__m128i *) (bx + i + 24));
 
-		__m256		axs = _mm256_cvtph_ps(axi);
-		__m256		bxs = _mm256_cvtph_ps(bxi);
-		__m256		axs2 = _mm256_cvtph_ps(axi2);
-		__m256		bxs2 = _mm256_cvtph_ps(bxi2);
-		__m256		axs3 = _mm256_cvtph_ps(axi3);
-		__m256		bxs3 = _mm256_cvtph_ps(bxi3);
-		__m256		axs4 = _mm256_cvtph_ps(axi4);
-		__m256		bxs4 = _mm256_cvtph_ps(bxi4);
-
-		dist = _mm256_fmadd_ps(axs, bxs, dist);
-		dist2 = _mm256_fmadd_ps(axs2, bxs2, dist2);
-		dist3 = _mm256_fmadd_ps(axs3, bxs3, dist3);
-		dist3 = _mm256_fmadd_ps(axs4, bxs4, dist4);
+		dist0 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi0), _mm256_cvtph_ps(bxi0), dist0);
+		dist1 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi1), _mm256_cvtph_ps(bxi1), dist1);
+		dist2 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi2), _mm256_cvtph_ps(bxi2), dist2);
+		dist3 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi3), _mm256_cvtph_ps(bxi3), dist3);
 	}
 
-	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist, dist2), _mm256_add_ps(dist3, dist4)));
+	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
 
 	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
 
