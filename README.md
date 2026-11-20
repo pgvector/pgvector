@@ -1169,8 +1169,6 @@ Supported tags are:
 - `pg16-bookworm`, `0.8.7-pg16-bookworm`, `pg16`, `0.8.7-pg16`
 - `pg15-trixie`, `0.8.7-pg15-trixie`
 - `pg15-bookworm`, `0.8.7-pg15-bookworm`, `pg15`, `0.8.7-pg15`
-- `pg14-trixie`, `0.8.7-pg14-trixie`
-- `pg14-bookworm`, `0.8.7-pg14-bookworm`, `pg14`, `0.8.7-pg14`
 
 You can also build the image manually:
 
