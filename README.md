@@ -685,7 +685,7 @@ Be sure to restart Postgres for changes to take effect.
 
 Use the `halfvec` type instead of `vector` for a smaller working set.
 
-Use `PLAIN` storage for maximum performance.
+Use `PLAIN` storage for best performance.
 
 ```sql
 CREATE TABLE items (embedding halfvec(3) STORAGE PLAIN);
