@@ -10,6 +10,7 @@
 #include "halfvec.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
+#include "port/pg_bitutils.h"
 #include "sparsevec.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
@@ -33,6 +34,74 @@
 #define palloc_array_checked(type, count) ((type *) palloc(mul_size(sizeof(type), count)))
 #define repalloc_array_checked(pointer, type, count) ((type *) repalloc(pointer, mul_size(sizeof(type), count)))
 #endif
+
+#if defined(USE_DISPATCH)
+#define SPARSEVEC_DISPATCH
+#endif
+
+#ifdef SPARSEVEC_DISPATCH
+#include <immintrin.h>
+
+#if defined(USE__GET_CPUID)
+#include <cpuid.h>
+#else
+#include <intrin.h>
+#endif
+
+#ifdef _MSC_VER
+#define TARGET_AVX2
+#define TARGET_XSAVE
+#else
+#define TARGET_AVX2 __attribute__((target("avx2")))
+#define TARGET_XSAVE __attribute__((target("xsave")))
+#endif
+
+static bool SparsevecUseAvx2 = false;
+#endif
+
+#ifdef SPARSEVEC_DISPATCH
+#define CPU_FEATURE_OSXSAVE (1 << 27)	/* F1 ECX */
+#define CPU_FEATURE_AVX2    (1 << 5)	/* F7,0 EBX */
+
+TARGET_XSAVE static bool
+SupportsAvx2(void)
+{
+	unsigned int exx[4] = {0, 0, 0, 0};
+
+#if defined(USE__GET_CPUID)
+	__get_cpuid(1, &exx[0], &exx[1], &exx[2], &exx[3]);
+#else
+	__cpuid(exx, 1);
+#endif
+
+	/* Check OS supports XSAVE */
+	if ((exx[2] & CPU_FEATURE_OSXSAVE) != CPU_FEATURE_OSXSAVE)
+		return false;
+
+	/* Check XMM and YMM registers are enabled */
+	if ((_xgetbv(0) & 6) != 6)
+		return false;
+
+#if defined(USE__GET_CPUID)
+	__get_cpuid_count(7, 0, &exx[0], &exx[1], &exx[2], &exx[3]);
+#else
+	__cpuidex(exx, 7, 0);
+#endif
+
+	return (exx[1] & CPU_FEATURE_AVX2) == CPU_FEATURE_AVX2;
+}
+#endif
+
+/*
+ * Initialize distance functions
+ */
+void
+SparsevecInit(void)
+{
+#ifdef SPARSEVEC_DISPATCH
+	SparsevecUseAvx2 = SupportsAvx2();
+#endif
+}
 
 typedef struct SparseInputElement
 {
@@ -898,6 +967,84 @@ sparsevec_l2_squared_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) SparsevecL2SquaredDistance(a, b));
 }
 
+#ifdef SPARSEVEC_DISPATCH
+/*
+ * Load up to eight indices, filling missing lanes with a value that is never
+ * a valid index
+ */
+TARGET_AVX2 static inline __m256i
+SparsevecLoadIndices(int32 *indices, int count, int32 fill)
+{
+	__m256i		mask;
+
+	if (count >= 8)
+		return _mm256_loadu_si256((__m256i *) indices);
+
+	mask = _mm256_cmpgt_epi32(_mm256_set1_epi32(count), _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+	return _mm256_blendv_epi8(_mm256_set1_epi32(fill), _mm256_maskload_epi32(indices, mask), mask);
+}
+
+TARGET_AVX2 static float
+SparsevecInnerProductAvx2(SparseVector * a, SparseVector * b)
+{
+	float	   *ax = SPARSEVEC_VALUES(a);
+	float	   *bx = SPARSEVEC_VALUES(b);
+	float		distance = 0.0;
+	int			i = 0;
+	int			j = 0;
+	__m256i		rotate = _mm256_setr_epi32(1, 2, 3, 4, 5, 6, 7, 0);
+
+	/*
+	 * Compare blocks of up to eight indices from each vector and advance the
+	 * block with the smaller last index. Matches are found in increasing
+	 * index order, so the sum is the same as with a sequential merge.
+	 */
+	while (i < a->nnz && j < b->nnz)
+	{
+		int			acount = Min(a->nnz - i, 8);
+		int			bcount = Min(b->nnz - j, 8);
+		__m256i		aidx = SparsevecLoadIndices(a->indices + i, acount, -1);
+		__m256i		bidx = SparsevecLoadIndices(b->indices + j, bcount, -2);
+		__m256i		eq = _mm256_cmpeq_epi32(aidx, bidx);
+		int32		alast = a->indices[i + acount - 1];
+		int32		blast = b->indices[j + bcount - 1];
+		uint32		mask;
+
+		for (int r = 1; r < 8; r++)
+		{
+			bidx = _mm256_permutevar8x32_epi32(bidx, rotate);
+			eq = _mm256_or_si256(eq, _mm256_cmpeq_epi32(aidx, bidx));
+		}
+
+		/* Matches are rare, so find the other position with a scan */
+		mask = _mm256_movemask_ps(_mm256_castsi256_ps(eq));
+		while (mask != 0)
+		{
+			int			k = pg_rightmost_one_pos32(mask);
+
+			for (int l = 0; l < bcount; l++)
+			{
+				if (b->indices[j + l] == a->indices[i + k])
+				{
+					distance += ax[i + k] * bx[j + l];
+					break;
+				}
+			}
+
+			mask &= mask - 1;
+		}
+
+		if (alast <= blast)
+			i += acount;
+
+		if (blast <= alast)
+			j += bcount;
+	}
+
+	return distance;
+}
+#endif
+
 /*
  * Get the inner product of two sparse vectors
  */
@@ -908,6 +1055,11 @@ SparsevecInnerProduct(SparseVector * a, SparseVector * b)
 	float	   *bx = SPARSEVEC_VALUES(b);
 	float		distance = 0.0;
 	int			bpos = 0;
+
+#ifdef SPARSEVEC_DISPATCH
+	if (SparsevecUseAvx2)
+		return SparsevecInnerProductAvx2(a, b);
+#endif
 
 	for (int i = 0; i < a->nnz; i++)
 	{
