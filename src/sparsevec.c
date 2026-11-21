@@ -10,6 +10,7 @@
 #include "halfvec.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
+#include "sparseutils.h"
 #include "sparsevec.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
@@ -820,54 +821,6 @@ array_to_sparsevec(PG_FUNCTION_ARGS)
 }
 
 /*
- * Get the L2 squared distance between sparse vectors
- */
-static float
-SparsevecL2SquaredDistance(SparseVector * a, SparseVector * b)
-{
-	float	   *ax = SPARSEVEC_VALUES(a);
-	float	   *bx = SPARSEVEC_VALUES(b);
-	float		distance = 0.0;
-	int			bpos = 0;
-
-	for (int i = 0; i < a->nnz; i++)
-	{
-		int32		ai = a->indices[i];
-		int32		bi = -1;
-
-		for (int j = bpos; j < b->nnz; j++)
-		{
-			bi = b->indices[j];
-
-			if (ai == bi)
-			{
-				float		diff = ax[i] - bx[j];
-
-				distance += diff * diff;
-			}
-			else if (ai > bi)
-				distance += bx[j] * bx[j];
-
-			/* Update start for next iteration */
-			if (ai >= bi)
-				bpos = j + 1;
-
-			/* Found or passed it */
-			if (bi >= ai)
-				break;
-		}
-
-		if (ai != bi)
-			distance += ax[i] * ax[i];
-	}
-
-	for (int j = bpos; j < b->nnz; j++)
-		distance += bx[j] * bx[j];
-
-	return distance;
-}
-
-/*
  * Get the L2 distance between sparse vectors
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_l2_distance);
@@ -896,42 +849,6 @@ sparsevec_l2_squared_distance(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 	PG_RETURN_FLOAT8((double) SparsevecL2SquaredDistance(a, b));
-}
-
-/*
- * Get the inner product of two sparse vectors
- */
-static float
-SparsevecInnerProduct(SparseVector * a, SparseVector * b)
-{
-	float	   *ax = SPARSEVEC_VALUES(a);
-	float	   *bx = SPARSEVEC_VALUES(b);
-	float		distance = 0.0;
-	int			bpos = 0;
-
-	for (int i = 0; i < a->nnz; i++)
-	{
-		int32		ai = a->indices[i];
-
-		for (int j = bpos; j < b->nnz; j++)
-		{
-			int32		bi = b->indices[j];
-
-			/* Only update when the same index */
-			if (ai == bi)
-				distance += ax[i] * bx[j];
-
-			/* Update start for next iteration */
-			if (ai >= bi)
-				bpos = j + 1;
-
-			/* Found or passed it */
-			if (bi >= ai)
-				break;
-		}
-	}
-
-	return distance;
 }
 
 /*
@@ -973,26 +890,11 @@ sparsevec_cosine_distance(PG_FUNCTION_ARGS)
 {
 	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
 	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
-	float	   *ax = SPARSEVEC_VALUES(a);
-	float	   *bx = SPARSEVEC_VALUES(b);
-	float		norma = 0.0;
-	float		normb = 0.0;
 	double		similarity;
 
 	CheckDims(a, b);
 
-	similarity = SparsevecInnerProduct(a, b);
-
-	/* Auto-vectorized */
-	for (int i = 0; i < a->nnz; i++)
-		norma += ax[i] * ax[i];
-
-	/* Auto-vectorized */
-	for (int i = 0; i < b->nnz; i++)
-		normb += bx[i] * bx[i];
-
-	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
-	similarity /= sqrt((double) norma * (double) normb);
+	similarity = SparsevecCosineSimilarity(a, b);
 
 #ifdef _MSC_VER
 	/* /fp:fast may not propagate NaN */
@@ -1018,44 +920,10 @@ sparsevec_l1_distance(PG_FUNCTION_ARGS)
 {
 	SparseVector *a = PG_GETARG_SPARSEVEC_P(0);
 	SparseVector *b = PG_GETARG_SPARSEVEC_P(1);
-	float	   *ax = SPARSEVEC_VALUES(a);
-	float	   *bx = SPARSEVEC_VALUES(b);
-	float		distance = 0.0;
-	int			bpos = 0;
 
 	CheckDims(a, b);
 
-	for (int i = 0; i < a->nnz; i++)
-	{
-		int32		ai = a->indices[i];
-		int32		bi = -1;
-
-		for (int j = bpos; j < b->nnz; j++)
-		{
-			bi = b->indices[j];
-
-			if (ai == bi)
-				distance += fabsf(ax[i] - bx[j]);
-			else if (ai > bi)
-				distance += fabsf(bx[j]);
-
-			/* Update start for next iteration */
-			if (ai >= bi)
-				bpos = j + 1;
-
-			/* Found or passed it */
-			if (bi >= ai)
-				break;
-		}
-
-		if (ai != bi)
-			distance += fabsf(ax[i]);
-	}
-
-	for (int j = bpos; j < b->nnz; j++)
-		distance += fabsf(bx[j]);
-
-	PG_RETURN_FLOAT8((double) distance);
+	PG_RETURN_FLOAT8((double) SparsevecL1Distance(a, b));
 }
 
 /*
