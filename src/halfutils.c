@@ -182,16 +182,15 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 		__m128i		bxi1 = _mm_loadu_si128((__m128i *) (bx + i + 8));
 
 		__m256		axs0 = _mm256_cvtph_ps(axi0);
-		__m256		bxs0 = _mm256_cvtph_ps(bxi0);
 		__m256		axs1 = _mm256_cvtph_ps(axi1);
+		__m256		bxs0 = _mm256_cvtph_ps(bxi0);
 		__m256		bxs1 = _mm256_cvtph_ps(bxi1);
 
 		sim0 = _mm256_fmadd_ps(axs0, bxs0, sim0);
-		na0 = _mm256_fmadd_ps(axs0, axs0, na0);
-		nb0 = _mm256_fmadd_ps(bxs0, bxs0, nb0);
-
 		sim1 = _mm256_fmadd_ps(axs1, bxs1, sim1);
+		na0 = _mm256_fmadd_ps(axs0, axs0, na0);
 		na1 = _mm256_fmadd_ps(axs1, axs1, na1);
+		nb0 = _mm256_fmadd_ps(bxs0, bxs0, nb0);
 		nb1 = _mm256_fmadd_ps(bxs1, bxs1, nb1);
 	}
 
