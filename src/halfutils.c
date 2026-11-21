@@ -165,7 +165,9 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 	float		norma;
 	float		normb;
 	int			i;
-	float		s[8];
+	float		s0[8];
+	float		s1[8];
+	float		s2[8];
 	int			count = (dim / 16) * 16;
 	__m256		sim0 = _mm256_setzero_ps();
 	__m256		sim1 = _mm256_setzero_ps();
@@ -194,14 +196,13 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 		nb1 = _mm256_fmadd_ps(bxs1, bxs1, nb1);
 	}
 
-	_mm256_storeu_ps(s, _mm256_add_ps(sim0, sim1));
-	similarity = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
+	_mm256_storeu_ps(s0, _mm256_add_ps(sim0, sim1));
+	_mm256_storeu_ps(s1, _mm256_add_ps(na0, na1));
+	_mm256_storeu_ps(s2, _mm256_add_ps(nb0, nb1));
 
-	_mm256_storeu_ps(s, _mm256_add_ps(na0, na1));
-	norma = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
-
-	_mm256_storeu_ps(s, _mm256_add_ps(nb0, nb1));
-	normb = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
+	similarity = s0[0] + s0[1] + s0[2] + s0[3] + s0[4] + s0[5] + s0[6] + s0[7];
+	norma = s1[0] + s1[1] + s1[2] + s1[3] + s1[4] + s1[5] + s1[6] + s1[7];
+	normb = s2[0] + s2[1] + s2[2] + s2[3] + s2[4] + s2[5] + s2[6] + s2[7];
 
 	/* Auto-vectorized */
 	for (; i < dim; i++)
