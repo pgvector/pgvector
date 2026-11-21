@@ -376,10 +376,22 @@ SELECT l2_distance('[0,0]'::vector, '[3,4]');
            5
 (1 row)
 
+SELECT l2_distance('[0,0]'::vector, '[-3,-4]');
+ l2_distance 
+-------------
+           5
+(1 row)
+
 SELECT l2_distance('[0,0]'::vector, '[0,1]');
  l2_distance 
 -------------
            1
+(1 row)
+
+SELECT l2_distance('[0,0]'::vector, '[0,0]');
+ l2_distance 
+-------------
+           0
 (1 row)
 
 SELECT l2_distance('[1,2]'::vector, '[3]');
@@ -406,6 +418,18 @@ SELECT inner_product('[1,2]'::vector, '[3,4]');
  inner_product 
 ---------------
             11
+(1 row)
+
+SELECT inner_product('[1,2]'::vector, '[-3,-4]');
+ inner_product 
+---------------
+           -11
+(1 row)
+
+SELECT inner_product('[1,2]'::vector, '[0,0]');
+ inner_product 
+---------------
+             0
 (1 row)
 
 SELECT inner_product('[1,2]'::vector, '[3]');
@@ -502,10 +526,22 @@ SELECT l1_distance('[0,0]'::vector, '[3,4]');
            7
 (1 row)
 
+SELECT l1_distance('[0,0]'::vector, '[-3,-4]');
+ l1_distance 
+-------------
+           7
+(1 row)
+
 SELECT l1_distance('[0,0]'::vector, '[0,1]');
  l1_distance 
 -------------
            1
+(1 row)
+
+SELECT l1_distance('[0,0]'::vector, '[0,0]');
+ l1_distance 
+-------------
+           0
 (1 row)
 
 SELECT l1_distance('[1,2]'::vector, '[3]');
