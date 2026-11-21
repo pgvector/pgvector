@@ -3,6 +3,7 @@
 - Added asynchronous I/O for indexes
 - Added vacuuming progress for indexes
 - Added `vector_dims` function for `sparsevec`
+- Improved performance of `halfvec` distance functions with F16C
 - Improved performance of IVFFlat index scans
 - Improved performance of HNSW inserts with `sparsevec`
 - Improved `amvalidate` for indexes
