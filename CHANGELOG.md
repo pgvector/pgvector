@@ -2,7 +2,7 @@
 
 - Added asynchronous I/O for indexes
 - Added vacuuming progress for indexes
-- Added CPU dispatching `vector` distance functions with AVX-512F
+- Added CPU dispatching for `vector` distance functions with AVX-512F
 - Added CPU dispatching for `bit` distance functions with SVE
 - Added `vector_dims` function for `sparsevec`
 - Improved performance of `halfvec` distance functions with F16C
