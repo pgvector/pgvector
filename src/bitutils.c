@@ -4,7 +4,7 @@
 #include "halfvec.h"			/* for USE_DISPATCH and USE_TARGET_CLONES */
 #include "port/pg_bitutils.h"
 
-#if defined(USE_DISPATCH)
+#if defined(USE_DISPATCH) && (defined(__x86_64__) || defined(_M_AMD64))
 #define BIT_DISPATCH
 #endif
 
@@ -25,8 +25,10 @@
 #endif
 
 /* Disable for LLVM due to crash with bitcode generation */
-#if defined(USE_TARGET_CLONES) && !defined(__POPCNT__) && !defined(__llvm__)
+#if defined(USE_TARGET_CLONES) && defined(__x86_64__) && !defined(__POPCNT__) && !defined(__llvm__)
 #define BIT_TARGET_CLONES __attribute__((target_clones("default", "popcnt")))
+#elif defined(USE_TARGET_CLONES) && defined(__aarch64__) && !defined(__ARM_FEATURE_SVE)
+#define BIT_TARGET_CLONES __attribute__((target_clones("default", "sve")))
 #else
 #define BIT_TARGET_CLONES
 #endif
