@@ -378,7 +378,13 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	so->useHeap = true;
 	BinaryHeapReset(&so->itemsHeap);
 	if (so->sortstate != NULL)
+	{
+#if PG_VERSION_NUM >= 200000
+		tuplesort_reset(so->sortstate, false);
+#else
 		tuplesort_reset(so->sortstate);
+#endif
+	}
 
 	/* Search closest probes lists */
 	while (so->listsVisited < so->listsCount && batchProbes++ < so->probes)
