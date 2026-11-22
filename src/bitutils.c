@@ -6,7 +6,7 @@
 
 #if defined(USE_DISPATCH) && (defined(__x86_64__) || defined(_M_AMD64))
 #define BIT_DISPATCH
-#elif defined(USE_DISPATCH) && defined(__aarch64__)
+#elif defined(USE_DISPATCH) && defined(__aarch64__) && defined(__linux__)
 #define BIT_SVE_DISPATCH
 #endif
 
