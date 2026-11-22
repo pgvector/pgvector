@@ -1267,7 +1267,7 @@ This method is [community-maintained](https://github.com/conda-forge/pgvector-fe
 
 ### Postgres.app
 
-Download the [latest release](https://postgresapp.com/downloads.html) with Postgres 15+.
+Download the [latest release](https://postgresapp.com/downloads.html).
 
 ## Hosted Postgres
 
