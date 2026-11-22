@@ -298,7 +298,7 @@ SupportsCpuFeature(unsigned int feature)
 #elif defined(HALFVEC_SVE_DISPATCH)
 #define TARGET_SVE2 __attribute__((target("+sve2")))
 
-#define SVE_SUM(a, b, c, d, pt) svaddv_f32(pt, svadd_f32_x(pt, svadd_f32_x(pt, a, b), svadd_f32_x(pt, c, d)));
+#define SVE_SUM(a, b, c, d, pt) svaddv_f32(pt, svadd_f32_x(pt, svadd_f32_x(pt, a, b), svadd_f32_x(pt, c, d)))
 
 TARGET_SVE2 static float
 HalfvecL2SquaredDistanceSve2(int dim, half * ax, half * bx)
