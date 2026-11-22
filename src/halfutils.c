@@ -96,6 +96,7 @@ HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 	int			i;
 	float		s[8];
 	int			count = (dim / 16) * 16;
+	int			count8 = (dim / 8) * 8;
 	__m256		dist0 = _mm256_setzero_ps();
 	__m256		dist1 = _mm256_setzero_ps();
 
@@ -111,6 +112,16 @@ HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 
 		dist0 = _mm256_fmadd_ps(diff0, diff0, dist0);
 		dist1 = _mm256_fmadd_ps(diff1, diff1, dist1);
+	}
+
+	for (; i < count8; i += 8)
+	{
+		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
+
+		__m256		diff0 = _mm256_sub_ps(_mm256_cvtph_ps(axi0), _mm256_cvtph_ps(bxi0));
+
+		dist0 = _mm256_fmadd_ps(diff0, diff0, dist0);
 	}
 
 	_mm256_storeu_ps(s, _mm256_add_ps(dist0, dist1));
@@ -134,6 +145,7 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 	int			i;
 	float		s[8];
 	int			count = (dim / 32) * 32;
+	int			count8 = (dim / 8) * 8;
 	__m256		dist0 = _mm256_setzero_ps();
 	__m256		dist1 = _mm256_setzero_ps();
 	__m256		dist2 = _mm256_setzero_ps();
@@ -154,6 +166,14 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 		dist1 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi1), _mm256_cvtph_ps(bxi1), dist1);
 		dist2 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi2), _mm256_cvtph_ps(bxi2), dist2);
 		dist3 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi3), _mm256_cvtph_ps(bxi3), dist3);
+	}
+
+	for (; i < count8; i += 8)
+	{
+		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
+
+		dist0 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi0), _mm256_cvtph_ps(bxi0), dist0);
 	}
 
 	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
@@ -177,6 +197,7 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 	float		s1[8];
 	float		s2[8];
 	int			count = (dim / 16) * 16;
+	int			count8 = (dim / 8) * 8;
 	__m256		sim0 = _mm256_setzero_ps();
 	__m256		sim1 = _mm256_setzero_ps();
 	__m256		na0 = _mm256_setzero_ps();
@@ -202,6 +223,19 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 		na1 = _mm256_fmadd_ps(axs1, axs1, na1);
 		nb0 = _mm256_fmadd_ps(bxs0, bxs0, nb0);
 		nb1 = _mm256_fmadd_ps(bxs1, bxs1, nb1);
+	}
+
+	for (; i < count8; i += 8)
+	{
+		__m128i		axi0 = _mm_loadu_si128((__m128i *) (ax + i));
+		__m128i		bxi0 = _mm_loadu_si128((__m128i *) (bx + i));
+
+		__m256		axs0 = _mm256_cvtph_ps(axi0);
+		__m256		bxs0 = _mm256_cvtph_ps(bxi0);
+
+		sim0 = _mm256_fmadd_ps(axs0, bxs0, sim0);
+		na0 = _mm256_fmadd_ps(axs0, axs0, na0);
+		nb0 = _mm256_fmadd_ps(bxs0, bxs0, nb0);
 	}
 
 	_mm256_storeu_ps(s0, _mm256_add_ps(sim0, sim1));
