@@ -16,12 +16,6 @@
 #else
 #include <intrin.h>
 #endif
-
-#ifdef _MSC_VER
-#define TARGET_AVX512_POPCOUNT
-#else
-#define TARGET_AVX512_POPCOUNT __attribute__((target("avx512f,avx512vpopcntdq")))
-#endif
 #endif
 
 /* Disable for LLVM due to crash with bitcode generation */
@@ -74,29 +68,6 @@ BitHammingDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 	return distance;
 }
 
-#ifdef BIT_DISPATCH
-TARGET_AVX512_POPCOUNT static uint64
-BitHammingDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance)
-{
-	__m512i		dist = _mm512_setzero_si512();
-
-	for (; bytes >= sizeof(__m512i); bytes -= sizeof(__m512i))
-	{
-		__m512i		axs = _mm512_loadu_si512((const __m512i *) ax);
-		__m512i		bxs = _mm512_loadu_si512((const __m512i *) bx);
-
-		dist = _mm512_add_epi64(dist, _mm512_popcnt_epi64(_mm512_xor_si512(axs, bxs)));
-
-		ax += sizeof(__m512i);
-		bx += sizeof(__m512i);
-	}
-
-	distance += _mm512_reduce_add_epi64(dist);
-
-	return BitHammingDistanceDefault(bytes, ax, bx, distance);
-}
-#endif
-
 BIT_TARGET_CLONES static double
 BitJaccardDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb)
 {
@@ -133,6 +104,33 @@ BitJaccardDistanceDefault(uint32 bytes, unsigned char *ax, unsigned char *bx, ui
 }
 
 #ifdef BIT_DISPATCH
+#ifdef _MSC_VER
+#define TARGET_AVX512_POPCOUNT
+#else
+#define TARGET_AVX512_POPCOUNT __attribute__((target("avx512f,avx512vpopcntdq")))
+#endif
+
+TARGET_AVX512_POPCOUNT static uint64
+BitHammingDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance)
+{
+	__m512i		dist = _mm512_setzero_si512();
+
+	for (; bytes >= sizeof(__m512i); bytes -= sizeof(__m512i))
+	{
+		__m512i		axs = _mm512_loadu_si512((const __m512i *) ax);
+		__m512i		bxs = _mm512_loadu_si512((const __m512i *) bx);
+
+		dist = _mm512_add_epi64(dist, _mm512_popcnt_epi64(_mm512_xor_si512(axs, bxs)));
+
+		ax += sizeof(__m512i);
+		bx += sizeof(__m512i);
+	}
+
+	distance += _mm512_reduce_add_epi64(dist);
+
+	return BitHammingDistanceDefault(bytes, ax, bx, distance);
+}
+
 TARGET_AVX512_POPCOUNT static double
 BitJaccardDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb)
 {
@@ -159,9 +157,7 @@ BitJaccardDistanceAvx512Popcount(uint32 bytes, unsigned char *ax, unsigned char 
 
 	return BitJaccardDistanceDefault(bytes, ax, bx, ab, aa, bb);
 }
-#endif
 
-#ifdef BIT_DISPATCH
 #define CPU_FEATURE_OSXSAVE         (1 << 27)	/* F1 ECX */
 #define CPU_FEATURE_AVX512F         (1 << 16)	/* F7,0 EBX */
 #define CPU_FEATURE_AVX512VPOPCNTDQ (1 << 14)	/* F7,0 ECX */
