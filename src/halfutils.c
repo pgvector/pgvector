@@ -89,7 +89,7 @@ HalfvecL1DistanceDefault(int dim, half * ax, half * bx)
 #define TARGET_F16C __attribute__((target("avx,f16c,fma")))
 #endif
 
-#define F16C_SUM(sum) \
+#define AVX_SUM(sum) \
 	({ \
 		float		s[8]; \
 		_mm256_storeu_ps(s, sum); \
@@ -119,7 +119,7 @@ HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 		dist1 = _mm256_fmadd_ps(diff1, diff1, dist1);
 	}
 
-	distance = F16C_SUM(_mm256_add_ps(dist0, dist1));
+	distance = AVX_SUM(_mm256_add_ps(dist0, dist1));
 
 	for (; i < dim; i++)
 	{
@@ -159,7 +159,7 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 		dist3 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi3), _mm256_cvtph_ps(bxi3), dist3);
 	}
 
-	distance = F16C_SUM(_mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
+	distance = AVX_SUM(_mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
 
 	for (; i < dim; i++)
 		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
@@ -202,9 +202,9 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 		nb1 = _mm256_fmadd_ps(bxs1, bxs1, nb1);
 	}
 
-	similarity = F16C_SUM(_mm256_add_ps(sim0, sim1));
-	norma = F16C_SUM(_mm256_add_ps(na0, na1));
-	normb = F16C_SUM(_mm256_add_ps(nb0, nb1));
+	similarity = AVX_SUM(_mm256_add_ps(sim0, sim1));
+	norma = AVX_SUM(_mm256_add_ps(na0, na1));
+	normb = AVX_SUM(_mm256_add_ps(nb0, nb1));
 
 	/* Auto-vectorized */
 	for (; i < dim; i++)
@@ -241,7 +241,7 @@ HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
 		dist = _mm256_add_ps(dist, _mm256_andnot_ps(sign, _mm256_sub_ps(axs, bxs)));
 	}
 
-	distance = F16C_SUM(dist);
+	distance = AVX_SUM(dist);
 
 	for (; i < dim; i++)
 		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
