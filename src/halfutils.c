@@ -89,12 +89,18 @@ HalfvecL1DistanceDefault(int dim, half * ax, half * bx)
 #define TARGET_F16C __attribute__((target("avx,f16c,fma")))
 #endif
 
+#define F16C_SUM(sum) \
+	({ \
+		float		s[8]; \
+		_mm256_storeu_ps(s, sum); \
+		s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7]; \
+	})
+
 TARGET_F16C static float
 HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 {
 	float		distance;
 	int			i;
-	float		s[8];
 	int			count = (dim / 16) * 16;
 	__m256		dist0 = _mm256_setzero_ps();
 	__m256		dist1 = _mm256_setzero_ps();
@@ -113,9 +119,7 @@ HalfvecL2SquaredDistanceF16c(int dim, half * ax, half * bx)
 		dist1 = _mm256_fmadd_ps(diff1, diff1, dist1);
 	}
 
-	_mm256_storeu_ps(s, _mm256_add_ps(dist0, dist1));
-
-	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
+	distance = F16C_SUM(_mm256_add_ps(dist0, dist1));
 
 	for (; i < dim; i++)
 	{
@@ -132,7 +136,6 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 {
 	float		distance;
 	int			i;
-	float		s[8];
 	int			count = (dim / 32) * 32;
 	__m256		dist0 = _mm256_setzero_ps();
 	__m256		dist1 = _mm256_setzero_ps();
@@ -156,9 +159,7 @@ HalfvecInnerProductF16c(int dim, half * ax, half * bx)
 		dist3 = _mm256_fmadd_ps(_mm256_cvtph_ps(axi3), _mm256_cvtph_ps(bxi3), dist3);
 	}
 
-	_mm256_storeu_ps(s, _mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
-
-	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
+	distance = F16C_SUM(_mm256_add_ps(_mm256_add_ps(dist0, dist1), _mm256_add_ps(dist2, dist3)));
 
 	for (; i < dim; i++)
 		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
@@ -173,9 +174,6 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 	float		norma;
 	float		normb;
 	int			i;
-	float		s0[8];
-	float		s1[8];
-	float		s2[8];
 	int			count = (dim / 16) * 16;
 	__m256		sim0 = _mm256_setzero_ps();
 	__m256		sim1 = _mm256_setzero_ps();
@@ -204,14 +202,9 @@ HalfvecCosineSimilarityF16c(int dim, half * ax, half * bx)
 		nb1 = _mm256_fmadd_ps(bxs1, bxs1, nb1);
 	}
 
-	_mm256_storeu_ps(s0, _mm256_add_ps(sim0, sim1));
-	similarity = s0[0] + s0[1] + s0[2] + s0[3] + s0[4] + s0[5] + s0[6] + s0[7];
-
-	_mm256_storeu_ps(s1, _mm256_add_ps(na0, na1));
-	norma = s1[0] + s1[1] + s1[2] + s1[3] + s1[4] + s1[5] + s1[6] + s1[7];
-
-	_mm256_storeu_ps(s2, _mm256_add_ps(nb0, nb1));
-	normb = s2[0] + s2[1] + s2[2] + s2[3] + s2[4] + s2[5] + s2[6] + s2[7];
+	similarity = F16C_SUM(_mm256_add_ps(sim0, sim1));
+	norma = F16C_SUM(_mm256_add_ps(na0, na1));
+	normb = F16C_SUM(_mm256_add_ps(nb0, nb1));
 
 	/* Auto-vectorized */
 	for (; i < dim; i++)
@@ -234,7 +227,6 @@ HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
 {
 	float		distance;
 	int			i;
-	float		s[8];
 	int			count = (dim / 8) * 8;
 	__m256		dist = _mm256_setzero_ps();
 	__m256		sign = _mm256_set1_ps(-0.0);
@@ -249,9 +241,7 @@ HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
 		dist = _mm256_add_ps(dist, _mm256_andnot_ps(sign, _mm256_sub_ps(axs, bxs)));
 	}
 
-	_mm256_storeu_ps(s, dist);
-
-	distance = s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7];
+	distance = F16C_SUM(dist);
 
 	for (; i < dim; i++)
 		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
