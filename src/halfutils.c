@@ -91,9 +91,14 @@ HalfvecL1DistanceDefault(int dim, half * ax, half * bx)
 
 #define AVX_SUM(sum) \
 	({ \
-		float		s[8]; \
-		_mm256_storeu_ps(s, sum); \
-		s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7]; \
+		__m128 a = _mm256_castps256_ps128(sum); \
+		__m128 b = _mm256_extractf128_ps(sum, 1); \
+		__m128 c = _mm_add_ps(a, b); \
+		__m128 d = _mm_movehl_ps(c, c); \
+		__m128 e = _mm_add_ps(c, d); \
+		__m128 f = _mm_shuffle_ps(e, e, 85); \
+		__m128 g = _mm_add_ps(e, f); \
+		_mm_cvtss_f32(g); \
 	})
 
 TARGET_F16C static float
