@@ -6,7 +6,7 @@
 #include "vecutils.h"
 
 #if defined(USE_TARGET_CLONES) && !defined(__FMA__)
-#define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma")))
+#define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma", "avx512f")))
 #else
 #define VECTOR_TARGET_CLONES
 #endif
