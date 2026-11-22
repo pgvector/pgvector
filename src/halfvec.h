@@ -22,7 +22,7 @@
 #define USE_DISPATCH
 #elif defined(_M_AMD64) && defined(_MSC_VER) && _MSC_VER >= 1920
 #define USE_DISPATCH
-#elif defined(__aarch64__) && defined(__GNUC__) && __GNUC__ >= 16
+#elif defined(__aarch64__) && defined(__GNUC__) && __GNUC__ >= 11
 #define USE_DISPATCH
 #elif defined(__aarch64__) && defined(__clang_major__) && __clang_major__ >= 16
 #define USE_DISPATCH
