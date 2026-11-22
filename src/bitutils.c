@@ -234,7 +234,6 @@ BitJaccardDistanceSve(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64
 {
 	uint32		width = svcntb();
 	svbool_t	pt64 = svptrue_b64();
-
 	svuint64_t	abx = svdup_n_u64(0);
 	svuint64_t	aax = svdup_n_u64(0);
 	svuint64_t	bbx = svdup_n_u64(0);
