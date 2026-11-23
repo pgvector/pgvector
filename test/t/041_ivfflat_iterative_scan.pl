@@ -36,11 +36,14 @@ foreach ((30, 50, 70))
 
 	for my $i (1 .. 20)
 	{
+		my $work_mem = int(rand(512)) + 64;
+
 		$count = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET ivfflat.probes = 10;
 			SET ivfflat.iterative_scan = relaxed_order;
 			SET ivfflat.max_probes = $max_probes;
+			SET work_mem = '${work_mem}kB';
 			SELECT COUNT(*) FROM (SELECT v FROM tst WHERE i % 10000 = 0 ORDER BY v <-> (SELECT v FROM tst WHERE i = $i) LIMIT 11) t;
 		));
 		$sum += $count;

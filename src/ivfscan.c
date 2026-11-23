@@ -1,3 +1,7 @@
+/*
+ * Binary heap based on Postgres implementation
+ */
+
 #include "postgres.h"
 
 #include <float.h>
@@ -27,6 +31,8 @@
 #include "varatt.h"
 #endif
 
+#define IVFFLAT_SORT_MEMORY (64 * 1024)
+
 #define GetScanList(ptr) pairingheap_container(IvfflatScanList, ph_node, ptr)
 #define GetScanListConst(ptr) pairingheap_const_container(IvfflatScanList, ph_node, ptr)
 
@@ -34,22 +40,7 @@
  * Compare list distances
  */
 static int
-CompareLists(const pairingheap_node *a, const pairingheap_node *b, void *arg)
-{
-	if (GetScanListConst(a)->distance > GetScanListConst(b)->distance)
-		return 1;
-
-	if (GetScanListConst(a)->distance < GetScanListConst(b)->distance)
-		return -1;
-
-	return 0;
-}
-
-/*
- * Compare list distances for sort
- */
-static int
-CompareListsSort(const void *a, const void *b)
+CompareLists(const void *a, const void *b)
 {
 	if (((const IvfflatScanList *) a)->distance < ((const IvfflatScanList *) b)->distance)
 		return -1;
@@ -58,6 +49,116 @@ CompareListsSort(const void *a, const void *b)
 		return 1;
 
 	return 0;
+}
+
+/*
+ * Compare list distances for max-heap
+ */
+static int
+CompareListsMaxHeap(const pairingheap_node *a, const pairingheap_node *b, void *arg)
+{
+	return CompareLists(GetScanListConst(a), GetScanListConst(b));
+}
+
+/*
+ * Initialize binary heap
+ */
+static void
+BinaryHeapInit(IvfflatBinaryHeap * heap, int capacity)
+{
+	heap->nodes = palloc_array_checked(IvfflatBinaryNode, capacity);
+	heap->length = 0;
+	heap->capacity = capacity;
+}
+
+/*
+ * Add unordered - O(1)
+ */
+static void
+BinaryHeapAddUnordered(IvfflatBinaryHeap * heap, IvfflatBinaryNode node)
+{
+	/* Safety check */
+	if (heap->length >= heap->capacity)
+		elog(ERROR, "heap full");
+
+	heap->nodes[heap->length++] = node;
+}
+
+/*
+ * Grow binary heap
+ */
+static void
+BinaryHeapGrow(IvfflatBinaryHeap * heap, int newCapacity)
+{
+	if (newCapacity > heap->capacity)
+	{
+		heap->nodes = repalloc_array_checked(heap->nodes, IvfflatBinaryNode, newCapacity);
+		heap->capacity = newCapacity;
+	}
+}
+
+/*
+ * Sift down - O(log n)
+ */
+static void
+BinaryHeapSiftDown(IvfflatBinaryHeap * heap, int offset)
+{
+	IvfflatBinaryNode node = heap->nodes[offset];
+
+	for (;;)
+	{
+		int			left = 2 * offset + 1;
+		int			right = 2 * offset + 2;
+		int			swap = left;
+
+		if (right < heap->length && heap->nodes[left].distance >= heap->nodes[right].distance)
+			swap = right;
+
+		if (left >= heap->length || node.distance < heap->nodes[swap].distance)
+			break;
+
+		heap->nodes[offset] = heap->nodes[swap];
+		offset = swap;
+	}
+
+	heap->nodes[offset] = node;
+}
+
+/*
+ * Build binary heap - O(n)
+ */
+static void
+BinaryHeapBuild(IvfflatBinaryHeap * heap)
+{
+	for (int i = heap->length / 2 - 1; i >= 0; i--)
+		BinaryHeapSiftDown(heap, i);
+}
+
+/*
+ * Remove first from binary heap - O(log n)
+ */
+static IvfflatBinaryNode
+BinaryHeapRemoveFirst(IvfflatBinaryHeap * heap)
+{
+	IvfflatBinaryNode node;
+
+	/* Safety check */
+	if (heap->length < 1)
+		elog(ERROR, "heap empty");
+
+	node = heap->nodes[0];
+	heap->nodes[0] = heap->nodes[--heap->length];
+	BinaryHeapSiftDown(heap, 0);
+	return node;
+}
+
+/*
+ * Reset binary heap
+ */
+static void
+BinaryHeapReset(IvfflatBinaryHeap * heap)
+{
+	heap->length = 0;
 }
 
 /*
@@ -137,14 +238,46 @@ GetScanLists(IndexScanDesc scan, Datum value)
 
 	Assert(so->listsCount == so->maxProbes);
 
-	qsort(so->lists, so->listsCount, sizeof(IvfflatScanList), CompareListsSort);
+	qsort(so->lists, so->listsCount, sizeof(IvfflatScanList), CompareLists);
 }
 
 /*
- * Add scan item
+ * Initialize scan sort state
+ */
+static void
+InitScanSortState(IvfflatScanOpaque so)
+{
+	AttrNumber	attNums[] = {1};
+	Oid			sortOperators[] = {Float8LessOperator};
+	Oid			sortCollations[] = {InvalidOid};
+	bool		nullsFirstFlags[] = {false};
+	MemoryContext oldCtx;
+
+	oldCtx = MemoryContextSwitchTo(so->tmpCtx);
+
+	/* Create tuple description for sorting */
+	so->tupdesc = CreateTemplateTupleDesc(2);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
+	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
+#if PG_VERSION_NUM >= 190000
+	TupleDescFinalize(so->tupdesc);
+#endif
+
+	/* Prep sort */
+	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, IVFFLAT_SORT_MEMORY / 1024, NULL, TUPLESORT_NONE);
+
+	/* Need separate slots for puttuple and gettuple */
+	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
+	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+
+	MemoryContextSwitchTo(oldCtx);
+}
+
+/*
+ * Add sort item
  */
 static inline void
-AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
+AddSortItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
 {
 	TupleTableSlot *slot = so->vslot;
 
@@ -157,6 +290,51 @@ AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
 	ExecStoreVirtualTuple(slot);
 
 	tuplesort_puttupleslot(so->sortstate, slot);
+}
+
+/*
+ * Add scan item
+ */
+static void
+AddScanItem(IvfflatScanOpaque so, double distance, ItemPointer heaptid)
+{
+	IvfflatBinaryHeap *heap = &so->itemsHeap;
+
+	if (so->useHeap)
+	{
+		if (heap->length < heap->capacity)
+		{
+			IvfflatBinaryNode node = {*heaptid, distance};
+
+			BinaryHeapAddUnordered(heap, node);
+		}
+		else if (heap->capacity < so->maxHeapItems)
+		{
+			IvfflatBinaryNode node = {*heaptid, distance};
+
+			/* Avoid overflow */
+			int			newCapacity = heap->capacity < so->maxHeapItems / 2 ? heap->capacity * 2 : so->maxHeapItems;
+
+			BinaryHeapGrow(heap, newCapacity);
+			BinaryHeapAddUnordered(heap, node);
+		}
+		else
+		{
+			if (so->sortstate == NULL)
+				InitScanSortState(so);
+
+			/* Move items to sort */
+			for (int i = 0; i < heap->length; i++)
+				AddSortItem(so, heap->nodes[i].distance, &heap->nodes[i].heaptid);
+
+			AddSortItem(so, distance, heaptid);
+			so->useHeap = false;
+
+			ereport(DEBUG1, (errmsg("ivfflat scan no longer fits into work_mem after %d tuples", heap->length)));
+		}
+	}
+	else
+		AddSortItem(so, distance, heaptid);
 }
 
 /*
@@ -197,7 +375,16 @@ GetScanItems(IndexScanDesc scan, Datum value)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 	int			batchProbes = 0;
 
-	tuplesort_reset(so->sortstate);
+	so->useHeap = true;
+	BinaryHeapReset(&so->itemsHeap);
+	if (so->sortstate != NULL)
+	{
+#if PG_VERSION_NUM >= 200000
+		tuplesort_reset(so->sortstate, false);
+#else
+		tuplesort_reset(so->sortstate);
+#endif
+	}
 
 	/* Search closest probes lists */
 	while (so->listsVisited < so->listsCount && batchProbes++ < so->probes)
@@ -257,7 +444,10 @@ GetScanItems(IndexScanDesc scan, Datum value)
 		}
 	}
 
-	tuplesort_performsort(so->sortstate);
+	if (so->useHeap)
+		BinaryHeapBuild(&so->itemsHeap);
+	else
+		tuplesort_performsort(so->sortstate);
 
 #if defined(IVFFLAT_MEMORY)
 	elog(INFO, "memory: %zu MB", MemoryContextMemAllocated(CurrentMemoryContext, true) / (1024 * 1024));
@@ -314,30 +504,22 @@ GetScanValue(IndexScanDesc scan)
 }
 
 /*
- * Initialize scan sort state
+ * Compute max heap items
  */
-static void
-InitScanSortState(IvfflatScanOpaque so)
+static int
+ComputeMaxHeapItems(Size memory)
 {
-	AttrNumber	attNums[] = {1};
-	Oid			sortOperators[] = {Float8LessOperator};
-	Oid			sortCollations[] = {InvalidOid};
-	bool		nullsFirstFlags[] = {false};
+	Size		maxItems;
 
-	/* Create tuple description for sorting */
-	so->tupdesc = CreateTemplateTupleDesc(2);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 1, "distance", FLOAT8OID, -1, 0);
-	TupleDescInitEntry(so->tupdesc, (AttrNumber) 2, "heaptid", TIDOID, -1, 0);
-#if PG_VERSION_NUM >= 190000
-	TupleDescFinalize(so->tupdesc);
-#endif
+	if (memory < IVFFLAT_SORT_MEMORY)
+		return 1;
 
-	/* Prep sort */
-	so->sortstate = tuplesort_begin_heap(so->tupdesc, 1, attNums, sortOperators, sortCollations, nullsFirstFlags, work_mem, NULL, TUPLESORT_NONE);
+	maxItems = Min(memory - IVFFLAT_SORT_MEMORY, MaxAllocSize) / sizeof(IvfflatBinaryNode);
 
-	/* Need separate slots for puttuple and gettuple */
-	so->vslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsVirtual);
-	so->mslot = MakeSingleTupleTableSlot(so->tupdesc, &TTSOpsMinimalTuple);
+	if (maxItems < 1)
+		return 1;
+
+	return Min(maxItems, INT_MAX);
 }
 
 #ifdef IVFFLAT_USE_READ_STREAM
@@ -368,13 +550,26 @@ IvfflatReadStreamNextBlock(ReadStream *stream, void *callback_private_data, void
 static inline bool
 IvfflatNextScanItem(IvfflatScanOpaque so, ItemPointerData *heaptid)
 {
-	bool		isnull;
+	if (so->useHeap)
+	{
+		IvfflatBinaryHeap *heap = &so->itemsHeap;
 
-	if (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
-		return false;
+		if (heap->length < 1)
+			return false;
 
-	*heaptid = *((ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull)));
-	return true;
+		*heaptid = BinaryHeapRemoveFirst(heap).heaptid;
+		return true;
+	}
+	else
+	{
+		bool		isnull;
+
+		if (!tuplesort_gettupleslot(so->sortstate, true, false, so->mslot, NULL))
+			return false;
+
+		*heaptid = *((ItemPointer) DatumGetPointer(slot_getattr(so->mslot, 2, &isnull)));
+		return true;
+	}
 }
 
 /*
@@ -429,9 +624,12 @@ ivfflatbeginscan(Relation index, int nkeys, int norderbys)
 	so->lists = palloc_array_checked(IvfflatScanList, maxProbes);
 	so->listsCount = 0;
 	so->listsVisited = 0;
-	so->listsHeap = pairingheap_allocate(CompareLists, NULL);
+	so->listsHeap = pairingheap_allocate(CompareListsMaxHeap, NULL);
 
-	InitScanSortState(so);
+	so->useHeap = true;
+	so->maxHeapItems = ComputeMaxHeapItems(mul_size(work_mem, 1024));
+	BinaryHeapInit(&so->itemsHeap, Min(32 * 1024, so->maxHeapItems));
+	so->sortstate = NULL;
 
 #ifdef IVFFLAT_USE_READ_STREAM
 	so->stream = read_stream_begin_relation(READ_STREAM_DEFAULT, NULL, index, MAIN_FORKNUM, IvfflatReadStreamNextBlock, so, 0);
@@ -533,7 +731,8 @@ ivfflatendscan(IndexScanDesc scan)
 	IvfflatScanOpaque so = (IvfflatScanOpaque) scan->opaque;
 
 	/* Free any temporary files */
-	tuplesort_end(so->sortstate);
+	if (so->sortstate != NULL)
+		tuplesort_end(so->sortstate);
 
 #ifdef IVFFLAT_USE_READ_STREAM
 	read_stream_end(so->stream);

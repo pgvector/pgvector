@@ -21,6 +21,7 @@
 #include "utils/lsyscache.h"
 #include "utils/varbit.h"
 #include "vector.h"
+#include "vecutils.h"
 
 #if PG_VERSION_NUM >= 160000
 #include "varatt.h"
@@ -38,12 +39,6 @@
 
 #define STATE_DIMS(x) (ARR_DIMS(x)[0] - 1)
 #define CreateStateDatums(dim) palloc_array_checked(Datum, (dim) + 1)
-
-#if defined(USE_TARGET_CLONES) && !defined(__FMA__)
-#define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma")))
-#else
-#define VECTOR_TARGET_CLONES
-#endif
 
 #if PG_VERSION_NUM >= 180000
 PG_MODULE_MAGIC_EXT(.name = "vector", .version = "0.8.7");
@@ -545,22 +540,6 @@ halfvec_to_vector(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(result);
 }
 
-VECTOR_TARGET_CLONES static float
-VectorL2SquaredDistance(int dim, float *ax, float *bx)
-{
-	float		distance = 0.0;
-
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
-	{
-		float		diff = ax[i] - bx[i];
-
-		distance += diff * diff;
-	}
-
-	return distance;
-}
-
 /*
  * Get the L2 distance between vectors
  */
@@ -592,18 +571,6 @@ vector_l2_squared_distance(PG_FUNCTION_ARGS)
 	PG_RETURN_FLOAT8((double) VectorL2SquaredDistance(a->dim, a->x, b->x));
 }
 
-VECTOR_TARGET_CLONES static float
-VectorInnerProduct(int dim, float *ax, float *bx)
-{
-	float		distance = 0.0;
-
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
-		distance += ax[i] * bx[i];
-
-	return distance;
-}
-
 /*
  * Get the inner product of two vectors
  */
@@ -632,25 +599,6 @@ vector_negative_inner_product(PG_FUNCTION_ARGS)
 	CheckDims(a, b);
 
 	PG_RETURN_FLOAT8((double) -VectorInnerProduct(a->dim, a->x, b->x));
-}
-
-VECTOR_TARGET_CLONES static double
-VectorCosineSimilarity(int dim, float *ax, float *bx)
-{
-	float		similarity = 0.0;
-	float		norma = 0.0;
-	float		normb = 0.0;
-
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
-	{
-		similarity += ax[i] * bx[i];
-		norma += ax[i] * ax[i];
-		normb += bx[i] * bx[i];
-	}
-
-	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
-	return (double) similarity / sqrt((double) norma * (double) normb);
 }
 
 /*
@@ -707,19 +655,6 @@ vector_spherical_distance(PG_FUNCTION_ARGS)
 		distance = -1;
 
 	PG_RETURN_FLOAT8(acos(distance) / M_PI);
-}
-
-/* Does not require FMA, but keep logic simple */
-VECTOR_TARGET_CLONES static float
-VectorL1Distance(int dim, float *ax, float *bx)
-{
-	float		distance = 0.0;
-
-	/* Auto-vectorized */
-	for (int i = 0; i < dim; i++)
-		distance += fabsf(ax[i] - bx[i]);
-
-	return distance;
 }
 
 /*

@@ -14,10 +14,12 @@ sub test_recall
 	my ($probes, $min, $operator) = @_;
 	my $correct = 0;
 	my $total = 0;
+	my $work_mem = int(rand(512)) + 64;
 
 	my $explain = $node->safe_psql("postgres", qq(
 		SET enable_seqscan = off;
 		SET ivfflat.probes = $probes;
+		SET work_mem = '${work_mem}kB';
 		EXPLAIN ANALYZE SELECT i FROM tst ORDER BY v $operator '$queries[0]' LIMIT $limit;
 	));
 	like($explain, qr/Index Scan using idx on tst/);
@@ -27,6 +29,7 @@ sub test_recall
 		my $actual = $node->safe_psql("postgres", qq(
 			SET enable_seqscan = off;
 			SET ivfflat.probes = $probes;
+			SET work_mem = '${work_mem}kB';
 			SELECT i FROM tst ORDER BY v $operator '$queries[$i]' LIMIT $limit;
 		));
 		my @actual_ids = split("\n", $actual);
