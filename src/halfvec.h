@@ -42,6 +42,20 @@
 #define USE__GET_CPUID
 #endif
 
+#if defined(HAVE_GETAUXVAL)
+#define USE_GETAUXVAL
+#elif defined(__linux__) && defined(__has_include)
+#if __has_include(<sys/auxv.h>)
+#define USE_GETAUXVAL
+#endif
+#endif
+
+#if defined(__aarch64__) && defined(__has_include)
+#if __has_include(<arm_sve.h>)
+#define USE_SVE
+#endif
+#endif
+
 #if defined(USE_DISPATCH) && (defined(__x86_64__) || defined(_M_AMD64))
 #define HALFVEC_DISPATCH
 #endif
