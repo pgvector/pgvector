@@ -50,6 +50,14 @@
 #endif
 #endif
 
+#if defined(HAVE_ELF_AUX_INFO)
+#define USE_ELF_AUX_INFO
+#elif defined(__FreeBSD__) && defined(__has_include)
+#if __has_include(<sys/auxv.h>)
+#define USE_ELF_AUX_INFO
+#endif
+#endif
+
 #if defined(__aarch64__) && defined(__has_include)
 #if __has_include(<arm_sve.h>)
 #define USE_SVE

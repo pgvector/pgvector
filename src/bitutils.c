@@ -16,7 +16,7 @@
 #else
 #include <intrin.h>
 #endif
-#elif defined(USE_DISPATCH) && defined(USE_SVE) && defined(USE_GETAUXVAL)
+#elif defined(USE_DISPATCH) && defined(USE_SVE) && (defined(USE_GETAUXVAL) || defined(USE_ELF_AUX_INFO))
 #include <arm_sve.h>
 #include <sys/auxv.h>
 
@@ -263,7 +263,16 @@ BitJaccardDistanceSve(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64
 static bool
 SupportsSve(void)
 {
+#if defined(USE_GETAUXVAL)
 	return (getauxval(AT_HWCAP) & HWCAP_SVE) != 0;
+#else
+	unsigned long hwcap;
+
+	if (elf_aux_info(AT_HWCAP, &hwcap, sizeof(hwcap)) != 0)
+		return false;
+
+	return (hwcap & HWCAP_SVE) != 0;
+#endif
 }
 #endif
 

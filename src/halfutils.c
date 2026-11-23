@@ -13,7 +13,7 @@
 #else
 #include <intrin.h>
 #endif
-#elif defined(USE_DISPATCH) && defined(USE_SVE) && defined(USE_GETAUXVAL)
+#elif defined(USE_DISPATCH) && defined(USE_SVE) && (defined(USE_GETAUXVAL) || defined(USE_ELF_AUX_INFO))
 #include <arm_sve.h>
 #include <sys/auxv.h>
 
@@ -559,7 +559,16 @@ HalfvecL1DistanceSve2(int dim, half * ax, half * bx)
 static bool
 SupportsSve2(void)
 {
+#if defined(USE_GETAUXVAL)
 	return (getauxval(AT_HWCAP2) & HWCAP2_SVE2) != 0;
+#else
+	unsigned long hwcap2;
+
+	if (elf_aux_info(AT_HWCAP2, &hwcap2, sizeof(hwcap2)) != 0)
+		return false;
+
+	return (hwcap2 & HWCAP2_SVE2) != 0;
+#endif
 }
 #endif
 
