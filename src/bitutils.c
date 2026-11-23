@@ -16,13 +16,18 @@
 #else
 #include <intrin.h>
 #endif
+#elif defined(USE_DISPATCH) && defined(USE_SVE) && defined(USE_GETAUXVAL)
+#include <arm_sve.h>
+#include <sys/auxv.h>
+
+#if defined(AT_HWCAP) && defined(HWCAP_SVE)
+#define BIT_SVE_DISPATCH
+#endif
 #endif
 
 /* Disable for LLVM due to crash with bitcode generation */
 #if defined(USE_TARGET_CLONES) && defined(__x86_64__) && !defined(__POPCNT__) && !defined(__llvm__)
 #define BIT_TARGET_CLONES __attribute__((target_clones("default", "popcnt")))
-#elif defined(USE_TARGET_CLONES) && defined(__aarch64__) && !defined(__ARM_FEATURE_SVE)
-#define BIT_TARGET_CLONES __attribute__((target_clones("default", "sve")))
 #else
 #define BIT_TARGET_CLONES
 #endif
@@ -200,6 +205,66 @@ SupportsAvx512Popcount(void)
 	/* Check AVX512VPOPCNTDQ */
 	return (exx[2] & CPU_FEATURE_AVX512VPOPCNTDQ) == CPU_FEATURE_AVX512VPOPCNTDQ;
 }
+#elif defined(BIT_SVE_DISPATCH)
+#define TARGET_SVE __attribute__((target("+sve")))
+
+TARGET_SVE static uint64
+BitHammingDistanceSve(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 distance)
+{
+	uint32		width = svcntb();
+	svbool_t	pt64 = svptrue_b64();
+	svuint64_t	dist = svdup_n_u64(0);
+
+	for (; bytes >= width; bytes -= width)
+	{
+		svuint64_t	axs = svld1_u64(pt64, (const uint64_t *) ax);
+		svuint64_t	bxs = svld1_u64(pt64, (const uint64_t *) bx);
+
+		dist = svadd_u64_x(pt64, dist, svcnt_u64_x(pt64, sveor_u64_x(pt64, axs, bxs)));
+
+		ax += width;
+		bx += width;
+	}
+
+	distance += svaddv_u64(pt64, dist);
+
+	return BitHammingDistanceDefault(bytes, ax, bx, distance);
+}
+
+TARGET_SVE static double
+BitJaccardDistanceSve(uint32 bytes, unsigned char *ax, unsigned char *bx, uint64 ab, uint64 aa, uint64 bb)
+{
+	uint32		width = svcntb();
+	svbool_t	pt64 = svptrue_b64();
+	svuint64_t	abx = svdup_n_u64(0);
+	svuint64_t	aax = svdup_n_u64(0);
+	svuint64_t	bbx = svdup_n_u64(0);
+
+	for (; bytes >= width; bytes -= width)
+	{
+		svuint64_t	axs = svld1_u64(pt64, (const uint64_t *) ax);
+		svuint64_t	bxs = svld1_u64(pt64, (const uint64_t *) bx);
+
+		abx = svadd_u64_x(pt64, abx, svcnt_u64_x(pt64, svand_u64_x(pt64, axs, bxs)));
+		aax = svadd_u64_x(pt64, aax, svcnt_u64_x(pt64, axs));
+		bbx = svadd_u64_x(pt64, bbx, svcnt_u64_x(pt64, bxs));
+
+		ax += width;
+		bx += width;
+	}
+
+	ab += svaddv_u64(pt64, abx);
+	aa += svaddv_u64(pt64, aax);
+	bb += svaddv_u64(pt64, bbx);
+
+	return BitJaccardDistanceDefault(bytes, ax, bx, ab, aa, bb);
+}
+
+static bool
+SupportsSve(void)
+{
+	return (getauxval(AT_HWCAP) & HWCAP_SVE) != 0;
+}
 #endif
 
 void
@@ -217,6 +282,12 @@ BitvecInit(void)
 	{
 		BitHammingDistance = BitHammingDistanceAvx512Popcount;
 		BitJaccardDistance = BitJaccardDistanceAvx512Popcount;
+	}
+#elif defined(BIT_SVE_DISPATCH)
+	if (SupportsSve())
+	{
+		BitHammingDistance = BitHammingDistanceSve;
+		BitJaccardDistance = BitJaccardDistanceSve;
 	}
 #endif
 }
