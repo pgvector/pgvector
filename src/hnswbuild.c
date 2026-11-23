@@ -707,7 +707,7 @@ InitBuildState(HnswBuildState * buildstate, Relation heap, Relation index, Index
 	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->maxDimensions)));
+				 errmsg("%s column cannot have more than %d dimensions for hnsw index", buildstate->typeInfo->typeName, buildstate->typeInfo->maxDimensions)));
 
 	if (buildstate->efConstruction / 2 < buildstate->m)
 		ereport(ERROR,

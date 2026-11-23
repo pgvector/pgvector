@@ -292,6 +292,7 @@ typedef struct HnswAllocator
 
 typedef struct HnswTypeInfo
 {
+	const char *typeName;
 	int			maxDimensions;
 	Datum		(*dimensions) (PG_FUNCTION_ARGS);
 	Datum		(*normalize) (PG_FUNCTION_ARGS);

@@ -187,6 +187,7 @@ typedef struct IvfflatLeader
 
 typedef struct IvfflatTypeInfo
 {
+	const char *typeName;
 	int			maxDimensions;
 	Datum		(*dimensions) (PG_FUNCTION_ARGS);
 	Datum		(*normalize) (PG_FUNCTION_ARGS);

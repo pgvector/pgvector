@@ -1643,6 +1643,7 @@ HnswGetTypeInfo(Relation index)
 	if (procinfo == NULL)
 	{
 		static const HnswTypeInfo typeInfo = {
+			.typeName = "vector",
 			.maxDimensions = HNSW_MAX_DIM,
 			.dimensions = vector_dims,
 			.normalize = l2_normalize,
@@ -1661,6 +1662,7 @@ Datum
 hnsw_halfvec_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
+		.typeName = "halfvec",
 		.maxDimensions = HNSW_MAX_DIM * 2,
 		.dimensions = halfvec_vector_dims,
 		.normalize = halfvec_l2_normalize,
@@ -1676,6 +1678,7 @@ Datum
 hnsw_bit_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
+		.typeName = "bit",
 		.maxDimensions = HNSW_MAX_DIM * 32,
 		.dimensions = bitlength,
 		.normalize = NULL,
@@ -1691,6 +1694,7 @@ Datum
 hnsw_sparsevec_support(PG_FUNCTION_ARGS)
 {
 	static const HnswTypeInfo typeInfo = {
+		.typeName = "sparsevec",
 		.maxDimensions = SPARSEVEC_MAX_DIM,
 		.dimensions = sparsevec_vector_dims,
 		.normalize = sparsevec_l2_normalize,

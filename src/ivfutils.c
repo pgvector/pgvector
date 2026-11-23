@@ -416,6 +416,7 @@ IvfflatGetTypeInfo(Relation index)
 	if (procinfo == NULL)
 	{
 		static const IvfflatTypeInfo typeInfo = {
+			.typeName = "vector",
 			.maxDimensions = IVFFLAT_MAX_DIM,
 			.dimensions = vector_dims,
 			.normalize = l2_normalize,
@@ -435,6 +436,7 @@ Datum
 ivfflat_halfvec_support(PG_FUNCTION_ARGS)
 {
 	static const IvfflatTypeInfo typeInfo = {
+		.typeName = "halfvec",
 		.maxDimensions = IVFFLAT_MAX_DIM * 2,
 		.dimensions = halfvec_vector_dims,
 		.normalize = halfvec_l2_normalize,
@@ -451,6 +453,7 @@ Datum
 ivfflat_bit_support(PG_FUNCTION_ARGS)
 {
 	static const IvfflatTypeInfo typeInfo = {
+		.typeName = "bit",
 		.maxDimensions = IVFFLAT_MAX_DIM * 32,
 		.dimensions = bitlength,
 		.normalize = NULL,

@@ -214,7 +214,7 @@ CREATE INDEX ON t USING hnsw (val vector_l2_ops);
 DROP TABLE t;
 CREATE TABLE t (val vector(2001));
 CREATE INDEX ON t USING hnsw (val vector_l2_ops);
-ERROR:  column cannot have more than 2000 dimensions for hnsw index
+ERROR:  vector column cannot have more than 2000 dimensions for hnsw index
 DROP TABLE t;
 -- properties
 SELECT pg_indexam_has_property(oid, 'distance_orderable') FROM pg_am WHERE amname = 'hnsw';

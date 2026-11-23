@@ -106,5 +106,5 @@ CREATE INDEX ON t USING hnsw (val halfvec_l2_ops);
 DROP TABLE t;
 CREATE TABLE t (val halfvec(4001));
 CREATE INDEX ON t USING hnsw (val halfvec_l2_ops);
-ERROR:  column cannot have more than 4000 dimensions for hnsw index
+ERROR:  halfvec column cannot have more than 4000 dimensions for hnsw index
 DROP TABLE t;

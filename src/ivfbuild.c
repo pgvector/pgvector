@@ -354,7 +354,7 @@ InitBuildState(IvfflatBuildState * buildstate, Relation heap, Relation index, In
 	if (buildstate->dimensions > buildstate->typeInfo->maxDimensions)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
-				 errmsg("column cannot have more than %d dimensions for ivfflat index", buildstate->typeInfo->maxDimensions)));
+				 errmsg("%s column cannot have more than %d dimensions for ivfflat index", buildstate->typeInfo->typeName, buildstate->typeInfo->maxDimensions)));
 
 	buildstate->reltuples = 0;
 	buildstate->indtuples = 0;

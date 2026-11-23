@@ -190,7 +190,7 @@ HINT:  Drop the index until the table has more data.
 DROP TABLE t;
 CREATE TABLE t (val vector(2001));
 CREATE INDEX ON t USING ivfflat (val vector_l2_ops);
-ERROR:  column cannot have more than 2000 dimensions for ivfflat index
+ERROR:  vector column cannot have more than 2000 dimensions for ivfflat index
 DROP TABLE t;
 -- memory
 SET maintenance_work_mem = '1MB';
