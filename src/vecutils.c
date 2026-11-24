@@ -6,7 +6,7 @@
 #include "vecutils.h"
 
 #if defined(USE_TARGET_CLONES) && defined(__x86_64__)
-#if (defined(__GNUC__) && __GNUC__ >= 12) || (defined(__clang_major__) && __clang_major__ >= 18)
+#if defined(USE_ARCH_TARGETS)
 #define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "arch=x86-64-v3", "arch=x86-64-v4")))
 #else
 #define VECTOR_TARGET_CLONES __attribute__((target_clones("default", "fma", "avx512f")))
