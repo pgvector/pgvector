@@ -135,7 +135,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ankane/setup-postgres-valgrind@v1
         with:
-          postgres-version: 18
+          postgres-version: 19
           check-ub: yes
       - run: make OPTFLAGS=""
       - run: sudo --preserve-env=PG_CONFIG make install
