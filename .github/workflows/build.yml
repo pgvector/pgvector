@@ -137,6 +137,6 @@ jobs:
         with:
           postgres-version: 19
           check-ub: yes
-      - run: make OPTFLAGS=""
+      - run: make
       - run: sudo --preserve-env=PG_CONFIG make install
       - run: make installcheck
