@@ -42,7 +42,7 @@
 #endif
 
 /* Apple clang check needed for universal binaries on Mac */
-#if defined(USE_DISPATCH) && (defined(HAVE__GET_CPUID) || defined(__apple_build_version__))
+#if defined(HAVE__GET_CPUID) || defined(__apple_build_version__)
 #define USE__GET_CPUID
 #endif
 
