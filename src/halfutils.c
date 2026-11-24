@@ -92,8 +92,10 @@ HalfvecL1DistanceDefault(int dim, half * ax, half * bx)
 #ifdef HALFVEC_DISPATCH
 #ifdef _MSC_VER
 #define TARGET_F16C
+#define TARGET_AVX512
 #else
 #define TARGET_F16C __attribute__((target("avx,f16c,fma")))
+#define TARGET_AVX512 __attribute__((target("avx512f,avx512dq")))
 #endif
 
 TARGET_F16C static float
@@ -310,10 +312,175 @@ HalfvecL1DistanceF16c(int dim, half * ax, half * bx)
 	return distance;
 }
 
+TARGET_AVX512 static float
+HalfvecL2SquaredDistanceAvx512(int dim, half * ax, half * bx)
+{
+	float		distance;
+	int			i;
+	int			count = (dim / 64) * 64;
+	__m512		dist0 = _mm512_setzero_ps();
+	__m512		dist1 = _mm512_setzero_ps();
+	__m512		dist2 = _mm512_setzero_ps();
+	__m512		dist3 = _mm512_setzero_ps();
+
+	for (i = 0; i < count; i += 64)
+	{
+		__m256i		axi0 = _mm256_loadu_si256((__m256i *) (ax + i));
+		__m256i		axi1 = _mm256_loadu_si256((__m256i *) (ax + i + 16));
+		__m256i		axi2 = _mm256_loadu_si256((__m256i *) (ax + i + 32));
+		__m256i		axi3 = _mm256_loadu_si256((__m256i *) (ax + i + 48));
+		__m256i		bxi0 = _mm256_loadu_si256((__m256i *) (bx + i));
+		__m256i		bxi1 = _mm256_loadu_si256((__m256i *) (bx + i + 16));
+		__m256i		bxi2 = _mm256_loadu_si256((__m256i *) (bx + i + 32));
+		__m256i		bxi3 = _mm256_loadu_si256((__m256i *) (bx + i + 48));
+
+		__m512		diff0 = _mm512_sub_ps(_mm512_cvtph_ps(axi0), _mm512_cvtph_ps(bxi0));
+		__m512		diff1 = _mm512_sub_ps(_mm512_cvtph_ps(axi1), _mm512_cvtph_ps(bxi1));
+		__m512		diff2 = _mm512_sub_ps(_mm512_cvtph_ps(axi2), _mm512_cvtph_ps(bxi2));
+		__m512		diff3 = _mm512_sub_ps(_mm512_cvtph_ps(axi3), _mm512_cvtph_ps(bxi3));
+
+		dist0 = _mm512_fmadd_ps(diff0, diff0, dist0);
+		dist1 = _mm512_fmadd_ps(diff1, diff1, dist1);
+		dist2 = _mm512_fmadd_ps(diff2, diff2, dist2);
+		dist3 = _mm512_fmadd_ps(diff3, diff3, dist3);
+	}
+
+	distance = _mm512_reduce_add_ps(_mm512_add_ps(_mm512_add_ps(dist0, dist1), _mm512_add_ps(dist2, dist3)));
+
+	for (; i < dim; i++)
+	{
+		float		diff = HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]);
+
+		distance += diff * diff;
+	}
+
+	return distance;
+}
+
+TARGET_AVX512 static float
+HalfvecInnerProductAvx512(int dim, half * ax, half * bx)
+{
+	float		distance;
+	int			i;
+	int			count = (dim / 64) * 64;
+	__m512		dist0 = _mm512_setzero_ps();
+	__m512		dist1 = _mm512_setzero_ps();
+	__m512		dist2 = _mm512_setzero_ps();
+	__m512		dist3 = _mm512_setzero_ps();
+
+	for (i = 0; i < count; i += 64)
+	{
+		__m256i		axi0 = _mm256_loadu_si256((__m256i *) (ax + i));
+		__m256i		axi1 = _mm256_loadu_si256((__m256i *) (ax + i + 16));
+		__m256i		axi2 = _mm256_loadu_si256((__m256i *) (ax + i + 32));
+		__m256i		axi3 = _mm256_loadu_si256((__m256i *) (ax + i + 48));
+		__m256i		bxi0 = _mm256_loadu_si256((__m256i *) (bx + i));
+		__m256i		bxi1 = _mm256_loadu_si256((__m256i *) (bx + i + 16));
+		__m256i		bxi2 = _mm256_loadu_si256((__m256i *) (bx + i + 32));
+		__m256i		bxi3 = _mm256_loadu_si256((__m256i *) (bx + i + 48));
+
+		dist0 = _mm512_fmadd_ps(_mm512_cvtph_ps(axi0), _mm512_cvtph_ps(bxi0), dist0);
+		dist1 = _mm512_fmadd_ps(_mm512_cvtph_ps(axi1), _mm512_cvtph_ps(bxi1), dist1);
+		dist2 = _mm512_fmadd_ps(_mm512_cvtph_ps(axi2), _mm512_cvtph_ps(bxi2), dist2);
+		dist3 = _mm512_fmadd_ps(_mm512_cvtph_ps(axi3), _mm512_cvtph_ps(bxi3), dist3);
+	}
+
+	distance = _mm512_reduce_add_ps(_mm512_add_ps(_mm512_add_ps(dist0, dist1), _mm512_add_ps(dist2, dist3)));
+
+	for (; i < dim; i++)
+		distance += HalfToFloat4(ax[i]) * HalfToFloat4(bx[i]);
+
+	return distance;
+}
+
+TARGET_AVX512 static double
+HalfvecCosineSimilarityAvx512(int dim, half * ax, half * bx)
+{
+	float		similarity;
+	float		norma;
+	float		normb;
+	int			i;
+	int			count = (dim / 32) * 32;
+	__m512		sim0 = _mm512_setzero_ps();
+	__m512		sim1 = _mm512_setzero_ps();
+	__m512		na0 = _mm512_setzero_ps();
+	__m512		na1 = _mm512_setzero_ps();
+	__m512		nb0 = _mm512_setzero_ps();
+	__m512		nb1 = _mm512_setzero_ps();
+
+	for (i = 0; i < count; i += 32)
+	{
+		__m256i		axi0 = _mm256_loadu_si256((__m256i *) (ax + i));
+		__m256i		axi1 = _mm256_loadu_si256((__m256i *) (ax + i + 16));
+		__m256i		bxi0 = _mm256_loadu_si256((__m256i *) (bx + i));
+		__m256i		bxi1 = _mm256_loadu_si256((__m256i *) (bx + i + 16));
+
+		__m512		axs0 = _mm512_cvtph_ps(axi0);
+		__m512		axs1 = _mm512_cvtph_ps(axi1);
+		__m512		bxs0 = _mm512_cvtph_ps(bxi0);
+		__m512		bxs1 = _mm512_cvtph_ps(bxi1);
+
+		sim0 = _mm512_fmadd_ps(axs0, bxs0, sim0);
+		sim1 = _mm512_fmadd_ps(axs1, bxs1, sim1);
+		na0 = _mm512_fmadd_ps(axs0, axs0, na0);
+		na1 = _mm512_fmadd_ps(axs1, axs1, na1);
+		nb0 = _mm512_fmadd_ps(bxs0, bxs0, nb0);
+		nb1 = _mm512_fmadd_ps(bxs1, bxs1, nb1);
+	}
+
+	similarity = _mm512_reduce_add_ps(_mm512_add_ps(sim0, sim1));
+	norma = _mm512_reduce_add_ps(_mm512_add_ps(na0, na1));
+	normb = _mm512_reduce_add_ps(_mm512_add_ps(nb0, nb1));
+
+	/* Auto-vectorized */
+	for (; i < dim; i++)
+	{
+		float		axi = HalfToFloat4(ax[i]);
+		float		bxi = HalfToFloat4(bx[i]);
+
+		similarity += axi * bxi;
+		norma += axi * axi;
+		normb += bxi * bxi;
+	}
+
+	/* Use sqrt(a * b) over sqrt(a) * sqrt(b) */
+	return (double) similarity / sqrt((double) norma * (double) normb);
+}
+
+TARGET_AVX512 static float
+HalfvecL1DistanceAvx512(int dim, half * ax, half * bx)
+{
+	float		distance;
+	int			i;
+	int			count = (dim / 32) * 32;
+	__m512		dist = _mm512_setzero_ps();
+	__m512		sign = _mm512_set1_ps(-0.0);
+
+	for (i = 0; i < count; i += 32)
+	{
+		__m256i		axi = _mm256_loadu_si256((__m256i *) (ax + i));
+		__m256i		bxi = _mm256_loadu_si256((__m256i *) (bx + i));
+		__m512		axs = _mm512_cvtph_ps(axi);
+		__m512		bxs = _mm512_cvtph_ps(bxi);
+
+		dist = _mm512_add_ps(dist, _mm512_andnot_ps(sign, _mm512_sub_ps(axs, bxs)));
+	}
+
+	distance = _mm512_reduce_add_ps(dist);
+
+	for (; i < dim; i++)
+		distance += fabsf(HalfToFloat4(ax[i]) - HalfToFloat4(bx[i]));
+
+	return distance;
+}
+
 #define CPU_FEATURE_FMA     (1 << 12)
 #define CPU_FEATURE_OSXSAVE (1 << 27)
 #define CPU_FEATURE_AVX     (1 << 28)
 #define CPU_FEATURE_F16C    (1 << 29)
+
+#define CPU_FEATURE_AVX512F  (1 << 16)	/* F7,0 EBX */
+#define CPU_FEATURE_AVX512DQ (1 << 17)	/* F7,0 EBX */
 
 #ifdef _MSC_VER
 #define TARGET_XSAVE
@@ -342,6 +509,39 @@ SupportsCpuFeature(unsigned int feature)
 
 	/* Now check features */
 	return (exx[2] & feature) == feature;
+}
+
+TARGET_XSAVE static bool
+SupportsAvx512(void)
+{
+	unsigned int exx[4] = {0, 0, 0, 0};
+
+#if defined(USE__GET_CPUID)
+	__get_cpuid(1, &exx[0], &exx[1], &exx[2], &exx[3]);
+#else
+	__cpuid(exx, 1);
+#endif
+
+	/* Check OS supports XSAVE */
+	if ((exx[2] & CPU_FEATURE_OSXSAVE) != CPU_FEATURE_OSXSAVE)
+		return false;
+
+	/* Check XMM, YMM, and ZMM registers are enabled */
+	if ((_xgetbv(0) & 0xe6) != 0xe6)
+		return false;
+
+#if defined(USE__GET_CPUID)
+	__get_cpuid_count(7, 0, &exx[0], &exx[1], &exx[2], &exx[3]);
+#else
+	__cpuidex(exx, 7, 0);
+#endif
+
+	/* Check AVX512F */
+	if ((exx[1] & CPU_FEATURE_AVX512F) != CPU_FEATURE_AVX512F)
+		return false;
+
+	/* Check AVX512VDQ */
+	return (exx[1] & CPU_FEATURE_AVX512DQ) == CPU_FEATURE_AVX512DQ;
 }
 #elif defined(HALFVEC_SVE_DISPATCH)
 #define TARGET_SVE2 __attribute__((target("+sve2")))
@@ -585,7 +785,14 @@ HalfvecInit(void)
 	HalfvecL1Distance = HalfvecL1DistanceDefault;
 
 #ifdef HALFVEC_DISPATCH
-	if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_F16C | CPU_FEATURE_FMA))
+	if (SupportsAvx512())
+	{
+		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceAvx512;
+		HalfvecInnerProduct = HalfvecInnerProductAvx512;
+		HalfvecCosineSimilarity = HalfvecCosineSimilarityAvx512;
+		HalfvecL1Distance = HalfvecL1DistanceAvx512;
+	}
+	else if (SupportsCpuFeature(CPU_FEATURE_AVX | CPU_FEATURE_F16C | CPU_FEATURE_FMA))
 	{
 		HalfvecL2SquaredDistance = HalfvecL2SquaredDistanceF16c;
 		HalfvecInnerProduct = HalfvecInnerProductF16c;

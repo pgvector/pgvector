@@ -5,6 +5,7 @@
 - Added `vector_dims` function for `sparsevec`
 - Improved performance of `vector` distance functions with AVX-512F when compiled for portability
 - Improved performance of `halfvec` distance functions with F16C
+- Improved performance of `halfvec` distance functions with AVX-512
 - Improved performance of `halfvec` distance functions with SVE2
 - Improved performance of `bit` distance functions with SVE when compiled for portability
 - Improved performance of IVFFlat index scans
