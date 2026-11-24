@@ -26,7 +26,7 @@
 #endif
 
 /* Disable for LLVM due to crash with bitcode generation */
-#if defined(USE_TARGET_CLONES) && defined(__x86_64__) && !defined(__POPCNT__) && !defined(__llvm__)
+#if defined(USE_TARGET_CLONES) && defined(__x86_64__) && !defined(__llvm__)
 #define BIT_TARGET_CLONES __attribute__((target_clones("default", "popcnt")))
 #else
 #define BIT_TARGET_CLONES
