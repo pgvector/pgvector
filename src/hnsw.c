@@ -101,7 +101,7 @@ HnswInit(void)
 
 	DefineCustomIntVariable("hnsw.ef_search", "Sets the size of the dynamic candidate list for search",
 							"Valid range is 1..1000.", &hnsw_ef_search,
-							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, 0, NULL, NULL, NULL);
+							HNSW_DEFAULT_EF_SEARCH, HNSW_MIN_EF_SEARCH, HNSW_MAX_EF_SEARCH, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	DefineCustomEnumVariable("hnsw.iterative_scan", "Sets the mode for iterative scans",
 							 NULL, &hnsw_iterative_scan,

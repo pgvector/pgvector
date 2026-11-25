@@ -53,7 +53,7 @@ IvfflatInit(void)
 
 	DefineCustomIntVariable("ivfflat.probes", "Sets the number of probes",
 							"Valid range is 1..lists.", &ivfflat_probes,
-							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, 0, NULL, NULL, NULL);
+							IVFFLAT_DEFAULT_PROBES, IVFFLAT_MIN_LISTS, IVFFLAT_MAX_LISTS, PGC_USERSET, GUC_EXPLAIN, NULL, NULL, NULL);
 
 	DefineCustomEnumVariable("ivfflat.iterative_scan", "Sets the mode for iterative scans",
 							 NULL, &ivfflat_iterative_scan,
