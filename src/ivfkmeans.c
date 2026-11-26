@@ -144,7 +144,7 @@ ShowMemoryUsage(MemoryContext context, Size estimatedSize)
  * Compute new centers
  */
 static void
-ComputeNewCenters(VectorArray samples, int dimensions, float *agg, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, Oid collation, const IvfflatTypeInfo * typeInfo)
+ComputeNewCenters(VectorArray samples, int dimensions, float *agg, VectorArray centers, VectorArray newCenters, int *centerCounts, int *closestCenters, FmgrInfo *normprocinfo, Oid collation, const IvfflatTypeInfo * typeInfo)
 {
 	int			numCenters = newCenters->length;
 	int			numSamples = samples->length;
@@ -200,7 +200,18 @@ ComputeNewCenters(VectorArray samples, int dimensions, float *agg, VectorArray n
 
 	/* Normalize if needed */
 	if (normprocinfo != NULL)
+	{
 		NormCenters(typeInfo, collation, newCenters, dimensions);
+
+		/* Keep a valid old center when cancellation or quantization gives zero. */
+		for (int i = 0; i < numCenters; i++)
+		{
+			Datum		center = PointerGetDatum(VectorArrayGet(newCenters, i));
+
+			if (DatumGetFloat8(FunctionCall1Coll(normprocinfo, collation, center)) == 0)
+				VectorArraySet(newCenters, i, VectorArrayGet(centers, i));
+		}
+	}
 }
 
 /*
@@ -418,7 +429,7 @@ ElkanKmeans(Relation index, VectorArray samples, VectorArray centers, int dimens
 		}
 
 		/* Step 4: For each center c, let m(c) be mean of all points assigned */
-		ComputeNewCenters(samples, dimensions, agg, newCenters, centerCounts, closestCenters, normprocinfo, collation, typeInfo);
+		ComputeNewCenters(samples, dimensions, agg, centers, newCenters, centerCounts, closestCenters, normprocinfo, collation, typeInfo);
 
 		/* Step 5 */
 		for (int j = 0; j < numCenters; j++)
