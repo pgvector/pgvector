@@ -1197,10 +1197,11 @@ CompareCandidateDistances(const ListCell *a, const ListCell *b)
 	if (hca->distance > hcb->distance)
 		return -1;
 
-	if (HnswPtrPointer(hca->element) < HnswPtrPointer(hcb->element))
+	/* Relational pointer comparisons require the same allocation. */
+	if ((uintptr_t) HnswPtrPointer(hca->element) < (uintptr_t) HnswPtrPointer(hcb->element))
 		return 1;
 
-	if (HnswPtrPointer(hca->element) > HnswPtrPointer(hcb->element))
+	if ((uintptr_t) HnswPtrPointer(hca->element) > (uintptr_t) HnswPtrPointer(hcb->element))
 		return -1;
 
 	return 0;
