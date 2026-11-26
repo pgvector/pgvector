@@ -732,6 +732,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 {
 	BlockNumber blkno = HNSW_HEAD_BLKNO;
 	BlockNumber insertPage = InvalidBlockNumber;
+	BlockNumber lastPage = InvalidBlockNumber;
 	Relation	index = vacuumstate->index;
 	BufferAccessStrategy bas = vacuumstate->bas;
 	bool		useFsm = HnswGetTypeInfo(index)->useFsm;
@@ -838,7 +839,7 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 				UnlockReleaseBuffer(nbuf);
 
 			/* Set to first free page */
-			if (!useFsm && !BlockNumberIsValid(insertPage))
+			if (!BlockNumberIsValid(insertPage))
 				insertPage = blkno;
 
 			/* Prepare new xlog */
@@ -851,8 +852,8 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 			/* Update free space map */
 			HnswRecordPageWithFreeSpace(index, blkno, page);
 
-			/* Set to last page */
-			insertPage = blkno;
+			/* Keep a tail fallback when no deleted element was found. */
+			lastPage = blkno;
 		}
 
 		blkno = HnswPageGetOpaque(page)->nextblkno;
@@ -863,7 +864,13 @@ MarkDeleted(HnswVacuumState * vacuumstate)
 
 	/* Ensure increases in free space become visible */
 	if (useFsm)
+	{
 		FreeSpaceMapVacuum(index);
+
+		/* Two-page insertions cannot use the combined-size FSM request. */
+		if (!BlockNumberIsValid(insertPage))
+			insertPage = lastPage;
+	}
 
 	/* Update insert page last, after everything has been marked as deleted */
 	HnswUpdateMetaPage(index, 0, NULL, insertPage, MAIN_FORKNUM, false);
