@@ -319,7 +319,7 @@ hnswgettuple(IndexScanDesc scan, ScanDirection dir)
 
 		if (hnsw_iterative_scan == HNSW_ITERATIVE_SCAN_STRICT)
 		{
-			if (sc->distance < so->previousDistance)
+			if (float8_lt(sc->distance, so->previousDistance))
 				continue;
 
 			so->previousDistance = sc->distance;
