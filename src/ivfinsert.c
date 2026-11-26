@@ -108,6 +108,18 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 	/* Find the insert page - sets the page and list info */
 	FindInsertPage(index, &value, &insertPage, &listInfo);
 	Assert(BlockNumberIsValid(insertPage));
+	/*
+	 * Protect the hint until this insertion has finished updating it.  VACUUM
+	 * takes the same page lock exclusively before freeing an entry page.
+	 * Re-read after acquiring the lock: VACUUM may have run while we chose
+	 * the nearest list, including a cleanup that left the hint unchanged.
+	 */
+	LockPage(index, listInfo.blkno, ShareLock);
+	buf = ReadBuffer(index, listInfo.blkno);
+	LockBuffer(buf, BUFFER_LOCK_SHARE);
+	page = BufferGetPage(buf);
+	insertPage = ((IvfflatList) PageGetItem(page, PageGetItemId(page, listInfo.offno)))->insertPage;
+	UnlockReleaseBuffer(buf);
 	originalInsertPage = insertPage;
 
 	/* Form tuple */
@@ -181,6 +193,8 @@ InsertTuple(Relation index, Datum *values, bool *isnull, ItemPointer heap_tid)
 	/* Update the insert page */
 	if (insertPage != originalInsertPage)
 		IvfflatUpdateList(index, listInfo, insertPage, originalInsertPage, InvalidBlockNumber, MAIN_FORKNUM);
+
+	UnlockPage(index, listInfo.blkno, ShareLock);
 }
 
 /*

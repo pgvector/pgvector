@@ -258,9 +258,9 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 
 	if (BlockNumberIsValid(insertPage) && insertPage != list->insertPage)
 	{
-		/* Skip update if insert page is lower than original insert page  */
-		/* This is needed to prevent insert from overwriting vacuum */
-		if (!BlockNumberIsValid(originalInsertPage) || insertPage >= originalInsertPage)
+		/* Inserts share a page lock; do not move back over another insert. */
+		/* VACUUM holds it exclusively and can move the hint backwards. */
+		if (!BlockNumberIsValid(originalInsertPage) || insertPage > list->insertPage)
 		{
 			list->insertPage = insertPage;
 			changed = true;

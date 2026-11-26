@@ -6,6 +6,7 @@
 #include "commands/vacuum.h"
 #include "ivfflat.h"
 #include "storage/bufmgr.h"
+#include "storage/lmgr.h"
 #include "utils/relcache.h"
 
 #if PG_VERSION_NUM >= 200000
@@ -97,6 +98,8 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			BlockNumber searchPage = listPages[coffno - FirstOffsetNumber];
 			BlockNumber insertPage = InvalidBlockNumber;
 
+			listInfo.offno = coffno;
+
 			/* Iterate over entry pages */
 			while (BlockNumberIsValid(searchPage))
 			{
@@ -109,6 +112,9 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 				int			ndeletable;
 
 				vacuum_delay_point();
+
+				/* Acquire before any entry buffer lock to match insertion order. */
+				LockPage(index, listInfo.blkno, ExclusiveLock);
 
 				buf = ReadBufferExtended(index, MAIN_FORKNUM, searchPage, RBM_NORMAL, bas);
 
@@ -141,9 +147,9 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 						stats->num_index_tuples++;
 				}
 
-				/* Set to first free page */
+				/* Include already-empty pages when choosing reusable space. */
 				/* Must be set before searchPage is updated */
-				if (!BlockNumberIsValid(insertPage) && ndeletable > 0)
+				if (!BlockNumberIsValid(insertPage) && (ndeletable > 0 || maxoffno == 0))
 					insertPage = searchPage;
 
 				searchPage = IvfflatPageGetOpaque(page)->nextblkno;
@@ -159,21 +165,20 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 				UnlockReleaseBuffer(buf);
 
+				/*
+				 * Publish reusable space before allowing insertions to advance
+				 * the hint.  Numeric comparisons alone cannot detect cleanup
+				 * that leaves the hint pointing at the same page.
+				 */
+				if (ndeletable > 0 || maxoffno == 0)
+					IvfflatUpdateList(index, listInfo, insertPage, InvalidBlockNumber, InvalidBlockNumber, MAIN_FORKNUM);
+
+				UnlockPage(index, listInfo.blkno, ExclusiveLock);
+
 				if (reportProgress)
 					UpdateProgress(++scannedBlocks, totalBlocks);
 			}
 
-			/*
-			 * Update after all tuples deleted.
-			 *
-			 * We don't add or delete items from lists pages, so offset won't
-			 * change.
-			 */
-			if (BlockNumberIsValid(insertPage))
-			{
-				listInfo.offno = coffno;
-				IvfflatUpdateList(index, listInfo, insertPage, InvalidBlockNumber, InvalidBlockNumber, MAIN_FORKNUM);
-			}
 		}
 	}
 
