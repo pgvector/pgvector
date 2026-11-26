@@ -348,7 +348,22 @@ HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 	vec->dim = dimensions;
 
 	for (int i = 0; i < dimensions; i++)
-		vec->x[i] = Float4ToHalfUnchecked(x[i]);
+	{
+		float		value = x[i];
+
+		/*
+		 * A mean of finite half values is in [-HALF_MAX, HALF_MAX], but
+		 * float accumulation can round it outside that interval.  Clamp
+		 * before conversion so rounding cannot create an infinite center.
+		 * Comparisons leave NaN unchanged for the existing validation.
+		 */
+		if (value > HALF_MAX)
+			value = HALF_MAX;
+		else if (value < -HALF_MAX)
+			value = -HALF_MAX;
+
+		vec->x[i] = Float4ToHalfUnchecked(value);
+	}
 }
 
 static void
