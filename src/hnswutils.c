@@ -14,6 +14,7 @@
 #include "storage/bufmgr.h"
 #include "storage/freespace.h"
 #include "utils/datum.h"
+#include "utils/float.h"
 #include "utils/fmgrprotos.h"
 #include "utils/memdebug.h"
 #include "utils/rel.h"
@@ -573,7 +574,7 @@ HnswLoadElementImpl(Buffer buf, OffsetNumber offno, double *distance, HnswQuery 
 	}
 
 	/* Load element */
-	if (distance == NULL || maxDistance == NULL || *distance < *maxDistance)
+	if (distance == NULL || maxDistance == NULL || float8_lt(*distance, *maxDistance))
 	{
 		if (*element == NULL)
 			*element = HnswInitElementFromBlock(BufferGetBlockNumber(buf), offno);
@@ -642,10 +643,10 @@ HnswEntryCandidate(char *base, HnswElement entryPoint, HnswQuery * q, Relation i
 static int
 CompareNearestCandidates(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	if (HnswGetSearchCandidateConst(c_node, a)->distance < HnswGetSearchCandidateConst(c_node, b)->distance)
+	if (float8_lt(HnswGetSearchCandidateConst(c_node, a)->distance, HnswGetSearchCandidateConst(c_node, b)->distance))
 		return 1;
 
-	if (HnswGetSearchCandidateConst(c_node, a)->distance > HnswGetSearchCandidateConst(c_node, b)->distance)
+	if (float8_gt(HnswGetSearchCandidateConst(c_node, a)->distance, HnswGetSearchCandidateConst(c_node, b)->distance))
 		return -1;
 
 	return 0;
@@ -657,10 +658,10 @@ CompareNearestCandidates(const pairingheap_node *a, const pairingheap_node *b, v
 static int
 CompareNearestDiscardedCandidates(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	if (HnswGetSearchCandidateConst(w_node, a)->distance < HnswGetSearchCandidateConst(w_node, b)->distance)
+	if (float8_lt(HnswGetSearchCandidateConst(w_node, a)->distance, HnswGetSearchCandidateConst(w_node, b)->distance))
 		return 1;
 
-	if (HnswGetSearchCandidateConst(w_node, a)->distance > HnswGetSearchCandidateConst(w_node, b)->distance)
+	if (float8_gt(HnswGetSearchCandidateConst(w_node, a)->distance, HnswGetSearchCandidateConst(w_node, b)->distance))
 		return -1;
 
 	return 0;
@@ -672,10 +673,10 @@ CompareNearestDiscardedCandidates(const pairingheap_node *a, const pairingheap_n
 static int
 CompareFurthestCandidates(const pairingheap_node *a, const pairingheap_node *b, void *arg)
 {
-	if (HnswGetSearchCandidateConst(w_node, a)->distance < HnswGetSearchCandidateConst(w_node, b)->distance)
+	if (float8_lt(HnswGetSearchCandidateConst(w_node, a)->distance, HnswGetSearchCandidateConst(w_node, b)->distance))
 		return -1;
 
-	if (HnswGetSearchCandidateConst(w_node, a)->distance > HnswGetSearchCandidateConst(w_node, b)->distance)
+	if (float8_gt(HnswGetSearchCandidateConst(w_node, a)->distance, HnswGetSearchCandidateConst(w_node, b)->distance))
 		return 1;
 
 	return 0;
@@ -1079,7 +1080,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 		HnswSearchCandidate *f = HnswGetSearchCandidate(w_node, pairingheap_first(W));
 		HnswElement cElement;
 
-		if (c->distance > f->distance)
+		if (float8_gt(c->distance, f->distance))
 			break;
 
 		cElement = HnswPtrAccess(base, c->element);
@@ -1129,7 +1130,7 @@ HnswSearchLayer(char *base, HnswQuery * q, List *ep, int ef, int lc, Relation in
 					continue;
 			}
 
-			if (!(eDistance < f->distance || alwaysAdd))
+			if (!(float8_lt(eDistance, f->distance) || alwaysAdd))
 			{
 				if (discarded != NULL)
 				{
@@ -1191,10 +1192,10 @@ CompareCandidateDistances(const ListCell *a, const ListCell *b)
 	HnswCandidate *hca = lfirst(a);
 	HnswCandidate *hcb = lfirst(b);
 
-	if (hca->distance < hcb->distance)
+	if (float8_lt(hca->distance, hcb->distance))
 		return 1;
 
-	if (hca->distance > hcb->distance)
+	if (float8_gt(hca->distance, hcb->distance))
 		return -1;
 
 	if ((uintptr_t) HnswPtrPointer(hca->element) < (uintptr_t) HnswPtrPointer(hcb->element))
@@ -1215,10 +1216,10 @@ CompareCandidateDistancesOffset(const ListCell *a, const ListCell *b)
 	HnswCandidate *hca = lfirst(a);
 	HnswCandidate *hcb = lfirst(b);
 
-	if (hca->distance < hcb->distance)
+	if (float8_lt(hca->distance, hcb->distance))
 		return 1;
 
-	if (hca->distance > hcb->distance)
+	if (float8_gt(hca->distance, hcb->distance))
 		return -1;
 
 	if (HnswPtrOffset(hca->element) < HnswPtrOffset(hcb->element))
@@ -1247,7 +1248,7 @@ CheckElementCloser(char *base, HnswCandidate * e, List *r, HnswSupport * support
 		Datum		riValue = HnswGetValue(base, riElement);
 		float		distance = HnswGetDistance(eValue, riValue, support);
 
-		if (distance <= e->distance)
+		if (float8_le(distance, e->distance))
 			return false;
 	}
 
