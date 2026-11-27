@@ -348,7 +348,14 @@ HalfvecUpdateCenter(Pointer v, int dimensions, float *x)
 	vec->dim = dimensions;
 
 	for (int i = 0; i < dimensions; i++)
-		vec->x[i] = Float4ToHalfUnchecked(x[i]);
+	{
+		half		value = Float4ToHalfUnchecked(x[i]);
+
+		if (HalfIsInf(value))
+			value = x[i] > 0 ? HALF_MAX : -HALF_MAX;
+
+		vec->x[i] = value;
+	}
 }
 
 static void
