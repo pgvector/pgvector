@@ -143,7 +143,7 @@ ivfflatbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 
 				/* Set to first free page */
 				/* Must be set before searchPage is updated */
-				if (!BlockNumberIsValid(insertPage) && ndeletable > 0)
+				if (!BlockNumberIsValid(insertPage) && (ndeletable > 0 || maxoffno < FirstOffsetNumber || PageGetFreeSpace(page) >= ItemIdGetLength(PageGetItemId(page, FirstOffsetNumber))))
 					insertPage = searchPage;
 
 				searchPage = IvfflatPageGetOpaque(page)->nextblkno;

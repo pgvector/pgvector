@@ -260,7 +260,7 @@ IvfflatUpdateList(Relation index, ListInfo listInfo,
 	{
 		/* Skip update if insert page is lower than original insert page  */
 		/* This is needed to prevent insert from overwriting vacuum */
-		if (!BlockNumberIsValid(originalInsertPage) || insertPage >= originalInsertPage)
+		if (!BlockNumberIsValid(originalInsertPage) || list->insertPage >= originalInsertPage)
 		{
 			list->insertPage = insertPage;
 			changed = true;
