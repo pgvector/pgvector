@@ -145,7 +145,7 @@ ivfflatcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	costs.indexTotalCost -= sequentialRatio * costs.numIndexPages * (costs.spc_random_page_cost - spc_seq_page_cost);
 
 	/* Startup cost is cost before returning the first row */
-	costs.indexStartupCost = costs.indexTotalCost * ratio;
+	costs.indexStartupCost += (costs.indexTotalCost - costs.indexStartupCost) * ratio;
 
 	/* Adjust cost if needed since TOAST not included in seq scan cost */
 	startupPages = costs.numIndexPages * ratio;

@@ -228,7 +228,7 @@ hnswcostestimate(PlannerInfo *root, IndexPath *path, double loop_count,
 	get_tablespace_page_costs(indexInfo->reltablespace, NULL, &spc_seq_page_cost);
 
 	/* Startup cost is cost before returning the first row */
-	costs.indexStartupCost = costs.indexTotalCost * ratio;
+	costs.indexStartupCost += (costs.indexTotalCost - costs.indexStartupCost) * ratio;
 
 	/* Adjust cost if needed since TOAST not included in seq scan cost */
 	startupPages = costs.numIndexPages * ratio;
