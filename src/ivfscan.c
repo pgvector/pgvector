@@ -18,6 +18,7 @@
 #include "miscadmin.h"
 #include "pgstat.h"
 #include "storage/bufmgr.h"
+#include "utils/float.h"
 #include "utils/memutils.h"
 #include "utils/rel.h"
 #include "utils/snapmgr.h"
@@ -111,10 +112,10 @@ BinaryHeapSiftDown(IvfflatBinaryHeap * heap, int offset)
 		int			right = 2 * offset + 2;
 		int			swap = left;
 
-		if (right < heap->length && heap->nodes[left].distance >= heap->nodes[right].distance)
+		if (right < heap->length && float8_ge(heap->nodes[left].distance, heap->nodes[right].distance))
 			swap = right;
 
-		if (left >= heap->length || node.distance < heap->nodes[swap].distance)
+		if (left >= heap->length || float8_lt(node.distance, heap->nodes[swap].distance))
 			break;
 
 		heap->nodes[offset] = heap->nodes[swap];
