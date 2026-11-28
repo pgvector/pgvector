@@ -167,3 +167,4 @@ SELECT sum(v) FROM unnest(ARRAY['[1,2,3]'::halfvec, '[3,5,7]', NULL]) v;
 SELECT sum(v) FROM unnest(ARRAY[]::halfvec[]) v;
 SELECT sum(v) FROM unnest(ARRAY['[1,2]'::halfvec, '[3]']) v;
 SELECT sum(v) FROM unnest(ARRAY['[65504]'::halfvec, '[65504]']) v;
+SELECT sum(v) FROM (SELECT '[0.3,0.4]'::halfvec AS v FROM generate_series(1, 1000)) t;

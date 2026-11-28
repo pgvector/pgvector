@@ -1198,6 +1198,38 @@ halfvec_avg(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Sum half vectors
+ */
+FUNCTION_PREFIX PG_FUNCTION_INFO_V1(halfvec_sum);
+Datum
+halfvec_sum(PG_FUNCTION_ARGS)
+{
+	ArrayType  *statearray = PG_GETARG_ARRAYTYPE_P(0);
+	float8	   *statevalues;
+	int			dim;
+	HalfVector *result;
+
+	/* Check array before using */
+	statevalues = CheckStateArray(statearray, "halfvec_sum");
+
+	/* SQL defines SUM of no values to be NULL */
+	if (statevalues[0] == 0.0)
+		PG_RETURN_NULL();
+
+	/* Create half vector */
+	dim = STATE_DIMS(statearray);
+	CheckDim(dim);
+	result = InitHalfVector(dim);
+	for (int i = 0; i < dim; i++)
+	{
+		result->x[i] = Float4ToHalf(statevalues[i + 1]);
+		CheckElement(result->x[i]);
+	}
+
+	PG_RETURN_POINTER(result);
+}
+
+/*
  * Convert sparse vector to half vector
  */
 FUNCTION_PREFIX PG_FUNCTION_INFO_V1(sparsevec_to_halfvec);

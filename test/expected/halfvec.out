@@ -719,6 +719,12 @@ SELECT sum(v) FROM unnest(ARRAY[]::halfvec[]) v;
 (1 row)
 
 SELECT sum(v) FROM unnest(ARRAY['[1,2]'::halfvec, '[3]']) v;
-ERROR:  different halfvec dimensions 2 and 1
+ERROR:  expected 2 dimensions, not 1
 SELECT sum(v) FROM unnest(ARRAY['[65504]'::halfvec, '[65504]']) v;
-ERROR:  value out of range: overflow
+ERROR:  "131008" is out of range for type halfvec
+SELECT sum(v) FROM (SELECT '[0.3,0.4]'::halfvec AS v FROM generate_series(1, 1000)) t;
+    sum    
+-----------
+ [300,400]
+(1 row)
+

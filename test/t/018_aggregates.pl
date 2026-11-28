@@ -46,22 +46,19 @@ sub test_aggregate
 	$res = $node->safe_psql("postgres", "SELECT $agg(v) FROM tst WHERE r1 < 0;");
 	is($res, '');
 
-	# Test halfvec
-	$res = $node->safe_psql("postgres", "SELECT $agg(v::halfvec) FROM tst;");
+	# Test halfvec with values whose sum fits in half precision
+	$res = $node->safe_psql("postgres", "SELECT $agg(v) FROM (SELECT '[0.3,0.4,0.5]'::halfvec AS v FROM generate_series(1, 1000)) t;");
 	if ($agg eq 'avg')
 	{
-		like($res, qr/\[1\.5/);
-		like($res, qr/,2\.5/);
-		like($res, qr/,3\.5/);
+		is($res, "[0.3,0.4,0.5]");
 	}
 	else
 	{
-		# Does not raise overflow error in this instance due to loss of precision
-		is($res, "[24576,24576,49152]");
+		is($res, "[300,400,500]");
 	}
 
 	# Test halfvec no matching rows
-	$res = $node->safe_psql("postgres", "SELECT $agg(v::halfvec) FROM tst WHERE r1 < 0;");
+	$res = $node->safe_psql("postgres", "SELECT $agg(v) FROM (SELECT '[0.3,0.4,0.5]'::halfvec AS v FROM generate_series(1, 1000)) t WHERE false;");
 	is($res, '');
 }
 

@@ -614,6 +614,11 @@ CREATE FUNCTION halfvec_avg(double precision[]) RETURNS halfvec
 
 COMMENT ON FUNCTION halfvec_avg(double precision[]) IS 'aggregate final function';
 
+CREATE FUNCTION halfvec_sum(double precision[]) RETURNS halfvec
+	AS 'MODULE_PATHNAME' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+COMMENT ON FUNCTION halfvec_sum(double precision[]) IS 'aggregate final function';
+
 CREATE FUNCTION halfvec_combine(double precision[], double precision[]) RETURNS double precision[]
 	AS 'MODULE_PATHNAME', 'vector_combine' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -633,9 +638,11 @@ CREATE AGGREGATE avg(halfvec) (
 COMMENT ON AGGREGATE avg(halfvec) IS 'the average (arithmetic mean) as halfvec of all halfvec values';
 
 CREATE AGGREGATE sum(halfvec) (
-	SFUNC = halfvec_add,
-	STYPE = halfvec,
-	COMBINEFUNC = halfvec_add,
+	SFUNC = halfvec_accum,
+	STYPE = double precision[],
+	FINALFUNC = halfvec_sum,
+	COMBINEFUNC = halfvec_combine,
+	INITCOND = '{0}',
 	PARALLEL = SAFE
 );
 
